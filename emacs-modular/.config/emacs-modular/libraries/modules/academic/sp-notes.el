@@ -7,6 +7,8 @@
 ;;
 ;; - `sp-notes-notebook' opens the vulpea picker in the buffer window.
 ;; - `consult-notes' is kept for its full-text search.
+;; - `sp-notes-create' makes a note (ID, :CREATED:, tags, tag folder);
+;;   `sp-notes-open' picks one from all subfolders (date, tags, title).
 ;; - `sp-notes-filing-*' files the notes into subfolders by tag (dry-run lint,
 ;;   backup, restore, filing on save, scheduled run) and drops Denote names.
 ;; - Literature notes are made and kept by `sp-litnotes', which writes them into
@@ -56,6 +58,152 @@
   (let ((vertico-buffer-display-action
          '(display-buffer-reuse-window)))
     (call-interactively #'vulpea-find)))
+
+;;;; Create a note
+
+(declare-function sp-org--write-note "sp-org-link-conversion")
+(declare-function sp-org-tag-read-note-tags "sp-org-tag-lint")
+(declare-function sp-org-created-stamp "sp-org-link-conversion")
+
+(defun sp-notes-create-folder (tags)
+  "The folder, as a directory name, where a new note with TAGS is written.
+A note with tags goes straight into its filing folder (`sp-notes-filing-folder');
+a note without tags stays at the top of the root, like `sp-notes-filing-mode' leaves it."
+  (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root))))
+    (if tags
+        (file-name-as-directory (expand-file-name (sp-notes-filing-folder tags) root))
+      root)))
+
+;;;###autoload
+(defun sp-notes-create (title)
+  "Create a note called TITLE, ask for its tags and visit it.
+- The note gets an :ID: and a :CREATED: property (like `denote-create-note').
+- It is written into the folder its tags file it under (`sp-notes-create-folder').
+- A note with that title (any case) in the vulpea database is reported first."
+  (interactive (list (read-string "New note title: ")))
+  (require 'sp-org-link-conversion)
+  (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
+    (when (string-empty-p title) (user-error "Empty title"))
+    (when (and (fboundp 'sp-vulpea-notes-with-title) (fboundp 'vulpea-db-query)
+               (sp-vulpea-notes-with-title title)
+               (not (y-or-n-p (format "A note titled \"%s\" exists.  Create another? " title))))
+      (user-error "Aborted"))
+    (let* ((tags (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))
+           (id (sp-org--write-note title tags (sp-notes-create-folder tags)))
+           (file (org-id-find-id-file id)))
+      (when (fboundp 'vulpea-db-update-file) (ignore-errors (vulpea-db-update-file file)))
+      (find-file file)
+      (goto-char (point-max))
+      file)))
+
+;;;; Open a note
+
+(defcustom sp-notes-open-exclude-regexp
+  "\\`\\(?:\\.[^/]*\\|ltximg\\|attach\\|data\\)\\(?:/\\|\\'\\)"
+  "Top-level names (relative to the root) that `sp-notes-open' does not list."
+  :type 'regexp
+  :group 'sp-notes-filing)
+
+(defvar sp-notes-open--cache (make-hash-table :test #'equal)
+  "File -> (MTIME . INFO), so a second call reads only the files that changed.")
+
+(defun sp-notes-open--parse-date (string)
+  "Return \"YYYY-MM-DD[ HH:MM]\" from an Org timestamp STRING, or nil."
+  (when (and string
+             (string-match "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)\\(?: [[:alpha:]]+\\)?\\(?: \\([0-9]\\{2\\}:[0-9]\\{2\\}\\)\\)?"
+                           string))
+    (concat (match-string 1 string)
+            (when (match-string 2 string) (concat " " (match-string 2 string))))))
+
+(defun sp-notes-open--name-date (name)
+  "The date in the file NAME when it starts with a 14-digit id (or Denote id), or nil."
+  (when (string-match "\\`\\([0-9]\\{4\\}\\)\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)T?\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)[0-9]\\{2\\}\\(?:[^0-9]\\|\\'\\)" name)
+    (format "%s-%s-%s %s:%s" (match-string 1 name) (match-string 2 name)
+            (match-string 3 name) (match-string 4 name) (match-string 5 name))))
+
+(defun sp-notes-open--info (file)
+  "Return a plist (:title :tags :created) for FILE, from its head."
+  (let ((mtime (file-attribute-modification-time (file-attributes file)))
+        (hit (gethash file sp-notes-open--cache)))
+    (if (and hit (equal (car hit) mtime))
+        (cdr hit)
+      (let ((info
+             (with-temp-buffer
+               (insert-file-contents file nil 0 8192)
+               (let* ((case-fold-search t)
+                      (limit (save-excursion
+                               (goto-char (point-min))
+                               (if (re-search-forward "^\\*+ " nil t) (match-beginning 0) (point-max))))
+                      title tags created)
+                 (goto-char (point-min))
+                 (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" limit t)
+                   (setq title (string-trim (match-string-no-properties 1))))
+                 (goto-char (point-min))
+                 (while (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" limit t)
+                   (setq tags (append tags (split-string (match-string-no-properties 1) "[: \t]+" t))))
+                 (goto-char (point-min))
+                 (when (re-search-forward "^[ \t]*:CREATED:[ \t]+\\(.*\\)$" limit t)
+                   (setq created (sp-notes-open--parse-date (match-string-no-properties 1))))
+                 (list :title title :tags tags :created created)))))
+        ;; No :CREATED:?  Use the date in the file name, then the modification time.
+        (unless (plist-get info :created)
+          (setq info (plist-put info :created
+                                (or (sp-notes-open--name-date (file-name-nondirectory file))
+                                    (format-time-string "%Y-%m-%d %H:%M" mtime)))))
+        (puthash file (cons mtime info) sp-notes-open--cache)
+        info))))
+
+(defun sp-notes-open--files ()
+  "The org files under the root that `sp-notes-open' lists."
+  (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root))))
+    (seq-filter
+     (lambda (f)
+       (let ((rel (file-relative-name f root)))
+         (and (file-regular-p f)
+              (not (string-match-p "~\\'\\|/\\.#\\|^\\.#" rel))
+              (not (string-match-p sp-notes-open-exclude-regexp rel)))))
+     (directory-files-recursively root "\\.org\\'"))))
+
+(defun sp-notes-open--candidates ()
+  "Alist (RELATIVE-NAME . PLIST) for the notes, newest first.
+The plist is `sp-notes-open--info' plus :file."
+  (let* ((root (file-name-as-directory (expand-file-name sp-notes-filing-root)))
+         (items (mapcar (lambda (f)
+                          (cons (file-relative-name f root)
+                                (append (list :file f) (sp-notes-open--info f))))
+                        (sp-notes-open--files))))
+    (sort items (lambda (a b) (string> (plist-get (cdr a) :created)
+                                       (plist-get (cdr b) :created))))))
+
+(defun sp-notes-open--annotate (info)
+  "The picker's right-hand side for INFO: created date, tags, title."
+  (let ((tags (plist-get info :tags)))
+    (concat "  " (propertize (plist-get info :created) 'face 'completions-annotations)
+            (when tags (concat "  " (propertize (format ":%s:" (string-join tags ":"))
+                                               'face 'completions-annotations)))
+            (when-let* ((title (plist-get info :title)))
+              (concat "  " title)))))
+
+;;;###autoload
+(defun sp-notes-open ()
+  "Pick a note from all the subfolders of the notes root and open it.
+Like `denote-open': each candidate is a file name, with the creation date,
+the tags and the title beside it, newest first.  The date is :CREATED:, else
+the id in the file name, else the modification time."
+  (interactive)
+  (let* ((items (sp-notes-open--candidates))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      '(metadata
+                        (category . file)
+                        (display-sort-function . identity)
+                        (cycle-sort-function . identity)
+                        (annotation-function
+                         . (lambda (c) (sp-notes-open--annotate
+                                        (cdr (assoc c items))))))
+                    (complete-with-action action (mapcar #'car items) string pred))))
+         (choice (completing-read "Open note: " table nil t)))
+    (find-file (plist-get (cdr (assoc choice items)) :file))))
 
 ;;;; File notes by tag
 

@@ -194,6 +194,8 @@ the line, respectively."
 (bind-keys :prefix-map lem+notes-keys
            :prefix (concat sp-prefix " n")
            ("n"  .  sp-notes-notebook)
+           ("c"  .  sp-notes-create)
+           ("o"  .  sp-notes-open)
            ("s"  .  consult-notes-search-in-all-notes)
            ("f"  .  sp-notes-filing-dryrun))
 ;; Biblio notes

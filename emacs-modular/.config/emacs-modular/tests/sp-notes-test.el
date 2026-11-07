@@ -148,5 +148,61 @@
     (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
       (should (equal (sp-notes-filing-check-rule-tags) '("newtag"))))))
 
+;;;; Create and open
+
+(unless (require 'vulpea nil t) (provide 'vulpea)) ; only the require is needed
+(require 'sp-org-link-conversion)
+
+(ert-deftest sp-notes-created-stamp-format ()
+  (should (string-match-p "\\`\\[[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\]\\'"
+                          (sp-org-created-stamp)))
+  (should (equal (sp-org-created-stamp (encode-time 0 5 9 7 11 2026)) "[2026-11-07 09:05]")))
+
+(ert-deftest sp-notes-create-writes-created-and-files-by-tag ()
+  (let* ((root (make-temp-file "notes" t))
+         (sp-notes-filing-root root)
+         (org-directory root)
+         (org-id-locations-file (expand-file-name "ids" root))
+         (org-id-locations (make-hash-table :test #'equal)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) '("film")))
+                  ((symbol-function 'find-file) (lambda (f) (set-buffer (find-file-noselect f)))))
+          (let ((file (sp-notes-create "A New Film")))
+            (should (string-prefix-p (expand-file-name "objects/films/" root) file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (should (looking-at ":PROPERTIES:\n:ID: +[^ \n]+\n:CREATED: +\\[[0-9-]+ [0-9:]+\\]\n:END:\n#\\+title: A New Film\n#\\+filetags: :film:\n"))))
+          (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) nil)))
+            (let ((file (sp-notes-create "No Tags")))
+              (should (equal (file-name-directory file) (file-name-as-directory root))))))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-open-info-and-candidates ()
+  (let* ((root (make-temp-file "notes" t))
+         (sp-notes-filing-root root))
+    (unwind-protect
+        (progn
+          (clrhash sp-notes-open--cache)
+          (make-directory (expand-file-name "people" root))
+          (make-directory (expand-file-name ".git" root))
+          (with-temp-file (expand-file-name "people/ann.org" root)
+            (insert ":PROPERTIES:\n:ID: a\n:CREATED:  [2026-11-07 Sat 19:02]\n:END:\n#+title: Ann\n#+filetags: :person:x:\n\n* H\n:CREATED: [1999-01-01]\n"))
+          (with-temp-file (expand-file-name "20240101120000_old.org" root)
+            (insert "#+title: Old\n"))
+          (with-temp-file (expand-file-name ".git/skip.org" root) (insert "x"))
+          (let ((items (sp-notes-open--candidates)))
+            (should (equal (mapcar #'car items) '("people/ann.org" "20240101120000_old.org")))
+            (should (equal (plist-get (cdr (car items)) :created) "2026-11-07 19:02"))
+            (should (equal (plist-get (cdr (car items)) :tags) '("person" "x")))
+            (should (equal (plist-get (cdr (cadr items)) :created) "2024-01-01 12:00"))
+            (should (string-match-p "2026-11-07 19:02  :person:x:  Ann"
+                                    (sp-notes-open--annotate (cdr (car items)))))))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-open-denote-name-date ()
+  (should (equal (sp-notes-open--name-date "20240101T120000--t__a.org") "2024-01-01 12:00"))
+  (should (equal (sp-notes-open--name-date "20260507T101500-my-note.org") "2026-05-07 10:15"))
+  (should (null (sp-notes-open--name-date "plain.org"))))
+
 (provide 'sp-notes-test)
 ;;; sp-notes-test.el ends here
