@@ -81,7 +81,16 @@ bind({}, "tab", "workspace-back-and-forth")
 bind({ "shift" }, "tab", "move-workspace-to-monitor", "--wrap-around", "next")
 
 -- Service mode (was alt-shift-semicolon); its keys are in aerospace.toml
-bind({ "shift" }, ";", "mode", "service")
+-- It is a toggle: when AeroSpace is already in the service mode, the same keys
+-- go back to main. `aerospace list-modes --current` prints the current mode; if
+-- that command fails (an old AeroSpace), the key only enters the service mode.
+layer:bind({ "shift" }, ";", function()
+  hs.task.new(aerospace, function(code, out)
+    local current = (code == 0) and out:gsub("%s+", "") or ""
+    local target = (current == "service") and "main" or "service"
+    hs.task.new(aerospace, nil, { "mode", target }):start()
+  end, { "list-modes", "--current" }):start()
+end)
 
 -- Always a way out of service mode, even when AeroSpace does not get Esc:
 -- Caps Lock + Esc goes back to the main mode.
