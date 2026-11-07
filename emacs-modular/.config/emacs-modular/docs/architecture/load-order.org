@@ -170,11 +170,10 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 |--------------------------------------------------------------------------------------+-------------------+-----------------|
 | =C-M-g= (=magit=)                                                                    | =sp-vcontrol=     | =sp-vcontrol=   |
 | the =magit-*= keys of the version-control prefix (blame, commit, diff, log, status…) | =sp-keys=         | =sp-vcontrol=   |
-| =consult-notes=, =consult-notes-search-in-all-notes=                                 | =sp-keys=         | =sp-notes=      |
 | the =citar-*= and =citar-denote-*= keys                                              | =sp-keys=         | =sp-academic=   |
 | =sp-open-new-eshell-and-workspace=, which calls =lem-eshell-home=                    | =sp-workspaces=   | =sp-eshell=     |
 
-=sp-keys= only autoloads the =git-gutter= commands, not the =magit=, =consult-notes= or =citar= ones; pressing one of those keys before the late modules have loaded gives a void-function error. Nothing else that loads at startup calls into a late module.
+=sp-keys= only autoloads the =git-gutter= commands, not the =magit= or =citar= ones; pressing one of those keys before the late modules have loaded gives a void-function error. Nothing else that loads at startup calls into a late module.
 
 *** Problems found when checking the order
 - *=sp-ai= called =(vulpea-mcp-enable)= at top level.* When the module is read the package is not built yet (Elpaca builds it after the module, and for a late module long after init), so the call failed and =monet= and the =provide= were never reached. It now runs in the =:config= of the =vulpea-mcp= form. =sp-ai= was then taken out of the late list, because Claude's MCP servers have to be up with the daemon.

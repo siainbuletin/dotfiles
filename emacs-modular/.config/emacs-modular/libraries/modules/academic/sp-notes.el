@@ -1,4 +1,4 @@
-;;; sp-notes.el --- The notes module: consult-notes, the notes picker and filing by tag -*- lexical-binding: t; -*-
+;;; sp-notes.el --- The notes module: the notes picker, creating notes and filing by tag -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -6,7 +6,7 @@
 ;; by vulpea; Denote was removed (docs: adr/0024-remove-denote-file-notes-by-tag.org).
 ;;
 ;; - `sp-notes-notebook' opens the vulpea picker in the buffer window.
-;; - `consult-notes' is kept for its full-text search.
+;; - `C-c w d g' greps the notes (`sp-search-in-notes').
 ;; - `sp-notes-create' makes a note (ID, :CREATED:, tags, tag folder);
 ;;   `sp-notes-open' picks one from all subfolders (date, tags, title).
 ;; - `sp-notes-filing-*' files the notes into subfolders by tag (dry-run lint,
@@ -30,26 +30,10 @@
 (declare-function vulpea-db--forget-file "vulpea-db")
 
 
-;;;; Consult Notes
-;; Adapted from https://github.com/minad/consult/wiki/hrm-notes
-;; this is taken from Lambda Emacs
-(use-package consult-notes
-  :ensure t
-  ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
-  ;; :after consult
-
-  :commands
-  (consult-notes
-             consult-notes-search-in-all-notes)
-
-  :bind
-  (("C-c w d f" . sp-notes-notebook)
-   ("C-c w d g" . consult-notes-search-in-all-notes))
-
-  :config
-  ;; Without a source, consult-notes shows an empty picker. Denote is
-  ;; gone: the notes are found by `vulpea-find' (see `sp-notes-notebook').
-)
+;;;; Notebook keys
+(global-set-key (kbd "C-c w d f") #'sp-notes-notebook)
+(global-set-key (kbd "C-c w d g") #'sp-search-in-notes)
+(declare-function sp-search-in-notes "sp-search")
 
 ;; The notes are ID-based and indexed by vulpea, so the notebook is the vulpea picker.
 (defun sp-notes-notebook ()

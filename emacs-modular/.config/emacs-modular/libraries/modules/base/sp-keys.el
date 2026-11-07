@@ -196,7 +196,7 @@ the line, respectively."
            ("n"  .  sp-notes-notebook)
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
-           ("s"  .  consult-notes-search-in-all-notes)
+           ("s"  .  sp-search-in-notes)
            ("f"  .  sp-notes-filing-dryrun))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
@@ -226,7 +226,7 @@ the line, respectively."
            ("j" . sp-forward-or-backward-sexp )
            ("k" . consult-yank-pop             )
            ("l" . vertico-repeat               )
-           ("n" . consult-notes-search-in-all-notes)
+           ("n" . sp-search-in-notes)
            ("r" . vr/query-replace             )
            ("s" . consult-line                 )
            ;; search for next spelling error

@@ -456,11 +456,7 @@ QUERY is the search that produced them; it is stored in the view."
   [["Notes: plain text"
     ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
     ("v" "Grep vulpea notes" vulpea-grep
-     :if (lambda () (fboundp 'vulpea-grep)))
-    ("c" "Pick a note, then search all (consult-notes)" consult-notes
-     :if (lambda () (fboundp 'consult-notes)))
-    ("C" "Search in all notes (consult-notes)" consult-notes-search-in-all-notes
-     :if (lambda () (fboundp 'consult-notes-search-in-all-notes)))]
+     :if (lambda () (fboundp 'vulpea-grep)))]
    ["Semantic: by meaning"
     ("s" "Semantic search (org-semantic)" org-semantic-find
      :if (lambda () (fboundp 'org-semantic-find)))

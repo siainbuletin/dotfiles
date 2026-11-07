@@ -21,7 +21,7 @@ Read from the three =.el= files and their docs as they are now. "Not here" means
 | Module file | =libraries/modules/base/navi/sp-search.el= | =libraries/modules/media/sp-browsing.el= | =libraries/modules/custom/sp-trails.el= |
 | Literate source | This doc, tangled | This doc, tangled | This doc, text only (the =.el= is not tangled yet) |
 | Loaded by | =sp-navi= (navigation category) | =sp-late-modules= in =init.el= | =sp-late-modules= in =init.el= (just before =sp-browsing=) |
-| Search | Yes: in a buffer (=consult-line=, =consult-imenu=), a project or directory (ripgrep, ag, deadgrep), notes (ripgrep, =vulpea-grep=, =consult-notes=), Recoll full text, semantic (=org-semantic=, =p-search=, tab inbox) | Yes: one prompt over many sources (=consult-omni=): web, scholarly (OpenAlex, PubMed, Scopus), notes (Vulpea title source, ripgrep, Org Agenda), litdb (full text, by meaning); scopes =consult-omni-web=, =-local=, =-scholar= | Not here; picks questions and trails with =completing-read= and org-ql. Searching from a trail is the work of #217 (=sp-trails-search=), not yet merged |
+| Search | Yes: in a buffer (=consult-line=, =consult-imenu=), a project or directory (ripgrep, ag, deadgrep), notes (ripgrep, =vulpea-grep=), Recoll full text, semantic (=org-semantic=, =p-search=, tab inbox) | Yes: one prompt over many sources (=consult-omni=): web, scholarly (OpenAlex, PubMed, Scopus), notes (Vulpea title source, ripgrep, Org Agenda), litdb (full text, by meaning); scopes =consult-omni-web=, =-local=, =-scholar= | Not here; picks questions and trails with =completing-read= and org-ql. Searching from a trail is the work of #217 (=sp-trails-search=), not yet merged |
 | Capture / recording | Saved views: marked matches exported to an Org file that keeps the search parameters | Not here; the litdb and Vulpea sources return results, nothing is stored. =sp-fetch-academic-omni= (another module) adds a scholarly result to the BibTeX files | Yes: each page the browser reports becomes a heading with URL, title, optional quote and a todo state (=TOREAD=, =READ=, =PRUNED=) |
 | History / trail recording | Not here (only the saved views, re-run with =sp-search-run-view=) | Not here. =browser-hist= is installed (needed by the =consult-omni= browser-history source) | Yes, the core: a page reached from another page becomes its child, so the outline is the branching history. Also rebuilds a trail from Chrome history (=sp-trails-import-chrome=) |
 | Browser integration | None | Opens results with =browse-url= (external browser) and =eww-browse-url=; preview with =xwidget-webkit-browse-url=; the link command chooses EWW or the macOS default browser; Elpher (Gopher, Gemini) is a placeholder | =org-protocol= handler =sp-trail= receives URL, title, referrer and selected text from a browser extension; =monolith= saves a page as one HTML file; reads the Chromium-family History database |
@@ -711,11 +711,7 @@ The commands, by group (see the table below).
   [["Notes: plain text"
     ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
     ("v" "Grep vulpea notes" vulpea-grep
-     :if (lambda () (fboundp 'vulpea-grep)))
-    ("c" "Pick a note, then search all (consult-notes)" consult-notes
-     :if (lambda () (fboundp 'consult-notes)))
-    ("C" "Search in all notes (consult-notes)" consult-notes-search-in-all-notes
-     :if (lambda () (fboundp 'consult-notes-search-in-all-notes)))]
+     :if (lambda () (fboundp 'vulpea-grep)))]
    ["Semantic: by meaning"
     ("s" "Semantic search (org-semantic)" org-semantic-find
      :if (lambda () (fboundp 'org-semantic-find)))
@@ -760,8 +756,6 @@ The commands, by group (see the table below).
 | =O= | =sp-search-open-view=                    | Open a saved view file.                                                                 |
 | =n= | =sp-search-in-notes=                     | Ripgrep over the notes directory.                                                       |
 | =v= | =vulpea-grep=                            | Grep the vulpea notes (shown only if the command exists).                               |
-| =c= | =consult-notes=                          | Pick a note by title, then search all.                                                |
-| =C= | =consult-notes-search-in-all-notes=      | Ripgrep over all note sources.                                                          |
 | =s= | =org-semantic-find=                      | Search the notes by meaning, using embeddings.                                          |
 | =S= | =org-semantic-find-in-directory=         | Semantic search limited to a directory.                                                 |
 | =.= | =org-semantic-find-at-point=             | Semantic search using the text at point as the query.                                   |
