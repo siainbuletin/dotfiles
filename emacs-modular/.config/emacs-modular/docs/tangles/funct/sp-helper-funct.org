@@ -19,7 +19,7 @@ This module is a grab bag of small interactive commands and a few global setting
 Dependencies:
 
 - Directory constants defined in =early-init.el=: =sp-emacs-dir=, =sp-setup-dir=, =sp-user-dir=.
-- Packages loaded lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers.
+- Packages loaded lazily inside commands: =consult= for the config file finders, =titlecase= for the heading helpers.
 - External programs, which some commands shell out to: =rg= (ripgrep), =curl=, =maim=.
 
 Loading and bindings:
@@ -741,8 +741,6 @@ Sublists indicate that one of the entries is required."
 =sia-org-insert-notes-drawer= jumps to the current heading and either opens its existing =NOTES= drawer and adds a new line at the end, or inserts a new drawer. It pushes the mark first, and reminds you that =C-u C-SPC= returns to where you were.
 
 #+begin_src emacs-lisp -i
-;; Denote
-
 ;;;###autoload
 (defun sia-org-insert-notes-drawer ()
   "Generate or open a NOTES drawer under the current heading.
@@ -820,40 +818,6 @@ Customise `titlecase-style' for styling."
               (new-heading (titlecase--string heading-lower style)))
 	 (when (<= level (or sia-org-heading-level-capitalise 999))
 	   (org-edit-headline new-heading)))))))
-#+end_src
-
-** Denote link descriptions in title case
-
-=sia-denote-link-description-title-case=, fixed by Prot, is intended as the value of =denote-link-description-function=.
-
-- Uses the active region if there is one.
-- Returns an empty string when there is no title.
-- Leaves titles containing spaces alone.
-- Otherwise turns hyphens between words into spaces and title cases the result.
-- It is defined here, but nothing in this module sets it as the description function.
-
-#+begin_src emacs-lisp -i
-;; Fixed by Prot
-(defun sia-denote-link-description-title-case (file)
-  "Return link description for FILE.
-
-If the region is active, use it as the description.
-The title is formatted with the `titlecase' package.
-
-This function is useful as the value of `denote-link-description-function' to
-generate links in titlecase for attachments."
-  (require 'titlecase)
-  (let* ((file-type (denote-filetype-heuristics file))
-         (title (denote-retrieve-title-or-filename file file-type)))
-    (cond
-     ((denote--get-active-region-content))
-     ((or (null title) (string-blank-p title))
-      "")
-     ((string-match-p " " title)
-      title)
-     (t
-      (let ((clean-title (replace-regexp-in-string "\\([a-zA-Z0-9]\\)-\\([a-zA-Z0-9]\\)" "\\1 \\2" title)))
-        (format "%s" (titlecase--string clean-title titlecase-style)))))))
 #+end_src
 
 * Sensible defaults library

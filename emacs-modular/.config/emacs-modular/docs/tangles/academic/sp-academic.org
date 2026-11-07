@@ -42,14 +42,13 @@ This is the umbrella module for academic work.
 - Configures the reference managers directly:
   - =org-ref= set up to insert =org-cite= citations,
   - =helm-bibtex= library and notes paths,
-  - the =citar-org-node= bridge,
   - the =binder= package for Scrivener-like manuscript work.
 - The list of =.bib= files is no longer written here: =sp-bibtex-register= in =sp-bibprocess= finds every =.bib= file in =~/Documents/bibliography/= and hands the list to Org, =citar=, =org-ref= and =helm-bibtex= alike.
 
 The long commentary is a roadmap more than a description.
 
 - Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs. Paper fetching now has its own sub-module, [[file:sp-fetch-academic.org][sp-fetch-academic]].
-- Literature notes are still made with =citar-denote=. =ROAM_REFS= handling goes through =vulpea-citar=.
+- Literature notes are made with =citar-vulpea= (see =sp-litnotes=); =citar-denote= is gone. =ROAM_REFS= handling goes through =vulpea-citar=.
 - Bibliography files are expected under =~/Documents/bibliography/=, PDFs under =~/Documents/literature/=.
 - The module appears in the default module list in =init.el= under Academic.
 
@@ -87,7 +86,7 @@ Comments describing what the academic module is meant to cover and how its parts
 
 *** Header and commentary
 
-File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also explains the current split between =citar-denote= for literature notes and =vulpea-citar= for =ROAM_REFS=.
+File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also says that literature notes use =citar-vulpea= and that Denote is gone.
 
 #+begin_src emacs-lisp -i
 ;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
@@ -107,8 +106,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; Components:
 ;; - registering/processing BibTeX files
 ;; - citation framework (citar)
-;;    - need to rework the citar integration (both with Denote and now with vulpea)
-;;    - literature notes still created with citar-denote
+;;    - literature notes are made with citar-vulpea (see sp-litnotes)
 ;;    - anything pertaining to ROAM_REFS is done with vulpea-citar
 ;; - PDF processing and integration
 ;;    - waiting on emacs-reader (Canvas emacs patch)
@@ -118,7 +116,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; - bibliographic search and database
 ;;    - fetch papers from sci-hub
 ;;    - integration with annas-archive
-;; Citar has been plugged into Denote at first, because it helps in creating literature notes
+;; Citar was plugged into Denote at first, because it helps in creating literature notes (Denote is gone).
 ;; But I would like to have a workflow similar to the BibTeX one that you get with org-roam.
 ;; This would have to be emulated with vulpea.
 ;; I need to test out the features provided by citar-vulpea, in this case
@@ -271,15 +269,6 @@ Sets the PDF directory, the notes directory =~/notes/=, and a template for notes
 #+end_src
 
 ** Other packages
-
-*** citar-org-node
-
-Installs =citar-org-node= from GitHub with an Elpaca =:ensure= recipe, like the other packages here (it used the =:vc= keyword before). It connects =citar= to org-node notes.
-
-#+begin_src emacs-lisp -i
-(use-package citar-org-node
-  :ensure (citar-org-node :host github :repo "krisbalintona/citar-org-node"))
-#+end_src
 
 *** binder
 
