@@ -114,7 +114,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 ** Tests
 
-- The create and open commands have 4 tests in the same file.
+- The create and open commands have 5 tests in the same file.
 - =emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L tests -l tests/sp-notes-test.el -f ert-run-tests-batch-and-exit=
 
 * Create and open notes
@@ -130,7 +130,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
     - The name part is the one of =vulpea-create-default-function= (=sp-vulpea-base=).
     - The folder is made relative to =vulpea-default-notes-directory=, where vulpea resolves it.
   - =:tags= are the tags asked for; =:properties= carries =:CREATED:=.
-  - =sp-notes-create--ensure-created= adds =:CREATED:= to the file afterwards if the vulpea version did not write it.
+  - The advice below adds =:CREATED:= afterwards if the vulpea version did not write it.
 - Folder: =sp-notes-create-folder=.
   - With tags: the filing folder of the tags (same rules as the filing).
   - Without tags: the top of the root, as =sp-notes-filing-mode= leaves it.
@@ -142,7 +142,13 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 - Why: it is what the capture templates, =sp-quick-capture=, =vulpea-para= and =sp-org-issues= already write.
 - =sp-notes-create= passes it to =vulpea-create=.
 - =sp-org--write-note= (person and literature notes of =sp-author-notes= and =sp-litnotes-meta=) writes it too.
-- Notes made by =vulpea-find= or the inbox tab call =vulpea-create= themselves and do not get it yet.
+- Notes made by =vulpea-find=, =vulpea-insert= and the inbox tab get it too.
+  - =sp-notes-created-after-vulpea-create= is =:filter-return= advice on =vulpea-create=, installed once vulpea is loaded.
+  - It calls =sp-notes-ensure-created= on the new note's file.
+    - If the file already has =:CREATED:=, nothing changes.
+    - If a buffer visits the file, the buffer is edited and left unsaved, so Emacs never sees the file change underneath.
+    - Otherwise the file is rewritten with the property added to its first drawer.
+  - It covers vulpea versions that ignore =:properties=, and needs no change in =sp-vulpea-base= or =sp-tab-inbox=.
 
 ** =sp-notes-open= (=SPC n o=)
 
@@ -255,22 +261,47 @@ which is where vulpea resolves the template; the name part follows
     (concat (string-remove-prefix "./" (file-relative-name (sp-notes-create-folder tags) base))
             "${timestamp}_${slug}.org")))
 
-(defun sp-notes-create--ensure-created (file)
-  "Add :CREATED: to the file-level drawer of FILE when vulpea did not write it."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (delay-mode-hooks (org-mode))
-    (goto-char (point-min))
-    (unless (org-entry-get nil "CREATED")
-      (org-entry-put nil "CREATED" (sp-org-created-stamp))
-      (write-region nil nil file nil 'silent))))
+(defun sp-notes-ensure-created (file)
+  "Add :CREATED: to the file-level drawer of FILE when it has none.
+If a buffer visits FILE, it is edited (and left unsaved) so that Emacs does
+not see the file change underneath it."
+  (when (and file (file-readable-p file))
+    (let ((buffer (find-buffer-visiting file)))
+      (if buffer
+          (with-current-buffer buffer
+            (save-excursion
+              (save-restriction
+                (widen)
+                (goto-char (point-min))
+                (unless (org-entry-get nil "CREATED")
+                  (org-entry-put nil "CREATED" (sp-org-created-stamp))))))
+        (with-temp-buffer
+          (insert-file-contents file)
+          (delay-mode-hooks (org-mode))
+          (goto-char (point-min))
+          (unless (org-entry-get nil "CREATED")
+            (org-entry-put nil "CREATED" (sp-org-created-stamp))
+            (write-region nil nil file nil 'silent)))))))
+
+(defun sp-notes-created-after-vulpea-create (note)
+  "Filter the return value of `vulpea-create': give NOTE a :CREATED: property.
+This covers every way of making a note with vulpea (`vulpea-find',
+`vulpea-insert', the inbox tab, `sp-notes-create'), whether or not the
+vulpea version writes the properties it is given.  Returns NOTE."
+  (when (and note (fboundp 'vulpea-note-path))
+    (require 'sp-org-link-conversion)
+    (ignore-errors (sp-notes-ensure-created (vulpea-note-path note))))
+  note)
+
+(with-eval-after-load 'vulpea
+  (advice-add 'vulpea-create :filter-return #'sp-notes-created-after-vulpea-create))
 
 ;;;###autoload
 (defun sp-notes-create (title)
   "Create a note called TITLE with `vulpea-create', ask for its tags and visit it.
 - Vulpea writes the file, the :ID: and the tags and indexes the note.
-- :CREATED: (`sp-org-created-stamp') is passed as a property, and added
-  afterwards if the file lacks it.
+- :CREATED: (`sp-org-created-stamp') is passed as a property; the advice on
+  `vulpea-create' (below) adds it if the file lacks it.
 - The file goes into the folder its tags file it under (`sp-notes-create-folder').
 - A note with that title (any case) in the vulpea database is reported first."
   (interactive (list (read-string "New note title: ")))
@@ -287,7 +318,7 @@ which is where vulpea resolves the template; the name part follows
                                 :tags tags
                                 :properties (list (cons "CREATED" (sp-org-created-stamp)))))
            (file (vulpea-note-path note)))
-      (sp-notes-create--ensure-created file)
+      (sp-notes-ensure-created file)
       (find-file file)
       (goto-char (point-max))
       file)))

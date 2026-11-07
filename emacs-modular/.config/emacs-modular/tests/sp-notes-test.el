@@ -192,6 +192,43 @@
       (mapc #'kill-buffer (seq-filter (lambda (b) (and (buffer-file-name b) (string-prefix-p root (buffer-file-name b)))) (buffer-list)))
       (delete-directory root t))))
 
+(ert-deftest sp-notes-vulpea-create-advice-adds-created ()
+  "Any note made by vulpea-create (find, inbox tab) gets :CREATED:, also in a visiting buffer."
+  (let* ((root (make-temp-file "notes" t))
+         (f1 (expand-file-name "a.org" root))
+         (f2 (expand-file-name "b.org" root))
+         (f3 (expand-file-name "c.org" root))
+         (body ":PROPERTIES:\n:ID: i\n:END:\n#+title: T\n")
+         (with-created ":PROPERTIES:\n:ID: i\n:CREATED:  [2020-01-01 10:00]\n:END:\n#+title: T\n"))
+    (unwind-protect
+        (cl-letf (((symbol-function 'vulpea-note-path) #'identity)
+                  ((symbol-function 'vulpea-create)
+                   (lambda (file &rest _) file)))
+          (advice-add 'vulpea-create :filter-return #'sp-notes-created-after-vulpea-create)
+          (unwind-protect
+              (progn
+                (with-temp-file f1 (insert body))
+                (with-temp-file f3 (insert with-created))
+                (with-temp-file f2 (insert body))
+                (vulpea-create f1)
+                (vulpea-create f3)
+                (with-temp-buffer (insert-file-contents f1)
+                                  (should (re-search-forward "^:CREATED: +\\[[0-9-]+ [0-9:]+\\]$" nil t)))
+                ;; an existing :CREATED: is kept
+                (with-temp-buffer (insert-file-contents f3)
+                                  (should (search-forward "[2020-01-01 10:00]" nil t)))
+                ;; visited file: the buffer gets it, the file is not touched
+                (let ((buf (find-file-noselect f2)))
+                  (vulpea-create f2)
+                  (with-current-buffer buf
+                    (goto-char (point-min))
+                    (should (re-search-forward "^:CREATED:" nil t))
+                    (set-buffer-modified-p nil))
+                  (kill-buffer buf))
+                (should (null (vulpea-create nil))))
+            (advice-remove 'vulpea-create #'sp-notes-created-after-vulpea-create)))
+      (delete-directory root t))))
+
 (ert-deftest sp-notes-open-info-and-candidates ()
   (let* ((root (make-temp-file "notes" t))
          (sp-notes-filing-root root))
