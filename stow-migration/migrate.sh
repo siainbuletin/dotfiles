@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Migrate the dotfiles from yadm (bare repo, work tree = $HOME) to ~/dotfiles + GNU Stow.
-# Guide: stow-migration/README.md. Works with macOS's bash 3.2.
+# Guide: stow-migration/README.org. Works with macOS's bash 3.2.
 #
 # Nothing here deletes your files. Every step that changes $HOME first moves what it replaces
 # into a backup folder, and `rollback` puts it all back.
