@@ -20,7 +20,7 @@ Literate source for =libraries/modules/funct/sp-refile.el=. To tangle, see the T
 On a heading, =sp-refile= asks "Refile to" with one completion list:
 
 - every heading of the current note, by outline path (the heading itself and its children are left out, so a subtree is never moved into itself);
-- =[New note: own file]=: the heading becomes a note of its own, by =sp-split-leave-parents= (parents line, link left behind, Denote file name, footnotes and the =- seealso ::= line of the id links in the heading from #240). A prefix argument leaves no link there;
+- =[New note: own file]=: the heading becomes a note of its own, by =sp-split-leave-parents= (parents line, link left behind, file filed by tag, footnotes and the =- seealso ::= line of the id links in the heading from #240). A prefix argument leaves no link there;
 - =[Another note...]=: asks for a note (the Vulpea prompt of =sp-select-note=), then for one of its headings or =[Top of note]=.
 
 The subtree keeps its =:ID:=, so links to it keep working wherever it goes. It is inserted as the last child of the target; the source subtree is removed only after the copy is in place and the target file is saved.
@@ -41,7 +41,7 @@ The split code of the old =sp-split-leave-parents= module now lives in this file
 
 #+begin_src emacs-lisp -i
 ;;; sp-refile.el --- One command to refile, split or merge notes -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "28.1") (denote "3.0"))
+;; Package-Requires: ((emacs "28.1"))
 
 ;;; Commentary:
 
@@ -57,8 +57,8 @@ The split code of the old =sp-split-leave-parents= module now lives in this file
 ;;    pointing at the note the heading came from.
 ;; 2. Leaves a plain link to the new note in the source file (not with a
 ;;    prefix argument).
-;; 3. Renames the new file with Denote's naming scheme
-;;    (`sp-split-denote-names').
+;; 3. Asks for tags when the new note has none and files it into the folder
+;;    of its tags (`sp-split-file-by-tags').
 ;; 4. Keeps footnotes working across the split (`sp-split-check-footnotes').
 ;; 5. Moves id links out of the heading text into a `- seealso ::' meta line
 ;;    (`sp-split-links-to-seealso').
@@ -74,6 +74,8 @@ The split code of the old =sp-split-leave-parents= module now lives in this file
 (declare-function vulpea-note-title "vulpea")
 (declare-function vulpea-merge "vulpea")
 (declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-db-update-file "vulpea-db")
+(declare-function vulpea-db--forget-file "vulpea-db")
 #+end_src
 
 ** Splitting a heading into a note
@@ -84,12 +86,13 @@ This module provides =sp-split-leave-parents=, a wrapper around Vulpea's =vulpea
 - Compared with the plain split, it:
   - records where the note came from in a =parents= meta line,
   - leaves a link to the new note in the source file,
-  - renames the new file with Denote's naming scheme,
+  - asks for tags when the new note has none and files it into the folder of its tags,
   - makes sure footnotes still resolve on both sides of the split.
 
 Dependencies and caveats:
 
-- Depends on =vulpea=, =org-id= and =denote= (version 3 or later).
+- Depends on =vulpea= and =org-id=.
+- Uses =sp-notes-filing-folder= and =sp-notes-filing-root= from =sp-notes= to find the folder of a tag, when =sp-notes= is loaded.
 - Hooks into =vulpea-split--write-file=, a private Vulpea function. A Vulpea update that renames or reshapes it can break this module; the module warns at load time if the function is missing.
 - Required from =sp-vulpea-ext=.
 - Bound to ~C-x s t~ in =org-mode-map= by =sp-org-base=.
@@ -112,12 +115,10 @@ normal split it:
    of body text exactly where the heading started (not a heading).
    With a prefix argument no link is left.
 
-3. Renames the new file with Denote's file-naming scheme
-   (`ID--title__keywords.org'), using `denote-rename-file', so split
-   notes are named like the rest of your Denote files, and adds a
-   matching `#+identifier:' line.  The note keeps its org ID, so
-   links are unaffected.  Disable with
-   `sp-split-denote-names'.
+3. Asks for tags when the new note has none (`sp-split-ask-tags') and
+   files it into the folder of its tags (`sp-notes-filing-folder'),
+   keeping the file name.  The note keeps its org ID, so links are
+   unaffected.  Disable with `sp-split-file-by-tags'.
 
 4. Keeps footnotes working across the split (see
    `sp-split-check-footnotes').  Org labels are unique per file and
@@ -148,7 +149,7 @@ The file header is at the top of this document. The text above is its commentary
 
 **** Required libraries
 
-Loads Org, =org-id=, =subr-x=, =seq=, Vulpea and Denote.
+Loads Org, =org-id=, =subr-x=, =seq= and Vulpea.
 
 #+begin_src emacs-lisp -i
 (require 'org)
@@ -157,7 +158,8 @@ Loads Org, =org-id=, =subr-x=, =seq=, Vulpea and Denote.
 (require 'seq)
 (require 'cl-lib)
 (require 'vulpea)
-(require 'denote)
+(declare-function sp-notes-filing-folder "sp-notes")
+(defvar sp-notes-filing-root)
 #+end_src
 
 **** Active flag
@@ -190,15 +192,18 @@ Declares the =sp-split= customisation group under Applications.
   :group 'applications)
 #+end_src
 
-**** Denote naming option
+**** Filing option
 
-=sp-split-denote-names= turns the Denote renaming step on or off. On by default.
+- =sp-split-file-by-tags= turns the filing step on or off. On by default.
+- It replaces =sp-split-denote-names=, which stays as an obsolete alias.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-split-denote-names t
-  "When non-nil, name split-out notes with Denote's file-naming scheme."
+(defcustom sp-split-file-by-tags t
+  "When non-nil, ask for tags and file a split-out note into its tag folder."
   :type 'boolean
   :group 'sp-split)
+
+(define-obsolete-variable-alias 'sp-split-denote-names 'sp-split-file-by-tags "2026-11-07")
 #+end_src
 
 **** Tag inheritance option
@@ -881,34 +886,11 @@ running."
            (signal (car err) (cdr err))))))))
 #+end_src
 
-*** Denote naming
-
-**** Adding an identifier keyword
-
-=sp-split--add-identifier= reads the Denote identifier from the file name and, if the file has no identifier keyword yet, inserts one after the filetags line or else after the title line, then saves. If neither line is present nothing is inserted.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--add-identifier (path)
-  "Add a `#+identifier:' line to the note at PATH, from its Denote file name.
-Does nothing when the file already has one or its name carries no
-Denote identifier.  The line goes after `#+filetags', else after
-`#+title'."
-  (when-let* ((ident (denote-retrieve-filename-identifier path)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (let ((case-fold-search t))
-         (unless (re-search-forward "^#\\+identifier:" nil t)
-           (goto-char (point-min))
-           (when (or (re-search-forward "^#\\+filetags:.*$" nil t)
-                     (re-search-forward "^#\\+title:.*$" nil t))
-             (insert "\n#+identifier: " ident)))))
-      (save-buffer))))
-#+end_src
+*** Tags and filing
 
 **** Asking for tags
 
-A split-out note often has no tags, so before it is renamed =sp-split--denote-rename= asks for them (=sp-split-ask-tags=, on by default) with =sp-org-tag-read-note-tags=. That is the same menu as in note creation: the tags headed by their group in =sp-org-tag-groups-alist= when =sp-org-tag-groups= is loaded, a plain completion otherwise. The tags go into the =#+filetags= line of the new file (=sp-split--set-filetags=) and become the Denote keywords, so the file name keeps Denote's own casing.
+A split-out note often has no tags, so before it is filed =sp-split--file-by-tags= asks for them (=sp-split-ask-tags=, on by default) with =sp-org-tag-read-note-tags=. That is the same menu as in note creation: the tags headed by their group in =sp-org-tag-groups-alist= when =sp-org-tag-groups= is loaded, a plain completion otherwise. The tags go into the =#+filetags= line of the new file (=sp-split--set-filetags=) and decide the folder of the file.
 
 #+begin_src emacs-lisp -i
 (declare-function sp-org-tag-read-note-tags "sp-org-tag-lint")
@@ -916,7 +898,7 @@ A split-out note often has no tags, so before it is renamed =sp-split--denote-re
 (defcustom sp-split-ask-tags t
   "When non-nil, ask for the tags of a split-out note that has none.
 The menu is `sp-org-tag-read-note-tags' (grouped by tag group); the tags
-go into `#+filetags' and the Denote file name."
+go into `#+filetags' and decide the folder of the file."
   :type 'boolean
   :group 'sp-split)
 
@@ -934,61 +916,55 @@ go into `#+filetags' and the Denote file name."
     (save-buffer)))
 #+end_src
 
-**** Renaming with Denote
+**** Filing by tags
 
-=sp-split--denote-rename= renames the new note's file using =denote-rename-file=.
+=sp-split--file-by-tags= moves the new note's file into the folder of its tags.
 
-- Confirmations are off and buffers are saved.
-- Keeps the title written by the split and uses the note's tags (asked for when it has none) as keywords.
-- Passes only the optional arguments the installed Denote accepts (=func-arity=): older versions have no DATE argument, and passing it raised =wrong-number-of-arguments=.
-- The return value of that function is not relied on, so the new name is found by comparing the directory listing before and after.
-- Then it:
-  - adds the identifier keyword,
+- Tags: the note's own, or asked for when it has none (and then written to =#+filetags=).
+- Folder: =sp-notes-filing-folder= under =sp-notes-filing-root=; the file name stays as vulpea wrote it.
+- It does nothing when the note has no tags, is already in its folder, or the target file exists (it says so).
+- A buffer visiting the file is saved and killed first.
+- After the move it:
   - tells Vulpea to forget the old path (using the private =vulpea-db--forget-file=),
   - registers the new location with =org-id=,
   - re-indexes the file,
   - returns the updated note.
-- If no new file appears, the original note is returned unchanged.
 
 #+begin_src emacs-lisp -i
-(defun sp-split--denote-rename (note)
-  "Rename the file of NOTE with Denote's naming scheme, then re-sync vulpea.
-Return the note as vulpea knows it afterwards.  The org ID stays the
-same, so id links keep working.  Denote's own `denote-rename-file' does
-the naming (identifier, sluggified title, keywords from the tags); its
-return value is not relied on, the new name is found by diffing the
-directory."
+(defun sp-split--file-by-tags (note)
+  "Ask for the tags of NOTE if it has none, then file it into its tag folder.
+Return the note as vulpea knows it afterwards.  The org ID stays the same,
+so id links keep working.  A note without tags, or one already in its
+folder, stays where it is, and so does one whose target file exists."
+  (require 'sp-notes nil t)
   (let* ((old (vulpea-note-path note))
          (id (vulpea-note-id note))
          (tags (or (vulpea-note-tags note)
                    (when (and sp-split-ask-tags (require 'sp-org-tag-lint nil t))
                      (let ((chosen (sp-org-tag-read-note-tags
                                     (format "Tags for \"%s\": " (vulpea-note-title note)))))
-                       (sp-split--set-filetags old chosen)
+                       (when chosen (sp-split--set-filetags old chosen))
                        chosen))))
-         (dir (file-name-directory old))
-         (before (directory-files dir nil directory-files-no-dot-files-regexp t)))
-    ;; No prompts, and save the front matter Denote rewrites.
-    (let ((denote-rename-confirmations nil)
-          (denote-save-buffers t))
-      ;; TITLE `keep-current' reads the `#+title' written by the split;
-      ;; KEYWORDS are the note's tags; no signature, default date.  Older
-      ;; Denote versions have no DATE argument, so pass only what fits.
-      (apply #'denote-rename-file old 'keep-current tags
-             (let ((most (cdr (func-arity #'denote-rename-file))))
-               (take (if (integerp most) (max 0 (- most 3)) 2) '(nil nil)))))
-    (let ((new (car (seq-difference
-                     (directory-files dir nil directory-files-no-dot-files-regexp t)
-                     before #'string-equal))))
-      (if (not new)
-          note
-        (let ((new-path (expand-file-name new dir)))
-          (sp-split--add-identifier new-path)
-          (vulpea-db--forget-file old)
-          (org-id-add-location id new-path)
-          (vulpea-db-update-file new-path)
-          (message "Named with Denote: %s" new)
-          (or (vulpea-db-get-by-id id) note))))))
+         (root (and (boundp 'sp-notes-filing-root) sp-notes-filing-root
+                    (file-name-as-directory (expand-file-name sp-notes-filing-root))))
+         (dir (and tags root (fboundp 'sp-notes-filing-folder)
+                   (file-name-as-directory
+                    (expand-file-name (sp-notes-filing-folder tags) root))))
+         (new (and dir (expand-file-name (file-name-nondirectory old) dir))))
+    (if (or (not new) (file-equal-p old new) (file-exists-p new))
+        (progn (when (and new (not (file-equal-p old new)))
+                 (message "Not filed: %s exists" new))
+               (if tags (or (vulpea-db-get-by-id id) note) note))
+      (when-let* ((buffer (find-buffer-visiting old)))
+        (with-current-buffer buffer (save-buffer))
+        (kill-buffer buffer))
+      (make-directory dir t)
+      (rename-file old new)
+      (vulpea-db--forget-file old)
+      (org-id-add-location id new)
+      (vulpea-db-update-file new)
+      (message "Filed in %s" (abbreviate-file-name dir))
+      (or (vulpea-db-get-by-id id) note))))
 #+end_src
 
 *** The command
@@ -1000,7 +976,7 @@ The interactive entry point, autoloaded.
 - Binds the active flag, the link flag (off with a prefix argument), a fresh report and =org-use-tag-inheritance= (to =sp-split-inherit-tags=, off by default).
 - Calls =vulpea-split-heading= interactively.
 - Clears =current-prefix-arg=, so the prefix argument meant for this command does not also trigger Vulpea's own stub option.
-- After the split, renames the file with Denote if enabled and prints the footnote summary.
+- After the split, files the note by its tags if enabled and prints the footnote summary.
 - Bound to ~C-x s t~ in Org buffers by =sp-org-base=.
 
 #+begin_src emacs-lisp -i
@@ -1010,7 +986,7 @@ The interactive entry point, autoloaded.
 The new note gets a `- parents ::' line linking back to the note the
 subtree was split out of, and the source note gets a plain link to the
 new note on the line where the heading started.  The new file is then
-renamed with Denote's naming scheme when `sp-split-denote-names' is
+filed into the folder of its tags when `sp-split-file-by-tags' is
 non-nil.  With a prefix argument NO-LINK, the link in the source is not
 left."
   (interactive "P")
@@ -1021,8 +997,8 @@ left."
          (sp-split--fn-report nil)
          (org-use-tag-inheritance sp-split-inherit-tags)
          (note (call-interactively #'vulpea-split-heading)))
-    (prog1 (if (and note sp-split-denote-names)
-               (sp-split--denote-rename note)
+    (prog1 (if (and note sp-split-file-by-tags)
+               (sp-split--file-by-tags note)
              note)
       (sp-split--fn-message))))
 #+end_src
@@ -1274,7 +1250,7 @@ with `C-u C-u', the whole note is merged under a heading of another note."
 :header-args:emacs-lisp: :tangle ../../../tests/sp-split-leave-parents-test.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-Tests of the pure text helpers of the split code (=sp-split-leave-parents=). Vulpea and Denote are replaced by empty stand-in features when they are not installed, as the helpers do not call them.
+Tests of the pure text helpers of the split code (=sp-split-leave-parents=). Vulpea is replaced by an empty stand-in feature when it is not installed, as the helpers do not call them.
 
 #+begin_example
 emacs -Q --batch -L libraries/modules/funct -l tests/sp-split-leave-parents-test.el -f ert-run-tests-batch-and-exit
@@ -1284,8 +1260,7 @@ emacs -Q --batch -L libraries/modules/funct -l tests/sp-split-leave-parents-test
 ;;; sp-split-leave-parents-test.el --- Tests for sp-split-leave-parents -*- lexical-binding: t; -*-
 
 (require 'ert)
-(dolist (f '(vulpea denote))
-  (unless (require f nil t) (provide f)))
+(unless (require 'vulpea nil t) (provide 'vulpea))
 (require 'sp-refile)
 
 (ert-deftest sp-split-test-extract-links ()

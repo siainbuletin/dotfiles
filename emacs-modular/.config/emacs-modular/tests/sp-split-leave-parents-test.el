@@ -1,8 +1,7 @@
 ;;; sp-split-leave-parents-test.el --- Tests for sp-split-leave-parents -*- lexical-binding: t; -*-
 
 (require 'ert)
-(dolist (f '(vulpea denote))
-  (unless (require f nil t) (provide f)))
+(unless (require 'vulpea nil t) (provide 'vulpea))
 (require 'sp-refile)
 
 (ert-deftest sp-split-test-extract-links ()
