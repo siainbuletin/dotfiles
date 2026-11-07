@@ -151,6 +151,7 @@
 ;;;; Create and open
 
 (unless (require 'vulpea nil t) (provide 'vulpea)) ; only the require is needed
+(defvar vulpea-default-notes-directory)
 (require 'sp-org-link-conversion)
 
 (ert-deftest sp-notes-created-stamp-format ()
@@ -158,23 +159,37 @@
                           (sp-org-created-stamp)))
   (should (equal (sp-org-created-stamp (encode-time 0 5 9 7 11 2026)) "[2026-11-07 09:05]")))
 
-(ert-deftest sp-notes-create-writes-created-and-files-by-tag ()
+(ert-deftest sp-notes-create-uses-vulpea-create ()
+  "vulpea-create gets the tag folder in its template, the tags and :CREATED:."
   (let* ((root (make-temp-file "notes" t))
          (sp-notes-filing-root root)
-         (org-directory root)
-         (org-id-locations-file (expand-file-name "ids" root))
-         (org-id-locations (make-hash-table :test #'equal)))
+         (vulpea-default-notes-directory root)
+         (tags '("film")) args)
     (unwind-protect
-        (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) '("film")))
+        (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) tags))
+                  ((symbol-function 'vulpea-create)
+                   (lambda (title template &rest keys)
+                     (setq args (list title template keys))
+                     ;; Like vulpea without :properties support: no :CREATED:.
+                     (let ((f (expand-file-name (format "objects/films/%s.org" (md5 (format "%S" (list title template)))) root)))
+                       (make-directory (file-name-directory f) t)
+                       (with-temp-file f (insert ":PROPERTIES:\n:ID: i\n:END:\n#+title: A New Film\n"))
+                       f)))
+                  ((symbol-function 'vulpea-note-path) #'identity)
                   ((symbol-function 'find-file) (lambda (f) (set-buffer (find-file-noselect f)))))
           (let ((file (sp-notes-create "A New Film")))
-            (should (string-prefix-p (expand-file-name "objects/films/" root) file))
+            (should (equal (nth 0 args) "A New Film"))
+            (should (equal (nth 1 args) "objects/films/${timestamp}_${slug}.org"))
+            (should (equal (plist-get (nth 2 args) :tags) '("film")))
+            (should (assoc "CREATED" (plist-get (nth 2 args) :properties)))
+            ;; the fallback added :CREATED: to the drawer
             (with-temp-buffer
               (insert-file-contents file)
-              (should (looking-at ":PROPERTIES:\n:ID: +[^ \n]+\n:CREATED: +\\[[0-9-]+ [0-9:]+\\]\n:END:\n#\\+title: A New Film\n#\\+filetags: :film:\n"))))
-          (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) nil)))
-            (let ((file (sp-notes-create "No Tags")))
-              (should (equal (file-name-directory file) (file-name-as-directory root))))))
+              (should (re-search-forward "^:CREATED: +\\[[0-9-]+ [0-9:]+\\]$" nil t))))
+          (setq tags nil)
+          (sp-notes-create "No Tags")
+          (should (equal (nth 1 args) "${timestamp}_${slug}.org")))
+      (mapc #'kill-buffer (seq-filter (lambda (b) (and (buffer-file-name b) (string-prefix-p root (buffer-file-name b)))) (buffer-list)))
       (delete-directory root t))))
 
 (ert-deftest sp-notes-open-info-and-candidates ()

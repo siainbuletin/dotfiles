@@ -125,9 +125,12 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 - Asks for a title, then for tags (=sp-org-tag-read-note-tags=, so only registered tags).
 - Warns when a note with that title already exists in the vulpea database.
-- Writes the file with =sp-org--write-note= and visits it.
-  - Name: =YYYYMMDDTHHMMSS-slug.org=.
-  - Property drawer: =:ID:= and =:CREATED:=, then =#+title:= and =#+filetags:=.
+- Creates the note with =vulpea-create=, so vulpea owns the file, the =:ID:=, the tags and the index entry, and visits it.
+  - =sp-notes-create-file-template= gives the file-name template: the tag folder, then =${timestamp}_${slug}.org=.
+    - The name part is the one of =vulpea-create-default-function= (=sp-vulpea-base=).
+    - The folder is made relative to =vulpea-default-notes-directory=, where vulpea resolves it.
+  - =:tags= are the tags asked for; =:properties= carries =:CREATED:=.
+  - =sp-notes-create--ensure-created= adds =:CREATED:= to the file afterwards if the vulpea version did not write it.
 - Folder: =sp-notes-create-folder=.
   - With tags: the filing folder of the tags (same rules as the filing).
   - Without tags: the top of the root, as =sp-notes-filing-mode= leaves it.
@@ -137,8 +140,9 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 - Where: the property drawer at the top of the file, beside =:ID:=.
 - Format: =[2026-11-07 20:15]= (inactive timestamp, no weekday), from =sp-org-created-stamp=.
 - Why: it is what the capture templates, =sp-quick-capture=, =vulpea-para= and =sp-org-issues= already write.
-- It is added by =sp-org--write-note=, so every note made through it gets it, also the person and literature notes made by =sp-author-notes= and =sp-litnotes-meta=.
-- Notes made by =vulpea-create= (=vulpea-find=, the inbox tab) are not changed yet.
+- =sp-notes-create= passes it to =vulpea-create=.
+- =sp-org--write-note= (person and literature notes of =sp-author-notes= and =sp-litnotes-meta=) writes it too.
+- Notes made by =vulpea-find= or the inbox tab call =vulpea-create= themselves and do not get it yet.
 
 ** =sp-notes-open= (=SPC n o=)
 
@@ -235,14 +239,43 @@ a note without tags stays at the top of the root, like `sp-notes-filing-mode' le
         (file-name-as-directory (expand-file-name (sp-notes-filing-folder tags) root))
       root)))
 
+(declare-function vulpea-create "vulpea-create")
+(declare-function vulpea-note-path "vulpea-note")
+(defvar vulpea-default-notes-directory)
+
+(defun sp-notes-create-file-template (tags)
+  "The `vulpea-create' file-name template for a new note with TAGS.
+It is `sp-notes-create-folder' relative to `vulpea-default-notes-directory',
+which is where vulpea resolves the template; the name part follows
+`vulpea-create-default-function' (timestamp, underscore, slug)."
+  (let ((base (file-name-as-directory
+               (expand-file-name (if (boundp 'vulpea-default-notes-directory)
+                                     vulpea-default-notes-directory
+                                   sp-notes-filing-root)))))
+    (concat (string-remove-prefix "./" (file-relative-name (sp-notes-create-folder tags) base))
+            "${timestamp}_${slug}.org")))
+
+(defun sp-notes-create--ensure-created (file)
+  "Add :CREATED: to the file-level drawer of FILE when vulpea did not write it."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (delay-mode-hooks (org-mode))
+    (goto-char (point-min))
+    (unless (org-entry-get nil "CREATED")
+      (org-entry-put nil "CREATED" (sp-org-created-stamp))
+      (write-region nil nil file nil 'silent))))
+
 ;;;###autoload
 (defun sp-notes-create (title)
-  "Create a note called TITLE, ask for its tags and visit it.
-- The note gets an :ID: and a :CREATED: property (like `denote-create-note').
-- It is written into the folder its tags file it under (`sp-notes-create-folder').
+  "Create a note called TITLE with `vulpea-create', ask for its tags and visit it.
+- Vulpea writes the file, the :ID: and the tags and indexes the note.
+- :CREATED: (`sp-org-created-stamp') is passed as a property, and added
+  afterwards if the file lacks it.
+- The file goes into the folder its tags file it under (`sp-notes-create-folder').
 - A note with that title (any case) in the vulpea database is reported first."
   (interactive (list (read-string "New note title: ")))
   (require 'sp-org-link-conversion)
+  (require 'vulpea)
   (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
     (when (string-empty-p title) (user-error "Empty title"))
     (when (and (fboundp 'sp-vulpea-notes-with-title) (fboundp 'vulpea-db-query)
@@ -250,9 +283,11 @@ a note without tags stays at the top of the root, like `sp-notes-filing-mode' le
                (not (y-or-n-p (format "A note titled \"%s\" exists.  Create another? " title))))
       (user-error "Aborted"))
     (let* ((tags (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))
-           (id (sp-org--write-note title tags (sp-notes-create-folder tags)))
-           (file (org-id-find-id-file id)))
-      (when (fboundp 'vulpea-db-update-file) (ignore-errors (vulpea-db-update-file file)))
+           (note (vulpea-create title (sp-notes-create-file-template tags)
+                                :tags tags
+                                :properties (list (cons "CREATED" (sp-org-created-stamp)))))
+           (file (vulpea-note-path note)))
+      (sp-notes-create--ensure-created file)
       (find-file file)
       (goto-char (point-max))
       file)))
