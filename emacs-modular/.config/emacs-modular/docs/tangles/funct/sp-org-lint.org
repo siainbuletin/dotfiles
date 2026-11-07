@@ -39,9 +39,15 @@ This document is also the home of the lint and tidy commands for authors and lit
 | [[*sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | litnote references: =#+reference:= to =ROAM_REFS=, key forms, missing and shared keys |
 | [[*sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | litnote titles (from =pub-author=, =pub-year=, =pub-title=) and citekey file names |
 
+Command names follow [[file:../../../../../../adr/0025-dryrun-and-convert-command-names.org][ADR 0025]]:
+
+- =-dryrun= previews what would change and writes nothing.
+- =-convert= applies the change, after the confirmation the command already asks for.
+- The old names (=-report=, =-preview=, =-apply=, =-run=, =-lint=) still work as obsolete aliases.
+
 They used to have their own docs (=sp-author-notes.org=, =sp-author-notes-bibtex.org=) or sit in [[file:../academic/sp-academic.org][sp-academic.org]]; the code is unchanged, and =sp-litnotes= still requires the two litnote modules. The sections of the first two are one level deeper than they were.
 
-A third command, =sp-org-lint-footnotes=, is unrelated to lists: it lints the footnotes of the vulpea vault in the background, see [[*Sectional footnotes][Sectional footnotes]]. It also uses =seq=, =cl-lib= and, when present, =sp-globals=, and starts a second Emacs, so this file must be loadable on its own.
+A third command, =sp-org-lint-footnotes-dryrun=, is unrelated to lists: it lints the footnotes of the vulpea vault in the background, see [[*Sectional footnotes][Sectional footnotes]]. It also uses =seq=, =cl-lib= and, when present, =sp-globals=, and starts a second Emacs, so this file must be loadable on its own.
 
 Dependencies and behaviour:
 
@@ -70,7 +76,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;
 ;; This is the part of the `sp-org-lint' family that is not a bigger
 ;; submodule; `sp-org-lint' requires it.  Footnotes are in
-;; `sp-org-lint-footnotes'.
+;; `sp-org-lint-footnotes-dryrun'.
 
 ;;; Code:
 #+end_src
@@ -529,7 +535,7 @@ A second feature of the module lints the footnotes of the whole vault.
 
 - With =org-footnote-section= set to nil (see =sp-org-base=) and the per-heading footnotes of =sp-split-leave-parents=, a footnote definition lives at the end of the text of the heading that cites it.
 - Notes written with Org's default behaviour have a =Footnotes= heading at the end instead.
-- =sp-org-lint-footnotes= finds those and moves each definition to the heading that contains its reference.
+- =sp-org-lint-footnotes-dryrun= finds those and moves each definition to the heading that contains its reference.
 
 *Nothing is written without a preview, and nothing blocks Emacs.* The command lists the Org files of the vulpea database, hands them to a second, headless Emacs that reads them one at a time, and shows what it finds in a report buffer while it works. Applying the changes is a separate key in that buffer; it runs in the headless Emacs too, after copying every file to a backup folder.
 
@@ -542,7 +548,7 @@ This section tangles to =sp-org-lint-footnotes.el=, so the headless worker can l
 
 ;;; Commentary:
 
-;; `sp-org-lint-footnotes' lints the footnotes of the whole vulpea vault: it
+;; `sp-org-lint-footnotes-dryrun' lints the footnotes of the whole vulpea vault: it
 ;; moves the definitions of a trailing `Footnotes' heading to the heading that
 ;; contains their reference, and reports orphan definitions and dangling
 ;; references.  A second, headless Emacs loads this file and reads the files,
@@ -1181,8 +1187,8 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-org-lint-fn-visit)
-    (define-key map (kbd "a") #'sp-org-lint-footnotes-apply)
-    (define-key map (kbd "g") #'sp-org-lint-footnotes)
+    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    (define-key map (kbd "g") #'sp-org-lint-footnotes-dryrun)
     map)
   "Keymap of `sp-org-lint-fn-report-mode'.")
 
@@ -1406,8 +1412,8 @@ EXTRA is a plist merged into the control file."
 
 Scan and apply:
 
-- =sp-org-lint-footnotes= starts a scan.
-- =sp-org-lint-footnotes-apply=, bound to =a= in the report, asks for confirmation, leaves out the files that are open in a buffer with unsaved changes, and starts the worker in apply mode on the others.
+- =sp-org-lint-footnotes-dryrun= starts a scan.
+- =sp-org-lint-footnotes-convert=, bound to =a= in the report, asks for confirmation, leaves out the files that are open in a buffer with unsaved changes, and starts the worker in apply mode on the others.
 - Starting a new scan while a worker runs stops that worker.
 
 #+begin_src emacs-lisp -i
@@ -1421,13 +1427,13 @@ Scan and apply:
         (ignore-errors (delete-file ctl))))))
 
 ;;;###autoload
-(defun sp-org-lint-footnotes (&optional dir)
+(defun sp-org-lint-footnotes-dryrun (&optional dir)
   "Scan the vault for footnotes to move into the section that cites them.
 Footnote definitions in a trailing `Footnotes' heading are planned to
 move to the end of the text of the heading that contains their
 reference.  A second Emacs does the work, so this one stays usable; the
 report fills in as files are read, and nothing is changed until you
-press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-apply] in the report.  With a prefix argument, ask for a folder
+press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-convert] in the report.  With a prefix argument, ask for a folder
 instead of using the vulpea database."
   (interactive (list (when current-prefix-arg
                        (read-directory-name "Lint footnotes under: "
@@ -1452,8 +1458,10 @@ instead of using the vulpea database."
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
 
+(define-obsolete-function-alias 'sp-org-lint-footnotes 'sp-org-lint-footnotes-dryrun "2026-11-07")
+
 ;;;###autoload
-(defun sp-org-lint-footnotes-apply ()
+(defun sp-org-lint-footnotes-convert ()
   "Apply the moves of the footnote lint shown in this report buffer.
 Every file is copied to `sp-org-lint-fn-backup-directory' first.  Files
 that are open with unsaved changes, or that changed since the scan,
@@ -1488,6 +1496,8 @@ are skipped.  The work is done by a second Emacs."
                                        (cons (plist-get p :file) (plist-get p :sha)))
                                      plans)
                              (list :backup-root root)))))
+
+(define-obsolete-function-alias 'sp-org-lint-footnotes-apply 'sp-org-lint-footnotes-convert "2026-11-07")
 #+end_src
 
 ** Provide
@@ -1566,7 +1576,7 @@ Notes tagged =booksection= are not listed. Their =bib-parent= link points at the
 
 Safety:
 
-- =sp-author-notes= first *shows the plan* (nothing is written), then asks before writing. =sp-author-notes-preview= only shows the plan. In the report, =A= applies it and =g= runs the preview again.
+- =sp-author-notes= first *shows the plan* (nothing is written), then asks before writing. =sp-author-notes-dryrun= only shows the plan. In the report, =A= applies it and =g= runs the preview again.
 - It is idempotent: a second run finds nothing to do.
 - It adds text, and changes only: the key text of a typo, the value of a =pub-author= line that had plain names, the =#+filetags:= line of a note that gets the tag, and the position of a =Works= heading that is above =Basics= (its whole subtree moves below =Basics=). Nothing is deleted.
 - Before a file is changed it is copied to =sp-author-notes-backup-directory= (a folder per run).
@@ -1592,7 +1602,7 @@ What it does not do: it reads =litnotes/= only, so works that exist only as BibT
 ;; note for every author that has none, and gives each author note a
 ;; Basics heading, a Works heading after it and a `collection-query-table'
 ;; block in Works that lists the works naming the author.  It shows the
-;; plan first and writes only after you agree.  `sp-author-notes-preview'
+;; plan first and writes only after you agree.  `sp-author-notes-dryrun'
 ;; only shows the plan.
 
 ;;; Code:
@@ -2717,7 +2727,7 @@ The commands use `sp-author-notes--run-job', which does it in slices."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-author-notes-visit)
-    (define-key map (kbd "A") #'sp-author-notes-apply)
+    (define-key map (kbd "A") #'sp-author-notes-convert)
     (define-key map (kbd "g") #'sp-author-notes-refresh)
     (define-key map (kbd "d") #'sp-author-notes-exclude)
     (define-key map (kbd "u") #'sp-author-notes-restore)
@@ -2950,13 +2960,15 @@ a dropped one, A writes what is left, g shows the preview again.")
 #+begin_src emacs-lisp -i
 
 ;;;###autoload
-(defun sp-author-notes-preview ()
+(defun sp-author-notes-dryrun ()
   "Show what `sp-author-notes' would do, and write nothing.
 The vault is read in slices, so Emacs stays usable; the report opens when it
 is read.  Drops anything that an earlier report left out with `d'."
   (interactive)
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--show))
+
+(define-obsolete-function-alias 'sp-author-notes-preview 'sp-author-notes-dryrun "2026-11-07")
 
 (defun sp-author-notes--run-then (apply callback)
   "Run the job in slices, then call CALLBACK with the run.  Say that it started."
@@ -2999,7 +3011,7 @@ to create is dropped by name: no note is made and the name stays plain."
     (sp-author-notes-refresh)))
 
 ;;;###autoload
-(defun sp-author-notes-apply ()
+(defun sp-author-notes-convert ()
   "Do the job and show the report, without asking.
 What was dropped from the report with `d' is left out.  The files are
 written in slices, so Emacs stays usable; the report opens when all are done."
@@ -3013,6 +3025,8 @@ written in slices, so Emacs stays usable; the report opens when all are done."
               (sp-author-notes--change-count run)
               (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
+(define-obsolete-function-alias 'sp-author-notes-apply 'sp-author-notes-convert "2026-11-07")
+
 (defun sp-author-notes--ask (run)
   "Show the report of RUN and ask what to do with its changes."
   (sp-author-notes--show run)
@@ -3024,7 +3038,7 @@ written in slices, so Emacs stays usable; the report opens when all are done."
                    '((?y "write" "Write all of them now")
                      (?r "review" "Stay in the report: d drops a candidate, u restores, A writes the rest")
                      (?q "quit" "Write nothing"))))
-        (?y (sp-author-notes-apply))
+        (?y (sp-author-notes-convert))
         (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
         (_ (message "Nothing written"))))))
 
@@ -3630,7 +3644,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
 
 *Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. =sp-litnotes-refs-convert= asks its (up to three) questions as soon as the report is open, before any writing, so nothing asks you anything while you work on something else. A note is written only if it still reads as it did in the report; a note with unsaved changes in its buffer is skipped, and an open buffer without changes is reverted.
 
-- =M-x sp-litnotes-refs-report= is a dry run: it writes nothing and shows a report in =*litnote refs*=.
+- =M-x sp-litnotes-refs-dryrun= is a dry run: it writes nothing and shows a report in =*litnote refs*=.
 - =M-x sp-litnotes-refs-convert= shows the same report and then asks up to three questions, each only when there is something to do: move the references of the notes that have an ID; create an ID for the notes that have none; add stub entries to the inbox BibTeX file. Every note it changes, and the inbox file, is copied to =litnote-refs-backups/= under =sp-var-dir= first. It is safe to run again.
 - What it does to a note in =sp-litnotes-refs-directory= (default =~/notes/litnotes/=):
   - =convert=: no =ROAM_REFS=, has =#+reference: key=. It adds =:ROAM_REFS: @key= to the top property drawer and removes the keyword.
@@ -3653,7 +3667,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
 
 ;; `citar-denote' stored a note's citation key in a `#+reference:' keyword.
 ;; `citar-vulpea' reads `@key' values from a property, `ROAM_REFS'.  This module
-;; reports what would change (`sp-litnotes-refs-report') and then converts the
+;; reports what would change (`sp-litnotes-refs-dryrun') and then converts the
 ;; notes (`sp-litnotes-refs-convert').  Nothing is written by the report.
 
 ;;; Code:
@@ -3953,7 +3967,7 @@ Nothing is written.  Return the job."
       (buffer-string))))
 
 ;;;###autoload
-(defun sp-litnotes-refs-report ()
+(defun sp-litnotes-refs-dryrun ()
   "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read."
@@ -3961,6 +3975,8 @@ when they are read."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
+
+(define-obsolete-function-alias 'sp-litnotes-refs-report 'sp-litnotes-refs-dryrun "2026-11-07")
 
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."
@@ -4122,8 +4138,8 @@ Sets the title of each literature note to a short reference built from =pub-auth
 
 *Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. A note that changed between the report and the write, or that has unsaved changes in its buffer, is skipped and named in the summary. The questions for missing values are asked in this Emacs, between slices.
 
-- =M-x sp-litnotes-titles-report= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
-- =M-x sp-litnotes-titles-apply= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
+- =M-x sp-litnotes-titles-dryrun= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
+- =M-x sp-litnotes-titles-convert= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
 - Failed and left alone: notes without an =:ID:= drawer; without =pub-title=, without =pub-author= or with an ambiguous one, without =pub-year= (the title); with no citation key, a key whose file exists, or a key two notes share (the rename only).
 
 ** Header and options
@@ -4140,8 +4156,8 @@ Sets the title of each literature note to a short reference built from =pub-auth
 ;; "Reuten (2014) The value form as a social form", and renames the file
 ;; to the citation key alone (`kant2009ideea.org'), keeping the `:ID:'.
 ;;
-;; `sp-litnotes-titles-report' shows what would change and writes nothing.
-;; `sp-litnotes-titles-apply' shows the same report, offers to fill in what the
+;; `sp-litnotes-titles-dryrun' shows what would change and writes nothing.
+;; `sp-litnotes-titles-convert' shows the same report, offers to fill in what the
 ;; failed notes lack (a year, the authors, a title), asks once, copies every
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
@@ -4172,7 +4188,7 @@ Sets the title of each literature note to a short reference built from =pub-auth
 (defcustom sp-litnotes-titles-backup-directory
   (expand-file-name "litnote-title-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
-  "Folder where `sp-litnotes-titles-apply' copies each note before changing it.
+  "Folder where `sp-litnotes-titles-convert' copies each note before changing it.
 Every run makes a sub-folder named with the time."
   :type 'directory)
 
@@ -4183,7 +4199,7 @@ Those links are reported, not changed; =id:= links keep working."
   :type 'directory)
 
 (defcustom sp-litnotes-titles-rename-files t
-  "When non-nil, `sp-litnotes-titles-apply' renames the files to the citekey."
+  "When non-nil, `sp-litnotes-titles-convert' renames the files to the citekey."
   :type 'boolean)
 
 (defcustom sp-litnotes-titles-et-al-from 4
@@ -4583,13 +4599,15 @@ Return the job."
       (buffer-string))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-report ()
-  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing.
+(defun sp-litnotes-titles-dryrun ()
+  "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read."
   (interactive)
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
+
+(define-obsolete-function-alias 'sp-litnotes-titles-report 'sp-litnotes-titles-dryrun "2026-11-07")
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
@@ -4665,7 +4683,7 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
 
 ** Asking for what is missing
 
-The notes that failed for a missing or ambiguous title, author or year can be fixed by answering a question for each (the question shows what the note has). An empty answer skips the note or leaves it failed. The answers are used for the title only and are not written to the note's meta lines. =sp-litnotes-titles-apply= asks whether to do this after showing the report, shows the report again, and then asks once before writing.
+The notes that failed for a missing or ambiguous title, author or year can be fixed by answering a question for each (the question shows what the note has). An empty answer skips the note or leaves it failed. The answers are used for the title only and are not written to the note's meta lines. =sp-litnotes-titles-convert= asks whether to do this after showing the report, shows the report again, and then asks once before writing.
 
 #+begin_src emacs-lisp -i
 ;;;; Asking for what is missing
@@ -4724,7 +4742,7 @@ changed."
          (equal (plist-get now :new-name) (plist-get plan :new-name)))))
 
 (defvar sp-litnotes-titles--last-results nil
-  "What the last `sp-litnotes-titles-apply' wrote: a plist per note.")
+  "What the last `sp-litnotes-titles-convert' wrote: a plist per note.")
 
 (defun sp-litnotes-titles--write-all (todo)
   "Write the plans TODO in slices, after a backup of each, and report at the end."
@@ -4779,7 +4797,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-apply ()
+(defun sp-litnotes-titles-convert ()
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -4797,6 +4815,8 @@ this return the results, a plist per note."
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
+
+(define-obsolete-function-alias 'sp-litnotes-titles-apply 'sp-litnotes-titles-convert "2026-11-07")
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here
@@ -4947,7 +4967,7 @@ Test fixtures:
     (unwind-protect
         (cl-letf (((symbol-function 'display-buffer) #'ignore)
                   ((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
-          (sp-org-lint-footnotes dir)
+          (sp-org-lint-footnotes-dryrun dir)
           (setq buffer (get-buffer sp-org-lint-fn--buffer-name))
           (sp-org-lint-test--wait buffer '(ready failed))
           (with-current-buffer buffer
@@ -4957,7 +4977,7 @@ Test fixtures:
           ;; Preview first: nothing changed yet.
           (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
                          moving))
-          (with-current-buffer buffer (sp-org-lint-footnotes-apply))
+          (with-current-buffer buffer (sp-org-lint-footnotes-convert))
           (sp-org-lint-test--wait buffer '(applied failed))
           (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
                          (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""
@@ -5108,7 +5128,7 @@ What each pull request changed in this module, newest last; the one-line summary
     - not run in the real vault or on screen.
 - [[https://github.com/siainbuletin/dotfiles/pull/224][#224]]
   - 🔧 Changed =sp-litnotes-titles= (follows #221, which is merged): =#+title:= becomes a short reference with last names built from =pub-author=, =pub-year= and =pub-title= (=Reuten (2014) The value form as a social form=; =A and B=, =A, B and C=, =A, B et al.= from four authors), and the file is renamed to the citation key alone (=ROAM_REFS=, or =#+reference:= before #210's conversion; no Denote identifier, no keywords) instead of a slug of the title.
-  - A missing =pub-year= fails (no =n.d.=), as do a missing or ambiguous =pub-author= or =pub-title=: the report lists them under =Failed:= and =sp-litnotes-titles-apply= offers to ask for each missing value (used for the title only).
+  - A missing =pub-year= fails (no =n.d.=), as do a missing or ambiguous =pub-author= or =pub-title=: the report lists them under =Failed:= and =sp-litnotes-titles-convert= offers to ask for each missing value (used for the title only).
   - Notes with no key, a key whose file exists or a key two notes share are not renamed. 8 ERT tests in Emacs 29.3 batch with a temporary vault
     - not run in the real vault.
 - [[https://github.com/siainbuletin/dotfiles/pull/228][#228]]

@@ -86,8 +86,8 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
   (("C-c w b r" . sp-bibtex-register)
-   ("C-c w b l" . sp-bibtex-lint-report)
-   ("C-c w b L" . sp-bibtex-lint-apply)
+   ("C-c w b l" . sp-bibtex-lint-dryrun)
+   ("C-c w b L" . sp-bibtex-lint-convert)
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
@@ -178,7 +178,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
 (defcustom sp-bibtex-lint-backup-directory
   (expand-file-name "bibtex-lint-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
-  "Folder where a .bib file is copied before `sp-bibtex-lint-apply' writes it."
+  "Folder where a .bib file is copied before `sp-bibtex-lint-convert' writes it."
   :type 'directory
   :group 'sp-bibtex)
 
@@ -465,12 +465,12 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-bibtex-lint-visit)
-    (define-key map (kbd "g") #'sp-bibtex-lint-report)
+    (define-key map (kbd "g") #'sp-bibtex-lint-dryrun)
     map)
   "Keymap of `sp-bibtex-lint-report-mode'.")
 
 (define-derived-mode sp-bibtex-lint-report-mode special-mode "BibTeX lint"
-  "Report of `sp-bibtex-lint-report'.
+  "Report of `sp-bibtex-lint-dryrun'.
 \\{sp-bibtex-lint-report-mode-map}")
 
 (defun sp-bibtex-lint--render (results)
@@ -479,7 +479,7 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
     (sp-bibtex-lint-report-mode)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-apply to rewrite\n"
+      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-convert to rewrite\n"
                       (length results) (if (= 1 (length results)) "y" "ies")))
       (dolist (r results)
         (let ((start (point)))
@@ -498,7 +498,7 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
     (goto-char (nth 2 r))))
 
 ;;;###autoload
-(defun sp-bibtex-lint-report ()
+(defun sp-bibtex-lint-dryrun ()
   "List what the .bib files of `sp-bibtex-files' break, without changing them.
 It checks the author and editor names (canonical form `Last, First', and
 names one typo away from an author note), the order of the fields
@@ -507,8 +507,10 @@ names one typo away from an author note), the order of the fields
   (let ((files (sp-bibtex-lint--files)))
     (sp-bibtex-lint--job "BibTeX lint" files nil #'sp-bibtex-lint--render)))
 
+(define-obsolete-function-alias 'sp-bibtex-lint-report 'sp-bibtex-lint-dryrun "2026-11-07")
+
 ;;;###autoload
-(defun sp-bibtex-lint-apply ()
+(defun sp-bibtex-lint-convert ()
   "Rewrite names and field order in the .bib files after one question.
 Each file is copied to `sp-bibtex-lint-backup-directory' first.  Duplicate
 keys and names near an author note are reported, not changed; an entry with a
@@ -522,8 +524,10 @@ comment inside is left alone."
                                sp-bibtex-lint-backup-directory))
       (sp-bibtex-lint--job "BibTeX rewrite" files t
                            (lambda (results)
-                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-report)"
+                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-dryrun)"
                                       (length results) (if (= 1 (length results)) "y" "ies")))))))
+
+(define-obsolete-function-alias 'sp-bibtex-lint-apply 'sp-bibtex-lint-convert "2026-11-07")
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.

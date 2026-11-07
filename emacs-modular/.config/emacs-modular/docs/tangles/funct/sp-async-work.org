@@ -281,6 +281,6 @@ What each pull request changed in this module, newest last; the one-line summary
   - The progress is in the mode line (=[Litnote titles writing 12/340]=), =M-x sp-async-work-cancel= stops a job, and a job waits while you type in the minibuffer.
   - Questions (names, missing years, the confirmations) stay in this Emacs
     - =sp-litnotes-refs-convert= now asks its three questions up front.
-  - A second Emacs, like the footnote lint uses, was not chosen because these commands ask questions, query the Vulpea database and update open buffers. =sp-litnotes-refs-convert= and =sp-litnotes-titles-apply= skip a note whose buffer has unsaved changes or that changed since the report. =sp-litnotes-titles-apply= returns its results only when =sp-async-work-synchronous= is set.
+  - A second Emacs, like the footnote lint uses, was not chosen because these commands ask questions, query the Vulpea database and update open buffers. =sp-litnotes-refs-convert= and =sp-litnotes-titles-convert= skip a note whose buffer has unsaved changes or that changed since the report. =sp-litnotes-titles-convert= returns its results only when =sp-async-work-synchronous= is set.
   - Doc =docs/tangles/funct/sp-async-work.org=, tests =tests/sp-async-work-test.el=.
   - Not run: the real vault.

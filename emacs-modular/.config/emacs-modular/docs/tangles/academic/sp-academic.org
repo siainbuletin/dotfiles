@@ -24,7 +24,7 @@ The files have no newline after their last line (except where noted). Org always
 | [[file:../funct/sp-org-lint.org::*sp-author-notes.el][sp-author-notes.el]] | =libraries/modules/funct/sp-author-notes.el= | Author lint: author notes, =Works= tables and link checks from =pub-author= (doc in sp-org-lint.org) |
 | [[file:../funct/sp-org-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]] | =libraries/modules/funct/sp-author-notes-bibtex.el= | Author lint: BibTeX works of an author with no litnote yet (doc in sp-org-lint.org) |
 
-The last four rows are the author and litnote lint commands (=sp-litnotes-refs-report=, =sp-litnotes-refs-convert=, =sp-litnotes-titles-report=, =sp-litnotes-titles-apply=, =sp-author-notes=, =sp-author-notes-bibtex=). Their literate source is now in [[file:../funct/sp-org-lint.org][sp-org-lint.org]], one section each; the =.el= files and the =sp-litnotes= requires are unchanged.
+The last four rows are the author and litnote lint commands (=sp-litnotes-refs-dryrun=, =sp-litnotes-refs-convert=, =sp-litnotes-titles-dryrun=, =sp-litnotes-titles-convert=, =sp-author-notes=, =sp-author-notes-bibtex=). Their literate source is now in [[file:../funct/sp-org-lint.org][sp-org-lint.org]], one section each; the =.el= files and the =sp-litnotes= requires are unchanged.
 
 The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
 
@@ -465,8 +465,8 @@ Also:
   :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
   (("C-c w b r" . sp-bibtex-register)
-   ("C-c w b l" . sp-bibtex-lint-report)
-   ("C-c w b L" . sp-bibtex-lint-apply)
+   ("C-c w b l" . sp-bibtex-lint-dryrun)
+   ("C-c w b L" . sp-bibtex-lint-convert)
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
@@ -596,7 +596,7 @@ The lint and its completion are described in the order of the code. Nothing here
 (defcustom sp-bibtex-lint-backup-directory
   (expand-file-name "bibtex-lint-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
-  "Folder where a .bib file is copied before `sp-bibtex-lint-apply' writes it."
+  "Folder where a .bib file is copied before `sp-bibtex-lint-convert' writes it."
   :type 'directory
   :group 'sp-bibtex)
 
@@ -850,7 +850,7 @@ With APPLY the entries that differ are replaced in the buffer."
 
 *** Report and apply
 
-=M-x sp-bibtex-lint-report= (=C-c w b l=) lists the entries to fix, without changing a file. =M-x sp-bibtex-lint-apply= (=C-c w b L=) asks once, copies each file to =sp-bibtex-lint-backup-directory= and rewrites names and field order. Duplicate keys and names near an author note are only reported.
+=M-x sp-bibtex-lint-dryrun= (=C-c w b l=) lists the entries to fix, without changing a file. =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks once, copies each file to =sp-bibtex-lint-backup-directory= and rewrites names and field order. Duplicate keys and names near an author note are only reported.
 
 #+begin_src emacs-lisp -i
 (defconst sp-bibtex-lint--buffer "*BibTeX lint*")
@@ -907,12 +907,12 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-bibtex-lint-visit)
-    (define-key map (kbd "g") #'sp-bibtex-lint-report)
+    (define-key map (kbd "g") #'sp-bibtex-lint-dryrun)
     map)
   "Keymap of `sp-bibtex-lint-report-mode'.")
 
 (define-derived-mode sp-bibtex-lint-report-mode special-mode "BibTeX lint"
-  "Report of `sp-bibtex-lint-report'.
+  "Report of `sp-bibtex-lint-dryrun'.
 \\{sp-bibtex-lint-report-mode-map}")
 
 (defun sp-bibtex-lint--render (results)
@@ -921,7 +921,7 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
     (sp-bibtex-lint-report-mode)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-apply to rewrite\n"
+      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-convert to rewrite\n"
                       (length results) (if (= 1 (length results)) "y" "ies")))
       (dolist (r results)
         (let ((start (point)))
@@ -940,7 +940,7 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
     (goto-char (nth 2 r))))
 
 ;;;###autoload
-(defun sp-bibtex-lint-report ()
+(defun sp-bibtex-lint-dryrun ()
   "List what the .bib files of `sp-bibtex-files' break, without changing them.
 It checks the author and editor names (canonical form `Last, First', and
 names one typo away from an author note), the order of the fields
@@ -949,8 +949,10 @@ names one typo away from an author note), the order of the fields
   (let ((files (sp-bibtex-lint--files)))
     (sp-bibtex-lint--job "BibTeX lint" files nil #'sp-bibtex-lint--render)))
 
+(define-obsolete-function-alias 'sp-bibtex-lint-report 'sp-bibtex-lint-dryrun "2026-11-07")
+
 ;;;###autoload
-(defun sp-bibtex-lint-apply ()
+(defun sp-bibtex-lint-convert ()
   "Rewrite names and field order in the .bib files after one question.
 Each file is copied to `sp-bibtex-lint-backup-directory' first.  Duplicate
 keys and names near an author note are reported, not changed; an entry with a
@@ -964,8 +966,10 @@ comment inside is left alone."
                                sp-bibtex-lint-backup-directory))
       (sp-bibtex-lint--job "BibTeX rewrite" files t
                            (lambda (results)
-                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-report)"
+                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-dryrun)"
                                       (length results) (if (= 1 (length results)) "y" "ies")))))))
+
+(define-obsolete-function-alias 'sp-bibtex-lint-apply 'sp-bibtex-lint-convert "2026-11-07")
 #+end_src
 
 *** Completion
@@ -1508,7 +1512,7 @@ What each pull request changed in this module, newest last; the one-line summary
     - not run in the interactive config.
 - [[https://github.com/siainbuletin/dotfiles/pull/231][#231]]
   - ✨ Added a =.bib= lint to =sp-bibprocess=: =M-x sp-bibtex-lint-report= (=C-c w b l=) lists author and editor names that are not =Last, First=, fields out of the order of =sp-bibtex-field-order=, duplicate keys and names one typo away from an author note
-    - =M-x sp-bibtex-lint-apply= (=C-c w b L=) rewrites names and field order after one question and a backup.
+    - =M-x sp-bibtex-lint-convert= (=C-c w b L=) rewrites names and field order after one question and a backup.
   - Names in =author= and =editor= complete from the author notes in =bibtex-mode=.
   - No author note is ever created.
 - [[https://github.com/siainbuletin/dotfiles/pull/232][#232]]

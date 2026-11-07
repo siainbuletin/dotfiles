@@ -345,13 +345,13 @@ Return the tags that are still unregistered."
 
 (defvar sp-notes-filing-report-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'sp-notes-filing-report-apply)
-    (define-key map (kbd "g") #'sp-notes-filing-lint)
+    (define-key map (kbd "C-c C-c") #'sp-notes-filing-convert)
+    (define-key map (kbd "g") #'sp-notes-filing-dryrun)
     (define-key map (kbd "q") #'quit-window)
     map))
 
 (define-derived-mode sp-notes-filing-report-mode special-mode "NotesFiling"
-  "Dry-run report of `sp-notes-filing-lint'.  \\[sp-notes-filing-report-apply] applies it.")
+  "Dry-run report of `sp-notes-filing-dryrun'.  \\[sp-notes-filing-convert] applies it.")
 
 (defun sp-notes-filing--render (plan)
   "Insert PLAN into the current buffer."
@@ -373,7 +373,7 @@ Return the tags that are still unregistered."
                       (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))))))
 
 ;;;###autoload
-(defun sp-notes-filing-lint ()
+(defun sp-notes-filing-dryrun ()
   "Show which notes would move where.  This moves nothing.
 First offers to register the rule tags that the tag registry lacks."
   (interactive)
@@ -388,7 +388,9 @@ First offers to register the rule tags that the tag registry lacks."
         (goto-char (point-min)))
       (pop-to-buffer (current-buffer)))))
 
-(defun sp-notes-filing-report-apply ()
+(define-obsolete-function-alias 'sp-notes-filing-lint 'sp-notes-filing-dryrun "2026-11-07")
+
+(defun sp-notes-filing-convert ()
   "Apply the plan shown in this report, after confirmation."
   (interactive)
   (let ((plan sp-notes-filing--current-plan))
@@ -400,6 +402,8 @@ First offers to register the rule tags that the tag registry lacks."
                  (or (plist-get res :backup) "-"))
         (when (plist-get res :failed)
           (message "Failed: %S" (plist-get res :failed)))))))
+
+(define-obsolete-function-alias 'sp-notes-filing-report-apply 'sp-notes-filing-convert "2026-11-07")
 
 ;;;; Automatic placement
 
@@ -437,7 +441,7 @@ Meant for `after-save-hook'.  An untagged note stays where it is."
 ;;;###autoload
 (defun sp-notes-filing-run-scheduled ()
   "File the tagged notes waiting at the top of the root.  Safe for timers.
-Untagged notes are left alone; only `sp-notes-filing-lint' sends them to other/."
+Untagged notes are left alone; only `sp-notes-filing-dryrun' sends them to other/."
   (interactive)
   (let ((plan (seq-filter (lambda (e) (and (plist-get e :tags) (not (plist-get e :skip))))
                           (sp-notes-filing-plan t))))

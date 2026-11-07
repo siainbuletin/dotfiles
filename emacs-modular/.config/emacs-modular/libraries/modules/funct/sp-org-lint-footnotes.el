@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; `sp-org-lint-footnotes' lints the footnotes of the whole vulpea vault: it
+;; `sp-org-lint-footnotes-dryrun' lints the footnotes of the whole vulpea vault: it
 ;; moves the definitions of a trailing `Footnotes' heading to the heading that
 ;; contains their reference, and reports orphan definitions and dangling
 ;; references.  A second, headless Emacs loads this file and reads the files,
@@ -526,8 +526,8 @@ relative to it."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-org-lint-fn-visit)
-    (define-key map (kbd "a") #'sp-org-lint-footnotes-apply)
-    (define-key map (kbd "g") #'sp-org-lint-footnotes)
+    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    (define-key map (kbd "g") #'sp-org-lint-footnotes-dryrun)
     map)
   "Keymap of `sp-org-lint-fn-report-mode'.")
 
@@ -744,13 +744,13 @@ EXTRA is a plist merged into the control file."
         (ignore-errors (delete-file ctl))))))
 
 ;;;###autoload
-(defun sp-org-lint-footnotes (&optional dir)
+(defun sp-org-lint-footnotes-dryrun (&optional dir)
   "Scan the vault for footnotes to move into the section that cites them.
 Footnote definitions in a trailing `Footnotes' heading are planned to
 move to the end of the text of the heading that contains their
 reference.  A second Emacs does the work, so this one stays usable; the
 report fills in as files are read, and nothing is changed until you
-press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-apply] in the report.  With a prefix argument, ask for a folder
+press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-convert] in the report.  With a prefix argument, ask for a folder
 instead of using the vulpea database."
   (interactive (list (when current-prefix-arg
                        (read-directory-name "Lint footnotes under: "
@@ -775,8 +775,10 @@ instead of using the vulpea database."
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
 
+(define-obsolete-function-alias 'sp-org-lint-footnotes 'sp-org-lint-footnotes-dryrun "2026-11-07")
+
 ;;;###autoload
-(defun sp-org-lint-footnotes-apply ()
+(defun sp-org-lint-footnotes-convert ()
   "Apply the moves of the footnote lint shown in this report buffer.
 Every file is copied to `sp-org-lint-fn-backup-directory' first.  Files
 that are open with unsaved changes, or that changed since the scan,
@@ -811,6 +813,8 @@ are skipped.  The work is done by a second Emacs."
                                        (cons (plist-get p :file) (plist-get p :sha)))
                                      plans)
                              (list :backup-root root)))))
+
+(define-obsolete-function-alias 'sp-org-lint-footnotes-apply 'sp-org-lint-footnotes-convert "2026-11-07")
 
 (provide 'sp-org-lint-footnotes)
 ;;; sp-org-lint-footnotes.el ends here

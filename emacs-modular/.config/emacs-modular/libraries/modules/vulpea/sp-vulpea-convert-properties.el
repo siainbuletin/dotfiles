@@ -303,7 +303,7 @@ same order as FILES, once every file has been processed."
 
 ;;;; Preview + real run across every Vulpea note ---------------------------
 
-(defun sia-vulpea-preview-convert-all-notes-properties ()
+(defun sia-vulpea-convert-all-notes-properties-to-meta-dryrun ()
   "Report, without changing anything, what a full conversion would do.
 Lists, per note file, which non-blocklisted properties were
 found on its recognized nodes. Run this before
@@ -349,6 +349,8 @@ progress count and ETA in the echo area -- see
                (display-buffer (current-buffer)))
            (message "Nothing would be converted -- every property found is blocklisted."))))))))
 
+(define-obsolete-function-alias 'sia-vulpea-preview-convert-all-notes-properties 'sia-vulpea-convert-all-notes-properties-to-meta-dryrun "2026-11-07")
+
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
@@ -356,7 +358,7 @@ file a fast raw-text pre-scan finds has something convertible
 (see `sia-vulpea--files-with-convertible-properties' -- files
 with nothing to do are never opened as Org buffers), saving each
 one. This edits and saves potentially a large part of your note
-collection -- run `sia-vulpea-preview-convert-all-notes-properties'
+collection -- run `sia-vulpea-convert-all-notes-properties-to-meta-dryrun'
 first, and back up your notes (or commit, if under version
 control) before running this, especially with KEEP-ORIGINAL nil
 (the default), which deletes each converted property from its

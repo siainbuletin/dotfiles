@@ -125,7 +125,7 @@
     (unwind-protect
         (cl-letf (((symbol-function 'display-buffer) #'ignore)
                   ((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
-          (sp-org-lint-footnotes dir)
+          (sp-org-lint-footnotes-dryrun dir)
           (setq buffer (get-buffer sp-org-lint-fn--buffer-name))
           (sp-org-lint-test--wait buffer '(ready failed))
           (with-current-buffer buffer
@@ -135,7 +135,7 @@
           ;; Preview first: nothing changed yet.
           (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
                          moving))
-          (with-current-buffer buffer (sp-org-lint-footnotes-apply))
+          (with-current-buffer buffer (sp-org-lint-footnotes-convert))
           (sp-org-lint-test--wait buffer '(applied failed))
           (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
                          (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""

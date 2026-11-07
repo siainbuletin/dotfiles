@@ -446,7 +446,7 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
     map))
 
 (define-derived-mode sp-org-normalise-report-mode special-mode "Org-normalise"
-  "Report of the changes proposed by `sp-org-normalise-preview'.")
+  "Report of the changes proposed by `sp-org-normalise-dryrun'.")
 
 (defun sp-org-normalise-visit ()
   "Visit the file and line of the change at point."
@@ -505,10 +505,12 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
       (pop-to-buffer (current-buffer)))))
 
 ;;;###autoload
-(defun sp-org-normalise-preview (&optional dir)
+(defun sp-org-normalise-dryrun (&optional dir)
   "Show the changes proposed for the Org files under DIR.  Writes nothing."
   (interactive (list (sp-org-normalise--dir-arg)))
   (sp-org-normalise--show-plan (sp-org-normalise-plan-files (sp-org-normalise-files dir))))
+
+(define-obsolete-function-alias 'sp-org-normalise-preview 'sp-org-normalise-dryrun "2026-11-07")
 
 (defun sp-org-normalise--apply-plan (plan changes)
   "Apply CHANGES to the file of PLAN (FILE TEXT . CHANGES).  Return non-nil if done."
@@ -524,7 +526,7 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
           t)))))
 
 ;;;###autoload
-(defun sp-org-normalise-run (&optional dir)
+(defun sp-org-normalise-convert (&optional dir)
   "Preview the changes under DIR, then apply them file by file after asking."
   (interactive (list (sp-org-normalise--dir-arg)))
   (let ((plans (sp-org-normalise-plan-files (sp-org-normalise-files dir)))
@@ -551,6 +553,8 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
              (if sp-org-normalise-save-after-apply
                  "."
                "; the buffers are modified but not saved (C-x s to save, or revert them)."))))
+
+(define-obsolete-function-alias 'sp-org-normalise-run 'sp-org-normalise-convert "2026-11-07")
 
 (provide 'sp-org-normalise)
 ;;; sp-org-normalise.el ends here
