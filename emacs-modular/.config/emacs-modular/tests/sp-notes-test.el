@@ -192,6 +192,33 @@
       (mapc #'kill-buffer (seq-filter (lambda (b) (and (buffer-file-name b) (string-prefix-p root (buffer-file-name b)))) (buffer-list)))
       (delete-directory root t))))
 
+(ert-deftest sp-notes-create-nil-vulpea-default-directory ()
+  "A nil `vulpea-default-notes-directory' (vulpea's default) must not reach vulpea."
+  (let* ((root (make-temp-file "notes" t))
+         (sp-notes-filing-root root)
+         (vulpea-default-notes-directory nil)
+         seen)
+    (unwind-protect
+        (progn
+          (should (equal (sp-notes-create-base) (file-name-as-directory root)))
+          (should (equal (sp-notes-create-file-template '("film"))
+                         "objects/films/${timestamp}_${slug}.org"))
+          (should (equal (sp-notes-create-file-template nil) "${timestamp}_${slug}.org"))
+          (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) nil))
+                    ((symbol-function 'vulpea-create)
+                     (lambda (&rest _)
+                       ;; vulpea calls `file-name-as-directory' on this.
+                       (setq seen (file-name-as-directory vulpea-default-notes-directory))
+                       (let ((f (expand-file-name "n.org" root)))
+                         (with-temp-file f (insert ":PROPERTIES:\n:ID: i\n:END:\n#+title: N\n"))
+                         f)))
+                    ((symbol-function 'vulpea-note-path) #'identity)
+                    ((symbol-function 'find-file) (lambda (f) (set-buffer (find-file-noselect f)))))
+            (sp-notes-create "N"))
+          (should (equal seen (file-name-as-directory root))))
+      (mapc #'kill-buffer (seq-filter (lambda (b) (and (buffer-file-name b) (string-prefix-p root (buffer-file-name b)))) (buffer-list)))
+      (delete-directory root t))))
+
 (ert-deftest sp-notes-vulpea-create-advice-adds-created ()
   "Any note made by vulpea-create (find, inbox tab) gets :CREATED:, also in a visiting buffer."
   (let* ((root (make-temp-file "notes" t))

@@ -8,33 +8,29 @@
 
 (require 'vulpea)
 (require 'org-id)
-(require 'denote)
+(declare-function sp-notes-create "sp-notes")
 
 (defconst sp--new-heading-candidate "[+ Create new heading here]"
   "Special entry in the heading-selection prompt.
 Choosing it creates a new top-level heading at the end of the
 file instead of picking one of the existing headings.")
 
-(defun sp--denote-create-and-get-path (title)
-  "Create a new Denote note titled TITLE and return its file path.
-The note is created with `denote' using default keywords/subdirectory/etc.
-(rename it afterwards with your usual `denote-rename-file' /
-`denote-rename-file-using-front-matter' bindings if needed). The
-creation buffer is not left on screen -- window layout is
-restored once the file path is captured."
-  (let (path)
-    (save-window-excursion
-      (denote title)
-      (setq path (buffer-file-name)))
-    path))
+(defun sp--create-note-and-get-path (title)
+  "Create a new note titled TITLE with `sp-notes-create' and return its file path.
+`sp-notes-create' asks for the tags and files the note by them.  The
+creation buffer is not left on screen -- window layout is restored
+once the file path is captured."
+  (require 'sp-notes)
+  (save-window-excursion
+    (sp-notes-create title)))
 
 (defun sp--vulpea-select-or-create-file ()
-  "Select an existing note via Vulpea, or create one with Denote.
+  "Select an existing note via Vulpea, or create one with `sp-notes-create'.
 Uses the same note database as `vulpea-find', with the prompt of
 `sp-select-note'. If
 your input at the prompt doesn't match any existing note (i.e.
 nothing in the completion corresponds to an actual file), you're
-asked to confirm creating a new Denote note with that text as
+asked to confirm creating a new note with that text as
 its title; the new note becomes the target file."
   (let ((selection (sp-select-note "Move region to note: ")))
     (cond
@@ -51,9 +47,9 @@ its title; the new note becomes the target file."
         (unless (and title (not (string-empty-p title)))
           (user-error "No target selected"))
         (unless (y-or-n-p
-                 (format "No note found for \"%s\" -- create it with Denote? " title))
+                 (format "No note found for \"%s\" -- create it? " title))
           (user-error "No target selected"))
-        (sp--denote-create-and-get-path title))))))
+        (sp--create-note-and-get-path title))))))
 
 (defun sp--org-heading-candidates (file)
   "Return an alist of (OUTLINE-PATH . MARKER) for each heading in FILE.
@@ -155,7 +151,7 @@ TARGET is a marker pointing at the chosen heading; PATH is its
 full outline path (or its title, if newly created). Prompts for
 a target note via Vulpea's ID-based selection (so you search by
 title/ID rather than navigating directories); if nothing
-matches, offers to create a new Denote note on the spot. Then
+matches, offers to create a new note on the spot. Then
 prompts for a heading within that note (with completion,
 disambiguated by full outline path, plus an option to create a
 new heading) -- or, if the note has no headings yet, skips
