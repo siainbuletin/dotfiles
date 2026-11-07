@@ -1,0 +1,53 @@
+#+title: 0025 Name lint commands =-dryrun= and =-convert=
+#+date: 2026-11-07
+#+status: accepted
+
+* Context
+- The commands that lint or tidy the notes each grew their own words for the same two steps:
+  - preview: =-lint=, =-report=, =-preview=, or the bare command name
+  - apply: =-apply=, =-run=, =-report-apply=, or =-convert=
+- From the name alone I could not tell whether a command writes files; I had to read the docstring.
+- The commands that write are the risky ones (they touch the vault), so the name should say it.
+
+* Decision
+- A command that only previews ends in =-dryrun=. It writes nothing, and shows a report.
+- A command that applies the change ends in =-convert=. It writes files, with the backup and the confirmation that the command already has.
+- The two share a prefix: =sp-notes-filing-dryrun= and =sp-notes-filing-convert=.
+- A command that only reports and has nothing to apply (=sp-org-tag-lint=, =sp-org-tag-lint-buffer=) keeps its name; it has no =-convert= partner.
+- Commands whose name already starts with =convert= and whose apply step is the whole command (=sp-vulpea-convert-keywords=, =sp-vulpea-convert-properties-at-point=) keep it. They preview inside one run and ask before writing.
+- Only commands you call from =M-x=, a key or a report buffer are renamed. Internal functions such as =sp-notes-filing-apply= (a plan) keep their names.
+- The old names stay as obsolete aliases (=define-obsolete-function-alias=, dated 2026-11-07), so keys, scripts and muscle memory keep working.
+
+* Renamed commands
+| Old name | New name |
+|----------+----------|
+| =sp-notes-filing-lint= | =sp-notes-filing-dryrun= |
+| =sp-notes-filing-report-apply= | =sp-notes-filing-convert= |
+| =sp-org-lint-footnotes= | =sp-org-lint-footnotes-dryrun= |
+| =sp-org-lint-footnotes-apply= | =sp-org-lint-footnotes-convert= |
+| =sp-litnotes-refs-report= | =sp-litnotes-refs-dryrun= |
+| =sp-litnotes-refs-convert= | unchanged |
+| =sp-litnotes-titles-report= | =sp-litnotes-titles-dryrun= |
+| =sp-litnotes-titles-apply= | =sp-litnotes-titles-convert= |
+| =sp-author-notes-preview= | =sp-author-notes-dryrun= |
+| =sp-author-notes-apply= | =sp-author-notes-convert= |
+| =sp-bibtex-lint-report= | =sp-bibtex-lint-dryrun= |
+| =sp-bibtex-lint-apply= | =sp-bibtex-lint-convert= |
+| =sp-org-normalise-preview= | =sp-org-normalise-dryrun= |
+| =sp-org-normalise-run= | =sp-org-normalise-convert= |
+| =sp-org-convert-wikilinks= | =sp-org-wikilinks-convert= |
+| (new) | =sp-org-wikilinks-dryrun= |
+| =sia-vulpea-preview-convert-all-notes-properties= | =sia-vulpea-convert-all-notes-properties-to-meta-dryrun= |
+
+* Alternatives considered
+- *Keep the old names*: each module is clear on its own, but the set is not, and =-lint= suggests a read-only check even when it is the entry to a write.
+- *=-preview= and =-apply=*: clearer English, but I asked for =-dryrun= and =-convert=, and the existing =-convert= commands already use that word.
+- *One command with a prefix argument*: hides the write behind a key; two names are easier to find with completion.
+
+* Consequences
+- New lint commands take both names from the start; a command without an apply step uses neither.
+- =sp-notes-filing-convert= and =sp-org-lint-footnotes-convert= are still bound in the report buffers (=C-c C-c=, =a=); only the names changed.
+- =sp-org-wikilinks-dryrun= is new: wikilinks had no preview before.
+- The obsolete aliases can be removed once I no longer use the old names; Emacs warns when I call one.
+- Docs and tests use the new names. Historical notes in the docs and the changelog keep the old ones.
+- /untested/: only run in a Linux container with Emacs 29 and stubs, not on the Mac or the real vault.

@@ -195,7 +195,7 @@ the line, respectively."
            :prefix (concat sp-prefix " n")
            ("n"  .  sp-notes-notebook)
            ("s"  .  consult-notes-search-in-all-notes)
-           ("f"  .  sp-notes-filing-lint))
+           ("f"  .  sp-notes-filing-dryrun))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")

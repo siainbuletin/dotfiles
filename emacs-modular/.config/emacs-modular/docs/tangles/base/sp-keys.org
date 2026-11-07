@@ -425,7 +425,7 @@ Notes:
 - =lem+notes-keys= binds:
   - =n=: =sp-notes-notebook=, the vulpea note picker
   - =s=: the full-text search of =consult-notes=
-  - =f=: =sp-notes-filing-lint=, the dry run of the tag filing
+  - =f=: =sp-notes-filing-dryrun=, the dry run of the tag filing
 - =lem+bib-keys= under =n b= binds the =citar= commands for creating or opening literature notes.
 
 #+begin_src emacs-lisp -i
@@ -435,7 +435,7 @@ Notes:
            :prefix (concat sp-prefix " n")
            ("n"  .  sp-notes-notebook)
            ("s"  .  consult-notes-search-in-all-notes)
-           ("f"  .  sp-notes-filing-lint))
+           ("f"  .  sp-notes-filing-dryrun))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")

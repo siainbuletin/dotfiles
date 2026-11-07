@@ -4,7 +4,7 @@
 
 ;; `citar-denote' stored a note's citation key in a `#+reference:' keyword.
 ;; `citar-vulpea' reads `@key' values from a property, `ROAM_REFS'.  This module
-;; reports what would change (`sp-litnotes-refs-report') and then converts the
+;; reports what would change (`sp-litnotes-refs-dryrun') and then converts the
 ;; notes (`sp-litnotes-refs-convert').  Nothing is written by the report.
 
 ;;; Code:
@@ -304,7 +304,7 @@ Nothing is written.  Return the job."
       (buffer-string))))
 
 ;;;###autoload
-(defun sp-litnotes-refs-report ()
+(defun sp-litnotes-refs-dryrun ()
   "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read."
@@ -312,6 +312,8 @@ when they are read."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
+
+(define-obsolete-function-alias 'sp-litnotes-refs-report 'sp-litnotes-refs-dryrun "2026-11-07")
 
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."

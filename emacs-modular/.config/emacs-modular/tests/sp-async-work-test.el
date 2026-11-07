@@ -120,7 +120,7 @@
              "#+title: old" "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: T"))
           (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) (cl-incf asked) t))
                     ((symbol-function 'pop-to-buffer) #'ignore))
-            (sp-litnotes-titles-apply)
+            (sp-litnotes-titles-convert)
             ;; The command returned before anything was read.
             (should (sp-async-work-find "Litnote titles"))
             (should (string-match-p "old" (sp-async-work-test--read (expand-file-name "n0.org" dir))))
@@ -157,7 +157,7 @@
                         "- pub-author :: Roe, Bo" "- pub-year :: 2000" "- pub-title :: T")
                        t))
                     ((symbol-function 'pop-to-buffer) #'ignore))
-            (sp-litnotes-titles-apply)
+            (sp-litnotes-titles-convert)
             (sp-async-work-test--wait))
           (should (string-match-p "^#\\+title: Lee (2000) T$" (sp-async-work-test--read a)))
           (should (string-match-p "^#\\+title: old$" (sp-async-work-test--read b)))

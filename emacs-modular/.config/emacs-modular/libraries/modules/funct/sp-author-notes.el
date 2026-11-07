@@ -7,7 +7,7 @@
 ;; note for every author that has none, and gives each author note a
 ;; Basics heading, a Works heading after it and a `collection-query-table'
 ;; block in Works that lists the works naming the author.  It shows the
-;; plan first and writes only after you agree.  `sp-author-notes-preview'
+;; plan first and writes only after you agree.  `sp-author-notes-dryrun'
 ;; only shows the plan.
 
 ;;; Code:
@@ -1048,7 +1048,7 @@ The commands use `sp-author-notes--run-job', which does it in slices."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-author-notes-visit)
-    (define-key map (kbd "A") #'sp-author-notes-apply)
+    (define-key map (kbd "A") #'sp-author-notes-convert)
     (define-key map (kbd "g") #'sp-author-notes-refresh)
     (define-key map (kbd "d") #'sp-author-notes-exclude)
     (define-key map (kbd "u") #'sp-author-notes-restore)
@@ -1275,13 +1275,15 @@ a dropped one, A writes what is left, g shows the preview again.")
       (forward-line (1- line)))))
 
 ;;;###autoload
-(defun sp-author-notes-preview ()
+(defun sp-author-notes-dryrun ()
   "Show what `sp-author-notes' would do, and write nothing.
 The vault is read in slices, so Emacs stays usable; the report opens when it
 is read.  Drops anything that an earlier report left out with `d'."
   (interactive)
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--show))
+
+(define-obsolete-function-alias 'sp-author-notes-preview 'sp-author-notes-dryrun "2026-11-07")
 
 (defun sp-author-notes--run-then (apply callback)
   "Run the job in slices, then call CALLBACK with the run.  Say that it started."
@@ -1324,7 +1326,7 @@ to create is dropped by name: no note is made and the name stays plain."
     (sp-author-notes-refresh)))
 
 ;;;###autoload
-(defun sp-author-notes-apply ()
+(defun sp-author-notes-convert ()
   "Do the job and show the report, without asking.
 What was dropped from the report with `d' is left out.  The files are
 written in slices, so Emacs stays usable; the report opens when all are done."
@@ -1338,6 +1340,8 @@ written in slices, so Emacs stays usable; the report opens when all are done."
               (sp-author-notes--change-count run)
               (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
+(define-obsolete-function-alias 'sp-author-notes-apply 'sp-author-notes-convert "2026-11-07")
+
 (defun sp-author-notes--ask (run)
   "Show the report of RUN and ask what to do with its changes."
   (sp-author-notes--show run)
@@ -1349,7 +1353,7 @@ written in slices, so Emacs stays usable; the report opens when all are done."
                    '((?y "write" "Write all of them now")
                      (?r "review" "Stay in the report: d drops a candidate, u restores, A writes the rest")
                      (?q "quit" "Write nothing"))))
-        (?y (sp-author-notes-apply))
+        (?y (sp-author-notes-convert))
         (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
         (_ (message "Nothing written"))))))
 

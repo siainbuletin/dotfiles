@@ -117,7 +117,7 @@
       (sp-litnotes-titles-test--write other "see [[file:litnotes/20240101T120000--a.org][a]]")
       (let ((before (sp-litnotes-titles-test--read file)))
         (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
-          (sp-litnotes-titles-report))
+          (sp-litnotes-titles-dryrun))
         (should (equal before (sp-litnotes-titles-test--read file)))
         (should-not (file-exists-p sp-litnotes-titles-backup-directory))
         (with-current-buffer "*litnote titles*"
@@ -139,7 +139,7 @@
           (new (expand-file-name "kant2009.org" dir)))
       (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
                 ((symbol-function 'pop-to-buffer) #'ignore))
-        (sp-litnotes-titles-apply)
+        (sp-litnotes-titles-convert)
         (should-not (file-exists-p old))
         (let ((text (sp-litnotes-titles-test--read new)))
           (should (string-match-p "^#\\+title: Kant (1781) Critique of pure reason$" text))
@@ -165,7 +165,7 @@
             (with-current-buffer buffer (insert "unsaved"))
             (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
                       ((symbol-function 'pop-to-buffer) #'ignore))
-              (let ((results (sp-litnotes-titles-apply)))
+              (let ((results (sp-litnotes-titles-convert)))
                 (should (eq (plist-get (car results) :status) 'skipped))
                 (should (string-match-p "#\\+title: old$" (sp-litnotes-titles-test--read file))))))
         (with-current-buffer buffer (set-buffer-modified-p nil))
@@ -187,7 +187,7 @@
                    (cond ((string-match-p "\\`noyear" prompt) "2001")
                          ((string-match-p "\\`amb" prompt) "Ann Bo; Cy Di")
                          (t "")))))
-        (sp-litnotes-titles-apply)
+        (sp-litnotes-titles-convert)
         (should (string-match-p "^#\\+title: Lee (2001) T$"
                                 (sp-litnotes-titles-test--read (expand-file-name "noyear.org" dir))))
         (should (string-match-p "^#\\+title: Bo and Di (1999) U$"
@@ -197,7 +197,7 @@
                                 (sp-litnotes-titles-test--read (expand-file-name "skip.org" dir))))
         (should (= 3 (length asked)))
         ;; the report lists the failure
-        (sp-litnotes-titles-report)
+        (sp-litnotes-titles-dryrun)
         (with-current-buffer "*litnote titles*"
           (should (string-match-p "Failed: No pub-author" (buffer-string))))))))
 

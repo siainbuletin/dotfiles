@@ -9,8 +9,8 @@
 ;; "Reuten (2014) The value form as a social form", and renames the file
 ;; to the citation key alone (`kant2009ideea.org'), keeping the `:ID:'.
 ;;
-;; `sp-litnotes-titles-report' shows what would change and writes nothing.
-;; `sp-litnotes-titles-apply' shows the same report, offers to fill in what the
+;; `sp-litnotes-titles-dryrun' shows what would change and writes nothing.
+;; `sp-litnotes-titles-convert' shows the same report, offers to fill in what the
 ;; failed notes lack (a year, the authors, a title), asks once, copies every
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
@@ -41,7 +41,7 @@
 (defcustom sp-litnotes-titles-backup-directory
   (expand-file-name "litnote-title-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
-  "Folder where `sp-litnotes-titles-apply' copies each note before changing it.
+  "Folder where `sp-litnotes-titles-convert' copies each note before changing it.
 Every run makes a sub-folder named with the time."
   :type 'directory)
 
@@ -52,7 +52,7 @@ Those links are reported, not changed; =id:= links keep working."
   :type 'directory)
 
 (defcustom sp-litnotes-titles-rename-files t
-  "When non-nil, `sp-litnotes-titles-apply' renames the files to the citekey."
+  "When non-nil, `sp-litnotes-titles-convert' renames the files to the citekey."
   :type 'boolean)
 
 (defcustom sp-litnotes-titles-et-al-from 4
@@ -428,13 +428,15 @@ Return the job."
       (buffer-string))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-report ()
-  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing.
+(defun sp-litnotes-titles-dryrun ()
+  "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read."
   (interactive)
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
+
+(define-obsolete-function-alias 'sp-litnotes-titles-report 'sp-litnotes-titles-dryrun "2026-11-07")
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
@@ -563,7 +565,7 @@ changed."
          (equal (plist-get now :new-name) (plist-get plan :new-name)))))
 
 (defvar sp-litnotes-titles--last-results nil
-  "What the last `sp-litnotes-titles-apply' wrote: a plist per note.")
+  "What the last `sp-litnotes-titles-convert' wrote: a plist per note.")
 
 (defun sp-litnotes-titles--write-all (todo)
   "Write the plans TODO in slices, after a backup of each, and report at the end."
@@ -618,7 +620,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-apply ()
+(defun sp-litnotes-titles-convert ()
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -636,6 +638,8 @@ this return the results, a plist per note."
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
+
+(define-obsolete-function-alias 'sp-litnotes-titles-apply 'sp-litnotes-titles-convert "2026-11-07")
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here

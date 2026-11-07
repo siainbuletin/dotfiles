@@ -51,7 +51,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
   - The position is the precedence: put it above any rule it must beat.
   - One rule can take several tags, as =docs= does with =process=, =workflow= and =system=.
   - FOLDER can be nested, like =objects/films=.
-- Run =M-x sp-notes-filing-lint=; the dry run shows which notes move.
+- Run =M-x sp-notes-filing-dryrun=; the dry run shows which notes move.
 - Add the case to =tests/sp-notes-test.el= (=sp-notes-filing-folder-rules= and =-precedence=).
 - Nothing else changes: the lint, the save hook and the scheduled run all read the same list.
 
@@ -74,7 +74,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 ** Rule tags must be registered
 
-- =sp-notes-filing-lint= first calls =sp-notes-filing-check-rule-tags=.
+- =sp-notes-filing-dryrun= first calls =sp-notes-filing-check-rule-tags=.
 - It compares the tags of =sp-notes-filing-rules= with the tag registry (=sp-org-tag-lint-registered-tags=).
 - For each rule tag that is missing it asks "Add it?" (=y-or-n-p=).
   - Yes: =sp-org-tag-add= registers it in the registry file and loads it, so the tag lint accepts it.
@@ -92,7 +92,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 ** How to use it
 
-- =M-x sp-notes-filing-lint= (=SPC n f=) shows the plan in =*Notes filing*= and moves nothing.
+- =M-x sp-notes-filing-dryrun= (=SPC n f=) shows the plan in =*Notes filing*= and moves nothing.
   - The buffer lists moves per folder and each move.
   - Notes with no matching tag are marked =[no matching tag]=.
 - =C-c C-c= in that buffer applies the plan after a yes-or-no question.
@@ -465,13 +465,13 @@ Return the tags that are still unregistered."
 
 (defvar sp-notes-filing-report-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'sp-notes-filing-report-apply)
-    (define-key map (kbd "g") #'sp-notes-filing-lint)
+    (define-key map (kbd "C-c C-c") #'sp-notes-filing-convert)
+    (define-key map (kbd "g") #'sp-notes-filing-dryrun)
     (define-key map (kbd "q") #'quit-window)
     map))
 
 (define-derived-mode sp-notes-filing-report-mode special-mode "NotesFiling"
-  "Dry-run report of `sp-notes-filing-lint'.  \\[sp-notes-filing-report-apply] applies it.")
+  "Dry-run report of `sp-notes-filing-dryrun'.  \\[sp-notes-filing-convert] applies it.")
 
 (defun sp-notes-filing--render (plan)
   "Insert PLAN into the current buffer."
@@ -493,7 +493,7 @@ Return the tags that are still unregistered."
                       (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))))))
 
 ;;;###autoload
-(defun sp-notes-filing-lint ()
+(defun sp-notes-filing-dryrun ()
   "Show which notes would move where.  This moves nothing.
 First offers to register the rule tags that the tag registry lacks."
   (interactive)
@@ -508,7 +508,9 @@ First offers to register the rule tags that the tag registry lacks."
         (goto-char (point-min)))
       (pop-to-buffer (current-buffer)))))
 
-(defun sp-notes-filing-report-apply ()
+(define-obsolete-function-alias 'sp-notes-filing-lint 'sp-notes-filing-dryrun "2026-11-07")
+
+(defun sp-notes-filing-convert ()
   "Apply the plan shown in this report, after confirmation."
   (interactive)
   (let ((plan sp-notes-filing--current-plan))
@@ -520,6 +522,8 @@ First offers to register the rule tags that the tag registry lacks."
                  (or (plist-get res :backup) "-"))
         (when (plist-get res :failed)
           (message "Failed: %S" (plist-get res :failed)))))))
+
+(define-obsolete-function-alias 'sp-notes-filing-report-apply 'sp-notes-filing-convert "2026-11-07")
 
 ;;;; Automatic placement
 
@@ -557,7 +561,7 @@ Meant for `after-save-hook'.  An untagged note stays where it is."
 ;;;###autoload
 (defun sp-notes-filing-run-scheduled ()
   "File the tagged notes waiting at the top of the root.  Safe for timers.
-Untagged notes are left alone; only `sp-notes-filing-lint' sends them to other/."
+Untagged notes are left alone; only `sp-notes-filing-dryrun' sends them to other/."
   (interactive)
   (let ((plan (seq-filter (lambda (e) (and (plist-get e :tags) (not (plist-get e :skip))))
                           (sp-notes-filing-plan t))))
@@ -587,7 +591,7 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/300][#300]]
   - ✨ Added =sp-notes-filing= with the pure rule =sp-notes-filing-folder=, first match wins
     - litnote goes to =litnotes/=, person to =people/=, emacs to =docs-emacs/=, docs, process, workflow and system to =docs/=, film to =objects/films/=, hardware to =objects/hardware/=, concept and zettel to =knowledge/=, anything else to =other/=
-  - =M-x sp-notes-filing-lint= (=SPC n f=) is a dry run
+  - =M-x sp-notes-filing-dryrun= (=SPC n f=) is a dry run
     - =C-c C-c= in its buffer applies after confirmation, with a backup and a manifest first
     - =sp-notes-filing-restore= undoes a run
   - =sp-notes-filing-mode= files a tagged note at the top of =~/notes= on save, and =sp-notes-filing-run-scheduled= can be used from a timer or =emacs --batch=

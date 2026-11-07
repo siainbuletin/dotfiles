@@ -269,7 +269,7 @@ Return an ID or :skip."
               :skip
             (sp-org--offer-create title index resolved))))))
 
-(defun sp-org-convert-wikilinks ()
+(defun sp-org-wikilinks-convert ()
   "Convert Obsidian-style [[wikilinks]] in this org buffer to ID links.
 Operates on the active region, or on the whole (accessible) buffer.
 
@@ -329,6 +329,50 @@ and `[[Target^block]]' link to the note Target."
           (delete-overlay (cdr cell)))))
     (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
              auto manual sp-org--wl-created (- (length pending) manual))))
+
+(define-obsolete-function-alias 'sp-org-convert-wikilinks 'sp-org-wikilinks-convert "2026-11-07")
+
+(defun sp-org-wikilinks-dryrun ()
+  "Show what `sp-org-wikilinks-convert' would do.  Changes nothing.
+Operates on the active region, or on the whole (accessible) buffer.
+List each wikilink with its line, and whether it would be converted
+at once (one matching note) or would need a choice from you."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let* ((beg (if (use-region-p) (region-beginning) (point-min)))
+         (end (if (use-region-p) (region-end) (point-max)))
+         (entries (sp-org--collect-wikilinks beg end))
+         (index (sp-org--title-index))
+         (source (current-buffer))
+         (auto 0) (pending 0) lines)
+    (unless entries
+      (user-error "No wikilinks found"))
+    (deactivate-mark)
+    (dolist (e entries)
+      (let* ((matches (sp-org--lookup index (downcase (plist-get e :target))))
+             (line (line-number-at-pos (marker-position (plist-get e :beg)))))
+        (if (= (length matches) 1)
+            (progn (cl-incf auto)
+                   (push (format "%5d  [[%s]]  ->  %s" line (plist-get e :target)
+                                 (vulpea-note-title (car matches)))
+                         lines))
+          (cl-incf pending)
+          (push (format "%5d  [[%s]]  ->  %s" line (plist-get e :target)
+                        (if matches "several notes match: you choose" "no match: you choose"))
+                lines))
+        (set-marker (plist-get e :beg) nil)
+        (set-marker (plist-get e :end) nil)))
+    (with-current-buffer (get-buffer-create "*wikilinks dry run*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Wikilinks of %s: %d converted at once, %d need a choice.\nNothing was changed.\n\n"
+                        (buffer-name source) auto pending)
+                (mapconcat #'identity (nreverse lines) "\n")
+                "\n")
+        (goto-char (point-min))
+        (special-mode))
+      (display-buffer (current-buffer)))))
 
 (provide 'sp-org-link-conversion)
 ;; sp-org-link-conversion.el ends here.

@@ -370,7 +370,7 @@
     (sp-author-notes-test--write (expand-file-name "litnotes/a.org" vault)
                                  "#+title: x" "" "- pub-author :: Ann Lee" "")
     (let ((sp-author-notes--excluded nil))
-      (sp-author-notes-preview)
+      (sp-author-notes-dryrun)
       (with-current-buffer sp-author-notes--buffer-name
         (goto-char (point-min))
         (re-search-forward "^  Ann Lee$")
@@ -391,14 +391,14 @@
          ":PROPERTIES:" (format ":ID: l%d" i) ":END:" "#+title: x" ""
          (format "- pub-author :: Author%d Name" i) ""))
       (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
-        (sp-author-notes-preview)
+        (sp-author-notes-dryrun)
         (should (sp-async-work-find "Author notes"))
         (let ((limit (+ (float-time) 30)))
           (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
         (with-current-buffer sp-author-notes--buffer-name
           (should (string-match-p "Author7 Name" (buffer-string))))
         (should-not (file-exists-p (expand-file-name "new-1.org" vault)))
-        (sp-author-notes-apply)
+        (sp-author-notes-convert)
         (let ((limit (+ (float-time) 30)))
           (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
         (should (string-match-p "pub-author :: \\[\\[id:new-"

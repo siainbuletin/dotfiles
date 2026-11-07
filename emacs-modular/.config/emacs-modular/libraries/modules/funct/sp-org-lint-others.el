@@ -10,7 +10,7 @@
 ;;
 ;; This is the part of the `sp-org-lint' family that is not a bigger
 ;; submodule; `sp-org-lint' requires it.  Footnotes are in
-;; `sp-org-lint-footnotes'.
+;; `sp-org-lint-footnotes-dryrun'.
 
 ;;; Code:
 

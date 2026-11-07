@@ -34,3 +34,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0022-stable-and-sandbox-emacs.org][0022]] | A stable Emacs for writing, a sandbox for development, and a CI check of the tangle | proposed |
 | [[file:0023-stow-instead-of-yadm.org][0023]] | GNU Stow in =~/dotfiles= instead of yadm | accepted |
 | [[file:0024-remove-denote-file-notes-by-tag.org][0024]] | Remove Denote; file notes into folders by tag (=sp-notes=) | accepted |
+| [[file:0025-dryrun-and-convert-command-names.org][0025]] | Lint commands are named =-dryrun= (preview) and =-convert= (apply) | accepted |
