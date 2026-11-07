@@ -579,3 +579,29 @@ Untagged notes are left alone; only `sp-notes-filing-lint' sends them to other/.
 (provide 'sp-notes)
 ;;; sp-notes.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/300][#300]]
+  - ✨ Added =sp-notes-filing= with the pure rule =sp-notes-filing-folder=, first match wins
+    - litnote goes to =litnotes/=, person to =people/=, emacs to =docs-emacs/=, docs, process, workflow and system to =docs/=, film to =objects/films/=, hardware to =objects/hardware/=, concept and zettel to =knowledge/=, anything else to =other/=
+  - =M-x sp-notes-filing-lint= (=SPC n f=) is a dry run
+    - =C-c C-c= in its buffer applies after confirmation, with a backup and a manifest first
+    - =sp-notes-filing-restore= undoes a run
+  - =sp-notes-filing-mode= files a tagged note at the top of =~/notes= on save, and =sp-notes-filing-run-scheduled= can be used from a timer or =emacs --batch=
+  - 🔥 Removed Denote: the =sp-denote= module, the Denote capture templates, keybindings and the workbook command
+    - Denote file names (=20240101T120000--title__tags.org=) become =20240101120000_title.org=
+    - =#+identifier:= is dropped when the note has an =:ID:=
+  - Tags =litnote=, =film=, =hardware= and =system= are added to the registry
+  - Not scanned: =inbox/=, =area/=, =log/=, =workbook/=, dot folders and =inbox.org=, because other modules address them by path
+  - 8 ERT tests pass in batch Emacs; not run against the real vault.
+- [[https://github.com/siainbuletin/dotfiles/pull/302][#302]]
+  - 🔧 Changed =sp-notes-filing-lint= to compare the tags of =sp-notes-filing-rules= with the tag registry first
+    - it asks (=y-or-n-p=) to register each missing tag with =sp-org-tag-add=
+    - a refused tag is reported and the lint still runs
+  - Folded =sp-notes-filing= (module, doc and tests) into =sp-notes= (=libraries/modules/academic/sp-notes.el=, this doc)
+    - the doc and commentary point to =sp-litnotes=, which writes into the =litnotes/= folder that the =litnote= rule uses
+  - New ADR 0024 records the decision to remove Denote and file notes by tag; ADR 0010 is marked superseded
+  - Tests moved to =tests/sp-notes-test.el= (11 pass in batch Emacs 29); not run on the real vault.
