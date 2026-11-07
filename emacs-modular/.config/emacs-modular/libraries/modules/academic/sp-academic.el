@@ -15,8 +15,7 @@
 ;; Components:
 ;; - registering/processing BibTeX files
 ;; - citation framework (citar)
-;;    - need to rework the citar integration (both with Denote and now with vulpea)
-;;    - literature notes still created with citar-denote
+;;    - literature notes are made with citar-vulpea (see sp-litnotes)
 ;;    - anything pertaining to ROAM_REFS is done with vulpea-citar
 ;; - PDF processing and integration
 ;;    - waiting on emacs-reader (Canvas emacs patch)
@@ -26,7 +25,7 @@
 ;; - bibliographic search and database
 ;;    - fetch papers from sci-hub
 ;;    - integration with annas-archive
-;; Citar has been plugged into Denote at first, because it helps in creating literature notes
+;; Citar was plugged into Denote at first, because it helps in creating literature notes (Denote is gone).
 ;; But I would like to have a workflow similar to the BibTeX one that you get with org-roam.
 ;; This would have to be emulated with vulpea.
 ;; I need to test out the features provided by citar-vulpea, in this case
@@ -103,9 +102,6 @@
 (setq bibtex-completion-library-path (list sp-literature-dir)
       bibtex-completion-notes-path sp-notes-dir
       bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
-
-(use-package citar-org-node
-  :ensure (citar-org-node :host github :repo "krisbalintona/citar-org-node"))
 
 (use-package binder ;; for stuff that looks like scrivener
   :ensure t)

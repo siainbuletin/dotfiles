@@ -431,8 +431,6 @@ Sublists indicate that one of the entries is required."
                  (mapconcat 'identity missing ", "))
       (message "No missing executable files."))))
 
-;; Denote
-
 ;;;###autoload
 (defun sia-org-insert-notes-drawer ()
   "Generate or open a NOTES drawer under the current heading.
@@ -492,28 +490,6 @@ Customise `titlecase-style' for styling."
               (new-heading (titlecase--string heading-lower style)))
 	 (when (<= level (or sia-org-heading-level-capitalise 999))
 	   (org-edit-headline new-heading)))))))
-
-;; Fixed by Prot
-(defun sia-denote-link-description-title-case (file)
-  "Return link description for FILE.
-
-If the region is active, use it as the description.
-The title is formatted with the `titlecase' package.
-
-This function is useful as the value of `denote-link-description-function' to
-generate links in titlecase for attachments."
-  (require 'titlecase)
-  (let* ((file-type (denote-filetype-heuristics file))
-         (title (denote-retrieve-title-or-filename file file-type)))
-    (cond
-     ((denote--get-active-region-content))
-     ((or (null title) (string-blank-p title))
-      "")
-     ((string-match-p " " title)
-      title)
-     (t
-      (let ((clean-title (replace-regexp-in-string "\\([a-zA-Z0-9]\\)-\\([a-zA-Z0-9]\\)" "\\1 \\2" title)))
-        (format "%s" (titlecase--string clean-title titlecase-style)))))))
 
 ;;;;; Sensible defaults library
 
