@@ -31,9 +31,15 @@ local function run(...)
 end
 
 local layer = hs.hotkey.modal.new()
-hs.hotkey.bind({}, layerKey,
-  function() layer:enter() end,
-  function() layer:exit() end)
+-- A hotkey only matches the modifiers it is bound with. Bound with none, F18
+-- pressed while Shift is already held is not the layer key, so the layer never
+-- opens and Shift+letter types a capital. Bind the layer key with and without
+-- Shift so that either order of pressing works.
+for _, mods in ipairs({ {}, { "shift" } }) do
+  hs.hotkey.bind(mods, layerKey,
+    function() layer:enter() end,
+    function() layer:exit() end)
+end
 
 -- bind(mods, key, ...aerospace arguments)
 local function bind(mods, key, ...)
