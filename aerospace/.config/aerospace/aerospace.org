@@ -73,11 +73,16 @@ Literate source for the [[https://nikitabobko.github.io/AeroSpace/guide][AeroSpa
 
 ** Start and hooks
 
+- =config-version= is =2=, the highest version, see [[*Config version 2][Config version 2]].
 - =start-at-login= starts AeroSpace when the session starts.
 - =after-login-command= and =after-startup-command= are empty: nothing else runs at start.
 
 #+begin_src toml
 # Available commands: https://nikitabobko.github.io/AeroSpace/commands
+
+# Breaking-change level of the config, see: https://nikitabobko.github.io/AeroSpace/guide#config-version
+# Version 2 is the highest; without it AeroSpace assumes 1 and warns on reload-config
+config-version = 2
 
 # Start AeroSpace at login
 start-at-login = true
@@ -91,6 +96,30 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 after-startup-command = []
+#+end_src
+
+** Config version 2
+
+- =config-version= is a switch for breaking changes in AeroSpace; leaving it out means version 1.
+- With version 1, =aerospace reload-config= prints a warning on stderr; version 2 removes it.
+- Version 2 changes one thing: =persistent-workspaces=.
+   + Persistent workspaces stay alive when they are empty.
+   + In version 1, the fallback was guessed from the right-hand side of the key bindings, which was error-prone.
+   + In version 2, the fallback is an empty list, and the key is set by hand.
+- This config sets =persistent-workspaces = []= on purpose:
+   + The main-mode bindings are gone (the keys live in Hammerspoon), so version 1 had nothing to guess from and already kept no workspace alive.
+   + Empty workspaces still disappear as before, so nothing changes in behaviour.
+   + To keep some alive, list them, for example =["1", "2", "3"]=.
+- The guide lists no renamed or removed commands for version 2, so [[file:../../../hammerspoon/.config/hammerspoon/aerospace-keys.lua][aerospace-keys.lua]] needs no change:
+   + =focus=, =move=, =join-with=, =layout=, =resize=, =workspace=, =move-node-to-workspace=, =workspace-back-and-forth=, =move-workspace-to-monitor=, =mode= and =list-modes --current= are untouched.
+   + The service-mode keys (=flatten-workspace-tree=, =layout floating tiling=, =close-all-windows-but-current=, =reload-config=) are untouched too.
+
+#+begin_src toml
+# This config option is only available since 'config-version = 2'
+# Fallback value (if you omit the key): persistent-workspaces = []
+# No workspace is kept alive when empty: the bindings that used to imply
+# some are in Hammerspoon now.
+persistent-workspaces = []
 #+end_src
 
 ** Layout
