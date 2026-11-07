@@ -279,6 +279,16 @@ Installs =binder=, which groups files into a manuscript project in the style of 
   :ensure t)
 #+end_src
 
+** Removed citar packages
+
+- =citar= is now based on =vulpea= only (=citar-vulpea=, see =sp-litnotes=).
+- Two bridges were removed; the old code is kept at these commits, to salvage functions from:
+  - =citar-denote= (literature notes as Denote files, citekey in =#+reference:=):
+    - last config that had it: [[https://github.com/siainbuletin/dotfiles/blob/a068d58b2d84b55928d0fdb411cce7f396cf45da/.config/emacs-modular/docs/tangles/bibliography.org][bibliography.org before the Stow move (a068d58)]],
+    - the config just before Denote was removed: [[https://github.com/siainbuletin/dotfiles/tree/ec6385cdf9411563654065299a4988baee723322/emacs-modular/.config/emacs-modular][ec6385c]], the commit before [[https://github.com/siainbuletin/dotfiles/commit/2013f73a30f8ae6a0c5f0ca02bf73fe8372b6c36][2013f73]].
+  - =citar-org-node= (citar notes through org-node): [[https://github.com/siainbuletin/dotfiles/blob/4cd837830d832df59d3e3624568729ccae0f4be9/emacs-modular/.config/emacs-modular/libraries/modules/academic/sp-academic.el#L107][sp-academic.el at 4cd8378]].
+- Merging the citar packages into one vulpea-based setup is tracked in issue #319.
+
 ** Provide
 
 Provides the =sp-academic= feature and closes the file.
