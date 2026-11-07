@@ -5,7 +5,8 @@
 --
 -- How:
 --   * Caps Lock is remapped to F18 with hidutil (at every Hammerspoon start).
---   * Holding F18 is the "layer" key; keys pressed while it is held run the
+--   * Holding F18 is the "layer" key (an event tap, so Shift may be pressed
+--     before or after it); keys pressed while it is held run the
 --     `aerospace` command that the old `alt-<key>` binding ran.
 --   * F18 plus a key never reaches Emacs or any other app.
 --
@@ -30,19 +31,44 @@ local function run(...)
   end
 end
 
-local layer = hs.hotkey.modal.new()
-hs.hotkey.bind({}, layerKey,
-  function() layer:enter() end,
-  function() layer:exit() end)
+-- The layer is an event tap, not `hs.hotkey` + `hs.hotkey.modal`: a hotkey bound
+-- with no modifiers does not match when Shift is already down, so Shift then
+-- Caps Lock (F18) fell through to the focused app and typed capital letters.
+-- The tap tracks F18 whatever modifiers are down, and looks the key up with
+-- or without Shift.
+local bindings = {}   -- ["h"] or ["shift+h"] -> function
+local layerDown = false
+local keyDown, keyUp = hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp
+local layerCode = hs.keycodes.map[layerKey]
+
+-- bind(mods, key, fn): mods is {} or { "shift" }
+local function layerBind(mods, key, fn)
+  bindings[(#mods > 0 and "shift+" or "") .. key] = fn
+end
 
 -- bind(mods, key, ...aerospace arguments)
 local function bind(mods, key, ...)
-  local fn = run(...)
-  layer:bind(mods, key, fn)
+  layerBind(mods, key, run(...))
 end
 
+M.tap = hs.eventtap.new({ keyDown, keyUp }, function(e)
+  local code = e:getKeyCode()
+  if code == layerCode then
+    layerDown = (e:getType() == keyDown)
+    return true                       -- never reaches the app, even with Shift
+  end
+  if not layerDown then return false end
+  if e:getType() ~= keyDown then return false end
+  local flags = e:getFlags()
+  if flags.cmd or flags.alt or flags.ctrl then return false end
+  local fn = bindings[(flags.shift and "shift+" or "") .. (hs.keycodes.map[code] or "")]
+  if fn then fn(); return true end
+  return false
+end)
+M.tap:start()
+
 -- Terminal (was alt-enter)
-layer:bind({}, "return", function()
+layerBind({}, "return", function()
   hs.osascript.applescript('tell application "WezTerm" to activate')
 end)
 
@@ -77,5 +103,4 @@ bind({ "shift" }, "tab", "move-workspace-to-monitor", "--wrap-around", "next")
 -- Service mode (was alt-shift-semicolon); its keys are in aerospace.toml
 bind({ "shift" }, ";", "mode", "service")
 
-M.layer = layer
 return M
