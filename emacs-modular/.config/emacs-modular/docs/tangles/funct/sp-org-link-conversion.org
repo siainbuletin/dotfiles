@@ -91,20 +91,29 @@ A banner comment for the helpers used by both commands.
 
 ** Write a note file
 
-=sp-org--write-note= creates a new file in =org-directory=.
+=sp-org--write-note= creates a new file in DIR (default =org-directory=).
+
+- =sp-org-created-stamp= gives the =:CREATED:= value, for example =[2026-11-07 20:15]=.
+  - It is the format the capture templates and =sp-quick-capture= already use.
 
 - Named with a timestamp and the slugified title, for example =20261018T101500-my-note.org=.
 - If that name is taken (several notes created in the same second), it appends =-2=, =-3= and so on.
-- The file contains a property drawer with a fresh =ID= and a =#+title:= line, followed by a =#+filetags:= line when TAGS are given, and is written in UTF-8 without visiting it.
+- The file contains a property drawer with a fresh =ID= and =CREATED= and a =#+title:= line, followed by a =#+filetags:= line when TAGS are given, and is written in UTF-8 without visiting it.
 - The ID is then registered and =org-id-locations= is saved, so the new link resolves immediately.
 - Returns the ID.
 
 #+begin_src emacs-lisp -i
-(defun sp-org--write-note (title &optional tags)
-  "Write a new note TITLE into `org-directory' without visiting it.
-TAGS, a list of strings, become its #+filetags: line.  Register its ID
-with org and return the ID."
-  (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+(defun sp-org-created-stamp (&optional time)
+  "Return TIME (default now) as an inactive Org timestamp for :CREATED:.
+The format, [2026-11-07 20:15], is the one the capture templates use."
+  (format-time-string "[%Y-%m-%d %H:%M]" time))
+
+(defun sp-org--write-note (title &optional tags dir)
+  "Write a new note TITLE into DIR (default `org-directory') without visiting it.
+TAGS, a list of strings, become its #+filetags: line.  The property
+drawer holds the ID and :CREATED: (`sp-org-created-stamp').  Register
+the ID with org and return the ID."
+  (let* ((dir  (file-name-as-directory (expand-file-name (or dir org-directory))))
          (id   (org-id-new))
          (base (expand-file-name
                 (format "%s-%s"
@@ -119,7 +128,8 @@ with org and return the ID."
       (setq n (1+ n)
             file (format "%s-%d.org" base n)))
     (with-temp-file file
-      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n" id title))
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:CREATED:  %s\n:END:\n#+title: %s\n"
+                      id (sp-org-created-stamp) title))
       (when tags
         (insert (format "#+filetags: :%s:\n" (string-join tags ":"))))
       (insert "\n"))

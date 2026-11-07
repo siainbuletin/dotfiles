@@ -32,11 +32,17 @@
                "-" "-")))
     (if (string-empty-p slug) "note" slug)))
 
-(defun sp-org--write-note (title &optional tags)
-  "Write a new note TITLE into `org-directory' without visiting it.
-TAGS, a list of strings, become its #+filetags: line.  Register its ID
-with org and return the ID."
-  (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+(defun sp-org-created-stamp (&optional time)
+  "Return TIME (default now) as an inactive Org timestamp for :CREATED:.
+The format, [2026-11-07 20:15], is the one the capture templates use."
+  (format-time-string "[%Y-%m-%d %H:%M]" time))
+
+(defun sp-org--write-note (title &optional tags dir)
+  "Write a new note TITLE into DIR (default `org-directory') without visiting it.
+TAGS, a list of strings, become its #+filetags: line.  The property
+drawer holds the ID and :CREATED: (`sp-org-created-stamp').  Register
+the ID with org and return the ID."
+  (let* ((dir  (file-name-as-directory (expand-file-name (or dir org-directory))))
          (id   (org-id-new))
          (base (expand-file-name
                 (format "%s-%s"
@@ -51,7 +57,8 @@ with org and return the ID."
       (setq n (1+ n)
             file (format "%s-%d.org" base n)))
     (with-temp-file file
-      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n" id title))
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:CREATED:  %s\n:END:\n#+title: %s\n"
+                      id (sp-org-created-stamp) title))
       (when tags
         (insert (format "#+filetags: :%s:\n" (string-join tags ":"))))
       (insert "\n"))

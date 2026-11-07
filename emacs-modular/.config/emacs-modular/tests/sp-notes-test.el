@@ -148,5 +148,113 @@
     (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
       (should (equal (sp-notes-filing-check-rule-tags) '("newtag"))))))
 
+;;;; Create and open
+
+(unless (require 'vulpea nil t) (provide 'vulpea)) ; only the require is needed
+(defvar vulpea-default-notes-directory)
+(require 'sp-org-link-conversion)
+
+(ert-deftest sp-notes-created-stamp-format ()
+  (should (string-match-p "\\`\\[[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\]\\'"
+                          (sp-org-created-stamp)))
+  (should (equal (sp-org-created-stamp (encode-time 0 5 9 7 11 2026)) "[2026-11-07 09:05]")))
+
+(ert-deftest sp-notes-create-uses-vulpea-create ()
+  "vulpea-create gets the tag folder in its template, the tags and :CREATED:."
+  (let* ((root (make-temp-file "notes" t))
+         (sp-notes-filing-root root)
+         (vulpea-default-notes-directory root)
+         (tags '("film")) args)
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-org-tag-read-note-tags) (lambda (&rest _) tags))
+                  ((symbol-function 'vulpea-create)
+                   (lambda (title template &rest keys)
+                     (setq args (list title template keys))
+                     ;; Like vulpea without :properties support: no :CREATED:.
+                     (let ((f (expand-file-name (format "objects/films/%s.org" (md5 (format "%S" (list title template)))) root)))
+                       (make-directory (file-name-directory f) t)
+                       (with-temp-file f (insert ":PROPERTIES:\n:ID: i\n:END:\n#+title: A New Film\n"))
+                       f)))
+                  ((symbol-function 'vulpea-note-path) #'identity)
+                  ((symbol-function 'find-file) (lambda (f) (set-buffer (find-file-noselect f)))))
+          (let ((file (sp-notes-create "A New Film")))
+            (should (equal (nth 0 args) "A New Film"))
+            (should (equal (nth 1 args) "objects/films/${timestamp}_${slug}.org"))
+            (should (equal (plist-get (nth 2 args) :tags) '("film")))
+            (should (assoc "CREATED" (plist-get (nth 2 args) :properties)))
+            ;; the fallback added :CREATED: to the drawer
+            (with-temp-buffer
+              (insert-file-contents file)
+              (should (re-search-forward "^:CREATED: +\\[[0-9-]+ [0-9:]+\\]$" nil t))))
+          (setq tags nil)
+          (sp-notes-create "No Tags")
+          (should (equal (nth 1 args) "${timestamp}_${slug}.org")))
+      (mapc #'kill-buffer (seq-filter (lambda (b) (and (buffer-file-name b) (string-prefix-p root (buffer-file-name b)))) (buffer-list)))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-vulpea-create-advice-adds-created ()
+  "Any note made by vulpea-create (find, inbox tab) gets :CREATED:, also in a visiting buffer."
+  (let* ((root (make-temp-file "notes" t))
+         (f1 (expand-file-name "a.org" root))
+         (f2 (expand-file-name "b.org" root))
+         (f3 (expand-file-name "c.org" root))
+         (body ":PROPERTIES:\n:ID: i\n:END:\n#+title: T\n")
+         (with-created ":PROPERTIES:\n:ID: i\n:CREATED:  [2020-01-01 10:00]\n:END:\n#+title: T\n"))
+    (unwind-protect
+        (cl-letf (((symbol-function 'vulpea-note-path) #'identity)
+                  ((symbol-function 'vulpea-create)
+                   (lambda (file &rest _) file)))
+          (advice-add 'vulpea-create :filter-return #'sp-notes-created-after-vulpea-create)
+          (unwind-protect
+              (progn
+                (with-temp-file f1 (insert body))
+                (with-temp-file f3 (insert with-created))
+                (with-temp-file f2 (insert body))
+                (vulpea-create f1)
+                (vulpea-create f3)
+                (with-temp-buffer (insert-file-contents f1)
+                                  (should (re-search-forward "^:CREATED: +\\[[0-9-]+ [0-9:]+\\]$" nil t)))
+                ;; an existing :CREATED: is kept
+                (with-temp-buffer (insert-file-contents f3)
+                                  (should (search-forward "[2020-01-01 10:00]" nil t)))
+                ;; visited file: the buffer gets it, the file is not touched
+                (let ((buf (find-file-noselect f2)))
+                  (vulpea-create f2)
+                  (with-current-buffer buf
+                    (goto-char (point-min))
+                    (should (re-search-forward "^:CREATED:" nil t))
+                    (set-buffer-modified-p nil))
+                  (kill-buffer buf))
+                (should (null (vulpea-create nil))))
+            (advice-remove 'vulpea-create #'sp-notes-created-after-vulpea-create)))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-open-info-and-candidates ()
+  (let* ((root (make-temp-file "notes" t))
+         (sp-notes-filing-root root))
+    (unwind-protect
+        (progn
+          (clrhash sp-notes-open--cache)
+          (make-directory (expand-file-name "people" root))
+          (make-directory (expand-file-name ".git" root))
+          (with-temp-file (expand-file-name "people/ann.org" root)
+            (insert ":PROPERTIES:\n:ID: a\n:CREATED:  [2026-11-07 Sat 19:02]\n:END:\n#+title: Ann\n#+filetags: :person:x:\n\n* H\n:CREATED: [1999-01-01]\n"))
+          (with-temp-file (expand-file-name "20240101120000_old.org" root)
+            (insert "#+title: Old\n"))
+          (with-temp-file (expand-file-name ".git/skip.org" root) (insert "x"))
+          (let ((items (sp-notes-open--candidates)))
+            (should (equal (mapcar #'car items) '("people/ann.org" "20240101120000_old.org")))
+            (should (equal (plist-get (cdr (car items)) :created) "2026-11-07 19:02"))
+            (should (equal (plist-get (cdr (car items)) :tags) '("person" "x")))
+            (should (equal (plist-get (cdr (cadr items)) :created) "2024-01-01 12:00"))
+            (should (string-match-p "2026-11-07 19:02  :person:x:  Ann"
+                                    (sp-notes-open--annotate (cdr (car items)))))))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-open-denote-name-date ()
+  (should (equal (sp-notes-open--name-date "20240101T120000--t__a.org") "2024-01-01 12:00"))
+  (should (equal (sp-notes-open--name-date "20260507T101500-my-note.org") "2026-05-07 10:15"))
+  (should (null (sp-notes-open--name-date "plain.org"))))
+
 (provide 'sp-notes-test)
 ;;; sp-notes-test.el ends here
