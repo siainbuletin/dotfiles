@@ -1,5 +1,9 @@
 # Available commands: https://nikitabobko.github.io/AeroSpace/commands
 
+# Breaking-change level of the config, see: https://nikitabobko.github.io/AeroSpace/guide#config-version
+# Version 2 is the highest; without it AeroSpace assumes 1 and warns on reload-config
+config-version = 2
+
 # Start AeroSpace at login
 start-at-login = true
 
@@ -10,6 +14,12 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 after-startup-command = []
+
+# This config option is only available since 'config-version = 2'
+# Fallback value (if you omit the key): persistent-workspaces = []
+# No workspace is kept alive when empty: the bindings that used to imply
+# some are in Hammerspoon now.
+persistent-workspaces = []
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
