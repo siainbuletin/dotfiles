@@ -34,8 +34,8 @@ local layer = hs.hotkey.modal.new()
 -- A hotkey only matches the modifiers it is bound with. Bound with none, F18
 -- pressed while Shift is already held is not the layer key, so the layer never
 -- opens and Shift+letter types a capital. Bind the layer key with and without
--- Shift so that either order of pressing works.
-for _, mods in ipairs({ {}, { "shift" } }) do
+-- Shift so that either order of pressing works. Same for Ctrl (join, below).
+for _, mods in ipairs({ {}, { "shift" }, { "ctrl" } }) do
   hs.hotkey.bind(mods, layerKey,
     function() layer:enter() end,
     function() layer:exit() end)
@@ -60,6 +60,10 @@ bind({}, ",", "layout", "accordion", "horizontal", "vertical")
 for key, dir in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
   bind({}, key, "focus", dir)
   bind({ "shift" }, key, "move", dir)
+  -- Stack windows (join-with): the window becomes a container with its
+  -- neighbour. Not only in the service mode: while Caps Lock is still held,
+  -- Shift+h/j/k/l is "move" here, so the service-mode keys were unreliable.
+  bind({ "ctrl" }, key, "join-with", dir)
 end
 
 -- Resize (was alt-shift-minus, alt-shift-equal)

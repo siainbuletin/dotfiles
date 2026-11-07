@@ -52,6 +52,10 @@ Literate source for the [[https://nikitabobko.github.io/AeroSpace/guide][AeroSpa
 - Focus: =h=, =j=, =k=, =l= move left, down, up, right.
 - The layer opens whether Caps Lock or Shift is pressed first: the layer key is bound with and without Shift (a hotkey only matches the modifiers it is bound with, so without this Shift+Caps would just type capitals).
 - Move window: =Shift+h/j/k/l=.
+- Stack windows (join with the neighbour): =Ctrl+h/j/k/l=.
+   + It works directly on the layer, without the service mode.
+   + The service-mode =shift-h/j/k/l= keys are unreliable while Caps Lock is still held, because the layer takes =Shift+h/j/k/l= for /move/ first.
+   + The layer key is also bound with =Ctrl=, so Ctrl-then-Caps works too.
 - Resize: =Shift+-= shrinks and ~Shift+=~ grows by 50.
 - Workspaces: =1= to =9=, =a=, =b=, =d=, =e=, =m=, =t=, =w= switch; with =Shift= they move the window there; =Shift+o= moves it to workspace =O=.
 - =Tab= goes back and forth between workspaces; =Shift+Tab= moves the workspace to the next monitor.
