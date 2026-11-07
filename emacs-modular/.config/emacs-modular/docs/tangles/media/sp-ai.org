@@ -137,7 +137,7 @@ How they are reached:
 - Neither has a network port.
 - Claude Code starts the stdio wrapper =emacs-mcp-stdio.sh= (in this folder). It passes every JSON-RPC line to a running Emacs through =emacsclient=.
 - So what is needed is any Emacs with a server socket: the GUI one, or a headless daemon.
-- =sp-ai= is *not* loaded at startup any more (it made start-up wait on its git packages): run =M-x sp-ai-load= (defined in =init.el=) when you need the AI packages. Until then the MCP servers are down, so Claude's MCP calls through =emacs-mcp-stdio.sh= get no answer. A headless daemon that must serve them has to run =sp-ai-load= after start.
+- =sp-ai= is *not* loaded at startup any more (it made start-up wait on its git packages): run =M-x sp-ai-load= (defined in =init.el=) when you need the AI packages. Until then the MCP servers are down, so Claude's MCP calls through =emacs-mcp-stdio.sh= get no answer. A headless daemon that must serve them has to run =sp-ai-load= after start, for instance =emacsclient -s mcp -e '(sp-ai-load)'=. The command waits for Elpaca, so the servers are up when it returns, and a second call only reports that =sp-ai= is already loaded.
 
 ** mcp-server-lib
 
