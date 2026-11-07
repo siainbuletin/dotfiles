@@ -55,7 +55,7 @@ Literate source for the [[https://nikitabobko.github.io/AeroSpace/guide][AeroSpa
 - Resize: =Shift+-= shrinks and ~Shift+=~ grows by 50.
 - Workspaces: =1= to =9=, =a=, =b=, =d=, =e=, =m=, =t=, =w= switch; with =Shift= they move the window there; =Shift+o= moves it to workspace =O=.
 - =Tab= goes back and forth between workspaces; =Shift+Tab= moves the workspace to the next monitor.
-- =Shift+;= enters the service mode below.
+- =Shift+;= enters the service mode below, and leaves it again when pressed in the service mode (it asks AeroSpace for the current mode with =aerospace list-modes --current=).
 - =Escape= leaves the service mode (it runs =aerospace mode main=); from Terminal, =aerospace mode main= does the same.
 
 ** Costs
@@ -184,7 +184,7 @@ outer.right =      8
 
 ** Service mode
 
-- Hammerspoon enters it with =aerospace mode service= (=Shift+;= on the layer).
+- Hammerspoon enters it with =aerospace mode service= (=Shift+;= on the layer, which also leaves it).
 - Keys in this mode (each ends by going back to =main=):
    + =esc= goes back to =main= first and then reloads the configuration, so a reload that fails cannot leave you in service mode.
    + =r= flattens the workspace tree (resets the layout).
