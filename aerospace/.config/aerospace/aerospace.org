@@ -1,0 +1,223 @@
+#+TITLE: AeroSpace on the Mac: literate configuration
+#+PROPERTY: header-args:toml :tangle aerospace.toml :padline yes :comments no
+#+STARTUP: content
+
+Literate source for the [[https://nikitabobko.github.io/AeroSpace/guide][AeroSpace]] tiling window manager on the Mac.
+
+- This file writes =aerospace.toml=, next to it.
+- To tangle in Emacs, run =C-c C-v t= (=org-babel-tangle=) in this buffer.
+- The file sits in the =aerospace= Stow package, so Stow links =aerospace.toml= (and this file) into =~/.config/aerospace/=.
+- AeroSpace reads =~/.config/aerospace/aerospace.toml= and reloads it with =aerospace reload-config=.
+- The key bindings are not in the TOML: they live in Hammerspoon, see [[*Why Hammerspoon runs the keys][Why Hammerspoon runs the keys]].
+
+* Why Hammerspoon runs the keys
+
+** The problem
+
+- AeroSpace binds a key only with its own modifiers: =cmd=, =alt=, =ctrl= and =shift=.
+- Every one of those is taken by Emacs on the Mac:
+   + Command is =super= (=s-c=, =s-x=, =s-v=, =s-z= and the other =s-= keys), see [[file:../../../emacs-modular/.config/emacs-modular/docs/tangles/base/sp-macos.org][sp-macos]].
+   + Option is =meta= (=M-x= and the rest).
+   + Control is =C-= and the leader =C-;=.
+   + Shift only changes the letter.
+- The AeroSpace default is =alt-<key>=, so it would swallow every =M-<key>= before Emacs sees it.
+- AeroSpace has no way to bind a key that is not a modifier chord, and no "layer key" that is held down.
+
+** The way out
+
+- A spare key becomes the layer key: Caps Lock, which Emacs does not use.
+- Caps Lock cannot be bound by any app directly, so it is turned into a normal key first:
+   + =hidutil= maps Caps Lock (=0x700000039=) to F18 (=0x70000006D=).
+   + Hammerspoon runs that command at every start, because the mapping is lost at reboot.
+- Hammerspoon then does what AeroSpace cannot:
+   + It watches F18 with =hs.hotkey= and enters a modal (the "layer") while the key is held.
+   + Inside the layer, each key runs the =aerospace= command that the old =alt-<key>= binding ran.
+   + A key pressed in the layer never reaches Emacs or any other app.
+- AeroSpace itself is unchanged: it is driven through its command line (=aerospace focus left=, =aerospace workspace 1=, and so on).
+
+** Where it lives
+
+- Code: [[file:../../../hammerspoon/.config/hammerspoon/aerospace-keys.lua][aerospace-keys.lua]], loaded first by [[file:../../../hammerspoon/.config/hammerspoon/init.lua][init.lua]].
+- Settings at the top of that file:
+   + =capsLockAsLayer= is =true= to remap Caps Lock; set it to =false= to use another key.
+   + =layerKey= is the key that is held, =f18= by default.
+   + =aerospace= is the path of the command, =/opt/homebrew/bin/aerospace= (use =which aerospace=; =/usr/local/bin= on an Intel Mac).
+- Hammerspoon has to read the Stowed config: run =defaults write org.hammerspoon.Hammerspoon MJConfigFile "$HOME/.config/hammerspoon/init.lua"= in Terminal once, then quit and reopen Hammerspoon.
+- Design notes: [[file:../../../emacs-modular/.config/emacs-modular/docs/architecture/global-keymap-namespaces.org][global-keymap-namespaces]], section "Same keys on macOS, Linux and Windows".
+
+** The keys (Caps Lock held)
+
+- Terminal: =Return= opens WezTerm.
+- Layouts: =/= is tiles, =,= is accordion.
+- Focus: =h=, =j=, =k=, =l= move left, down, up, right.
+- Move window: =Shift+h/j/k/l=.
+- Resize: =Shift+-= shrinks and ~Shift+=~ grows by 50.
+- Workspaces: =1= to =9=, =a=, =b=, =d=, =e=, =m=, =t=, =w= switch; with =Shift= they move the window there; =Shift+o= moves it to workspace =O=.
+- =Tab= goes back and forth between workspaces; =Shift+Tab= moves the workspace to the next monitor.
+- =Shift+;= enters the service mode below.
+
+** Costs
+
+- Hammerspoon must be running; when it is not, no AeroSpace key works. It needs the Accessibility permission on first start.
+- If Hammerspoon fails to load, the Console shows the error. =init.lua= loads the AeroSpace keys before stackline for that reason.
+- Caps Lock no longer toggles capitals while the mapping is active.
+- To go back to AeroSpace's own keys, restore the =alt-*= lines from the git history of =aerospace.toml= and remove the =require= in =init.lua=.
+
+* The configuration (=aerospace.toml=)
+
+** Start and hooks
+
+- =start-at-login= starts AeroSpace when the session starts.
+- =after-login-command= and =after-startup-command= are empty: nothing else runs at start.
+
+#+begin_src toml
+# Available commands: https://nikitabobko.github.io/AeroSpace/commands
+
+# Start AeroSpace at login
+start-at-login = true
+#+end_src
+
+#+begin_src toml
+# You can use it to add commands that run after login to macOS user session.
+# 'start-at-login' needs to be 'true' for 'after-login-command' to work
+after-login-command = []
+
+# You can use it to add commands that run after AeroSpace startup.
+# 'after-startup-command' is run after 'after-login-command'
+after-startup-command = []
+#+end_src
+
+** Layout
+
+- =enable-normalization-flatten-containers= removes containers that hold only one window.
+- =enable-normalization-opposite-orientation-for-nested-containers= flips the direction inside nested containers.
+- =accordion-padding= is the visible strip of the other windows in an accordion, in pixels.
+- =default-root-container-layout= is =tiles=.
+- =default-root-container-orientation= is =auto=: horizontal on a wide monitor, vertical on a tall one.
+- =key-mapping.preset= is =qwerty=; it tells AeroSpace which keys the names in bindings mean.
+
+#+begin_src toml
+# Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+#+end_src
+
+#+begin_src toml
+# See: https://nikitabobko.github.io/AeroSpace/guide#layouts
+# The 'accordion-padding' specifies the size of accordion padding
+# You can set 0 to disable the padding feature
+accordion-padding = 20
+
+# Possible values: tiles|accordion
+default-root-container-layout = 'tiles'
+
+# Possible values: horizontal|vertical|auto
+# 'auto' means: wide monitor (anything wider than high) gets horizontal orientation,
+#               tall monitor (anything higher than wide) gets vertical orientation
+default-root-container-orientation = 'auto'
+
+# Possible values: (qwerty|dvorak)
+# See https://nikitabobko.github.io/AeroSpace/guide#key-mapping
+key-mapping.preset = 'qwerty'
+#+end_src
+
+** Mouse
+
+- =on-focused-monitor-changed= moves the pointer to the centre of the monitor that gets focus, so it follows the focus.
+
+#+begin_src toml
+# Mouse follows focus when focused monitor changes
+# See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
+# See https://nikitabobko.github.io/AeroSpace/commands#move-mouse
+# Fallback value (if you omit the key): on-focused-monitor-changed = []
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+#+end_src
+
+** Gaps
+
+- =inner.horizontal= and =inner.vertical= are the space between windows.
+- =outer.left=, =outer.bottom=, =outer.top= and =outer.right= are the space at the edge of the monitor.
+- All are 8 pixels, the same as yabai.
+
+#+begin_src toml
+# Gaps between windows (inner-*) and between monitor edges (outer-*).
+# Possible values:
+# - Constant:     gaps.outer.top = 8
+# - Per monitor:  gaps.outer.top = [{ monitor.main = 16 }, { monitor."some-pattern" = 32 }, 24]
+#                 In this example, 24 is a default value when there is no match.
+#                 Monitor pattern is the same as for 'workspace-to-monitor-force-assignment'.
+#                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
+[gaps] # same as yabai
+inner.horizontal = 8
+inner.vertical =   8
+outer.left =       8
+outer.bottom =     8
+outer.top =        8
+outer.right =      8
+#+end_src
+
+** Main mode
+
+- =[mode.main.binding]= must exist, but it is empty on purpose.
+- The bindings are in Hammerspoon, see [[*Why Hammerspoon runs the keys][Why Hammerspoon runs the keys]].
+
+#+begin_src toml
+####################################
+######## MAIN BINDING MODE #########
+####################################
+
+# 'main' binding mode declaration
+# See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
+# 'main' binding mode must be always presented
+# Fallback value (if you omit the key): mode.main.binding = {}
+[mode.main.binding]
+
+# The main-mode bindings are not here any more: they used the Option key
+# (alt-*), which Emacs now uses as Meta. Hammerspoon runs the same `aerospace`
+# commands from a layer key (Caps Lock held), see
+# hammerspoon/.config/hammerspoon/aerospace-keys.lua.
+# To go back, restore the alt-* lines from git history (this file, before the
+# change) and remove the require in hammerspoon/init.lua.
+#+end_src
+
+** Service mode
+
+- Hammerspoon enters it with =aerospace mode service= (=Shift+;= on the layer).
+- Keys in this mode (each ends by going back to =main=):
+   + =esc= reloads the configuration.
+   + =r= flattens the workspace tree (resets the layout).
+   + =f= toggles between floating and tiling.
+   + =backspace= closes every window except the current one.
+   + =shift-h/j/k/l= join the window with its neighbour in that direction.
+- The =shift-h/j/k/l= lines sit after a comment about sticky windows, but they still belong to the =[mode.service.binding]= table, because TOML tables continue until the next header.
+- Sticky windows are not supported by AeroSpace yet (issue 2), so the =s= line stays commented out.
+
+#+begin_src toml
+####################################
+########### SERVICE MODE ###########
+####################################
+
+# Entered by Hammerspoon (`aerospace mode service`), see aerospace-keys.lua.
+
+# 'service' binding mode declaration.
+# See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main'] # reset layout
+f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+backspace = ['close-all-windows-but-current', 'mode main']
+#+end_src
+
+#+begin_src toml
+####################################
+######### STICKY WINDOW ############
+####################################
+
+# sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
+#s = ['layout sticky tiling', 'mode main']
+
+shift-h = ['join-with left', 'mode main']
+shift-j = ['join-with down', 'mode main']
+shift-k = ['join-with up', 'mode main']
+shift-l = ['join-with right', 'mode main']
+#+end_src
