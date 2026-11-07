@@ -1025,6 +1025,25 @@ Testing status:
 - the interactive side in a GUI Emacs on macOS: the prompts, the header lines and finding =claude= on =exec-path=;
 - the companion skill, which has never been run.
 
+* Sia's commentary
+** Questions
+*** TODO What exactly does the design for it do?
+*** TODO Is it a good idea to make an LLM help with this?
+*** TODO Would it be better if I just used skills, instead?
+*** TODO How should it best take prompts on what to do?
+*** TODO Where should the dump go?
+
+** Improvements I could have instead
+- instead of prompting for an org file, it should redirect to the bachelor's thesis file
+- it should basically function as a different kind of [[id:cb73cffb-c6e4-46db-9a6c-cde00bde76e6][org-capture]] template (instead of trying to reinvent the wheel)
+- 
+- it should take prompts from what's on screen - trying to record the context of my thoughts and do something with it
+- adapt to the dependencies of the context - leveraging something that could potentially be done via `org-edna` - but it would have to be formatted as if it's an actual task that I'm working with
+
+Revise the way that Claude actually understood this system
+- I don't want to delegate the thinking to something that Claude is doing
+- I just want to augment my searching framework if possible
+
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../CHANGELOG.org][CHANGELOG.org]].
