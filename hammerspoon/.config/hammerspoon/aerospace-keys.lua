@@ -83,5 +83,9 @@ bind({ "shift" }, "tab", "move-workspace-to-monitor", "--wrap-around", "next")
 -- Service mode (was alt-shift-semicolon); its keys are in aerospace.toml
 bind({ "shift" }, ";", "mode", "service")
 
+-- Always a way out of service mode, even when AeroSpace does not get Esc:
+-- Caps Lock + Esc goes back to the main mode.
+bind({}, "escape", "mode", "main")
+
 M.layer = layer
 return M
