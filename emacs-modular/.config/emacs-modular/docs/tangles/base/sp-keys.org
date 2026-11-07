@@ -424,7 +424,7 @@ Notes:
 
 - =lem+notes-keys= binds:
   - =n=: =sp-notes-notebook=, the vulpea note picker
-  - =s=: the full-text search of =consult-notes=
+  - =s=: =sp-search-in-notes=, ripgrep over the notes
   - =f=: =sp-notes-filing-dryrun=, the dry run of the tag filing
 - =lem+bib-keys= under =n b= binds the =citar= commands for creating or opening literature notes.
 
@@ -436,7 +436,7 @@ Notes:
            ("n"  .  sp-notes-notebook)
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
-           ("s"  .  consult-notes-search-in-all-notes)
+           ("s"  .  sp-search-in-notes)
            ("f"  .  sp-notes-filing-dryrun))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
@@ -491,7 +491,7 @@ Both =f= and =s= run =consult-line=.
            ("j" . sp-forward-or-backward-sexp )
            ("k" . consult-yank-pop             )
            ("l" . vertico-repeat               )
-           ("n" . consult-notes-search-in-all-notes)
+           ("n" . sp-search-in-notes)
            ("r" . vr/query-replace             )
            ("s" . consult-line                 )
            ;; search for next spelling error
