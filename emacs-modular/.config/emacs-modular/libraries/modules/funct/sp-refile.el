@@ -1,5 +1,5 @@
 ;;; sp-refile.el --- One command to refile, split or merge notes -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "28.1") (denote "3.0"))
+;; Package-Requires: ((emacs "28.1"))
 
 ;;; Commentary:
 
@@ -15,8 +15,8 @@
 ;;    pointing at the note the heading came from.
 ;; 2. Leaves a plain link to the new note in the source file (not with a
 ;;    prefix argument).
-;; 3. Renames the new file with Denote's naming scheme
-;;    (`sp-split-denote-names').
+;; 3. Asks for tags when the new note has none and files it into the folder
+;;    of its tags (`sp-split-file-by-tags').
 ;; 4. Keeps footnotes working across the split (`sp-split-check-footnotes').
 ;; 5. Moves id links out of the heading text into a `- seealso ::' meta line
 ;;    (`sp-split-links-to-seealso').
@@ -32,6 +32,8 @@
 (declare-function vulpea-note-title "vulpea")
 (declare-function vulpea-merge "vulpea")
 (declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-db-update-file "vulpea-db")
+(declare-function vulpea-db--forget-file "vulpea-db")
 
 (require 'org)
 (require 'org-id)
@@ -39,7 +41,8 @@
 (require 'seq)
 (require 'cl-lib)
 (require 'vulpea)
-(require 'denote)
+(declare-function sp-notes-filing-folder "sp-notes")
+(defvar sp-notes-filing-root)
 
 ;; These must be defined before the functions below use them in `let',
 ;; so that the bindings are dynamic.
@@ -53,10 +56,12 @@
   "Split vulpea headings out with parents and a link left behind."
   :group 'applications)
 
-(defcustom sp-split-denote-names t
-  "When non-nil, name split-out notes with Denote's file-naming scheme."
+(defcustom sp-split-file-by-tags t
+  "When non-nil, ask for tags and file a split-out note into its tag folder."
   :type 'boolean
   :group 'sp-split)
+
+(define-obsolete-variable-alias 'sp-split-denote-names 'sp-split-file-by-tags "2026-11-07")
 
 (defcustom sp-split-inherit-tags nil
   "When non-nil, the new note also gets the tags its heading inherits.
@@ -529,29 +534,12 @@ running."
                (delete-region (car stub) (cdr stub))))
            (signal (car err) (cdr err))))))))
 
-(defun sp-split--add-identifier (path)
-  "Add a `#+identifier:' line to the note at PATH, from its Denote file name.
-Does nothing when the file already has one or its name carries no
-Denote identifier.  The line goes after `#+filetags', else after
-`#+title'."
-  (when-let* ((ident (denote-retrieve-filename-identifier path)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (let ((case-fold-search t))
-         (unless (re-search-forward "^#\\+identifier:" nil t)
-           (goto-char (point-min))
-           (when (or (re-search-forward "^#\\+filetags:.*$" nil t)
-                     (re-search-forward "^#\\+title:.*$" nil t))
-             (insert "\n#+identifier: " ident)))))
-      (save-buffer))))
-
 (declare-function sp-org-tag-read-note-tags "sp-org-tag-lint")
 
 (defcustom sp-split-ask-tags t
   "When non-nil, ask for the tags of a split-out note that has none.
 The menu is `sp-org-tag-read-note-tags' (grouped by tag group); the tags
-go into `#+filetags' and the Denote file name."
+go into `#+filetags' and decide the folder of the file."
   :type 'boolean
   :group 'sp-split)
 
@@ -568,44 +556,40 @@ go into `#+filetags' and the Denote file name."
               (insert "\n" line)))))
     (save-buffer)))
 
-(defun sp-split--denote-rename (note)
-  "Rename the file of NOTE with Denote's naming scheme, then re-sync vulpea.
-Return the note as vulpea knows it afterwards.  The org ID stays the
-same, so id links keep working.  Denote's own `denote-rename-file' does
-the naming (identifier, sluggified title, keywords from the tags); its
-return value is not relied on, the new name is found by diffing the
-directory."
+(defun sp-split--file-by-tags (note)
+  "Ask for the tags of NOTE if it has none, then file it into its tag folder.
+Return the note as vulpea knows it afterwards.  The org ID stays the same,
+so id links keep working.  A note without tags, or one already in its
+folder, stays where it is, and so does one whose target file exists."
+  (require 'sp-notes nil t)
   (let* ((old (vulpea-note-path note))
          (id (vulpea-note-id note))
          (tags (or (vulpea-note-tags note)
                    (when (and sp-split-ask-tags (require 'sp-org-tag-lint nil t))
                      (let ((chosen (sp-org-tag-read-note-tags
                                     (format "Tags for \"%s\": " (vulpea-note-title note)))))
-                       (sp-split--set-filetags old chosen)
+                       (when chosen (sp-split--set-filetags old chosen))
                        chosen))))
-         (dir (file-name-directory old))
-         (before (directory-files dir nil directory-files-no-dot-files-regexp t)))
-    ;; No prompts, and save the front matter Denote rewrites.
-    (let ((denote-rename-confirmations nil)
-          (denote-save-buffers t))
-      ;; TITLE `keep-current' reads the `#+title' written by the split;
-      ;; KEYWORDS are the note's tags; no signature, default date.  Older
-      ;; Denote versions have no DATE argument, so pass only what fits.
-      (apply #'denote-rename-file old 'keep-current tags
-             (let ((most (cdr (func-arity #'denote-rename-file))))
-               (take (if (integerp most) (max 0 (- most 3)) 2) '(nil nil)))))
-    (let ((new (car (seq-difference
-                     (directory-files dir nil directory-files-no-dot-files-regexp t)
-                     before #'string-equal))))
-      (if (not new)
-          note
-        (let ((new-path (expand-file-name new dir)))
-          (sp-split--add-identifier new-path)
+         (root (and (boundp 'sp-notes-filing-root) sp-notes-filing-root
+                    (file-name-as-directory (expand-file-name sp-notes-filing-root))))
+         (dir (and tags root (fboundp 'sp-notes-filing-folder)
+                   (file-name-as-directory
+                    (expand-file-name (sp-notes-filing-folder tags) root))))
+         (new (and dir (expand-file-name (file-name-nondirectory old) dir))))
+    (if (or (not new) (file-equal-p old new) (file-exists-p new))
+        (progn (when (and new (not (file-equal-p old new)))
+                 (message "Not filed: %s exists" new))
+               (if tags (or (vulpea-db-get-by-id id) note) note))
+      (when-let* ((buffer (find-buffer-visiting old)))
+        (with-current-buffer buffer (save-buffer))
+        (kill-buffer buffer))
+      (make-directory dir t)
+      (rename-file old new)
           (vulpea-db--forget-file old)
-          (org-id-add-location id new-path)
-          (vulpea-db-update-file new-path)
-          (message "Named with Denote: %s" new)
-          (or (vulpea-db-get-by-id id) note))))))
+      (org-id-add-location id new)
+      (vulpea-db-update-file new)
+      (message "Filed in %s" (abbreviate-file-name dir))
+      (or (vulpea-db-get-by-id id) note))))
 
 ;;;###autoload
 (defun sp-split-leave-parents (&optional no-link)
@@ -613,7 +597,7 @@ directory."
 The new note gets a `- parents ::' line linking back to the note the
 subtree was split out of, and the source note gets a plain link to the
 new note on the line where the heading started.  The new file is then
-renamed with Denote's naming scheme when `sp-split-denote-names' is
+filed into the folder of its tags when `sp-split-file-by-tags' is
 non-nil.  With a prefix argument NO-LINK, the link in the source is not
 left."
   (interactive "P")
@@ -624,8 +608,8 @@ left."
          (sp-split--fn-report nil)
          (org-use-tag-inheritance sp-split-inherit-tags)
          (note (call-interactively #'vulpea-split-heading)))
-    (prog1 (if (and note sp-split-denote-names)
-               (sp-split--denote-rename note)
+    (prog1 (if (and note sp-split-file-by-tags)
+               (sp-split--file-by-tags note)
              note)
       (sp-split--fn-message))))
 
