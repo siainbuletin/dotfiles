@@ -16,12 +16,17 @@
 (require 'sp-collection-query-tables-core)
 
 (defcustom sp-collec-query-views-file
-  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
-  "File where named query table views are saved.
-It is below `sp-etc-dir' (the `etc/' folder of `sp-var-dir'), where
-files that are kept and not regenerated belong."
+  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  "File where the views you save are written.
+It is inside the configuration (`user-emacs-directory'), so with Stow it
+is a link to the file in the dotfiles repository: a saved view shows up in
+`git status' there, ready to commit."
   :type 'file
   :group 'sp-collec-query)
+
+(defconst sp-collec-query-views--etc-file
+  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
+  "Where the views were saved before they moved into the configuration.")
 
 (defconst sp-collec-query-views--old-file
   (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
@@ -69,14 +74,22 @@ note in the vault with such a warning.  A saved view with the same name wins.")
                 (list :tags tags :columns columns :sort-by sort-by
                       :parent-of parent-of :parent-prop parent-prop)))))
 
+(defun sp-collec-query-views--read-file (file)
+  "Return the data in FILE, or nil when it is missing or holds no views."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (read (current-buffer)))))
+
 (defun sp-collec-query-views--source ()
   "Return the file to read the views from, or nil.
-That is `sp-collec-query-views-file'; while it does not exist yet,
-the file in `user-emacs-directory' where the views were saved before
-they moved, then the one from before the rename, so saved views carry
-over.  The next save writes `sp-collec-query-views-file'."
-  (cl-find-if #'file-exists-p
+That is `sp-collec-query-views-file' when it holds views; else the first
+older file that does (below `sp-etc-dir', in `user-emacs-directory', and
+from before the rename), so views saved there carry over.  The next save
+writes `sp-collec-query-views-file'."
+  (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
 
@@ -85,9 +98,7 @@ over.  The next save writes `sp-collec-query-views-file'."
   (interactive)
   (setq sp-collec-query-views
         (when-let* ((file (sp-collec-query-views--source)))
-          (let ((data (with-temp-buffer
-                        (insert-file-contents file)
-                        (read (current-buffer)))))
+          (let ((data (sp-collec-query-views--read-file file)))
             (mapcar (lambda (entry)
                       (if (sp-collec-query-views--legacy-entry-p entry)
                           (sp-collec-query-views--convert-legacy entry)
