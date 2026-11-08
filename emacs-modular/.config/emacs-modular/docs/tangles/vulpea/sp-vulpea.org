@@ -2241,7 +2241,7 @@ This module shows the backlinks of a Vulpea note in an Org buffer, split into gr
 
 Dependencies and open points:
 
-- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collec-query-select-note=, formerly =sia-vulpea-select-note=).
+- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collec-query-select-note=).
 - Loaded from =sp-vulpea-ext=.
 - The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason. The docstrings do not actually explain it.
 - The author flags that the shape of the link data from =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
@@ -2259,7 +2259,7 @@ Arthur's backlinks, distinct from any note that just mentions him
 in passing prose.
 
 NOT YET a real vulpea-ui sidebar widget -- see the top-level
-docstrings below for why, and `sia-vulpea-classify-backlinks' for
+docstrings below for why, and `sp-vulpea-grouped-backlinks-classify' for
 the one point of Vulpea API I couldn't fully confirm.
 #+end_quote
 
@@ -2284,7 +2284,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; in passing prose.
 ;;
 ;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
-;; docstrings below for why, and `sia-vulpea-classify-backlinks' for
+;; docstrings below for why, and `sp-vulpea-grouped-backlinks-classify' for
 ;; the one point of Vulpea API I couldn't fully confirm.
 
 ;;; Code:
@@ -2304,10 +2304,10 @@ Loads =vulpea=, =org= and =sp-collection-query-tables-core=.
 
 *** Meta key at a position
 
-=sia-vulpea--line-meta-key-at= opens the source file (visiting it if needed), goes to the link's position and checks whether that line is a description-list item with a =KEY ::= tag. It returns the key, or nil when the link is in plain prose.
+=sp-vulpea-grouped-backlinks--meta-key-at= opens the source file (visiting it if needed), goes to the link's position and checks whether that line is a description-list item with a =KEY ::= tag. It returns the key, or nil when the link is in plain prose.
 
 #+begin_src emacs-lisp -i
-(defun sia-vulpea--line-meta-key-at (file pos)
+(defun sp-vulpea-grouped-backlinks--meta-key-at (file pos)
   "If POS in FILE sits on a \"- KEY :: ...\" meta line, return KEY.
 Otherwise return nil, meaning this link sits in plain prose (a
 heading, a paragraph, anywhere that isn't a meta description-list
@@ -2323,7 +2323,7 @@ entry) rather than a structured meta property."
 
 *** Grouping the links
 
-=sia-vulpea-classify-backlinks= groups the backlinks of an ID.
+=sp-vulpea-grouped-backlinks-classify= groups the backlinks of an ID.
 
 - Asks the Vulpea database for every link pointing at the ID.
 - For each link, looks up the source note and the meta key at the link's position.
@@ -2333,11 +2333,11 @@ entry) rather than a structured meta property."
 - If the real shape differs, those two =plist-get= calls are what to change.
 
 #+begin_src emacs-lisp -i
-(defun sia-vulpea-classify-backlinks (id)
+(defun sp-vulpea-grouped-backlinks-classify (id)
   "Return an alist of (GROUP . NOTES) for every note linking to ID.
 GROUP is \"Mentions\" for a plain inline/body link, or the
 meta-property key name (e.g. \"pub-author\") for a link found on
-a \"- KEY :: [[id:...]]\" line -- see `sia-vulpea--line-meta-key-at'.
+a \"- KEY :: [[id:...]]\" line -- see `sp-vulpea-grouped-backlinks--meta-key-at'.
 NOTES is a deduplicated list of `vulpea-note' structs: the source
 of each such link.
 
@@ -2355,7 +2355,7 @@ need adjusting."
              (pos (plist-get link :pos))
              (source-note (and source-id (vulpea-db-get-by-id source-id))))
         (when (and source-note pos)
-          (let* ((key (sia-vulpea--line-meta-key-at (vulpea-note-path source-note) pos))
+          (let* ((key (sp-vulpea-grouped-backlinks--meta-key-at (vulpea-note-path source-note) pos))
                  (group (or key "Mentions")))
             (puthash group (cons source-note (gethash group groups)) groups)))))
     (let (result)
@@ -2373,27 +2373,31 @@ need adjusting."
 
 *** Grouped backlinks buffer
 
-=sia-vulpea-show-grouped-backlinks= is the interactive entry point.
+=sp-vulpea-grouped-backlinks-org-detached= is the interactive command that shows the groups in an Org buffer.
 
-- Prompts for a note with =sia-vulpea-select-note= when none is given.
+- "Detached" because the buffer does not follow the note you are in: it shows the note you picked, until you run the command again.
+- It was called =sia-vulpea-show-grouped-backlinks=. The old name is removed, with no alias (see [[file:../../../../../../adr/0025-dryrun-and-convert-command-names.org][ADR 0025]]).
+- Follow-up commands (a sidebar that follows the note, a =vulpea-ui= widget) are planned as separate commands.
+
+- Prompts for a note with =sp-collec-query-select-note= when none is given.
 - Fills a buffer named after the note, in =org-mode=, with a top heading, one subheading per group (sorted alphabetically, with its count), and an =id:= link to each source note so =org-open-at-point= works on them.
 - Shows the buffer with =display-buffer=.
 - No key is bound to it in this file.
 
 #+begin_src emacs-lisp -i
-(defun sia-vulpea-show-grouped-backlinks (&optional note)
+(defun sp-vulpea-grouped-backlinks-org-detached (&optional note)
   "Show backlinks to NOTE, grouped into \"Mentions\" plus one section
 per meta-property key they were found under (see
-`sia-vulpea-classify-backlinks'). Prompts for NOTE, via
-`sia-vulpea-select-note' (tag-annotated completion), if not given.
+`sp-vulpea-grouped-backlinks-classify'). Prompts for NOTE, via
+`sp-collec-query-select-note' (tag-annotated completion), if not given.
 
 Each entry is a real, clickable [[id:...][Title]] link back to
 the note that made the reference -- opened in `org-mode' so
 `org-open-at-point' works on them, same pattern as the property-
 conversion report."
   (interactive)
-  (let* ((note (or note (sia-vulpea-select-note "Show backlinks for: ")))
-         (groups (sia-vulpea-classify-backlinks (vulpea-note-id note))))
+  (let* ((note (or note (sp-collec-query-select-note "Show backlinks for: ")))
+         (groups (sp-vulpea-grouped-backlinks-classify (vulpea-note-id note))))
     (with-current-buffer (get-buffer-create
                            (format "*vulpea backlinks: %s*" (vulpea-note-title note)))
       (erase-buffer)
