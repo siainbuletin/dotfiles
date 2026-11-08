@@ -1,53 +1,14 @@
 #!/usr/bin/env python3
 """Keep a small DEVONthink `reading` database filled from litnote read-status.
 
-The big `literature` database stays on the Mac.  A small `reading` database is
-the one that syncs to the iPad (through the NAS's WebDAV store, which has room
-for about 20 GB).  This script has two actions:
-
     devonthink-reading.py create [--apply]
-        Create the `reading` database (and one group per selected .bib file)
-        if it does not exist yet, or open it if the file is there but closed.
+    devonthink-reading.py send [--apply] [--return] [--status S] [--bib B]
+    devonthink-reading.py --json send
 
-    devonthink-reading.py send [--apply] [--return]
-        Move into `reading` every PDF record whose citekey is
-          1. in a litnote whose `read-status` is one of the chosen statuses
-             (default: to-be-read), and
-          2. in one of the chosen .bib files (default: all of them).
-        With --return, also move records that no longer match back to where
-        they came from in `literature`.
+Both actions are dry runs unless --apply is given.  Settings: options, then
+~/.config/devonthink-reading/config.json, then the defaults below.
 
-Both are DRY RUNS unless --apply is given: they print what they would do and
-change nothing.  `send` refuses to go over the size budget (default 20 GB).
-
-What the rule reads:
-
-- Litnotes in ~/notes/litnotes/*.org.  The citekey comes from `:ROAM_REFS:`
-  (`@key`, `cite:key`, `[cite:@key]` or a bare key) or `#+reference: key`.
-  The status comes from the vulpea meta line `- read-status :: VALUE`, or a
-  `:READ-STATUS:` property.  VALUE may be a link; its description is used.
-- .bib files: by name in ~/Documents/bibliography/ (`thesis` means
-  thesis.bib) or by path.  Only the entry keys are read.
-- DEVONthink records: matched by file name, `KEY.pdf`, as the PDFs are named
-  by citekey.
-
-Settings, by precedence: options, then the JSON config file
-(~/.config/devonthink-reading/config.json, or --config), then the defaults
-below.  Example config:
-
-    {"statuses": ["to-be-read", "reading"],
-     "bib_files": ["thesis", "marx"],
-     "budget_gb": 20}
-
-Where records came from is remembered in
-~/.local/state/devonthink-reading/origins.json, so --return can put them back
-in the same group.  Nothing in DEVONthink is written except the moves, the new
-database and its groups.
-
---json prints the plan as JSON instead of text, for an Emacs front end.
-
-Tested against fake data on Linux only; the DEVONthink calls (JXA) have not
-been run.  Try `send --apply --limit 1` first and check the moved record.
+Tangled from docs/tangles/academic/devonthink-reading.org; edit that file.
 """
 
 import argparse
@@ -73,9 +34,6 @@ DEFAULTS = {
 CONFIG_PATH = HOME / ".config" / "devonthink-reading" / "config.json"
 STATE_PATH = HOME / ".local" / "state" / "devonthink-reading" / "origins.json"
 APP = "DEVONthink"   # the scripting name of DEVONthink 4; "DEVONthink 3" for version 3
-
-
-# ---------------------------------------------------------------- reading files
 
 BIB_ENTRY_RE = re.compile(r"@\s*([A-Za-z]+)\s*[{(]\s*([^,\s]+)\s*,")
 NOT_ENTRIES = {"string", "comment", "preamble"}
@@ -116,7 +74,6 @@ def bib_index(paths):
             for key in bib_keys(f.read()):
                 index.setdefault(key, path.stem)
     return index
-
 
 LINK_RE = re.compile(r"\[\[[^]]*\]\[([^]]*)\]\]|\[\[([^]]*)\]\]")
 REFS_RE = re.compile(r"^:ROAM_REFS:[ \t]*(.*)$", re.M | re.I)
@@ -179,9 +136,6 @@ def wanted_keys(statuses, notes, bibs):
     statuses = {s.lower() for s in statuses}
     return {key: bibs[key] for key, (status, _) in notes.items()
             if status in statuses and key in bibs}
-
-
-# ---------------------------------------------------------------- DEVONthink
 
 def jxa(script):
     """Run the JavaScript for Automation SCRIPT and return its JSON result."""
@@ -259,9 +213,6 @@ JSON.stringify(moved ? moved.uuid() : null);
 """ % (json.dumps(uuid), json.dumps(database), json.dumps(location or "/"))
     return jxa(script)
 
-
-# ---------------------------------------------------------------- planning
-
 def key_of(filename):
     return filename[:-4] if filename.lower().endswith(".pdf") else filename
 
@@ -309,9 +260,6 @@ def human(n):
             return "%.1f %s" % (n, unit) if unit != "B" else "%d B" % n
         n /= 1000.0
 
-
-# ---------------------------------------------------------------- state
-
 def load_state():
     try:
         return json.loads(STATE_PATH.read_text())
@@ -324,9 +272,6 @@ def save_state(state):
     tmp = STATE_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=1, sort_keys=True))
     tmp.replace(STATE_PATH)
-
-
-# ---------------------------------------------------------------- commands
 
 def load_settings(args):
     settings = dict(DEFAULTS)
@@ -437,7 +382,6 @@ def cmd_send(args, s):
     if not args.json:
         print("moved %d record(s)" % moved)
     return 0
-
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],

@@ -58,7 +58,6 @@ BIB_MARX = """@comment{x}
 @book{smith-2017-atten, title={dup}}
 """
 
-
 class Parsing(unittest.TestCase):
     def test_bib_keys_skip_string_and_comment(self):
         self.assertEqual(dr.bib_keys(BIB_THESIS), ["smith-2017-atten", "jones-2010-value"])
@@ -77,7 +76,6 @@ class Parsing(unittest.TestCase):
     def test_ref_keys_forms(self):
         self.assertEqual(dr.ref_keys("@a cite:b [cite:@c; @d] e https://x.org"),
                          ["a", "b", "c", "d", "e"])
-
 
 class Planning(unittest.TestCase):
     def setUp(self):
@@ -126,7 +124,6 @@ class Planning(unittest.TestCase):
         plan = dr.plan_moves(wanted, source, reading, 8, True, do_return=False)
         self.assertEqual(plan["back"], [])
         self.assertTrue(plan["over_budget"])
-
 
 class Commands(unittest.TestCase):
     """Run `send` end to end with the DEVONthink calls replaced."""

@@ -156,7 +156,7 @@ Recommended: a custom metadata field of type URL named =litnote=. DEVONthink can
 
 /Added 2026-11-07./ The =literature= database (about 65 GB) is too big for the iPad and for the NAS's WebDAV sync store, which has room for about 20 GB on its SSD. So =literature= stays on the Mac, always open and searchable from DEVONthink and Emacs, and a small =reading= database is the one that syncs. What goes into it is decided by a rule, not by hand.
 
-=tools/devonthink-reading.py= has two actions, both dry runs unless =--apply= is given:
+=tools/devonthink-reading.py= (literate source and full documentation: [[file:../tangles/academic/devonthink-reading.org][devonthink-reading.org]]) has two actions, both dry runs unless =--apply= is given:
 
 | Action   | What it does |
 |----------+--------------|
