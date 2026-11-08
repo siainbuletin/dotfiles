@@ -201,5 +201,96 @@
         (with-current-buffer "*litnote titles*"
           (should (string-match-p "Failed: No pub-author" (buffer-string))))))))
 
+(defvar sp-bibtex-files)
+
+(defconst sp-litnotes-titles-test--bib
+  "@book{reuten2014value,
+  author = {Reuten, Geert},
+  title = {The {Value} Form},
+  year = {2014},
+}
+@incollection{moller2020chapter,
+  author = {M{\\\"o}ller, Jan and van der Berg, Ann and {World Bank} and others},
+  title = {A Chapter},
+  crossref = {reuten2014value},
+}
+")
+
+(defmacro sp-litnotes-titles-test--with-bib (&rest body)
+  "Run BODY with a registered .bib file and a clean BibTeX state."
+  (declare (indent 0))
+  `(let* ((bibdir (make-temp-file "sp-titles-bib" t))
+          (bib (expand-file-name "a.bib" bibdir))
+          (sp-bibtex-files (list bib))
+          (sp-litnotes-titles-bibtex nil))
+     (with-temp-file bib (insert sp-litnotes-titles-test--bib))
+     (unwind-protect (progn ,@body)
+       (setq sp-litnotes-titles--bibtex-mode nil sp-litnotes-meta--index nil)
+       (delete-directory bibdir t))))
+
+(ert-deftest sp-litnotes-titles-bibtex-missing-fills-only-gaps ()
+  (sp-litnotes-titles-test--with-bib
+    (sp-litnotes-titles-test--with-vault
+      (sp-litnotes-titles-test--note dir "reuten2014value.org" "1")
+      (sp-litnotes-titles-test--note dir "moller2020chapter.org" "2"
+                                     "- pub-author :: Lee, Ann" "- pub-year :: 1999")
+      (sp-litnotes-titles-test--note dir "nobib.org" "3")
+      ;; without BibTeX nothing can be done
+      (sp-litnotes-titles-dryrun)
+      (should (equal (mapcar (lambda (p) (plist-get p :title-status))
+                             (sp-litnotes-titles--plans))
+                     '(no-pub-title no-pub-title no-pub-title)))
+      (sp-litnotes-titles-dryrun 'missing)
+      (let ((plans (sp-litnotes-titles--plans)))
+        (should (equal (mapcar (lambda (p) (plist-get p :new-title)) plans)
+                       '("Lee (1999) A Chapter" nil "Reuten (2014) The Value Form")))
+        (should (equal (plist-get (nth 2 plans) :inferred) '(:author :year :pub)))
+        (should (equal (plist-get (nth 1 plans) :bib) 'no-entry)))
+      (with-current-buffer "*litnote titles*"
+        (should (string-match-p "from BibTeX: authors, year, title" (buffer-string)))
+        (should (string-match-p "No BibTeX entry for the citekey (1)" (buffer-string)))
+        (should (string-match-p "Reuten (2014) The Value Form" (buffer-string)))))))
+
+(ert-deftest sp-litnotes-titles-bibtex-always-wins-and-reads-names ()
+  (sp-litnotes-titles-test--with-bib
+    (sp-litnotes-titles-test--with-vault
+      (sp-litnotes-titles-test--note dir "moller2020chapter.org" "2"
+                                     "- pub-author :: Lee, Ann" "- pub-year :: 1999"
+                                     "- pub-title :: Mine")
+      (sp-litnotes-titles-dryrun 'always)
+      (let ((plan (car (sp-litnotes-titles--plans))))
+        ;; accents in Unicode, particles kept, a braced name is one name,
+        ;; `and others' dropped, year from the crossref
+        (should (equal (plist-get plan :new-title)
+                       "Möller, van der Berg and World Bank (2014) A Chapter"))))))
+
+(ert-deftest sp-litnotes-titles-bibtex-typed-values-win ()
+  (sp-litnotes-titles-test--with-bib
+    (sp-litnotes-titles-test--with-vault
+      (sp-litnotes-titles-test--note dir "reuten2014value.org" "1")
+      (sp-litnotes-titles-dryrun 'missing)
+      (let ((file (expand-file-name "reuten2014value.org" dir)))
+        (puthash file '(:author "Doe, Jo") sp-litnotes-titles--overrides)
+        (should (equal (plist-get (car (sp-litnotes-titles--plans)) :new-title)
+                       "Doe (2014) The Value Form"))))))
+
+(ert-deftest sp-litnotes-titles-bibtex-prefix-argument ()
+  (let ((sp-litnotes-titles-bibtex 'missing))
+    (should (eq (sp-litnotes-titles--bibtex-from-prefix nil) 'missing))
+    (should (eq (sp-litnotes-titles--bibtex-from-prefix '(4)) 'missing))
+    (should (eq (sp-litnotes-titles--bibtex-from-prefix '(16)) 'always))))
+
+(ert-deftest sp-litnotes-titles-bibtex-convert-writes-inferred-title ()
+  (sp-litnotes-titles-test--with-bib
+    (sp-litnotes-titles-test--with-vault
+      (sp-litnotes-titles-test--note dir "reuten2014value.org" "1")
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-titles-convert 'missing))
+      (should (string-match-p "^#\\+title: Reuten (2014) The Value Form$"
+                              (sp-litnotes-titles-test--read
+                               (expand-file-name "reuten2014value.org" dir)))))))
+
 (provide 'sp-litnotes-titles-test)
 ;; sp-litnotes-titles-test.el ends here

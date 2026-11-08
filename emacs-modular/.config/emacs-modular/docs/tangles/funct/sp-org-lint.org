@@ -4135,6 +4135,11 @@ Sets the title of each literature note to a short reference built from =pub-auth
 
 - =M-x sp-litnotes-titles-dryrun= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
 - =M-x sp-litnotes-titles-convert= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
+- With a prefix argument both commands also read the authors, year and title from the BibTeX entry of each note's citation key (see /From BibTeX/ below):
+  - =C-u M-x sp-litnotes-titles-dryrun=: the entry fills what the note lacks (=missing=).
+  - =C-u C-u M-x sp-litnotes-titles-dryrun=: the entry wins over the meta lines (=always=).
+  - =sp-litnotes-titles-bibtex= sets the mode without a prefix argument.
+  - The dry run shows the proposed titles and which values came from BibTeX; nothing is written until =convert= is confirmed.
 - Failed and left alone: notes without an =:ID:= drawer; without =pub-title=, without =pub-author= or with an ambiguous one, without =pub-year= (the title); with no citation key, a key whose file exists, or a key two notes share (the rename only).
 
 ** Header and options
@@ -4157,6 +4162,10 @@ Sets the title of each literature note to a short reference built from =pub-auth
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
 ;; converted the note yet.
+;;
+;; With a prefix argument (or `sp-litnotes-titles-bibtex') both commands take
+;; the authors, the year and the title from the BibTeX entry of the key
+;; instead of, or where the note lacks, the meta lines.
 
 ;;; Code:
 
@@ -4166,7 +4175,13 @@ Sets the title of each literature note to a short reference built from =pub-auth
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
+(defvar sp-litnotes-meta--index)
 
+(declare-function sp-litnotes-meta--index-file "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--field "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--year "sp-litnotes-meta")
+(declare-function sp-author-notes-bibtex--files "sp-author-notes-bibtex")
+(declare-function sp-author-notes-latex-to-unicode "sp-author-notes")
 (declare-function vulpea-db-update-file "vulpea-db")
 (declare-function vulpea-db--forget-file "vulpea-db")
 (declare-function org-id-add-location "org-id")
@@ -4206,6 +4221,19 @@ Those links are reported, not changed; =id:= links keep working."
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
 string."
   :type 'function)
+
+(defcustom sp-litnotes-titles-bibtex nil
+  "Where the commands take the authors, the year and the title from.
+nil means only the meta lines of the note.  `missing' takes them from the
+BibTeX entry of the citation key where the note lacks them.  `always' takes
+every one the entry has, whatever the note says.  A prefix argument to
+`sp-litnotes-titles-dryrun' or `-convert' overrides this for that run."
+  :type '(choice (const :tag "Meta lines only" nil)
+                 (const :tag "BibTeX for what the note lacks" missing)
+                 (const :tag "BibTeX wins" always)))
+
+(defvar sp-litnotes-titles--bibtex-mode nil
+  "The BibTeX mode (nil, `missing' or `always') of the running command.")
 #+end_src
 
 ** Reading a note
@@ -4343,9 +4371,90 @@ Two authors are \"A and B\", three \"A, B and C\"; with
     (format "%s (%s) %s" authors year title)))
 #+end_src
 
+** From BibTeX
+
+The commands can fill in what the meta lines lack from the BibTeX entry of the note's citation key.
+
+- Modes (=sp-litnotes-titles-bibtex=, or the prefix argument: =C-u= is =missing=, =C-u C-u= is =always=):
+  - nil: only the meta lines.
+  - =missing=: the entry fills a missing or empty =pub-year= and =pub-title=, and a missing or ambiguous =pub-author=.
+  - =always=: whatever the entry has replaces the meta lines.
+- The entry is found by the first of the note's citation keys that is in the registered =.bib= files (=sp-author-notes-bibtex--files=). The key must match exactly.
+- The files are read once per run into an index (=sp-litnotes-meta--index=, from [[file:../academic/sp-litnotes-meta.org][sp-litnotes-meta]]), in the first slice of the job.
+- The reading is that of =sp-litnotes-meta= (braces removed, accents written as Unicode, year from =date= or the =crossref=).
+- Authors come from the =author= field only (never =editor=), split at =and=:
+  - =Last, First= and =First Last= are both read.
+  - A name wholly in braces (={World Bank}=) is one name.
+  - A trailing =and others= is dropped.
+  - Only last names reach the title, so no accent-insensitive matching is needed here.
+- The meta lines of the note are not changed; use =M-x sp-litnotes-meta-fill= for that.
+- Values typed in when =convert= asks about a failed note win over the entry.
+- The report says which values came from BibTeX, and lists the notes whose key has no entry.
+
+#+begin_src emacs-lisp -i
+;;;; From BibTeX
+
+(defun sp-litnotes-titles--bib-entry (keys)
+  "The first BibTeX entry among the citation KEYS in the index, as (KEY . ENTRY), or nil."
+  (when (hash-table-p sp-litnotes-meta--index)
+    (cl-some (lambda (key)
+               (when-let* ((entry (gethash key sp-litnotes-meta--index)))
+                 (cons key entry)))
+             keys)))
+
+(defun sp-litnotes-titles--bib-authors (entry)
+  "The names in the author field of ENTRY as a list of (LAST . FIRST), or nil."
+  (when-let* ((raw (cdr (assoc-string "author" entry t))))
+    (let ((text (replace-regexp-in-string
+                 "[ \t\n]+" " " (sp-author-notes-latex-to-unicode raw))))
+      (delq nil
+            (mapcar (lambda (name)
+                      (let ((name (string-trim name)))
+                        (cond ((or (string-empty-p name) (string= name "others")) nil)
+                              ((string-match "\\`{\\([^{}]*\\)}\\'" name)
+                               (cons (match-string 1 name) ""))
+                              (t (sp-litnotes-titles--split-name
+                                  (replace-regexp-in-string "[{}]" "" name))))))
+                    (split-string text "[ \t]+and[ \t]+" t))))))
+
+(defun sp-litnotes-titles--blank-p (value)
+  "Non-nil when VALUE is nil or only white space."
+  (or (null value) (string-empty-p (string-trim value))))
+
+(defun sp-litnotes-titles--with-bibtex (parsed)
+  "PARSED, from `sp-litnotes-titles--parse', with the values of its BibTeX entry.
+Does nothing when `sp-litnotes-titles--bibtex-mode' is nil.  Adds :bib (`found'
+or `no-entry'; nil without a citation key) and :inferred, the fields taken from
+the entry (:author, :year, :pub); :bib-authors holds the author names."
+  (let ((mode sp-litnotes-titles--bibtex-mode))
+    (if (or (null mode) (null (plist-get parsed :keys)))
+        parsed
+      (let ((hit (sp-litnotes-titles--bib-entry (plist-get parsed :keys))))
+        (if (null hit)
+            (plist-put parsed :bib (and (hash-table-p sp-litnotes-meta--index) 'no-entry))
+          (let* ((entry (cdr hit))
+                 (always (eq mode 'always))
+                 (own (and (plist-get parsed :author)
+                           (sp-litnotes-titles--authors (plist-get parsed :author))))
+                 (bib-authors (sp-litnotes-titles--bib-authors entry))
+                 (year (sp-litnotes-meta--year entry))
+                 (title (sp-litnotes-meta--field entry "title"))
+                 inferred)
+            (when (and bib-authors (or always (not (consp own))))
+              (setq parsed (plist-put parsed :bib-authors bib-authors))
+              (push :author inferred))
+            (when (and year (or always (sp-litnotes-titles--blank-p (plist-get parsed :year))))
+              (setq parsed (plist-put parsed :year year))
+              (push :year inferred))
+            (when (and title (or always (sp-litnotes-titles--blank-p (plist-get parsed :pub))))
+              (setq parsed (plist-put parsed :pub title))
+              (push :pub inferred))
+            (plist-put (plist-put parsed :bib 'found) :inferred (nreverse inferred))))))))
+#+end_src
+
 ** Planning
 
-Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =no-year=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). A missing year is a failure, not =n.d.=. The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped. Values typed in by the user (next section) replace what the note has, for the title only.
+Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =no-year=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). A missing year is a failure, not =n.d.=. The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped. Values typed in by the user (next section) replace what the note has, for the title only. When the BibTeX mode is on (previous section), the authors, year and title of the entry are used where the mode says so.
 
 #+begin_src emacs-lisp -i
 ;;;; Planning
@@ -4359,7 +4468,8 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
 =.org=; :keys has all of them."
   (let* ((pub (plist-get parsed :pub))
          (raw (plist-get parsed :author))
-         (authors (and raw (sp-litnotes-titles--authors raw)))
+         (authors (or (plist-get parsed :bib-authors)
+                      (and raw (sp-litnotes-titles--authors raw))))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
          (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
@@ -4411,10 +4521,13 @@ DIRECTORY is the folder of the notes; names are compared without case."
 :pub, :author and :year that replaces what the note has.")
 
 (defun sp-litnotes-titles--parse-with-overrides (file)
-  "`sp-litnotes-titles--parse' of FILE, with the values typed in for it."
-  (let ((parsed (sp-litnotes-titles--parse file)))
+  "`sp-litnotes-titles--parse' of FILE, with its BibTeX values and the values typed in for it."
+  (let ((parsed (sp-litnotes-titles--with-bibtex (sp-litnotes-titles--parse file))))
     (cl-loop for (key value) on (gethash file sp-litnotes-titles--overrides) by #'cddr
-             do (setq parsed (plist-put parsed key value)))
+             do (setq parsed (plist-put parsed key value))
+             (when (eq key :author)
+               (setq parsed (plist-put (plist-put parsed :bib-authors nil) :inferred
+                                       (remq :author (plist-get parsed :inferred))))))
     parsed))
 
 (defun sp-litnotes-titles--plans (&optional directory)
@@ -4485,7 +4598,16 @@ Return the job."
          plans old (found (list nil)))
     (sp-async-work-run
      "Litnote titles"
-     (list (list "reading notes"
+     (list (list "reading BibTeX"
+                 (lambda ()
+                   (when (and sp-litnotes-titles--bibtex-mode
+                              (not (hash-table-p sp-litnotes-meta--index)))
+                     (require 'sp-litnotes-meta)
+                     (setq sp-litnotes-meta--index (make-hash-table :test #'equal))
+                     (sp-author-notes-bibtex--files)))
+                 (lambda (file _job)
+                   (sp-litnotes-meta--index-file file sp-litnotes-meta--index)))
+           (list "reading notes"
                  (lambda () (directory-files dir t "\\`[^.#].*\\.org\\'"))
                  (lambda (file _job)
                    (push (sp-litnotes-titles--plan
@@ -4542,6 +4664,11 @@ Return the job."
                       (cl-count-if (lambda (p) (memq (plist-get p :title-status)
                                                      sp-litnotes-titles--promptable))
                                    plans)))
+      (when sp-litnotes-titles--bibtex-mode
+        (insert (format "- BibTeX (%s): %d notes took a value from their entry; %d citekeys have no entry\n"
+                        sp-litnotes-titles--bibtex-mode
+                        (cl-count-if (lambda (p) (plist-get p :inferred)) plans)
+                        (cl-count 'no-entry plans :key (lambda (p) (plist-get p :bib))))))
       (insert (format "- notes written by apply: %d\n\n" (length changing)))
       (when changing
         (insert (format "* Would change (%d)\n" (length changing)))
@@ -4557,6 +4684,11 @@ Return the job."
                 (insert (format "- title: %s -> %s\n"
                                 (or (plist-get plan :title) "(none)") (plist-get plan :new-title)))
               (insert "- title: unchanged\n"))
+            (when-let* ((inferred (plist-get plan :inferred)))
+              (insert (format "- from BibTeX: %s\n"
+                              (mapconcat (lambda (f) (pcase f (:author "authors") (:year "year")
+                                                       (:pub "title")))
+                                         inferred ", "))))
             (if renamed
                 (insert (format "- file: %s -> =%s=\n" old-name (plist-get plan :new-name)))
               (insert "- file: unchanged\n"))
@@ -4580,6 +4712,12 @@ Return the job."
                               (if (plist-get plan :new-name)
                                   (format "; would be =%s=" (plist-get plan :new-name))
                                 "")))))))
+      (when-let* ((missing (cl-remove-if-not (lambda (p) (eq (plist-get p :bib) 'no-entry))
+                                             plans)))
+        (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
+        (dolist (plan missing)
+          (insert (format "- =%s=: %s\n" (file-name-nondirectory (plist-get plan :file))
+                          (string-join (plist-get plan :keys) " ")))))
       (let ((by-title (make-hash-table :test 'equal)) dups)
         (dolist (plan plans)
           (when-let* ((title (plist-get plan :new-title)))
@@ -4593,13 +4731,33 @@ Return the job."
                                        group ", "))))))
       (buffer-string))))
 
+;;;; Starting a run
+
+(defun sp-litnotes-titles--bibtex-from-prefix (arg)
+  "The BibTeX mode for the prefix argument ARG: nil, `missing' or `always'."
+  (cond ((null arg) sp-litnotes-titles-bibtex)
+        ((>= (prefix-numeric-value arg) 16) 'always)
+        (t 'missing)))
+
+(defun sp-litnotes-titles--start (bibtex)
+  "Forget what an earlier run typed or read, and set the BibTeX mode to BIBTEX.
+Signal a `user-error' at once when the mode is on and there is no .bib file."
+  (clrhash sp-litnotes-titles--overrides)
+  (setq sp-litnotes-titles--bibtex-mode bibtex)
+  (setq sp-litnotes-meta--index nil)
+  (when bibtex
+    (require 'sp-author-notes-bibtex)
+    (sp-author-notes-bibtex--files)))
+
 ;;;###autoload
-(defun sp-litnotes-titles-dryrun ()
+(defun sp-litnotes-titles-dryrun (&optional bibtex)
   "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+when they are read.  BibTeX, from the prefix argument (\\[universal-argument] is
+`missing', twice is `always'), takes the authors, year and title from the BibTeX
+entry of each key instead of `sp-litnotes-titles-bibtex'; see there."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (sp-litnotes-titles--start bibtex)
   (sp-litnotes-titles--show-report))
 
 
@@ -4791,7 +4949,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-convert ()
+(defun sp-litnotes-titles-convert (&optional bibtex)
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -4803,9 +4961,10 @@ since the report, is skipped.  The Vulpea database is updated after each
 change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
 links to old names are listed in the report but not changed.  Running it
 again changes nothing.  Only when `sp-async-work-synchronous' is set does
-this return the results, a plist per note."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+this return the results, a plist per note.  BibTeX is as in
+`sp-litnotes-titles-dryrun'."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (sp-litnotes-titles--start bibtex)
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
