@@ -10,6 +10,7 @@
 ;;   sp-collection-query-tables-menu    the transient menu that builds a spec
 ;;   sp-collection-query-tables-exc     exc grid renderer (loaded when first used)
 ;;   sp-collection-query-tables-vui     vui renderer and inline tables (loaded when first used)
+;;   sp-collection-query-tables-book    section table of a book or collection (and its vulpea-ui widget)
 ;;
 ;; `sp-collec-query-menu' (C-c w T) is the front door; `sp-collec-query-open'
 ;; is the function the others call.
@@ -26,6 +27,7 @@
 (require 'sp-collection-query-tables-views)
 (require 'sp-collection-query-tables-org)
 (require 'sp-collection-query-tables-menu)
+(require 'sp-collection-query-tables-book)
 
 (declare-function sp-collec-query-exc-open "sp-collection-query-tables-exc")
 (declare-function sp-collec-query-exc-available-p "sp-collection-query-tables-exc")
@@ -134,6 +136,7 @@ buffer is redrawn with SPEC instead of opening another."
 (keymap-global-set "C-c w v" #'sp-collec-query-open-view)
 (keymap-global-set "C-c w V" #'sp-collec-query-view-save)
 (keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
+(keymap-global-set "C-c w b" #'sp-collec-query-book-open)
 
 (provide 'sp-collection-query-tables)
 ;;; sp-collection-query-tables.el ends here

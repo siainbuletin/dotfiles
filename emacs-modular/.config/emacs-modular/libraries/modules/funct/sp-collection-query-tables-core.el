@@ -40,6 +40,7 @@ note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
 in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
+:PAGES shows the pub-pages meta key and :PAGE its first number (to sort on);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
@@ -54,7 +55,8 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf :devonthink)
+  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page
+    :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -256,6 +258,13 @@ JSON.stringify(out);"
                                               (gethash b sp-collec-query--dt-uuids))))
                ", ")))
 
+(defun sp-collec-query-first-page (text)
+  "Return the first number in TEXT, such as \"pp. 12-34\", or nil.
+Roman numerals and empty text give nil."
+  (and (stringp text)
+       (string-match "[0-9]+" text)
+       (string-to-number (match-string 0 text))))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -272,6 +281,11 @@ naming a meta key (several values are joined with \", \")."
     (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
     (:pdf (sp-collec-query--pdf-links note))
     (:devonthink (sp-collec-query--dt-links note))
+    (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
+    (:page (if-let* ((n (sp-collec-query-first-page
+                         (car (vulpea-note-meta-get-list note "pub-pages")))))
+               (number-to-string n)
+             ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
