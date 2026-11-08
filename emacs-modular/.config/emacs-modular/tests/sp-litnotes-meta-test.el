@@ -147,6 +147,54 @@
           (should (equal (plist-get (sp-litnotes-meta--file-meta c) :read-status) "03-review")))
       (delete-directory dir t))))
 
+(ert-deftest sp-litnotes-meta-status-region-marks ()
+  "Marking and changing act on every note in the active region."
+  (let* ((dir (make-temp-file "sp-meta-region" t))
+         (sp-author-notes-litnotes-directory dir)
+         (files (mapcar (lambda (n) (expand-file-name (concat n ".org") dir))
+                        '("a" "b" "c"))))
+    (unwind-protect
+        (progn
+          (dolist (f files)
+            (with-temp-file f
+              (insert (format ":PROPERTIES:\n:ID: %s\n:END:\n#+title: %s\n\n- read-status :: 01-new\n\n* H\n"
+                              (file-name-base f) (file-name-base f)))))
+          (with-current-buffer (get-buffer-create "*litnote status test*")
+            (sp-litnotes-meta-status-mode)
+            (transient-mark-mode 1)
+            (sp-litnotes-meta-status-refresh)
+            ;; region over the first two lines, ending at the start of line 3
+            (goto-char (point-min))
+            (set-mark (point))
+            (forward-line 2)
+            (activate-mark)
+            (should (= (length (sp-litnotes-meta--region-files)) 2))
+            (sp-litnotes-meta-status-mark)
+            (should (= (length sp-litnotes-meta--marked) 2))
+            ;; the row order is the sort order, so check the third row
+            (goto-char (point-min))
+            (forward-line 2)
+            (should-not (member (tabulated-list-get-id) sp-litnotes-meta--marked))
+            ;; unmark one line with a region of one line
+            (goto-char (point-min))
+            (set-mark (point))
+            (end-of-line)
+            (activate-mark)
+            (sp-litnotes-meta-status-unmark)
+            (should (= (length sp-litnotes-meta--marked) 1))
+            ;; with no marks, change uses the region
+            (sp-litnotes-meta-status-unmark-all)
+            (goto-char (point-min))
+            (set-mark (point))
+            (goto-char (point-max))
+            (activate-mark)
+            (sp-litnotes-meta-status-change "05-done")
+            (dolist (f files)
+              (should (equal (plist-get (sp-litnotes-meta--file-meta f) :read-status)
+                             "05-done")))
+            (kill-buffer)))
+      (delete-directory dir t))))
+
 (ert-deftest sp-litnotes-meta-backfill-children ()
   (sp-litnotes-meta-test--with-bib (concat sp-litnotes-meta-test--bib
                                            "@incollection{roe2016chapter,
