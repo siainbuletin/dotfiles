@@ -23,7 +23,18 @@
   (defun vulpea-note-id (note) (plist-get note :id))
   (defun vulpea-note-title (note) (plist-get note :title))
   (defun vulpea-note-path (note) (plist-get note :path))
-  (defun sp-collec-query-select-note (_prompt) nil))
+  (defun sp-collec-query-select-note (_prompt) nil)
+  ;; vulpea-ui: the module only calls these three.
+  (provide 'vulpea-ui)
+  (defvar sp-vulpea-grouped-backlinks-test--main nil
+    "Note the stubbed main window shows, or nil.")
+  (defvar sp-vulpea-grouped-backlinks-test--visited nil
+    "Last note passed to the stubbed `vulpea-ui-visit-note'.")
+  (defun vulpea-ui--get-main-window (&optional _frame) (selected-window))
+  (defun vulpea-ui--get-note-from-buffer (_buffer)
+    sp-vulpea-grouped-backlinks-test--main)
+  (defun vulpea-ui-visit-note (note)
+    (setq sp-vulpea-grouped-backlinks-test--visited note)))
 
 (load (expand-file-name
        "../libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el"
@@ -97,6 +108,109 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
                  sia-vulpea-classify-backlinks
                  sia-vulpea--line-meta-key-at))
     (should-not (fboundp old))))
+
+;;;; Sidebar
+
+(defmacro sp-vulpea-grouped-backlinks-test--with-sidebar (&rest body)
+  "Run BODY in a vault whose main window shows note \"target\"."
+  (declare (indent 0))
+  `(sp-vulpea-grouped-backlinks-test--with-vault
+     (let ((sp-vulpea-grouped-backlinks-test--main
+            (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))
+           (sp-vulpea-grouped-backlinks-sidebar-follow t))
+       (unwind-protect (progn ,@body)
+         (sp-vulpea-grouped-backlinks-sidebar-close)))))
+
+(defun sp-vulpea-grouped-backlinks-test--sidebar-text ()
+  (with-current-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name
+    (buffer-string)))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sorted-puts-mentions-first ()
+  (sp-vulpea-grouped-backlinks-test--with-vault
+    (should (equal (mapcar #'car (sp-vulpea-grouped-backlinks-sorted "target"))
+                   '("Mentions" "pub-author")))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-opens-in-a-side-window ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (let ((win (get-buffer-window sp-vulpea-grouped-backlinks-sidebar-buffer-name)))
+      (should (window-live-p win))
+      (should (eq (window-parameter win 'window-side) 'right)))
+    (let ((text (sp-vulpea-grouped-backlinks-test--sidebar-text)))
+      (should (string-match-p "Backlinks to Target" text))
+      (should (string-match-p "Mentions (1)" text))
+      (should (string-match-p "pub-author (1)" text))
+      (should (string-match-p "following the main note" text)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-command-toggles ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (should-not (get-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name))
+    (should-not (memq #'sp-vulpea-grouped-backlinks-sidebar--on-window-change
+                      window-buffer-change-functions))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-follows-the-main-note ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (setq sp-vulpea-grouped-backlinks-test--main
+          (cdr (assoc "a" sp-vulpea-grouped-backlinks-test--notes)))
+    (sp-vulpea-grouped-backlinks-sidebar--sync)
+    (should (string-match-p "Backlinks to Note A"
+                            (sp-vulpea-grouped-backlinks-test--sidebar-text)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-stays-when-follow-is-off ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (setq sp-vulpea-grouped-backlinks-sidebar-follow nil
+          sp-vulpea-grouped-backlinks-test--main
+          (cdr (assoc "a" sp-vulpea-grouped-backlinks-test--notes)))
+    (sp-vulpea-grouped-backlinks-sidebar--sync)
+    (should (string-match-p "Backlinks to Target"
+                            (sp-vulpea-grouped-backlinks-test--sidebar-text)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-keeps-note-outside-notes ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (setq sp-vulpea-grouped-backlinks-test--main nil)
+    (sp-vulpea-grouped-backlinks-sidebar--sync)
+    (should (string-match-p "Backlinks to Target"
+                            (sp-vulpea-grouped-backlinks-test--sidebar-text)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-toggle-follow-flips-and-catches-up ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (setq sp-vulpea-grouped-backlinks-sidebar-follow nil
+          sp-vulpea-grouped-backlinks-test--main
+          (cdr (assoc "a" sp-vulpea-grouped-backlinks-test--notes)))
+    (sp-vulpea-grouped-backlinks-sidebar-toggle-follow)
+    (should sp-vulpea-grouped-backlinks-sidebar-follow)
+    (let ((text (sp-vulpea-grouped-backlinks-test--sidebar-text)))
+      (should (string-match-p "Backlinks to Note A" text))
+      (should (string-match-p "following the main note" text)))
+    (sp-vulpea-grouped-backlinks-sidebar-toggle-follow)
+    (should (string-match-p "pinned"
+                            (sp-vulpea-grouped-backlinks-test--sidebar-text)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-window-change-arms-one-timer ()
+  (let ((sp-vulpea-grouped-backlinks-sidebar--timer nil)
+        (armed 0))
+    (cl-letf (((symbol-function 'run-with-timer)
+               (lambda (&rest _) (cl-incf armed) 'timer)))
+      (sp-vulpea-grouped-backlinks-sidebar--on-window-change)
+      (sp-vulpea-grouped-backlinks-sidebar--on-window-change))
+    (should (= armed 1))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-button-visits-in-main-window ()
+  (sp-vulpea-grouped-backlinks-test--with-sidebar
+    (sp-vulpea-grouped-backlinks-sidebar)
+    (with-current-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name
+      (goto-char (point-min))
+      (search-forward "Note B")
+      (backward-char 1)
+      (push-button))
+    (should (equal (vulpea-note-id sp-vulpea-grouped-backlinks-test--visited)
+                   "b"))))
 
 (provide 'sp-vulpea-grouped-backlinks-test)
 ;;; sp-vulpea-grouped-backlinks-test.el ends here
