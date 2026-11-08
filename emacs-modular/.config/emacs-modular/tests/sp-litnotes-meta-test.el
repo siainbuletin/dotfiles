@@ -92,17 +92,91 @@
           (cl-letf (((symbol-function 'sp-litnotes-meta--author-note)
                      (lambda (name) (cons "aid" name)))
                     ((symbol-function 'sp-litnotes-meta--read-project)
-                     (lambda () "[[id:p][Thesis]]")))
+                     (lambda () "[[id:p][Thesis]]"))
+                    ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () "02"))
+                    ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil)))
             (should (equal (sp-litnotes-meta-fill "doe2015chapter" file)
-                           '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project")))
+                           '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project"
+                             "read-status" "relevance-factor")))
             (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
               (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Jane Doe\\]\\]" text))
               (should (string-match-p "- pub-title :: A Chapter" text))
               (should (string-match-p "- pub-year :: 2014" text))
               (should (string-match-p "- bib-parent :: \\[\\[id:lit-book\\]\\[Reuten (2014) Book\\]\\]" text))
-              (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text)))
+              (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text))
+              (should (string-match-p "- read-status :: 02-preparing" text))
+              (should (string-match-p "- relevance-factor :: 02" text))
+              (should-not (string-match-p "read-priority" text)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
+        (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-read-scale-empty-skips ()
+  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "  ")))
+    (should-not (sp-litnotes-meta--read-priority)))
+  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) " 05 ")))
+    (should (equal (sp-litnotes-meta--read-relevance) "05"))))
+
+(ert-deftest sp-litnotes-meta-status-report-and-change ()
+  (let* ((dir (make-temp-file "sp-meta-status" t))
+         (sp-author-notes-litnotes-directory dir)
+         (a (expand-file-name "a.org" dir))
+         (b (expand-file-name "b.org" dir))
+         (c (expand-file-name "c.org" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file a
+            (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n\n- read-status :: 02-preparing\n- read-priority :: 01\n\n* H\n"))
+          (with-temp-file b
+            (insert ":PROPERTIES:\n:ID: b\n:END:\n#+title: B\n\n- read-status :: reading\n\n* H\n"))
+          (with-temp-file c (insert ":PROPERTIES:\n:ID: c\n:END:\n#+title: C\n\n"))
+          (let ((meta (sp-litnotes-meta--file-meta a)))
+            (should (equal (plist-get meta :title) "A"))
+            (should (equal (plist-get meta :read-status) "02-preparing"))
+            (should (equal (plist-get meta :read-priority) "01"))
+            (should (equal (plist-get meta :relevance-factor) "")))
+          ;; the report flags the two notes with a bad or missing status
+          (with-temp-buffer
+            (sp-litnotes-meta-status-mode)
+            (setq tabulated-list-entries (sp-litnotes-meta--status-entries))
+            (should (string-match-p "02-preparing: 1.*other: 2" (sp-litnotes-meta--status-header))))
+          ;; change replaces a value and adds a missing line
+          (sp-litnotes-meta-set-status b "05-done")
+          (sp-litnotes-meta-set-status c "03-review")
+          (should (equal (plist-get (sp-litnotes-meta--file-meta b) :read-status) "05-done"))
+          (should (equal (plist-get (sp-litnotes-meta--file-meta c) :read-status) "03-review")))
+      (delete-directory dir t))))
+
+(ert-deftest sp-litnotes-meta-backfill-children ()
+  (sp-litnotes-meta-test--with-bib (concat sp-litnotes-meta-test--bib
+                                           "@incollection{roe2016chapter,
+  author = {Roe, Rick},
+  title = {Second Chapter},
+  crossref = {Reuten2014Book},
+}
+")
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (sp-litnotes-meta-auto nil)
+           (made nil) (presets nil))
+      (unwind-protect
+          (progn
+            (with-temp-file (expand-file-name "doe2015chapter.org" dir)
+              (insert ":PROPERTIES:\n:ID: c1\n:ROAM_REFS: @doe2015chapter\n:END:\n#+title: x\n\n"))
+            ;; doe2015chapter already has a note, so only roe2016chapter is a candidate
+            (should (equal (mapcar (lambda (c) (plist-get c :key))
+                                   (sp-litnotes-meta--children "reuten2014book"))
+                           '("roe2016chapter")))
+            (with-temp-buffer
+              (org-mode)
+              (insert "#+title: Book\n\n- bib-project :: [[id:p][Thesis]]\n\n")
+              (cl-letf (((symbol-function 'citar-create-note) (lambda (key &rest _) (push key made)))
+                        ((symbol-function 'sp-litnotes-meta-fill)
+                         (lambda (key &rest _) (push (cons key sp-litnotes-meta--preset) presets))))
+                (should (equal (sp-litnotes-meta-backfill-children "reuten2014book" '("roe2016chapter"))
+                               '("roe2016chapter")))))
+            (should (equal made '("roe2016chapter")))
+            (should (equal (cdr (assoc "bib-project" (cdr (car presets)))) "[[id:p][Thesis]]")))
         (delete-directory dir t)))))
 
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
