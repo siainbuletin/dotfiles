@@ -11,9 +11,9 @@
 ;; Arthur's backlinks, distinct from any note that just mentions him
 ;; in passing prose.
 ;;
-;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
-;; docstrings below for why, and `sp-vulpea-grouped-backlinks-classify' for
-;; the one point of Vulpea API I couldn't fully confirm.
+;; The vulpea-ui widget is in sp-vulpea-grouped-backlinks-widget.el.
+;; `sp-vulpea-grouped-backlinks-classify' holds the one point of Vulpea
+;; API I couldn't fully confirm.
 
 ;;; Code:
 

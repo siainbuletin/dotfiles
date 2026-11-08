@@ -109,6 +109,68 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
                  sia-vulpea--line-meta-key-at))
     (should-not (fboundp old))))
 
+;;;; Widget
+
+;; The real `vui' macros are replaced by small stand-ins that turn a component
+;; into a plain function returning nested lists, so the test sees its shape.
+(defvar sp-vulpea-grouped-backlinks-test--registered nil
+  "Arguments of the stubbed `vulpea-ui-register-widget' calls.")
+(when noninteractive
+  (provide 'vui)
+  (defun use-vulpea-ui-note () sp-vulpea-grouped-backlinks-test--main)
+  (defmacro vui-use-memo (_deps &rest body) `(progn ,@body))
+  (defmacro vui-defcomponent (name _args &rest body)
+    `(defun ,name () ,(cadr (memq :render body))))
+  (defun vui-text (text &rest _) (list 'text text))
+  (defun vui-vstack (&rest args)
+    (cons 'vstack (if (eq (car args) :indent) (cddr args) args)))
+  (defun vui-component (type &rest props)
+    (if (plist-get props :children)
+        (list type (plist-get props :title) (plist-get props :count)
+              (funcall (plist-get props :children)))
+      (list type (plist-get props :note))))
+  (defun vulpea-ui-register-widget (name &rest props)
+    (push (cons name props) sp-vulpea-grouped-backlinks-test--registered)))
+
+(load (expand-file-name
+       "../libraries/modules/vulpea/sp-vulpea-grouped-backlinks-widget.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-widget-is-registered ()
+  (let ((entry (assq 'grouped-backlinks
+                     sp-vulpea-grouped-backlinks-test--registered)))
+    (should entry)
+    (should (eq (plist-get (cdr entry) :component)
+                'sp-vulpea-grouped-backlinks-widget))
+    (should (= (plist-get (cdr entry) :order) 310))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-widget-renders-the-groups ()
+  (sp-vulpea-grouped-backlinks-test--with-vault
+    (let* ((sp-vulpea-grouped-backlinks-test--main
+            (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))
+           (tree (sp-vulpea-grouped-backlinks-widget)))
+      (should (eq (car tree) 'vulpea-ui-widget))
+      (should (equal (nth 1 tree) "Grouped backlinks"))
+      (should (= (nth 2 tree) 2))
+      (let ((flat (format "%S" (nth 3 tree))))
+        (should (string-match-p "Mentions (1)" flat))
+        (should (string-match-p "pub-author (1)" flat))
+        (should (string-match-p "vulpea-ui-note-link" flat))
+        (should (string-match-p ":id \"b\"" flat))))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-widget-says-so-without-backlinks ()
+  (sp-vulpea-grouped-backlinks-test--with-vault
+    (let* ((sp-vulpea-grouped-backlinks-test--main
+            (cdr (assoc "a" sp-vulpea-grouped-backlinks-test--notes)))
+           (tree (sp-vulpea-grouped-backlinks-widget)))
+      (should (= (nth 2 tree) 0))
+      (should (equal (nth 3 tree) '(text "No backlinks"))))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-widget-renders-nothing-without-a-note ()
+  (let ((sp-vulpea-grouped-backlinks-test--main nil))
+    (should-not (sp-vulpea-grouped-backlinks-widget))))
+
 ;;;; Sidebar
 
 (defmacro sp-vulpea-grouped-backlinks-test--with-sidebar (&rest body)

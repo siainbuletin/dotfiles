@@ -43,6 +43,8 @@
 
 (require 'sp-vulpea-grouped-backlinks)
 
+(require 'sp-vulpea-grouped-backlinks-widget)
+
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
 (require 'sp-refile)
 
