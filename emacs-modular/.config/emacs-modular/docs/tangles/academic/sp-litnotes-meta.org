@@ -437,10 +437,15 @@ lines that were changed."
   - The header line counts the notes of each allowed status, the notes with another value ("other") and the marked notes.
   - A status that is missing or not in =sp-litnotes-meta-read-statuses= is shown in the =warning= face.
 - Keys in the report:
-  - =m= and =u=: mark and unmark the note at point.
+  - =m= and =u=: mark and unmark the note at point, or every note in the active region.
   - =M=: mark all notes of one status; =U=: remove all marks.
-  - =s=: change the read-status of the marked notes (or the note at point when none is marked), choosing from the allowed list.
+  - =s=: change the read-status of the marked notes, choosing from the allowed list.
+    - With no marks, it uses the notes in the active region, else the note at point.
   - =g=: rescan; =RET=: open the note.
+- Selecting several notes at once:
+  - Shift-select lines (=S-<down>=, or any other way of making a region; works with CUA mode).
+  - A region ending at the start of a line does not include that line.
+  - The region is deactivated after =m=, =u= or =s=.
 - A note with unsaved changes is never written.
 
 #+begin_src emacs-lisp
@@ -529,21 +534,43 @@ The values are strings (empty when missing)."
                        sp-litnotes-meta-read-statuses "  ")
             (format "  other: %d  marked: %d" other (length sp-litnotes-meta--marked)))))
 
+;; Shift-selecting lines (or any active region) acts on every note in it.
+(defun sp-litnotes-meta--region-files ()
+  "The files of the notes on the lines of the active region, or nil.
+A region ending at the start of a line does not include that line."
+  (when (use-region-p)
+    (let ((beg (region-beginning)) (end (region-end)) files)
+      (save-excursion
+        (goto-char beg)
+        (beginning-of-line)
+        (while (and (not (eobp)) (< (point) end))
+          (when-let* ((file (tabulated-list-get-id)))
+            (push file files))
+          (forward-line 1)))
+      (nreverse files))))
+
+(defun sp-litnotes-meta--status-set-marks (add)
+  "Mark (when ADD) or unmark the notes in the region, else the note at point."
+  (let ((files (or (sp-litnotes-meta--region-files)
+                   (and (tabulated-list-get-id) (list (tabulated-list-get-id))))))
+    (when files
+      (dolist (file files)
+        (if add
+            (cl-pushnew file sp-litnotes-meta--marked :test #'equal)
+          (setq sp-litnotes-meta--marked (delete file sp-litnotes-meta--marked))))
+      (deactivate-mark)
+      (sp-litnotes-meta-status-refresh)
+      (forward-line 1))))
+
 (defun sp-litnotes-meta-status-mark ()
-  "Mark the note at point and move down."
+  "Mark the note at point, or all notes in the active region, and move down."
   (interactive)
-  (when-let* ((file (tabulated-list-get-id)))
-    (cl-pushnew file sp-litnotes-meta--marked :test #'equal)
-    (sp-litnotes-meta-status-refresh)
-    (forward-line 1)))
+  (sp-litnotes-meta--status-set-marks t))
 
 (defun sp-litnotes-meta-status-unmark ()
-  "Unmark the note at point and move down."
+  "Unmark the note at point, or all notes in the active region, and move down."
   (interactive)
-  (when-let* ((file (tabulated-list-get-id)))
-    (setq sp-litnotes-meta--marked (delete file sp-litnotes-meta--marked))
-    (sp-litnotes-meta-status-refresh)
-    (forward-line 1)))
+  (sp-litnotes-meta--status-set-marks nil))
 
 (defun sp-litnotes-meta-status-mark-status (status)
   "Mark every listed note whose read-status is STATUS."
@@ -561,13 +588,16 @@ The values are strings (empty when missing)."
   (sp-litnotes-meta-status-refresh))
 
 (defun sp-litnotes-meta-status-change (status)
-  "Set the read-status of the marked notes (else the note at point) to STATUS."
+  "Set the read-status to STATUS on the marked notes.
+Without marks, use the notes in the active region, else the note at point."
   (interactive (list (completing-read "New read-status: " sp-litnotes-meta-read-statuses nil t)))
   (let ((files (or sp-litnotes-meta--marked
+                   (sp-litnotes-meta--region-files)
                    (and (tabulated-list-get-id) (list (tabulated-list-get-id))))))
     (unless files (user-error "No note at point"))
     (dolist (file files) (sp-litnotes-meta-set-status file status))
     (setq sp-litnotes-meta--marked nil)
+    (deactivate-mark)
     (sp-litnotes-meta-status-refresh)
     (message "Set read-status %s on %d note%s" status (length files)
              (if (cdr files) "s" ""))))
@@ -615,7 +645,8 @@ The values are strings (empty when missing)."
   "Show every litnote with its read-status, priority and relevance.
 Statuses outside `sp-litnotes-meta-read-statuses' are shown as a warning.
 Mark notes with \\`m' (or all of one status with \\`M'), then press \\`s' to change their
-read-status."
+read-status.  Shift-select several lines (or set any region) and \\`m', \\`u' or \\`s'
+act on all of them."
   (interactive)
   (with-current-buffer (get-buffer-create "*litnote status*")
     (sp-litnotes-meta-status-mode)
