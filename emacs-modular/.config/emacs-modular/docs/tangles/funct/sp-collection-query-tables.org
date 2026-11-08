@@ -70,7 +70,7 @@ A plist. Every filter is optional and the filters are combined with /and/.
 | =:level=                         | nil, =0= (file-level notes) or =headings=                               |
 | =:title-match=                   | regexp for the title, case-insensitive                                  |
 | =:fold-tag=, =:fold-prop=        | leave out notes with this tag; count them in =:sections= on the note =:fold-prop= (default =bib-parent=) links to |
-| =:columns=                       | =:title :tags :todo :level :priority :id :file :path :sections :pages :page :refs :pdf :devonthink= or a meta key |
+| =:columns=                       | =:title :tags :todo :level :priority :id :file :path :sections :pages :check :refs :pdf :devonthink= or a meta key; sorting on =:pages= compares the first number in =pub-pages= |
 | =:sort-by=, =:sort-desc=         | a column or a list of them (primary key first), and non-nil for descending |
 | =:column-widths=                 | exc only: alist =(COLUMN . WIDTH)=; =t= stands for the columns not listed |
 | =:wrap=                          | exc only: =wrap= (wrap inside the width) or =fit= (size to the text)    |
@@ -497,7 +497,8 @@ in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
 :CHECK the warning of `sp-collec-query-check';
-:PAGES shows the pub-pages meta key and :PAGE its first number (to sort on);
+:PAGES shows the pub-pages meta key; sorting on it (or on the meta key
+pub-pages) compares the first number in the text (9-30 before 31-99);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
@@ -514,7 +515,7 @@ same name.")
 
 #+begin_src emacs-lisp -i
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page :check
+  '(:title :tags :todo :level :priority :id :file :path :sections :pages :check
     :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 #+end_src
@@ -803,10 +804,6 @@ naming a meta key (several values are joined with \", \")."
     (:devonthink (sp-collec-query--dt-links note))
     (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
-    (:page (if-let* ((n (sp-collec-query-first-page
-                         (car (vulpea-note-meta-get-list note "pub-pages")))))
-               (number-to-string n)
-             ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -912,13 +909,24 @@ Each key decides unless both cells are equal under it; then the next does."
                (setq decided t result desc)))))
     result))
 
+(defun sp-collec-query--sort-cell (note column)
+  "Return the text NOTE is compared on when sorting by COLUMN.
+That is the text of the cell, except for pages (:pages or the meta key
+\"pub-pages\"), where it is the first number in the text, or empty."
+  (if (member column '(:pages "pub-pages"))
+      (if-let* ((n (sp-collec-query-first-page
+                    (car (vulpea-note-meta-get-list note "pub-pages")))))
+          (number-to-string n)
+        "")
+    (sp-collec-query-cell note column)))
+
 (defun sp-collec-query-sort (notes sort-by &optional descending)
   "Return NOTES sorted by SORT-BY, descending when DESCENDING.
 SORT-BY is a column or a list of keys, see `sp-collec-query-sort-keys'.
 The sort is stable, so notes equal under every key keep their order."
   (if-let* ((keys (sp-collec-query-sort-keys sort-by descending)))
       (let ((rows (mapcar (lambda (n)
-                            (cons n (mapcar (lambda (k) (sp-collec-query-cell n (car k)))
+                            (cons n (mapcar (lambda (k) (sp-collec-query--sort-cell n (car k)))
                                             keys)))
                           notes)))
         (mapcar #'car (sort rows (lambda (a b)
@@ -1291,12 +1299,12 @@ files that are kept and not regenerated belong."
 (defconst sp-collec-query-views-defaults
   '(("book-sections"
      :parent-of "self" :parent-prop "bib-parent"
-     :columns (:page :pages :title "pub-author" :tags :check)
-     :sort-by :page)
+     :columns (:pages :title "pub-author" :tags :check)
+     :sort-by :pages)
     ("collection-articles"
      :parent-of "self" :parent-prop "bib-parent"
-     :columns (:page :pages :title "pub-author" "pub-year" :tags :check)
-     :sort-by :page)
+     :columns (:pages :title "pub-author" "pub-year" :tags :check)
+     :sort-by :pages)
     ("bib-parent-mismatches"
      :meta (("bib-parent")) :flagged t
      :columns (:title :tags "bib-parent" :check)
@@ -2992,10 +3000,10 @@ The sections of a book or an edited collection as a table in page order, so it i
   - Chosen over a new key because the schemas and the BibTeX autofill of =sp-litnotes-meta= already know it.
   - Its value is text (=12-34=, =pp. 12-34=); the first number in it is what the table sorts on.
   - Roman numerals (a preface) have no number, so they go last.
-- The table is an ordinary query spec: =:parent-of= the book, =:parent-prop= =bib-parent=, sorted by the =:page= column.
+- The table is an ordinary query spec: =:parent-of= the book, =:parent-prop= =bib-parent=, sorted by the =:pages= column.
   - So it works with every renderer, can be saved as a view and can be inserted as a dynamic block.
 - The same data feeds the sidebar widget in the next section.
-- Two columns were added to the core for this: =:pages= (the text of =pub-pages=) and =:page= (its first number).
+- The core got a =:pages= column (the text of =pub-pages=) and sorts it by the first number in the text, so no separate column is needed. The same holds for a =pub-pages= meta column.
 
 ** Header and requires
 
@@ -3038,7 +3046,7 @@ The sections of a book or an edited collection as a table in page order, so it i
 - =sp-collec-query-book-tags=: tags of the parent notes (=book=, =collection=).
 - =sp-collec-query-book-parent-prop=: the meta key a section links with (=bib-parent=).
 - =sp-collec-query-book-columns=: columns of the table.
-  - Default: =:page=, =:pages=, =:title=, =pub-author=.
+  - Default: =:pages=, =:title=, =pub-author=.
 
 #+begin_src emacs-lisp -i
 (defgroup sp-collec-query-book nil
@@ -3063,9 +3071,9 @@ The sections of a book or an edited collection as a table in page order, so it i
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-book-columns
-  '(:page :pages :title "pub-author")
+  '(:pages :title "pub-author")
   "Columns of a section table, see `sp-collec-query-spec-keys'.
-:PAGE is the first page number, the key the table is sorted on."
+:PAGES is the text of pub-pages; the table is sorted on its first number."
   :type '(repeat (choice symbol string))
   :group 'sp-collec-query-book)
 #+end_src
@@ -3113,7 +3121,7 @@ that is one."
   (list :parent-of (vulpea-note-id book)
         :parent-prop sp-collec-query-book-parent-prop
         :columns (copy-sequence sp-collec-query-book-columns)
-        :sort-by :page))
+        :sort-by :pages))
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3398,3 +3406,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added built-in views =book-sections=, =collection-articles= and =bib-parent-mismatches=, the =:check= column and the =:flagged= spec key: a =booksection= must have a =book= parent and an =incollection= a =collection= parent, and the other way round.
   - Tested in Emacs 29.3 batch with stubbed Vulpea (5 tests in =tests/sp-collection-query-tables-templates-test.el=)
     - the commands that read a block in a note are not run, nor anything against the real vault.
+- [[https://github.com/siainbuletin/dotfiles/pull/331][#331]]
+  - 🔧 Changed sorting on =:pages= (or the =pub-pages= meta key) to compare the first number in the text, so there is no separate =:page= column
+    - the =:page= column from #329 is removed, and the book and collection views sort by =:pages=.
+  - Tested in Emacs 29.3 batch with stubbed Vulpea.

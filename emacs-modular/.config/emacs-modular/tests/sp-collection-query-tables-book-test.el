@@ -54,8 +54,15 @@
 (ert-deftest sp-collec-query-book-test-columns ()
   (let ((note (vulpea-db-get-by-id "c3")))
     (should (equal (sp-collec-query-cell note :pages) "pp. 100-120"))
-    (should (equal (sp-collec-query-cell note :page) "100"))
-    (should (equal (sp-collec-query-cell (vulpea-db-get-by-id "pref") :page) ""))))
+    (should (equal (sp-collec-query-cell (vulpea-db-get-by-id "pref") :pages) "ix-xii"))))
+
+(ert-deftest sp-collec-query-book-test-pages-sort-numerically ()
+  (let ((notes (mapcar #'vulpea-db-get-by-id '("c3" "c2" "c1" "pref"))))
+    (dolist (col '(:pages "pub-pages"))
+      (should (equal (mapcar #'vulpea-note-title (sp-collec-query-sort notes col))
+                     '("One" "Two" "Three" "Preface")))
+      (should (equal (mapcar #'vulpea-note-title (sp-collec-query-sort notes col t))
+                     '("Preface" "Three" "Two" "One"))))))
 
 (ert-deftest sp-collec-query-book-test-sections-in-page-order ()
   (let ((book (vulpea-db-get-by-id "book")))
@@ -89,6 +96,6 @@
   (let ((spec (sp-collec-query-book-spec (vulpea-db-get-by-id "book"))))
     (should (equal (plist-get spec :parent-of) "book"))
     (should (equal (plist-get spec :parent-prop) "bib-parent"))
-    (should (eq (plist-get spec :sort-by) :page))))
+    (should (eq (plist-get spec :sort-by) :pages))))
 
 ;;; sp-collection-query-tables-book-test.el ends here

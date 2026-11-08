@@ -67,7 +67,7 @@
 (ert-deftest sp-collec-query-templ-test-expand-view ()
   (let ((spec (sp-collec-query-expand-view '(:name "collection-query-table" :view "book-sections" :parent-of "x"))))
     (should (equal (plist-get spec :parent-of) "x"))
-    (should (eq (plist-get spec :sort-by) :page))
+    (should (eq (plist-get spec :sort-by) :pages))
     (should-not (plist-member spec :view)))
   (should (equal (sp-collec-query-expand-view '(:tags ("a"))) '(:tags ("a"))))
   (should-error (sp-collec-query-expand-view '(:view "nope")) :type 'user-error))
