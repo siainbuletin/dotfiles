@@ -489,6 +489,7 @@ is dropped."
   orphan-choices ; hash: orphan ID -> chosen ID or `none'
   backed-up      ; hash: files already copied to the backup folder
   filled         ; list of files whose tables were filled
+  editors        ; hash: author key -> t for people linked under pub-editor
   litnote-count)
 
 (defvar sp-author-notes--excluded nil
@@ -718,9 +719,20 @@ vault has that identifier and an :ID:."
            (format "No note has the Denote identifier %s; link left as it is" identifier)))
         nil))))
 
+(defun sp-author-notes--author-key (author)
+  "The key of AUTHOR, an (ID . NAME) pair: its ID, or \"name:\" and the title key of its name."
+  (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author)))))
+
+(defun sp-author-notes--editor-p (run author)
+  "Non-nil if AUTHOR, an (ID . NAME) pair, is linked under `pub-editor' in a litnote of RUN."
+  (and (sp-author-notes--run-editors run)
+       (gethash (sp-author-notes--author-key author) (sp-author-notes--run-editors run))))
+
 (defun sp-author-notes--litnote-pass (run file)
-  "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed denoted ambiguous)
+  "Fix the key typos and link the plain authors in the buffer, a note from FILE.
+The result has :editors, the authors that are under `pub-editor' (also when
+the key is mistyped)."
+  (let (fixes suspects converted authors unparsed denoted ambiguous editors)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -731,7 +743,7 @@ vault has that identifier and an :ID:."
           (let ((items (sp-author-notes--parse-value value)))
             (if (eq items 'unparsed)
                 (push (cons value line) unparsed)
-              (let (parts changed)
+              (let ((before authors) parts changed)
                 (cl-flet ((do-name (name line)
                             (let ((id (sp-author-notes--resolve run name file line)))
                               (cond
@@ -773,7 +785,9 @@ vault has that identifier and an :ID:."
                 (when changed
                   (sp-author-notes--replace
                    (plist-get entry :value-beg) (plist-get entry :value-end)
-                   (mapconcat #'identity (nreverse parts) ", ")))))))
+                   (mapconcat #'identity (nreverse parts) ", ")))
+                (when (equal "pub-editor" (if (eq (car state) 'fix) (cdr state) key))
+                  (setq editors (append (cl-ldiff authors before) editors)))))))
         (when state
           (if (eq (car state) 'fix)
               (progn
@@ -782,7 +796,7 @@ vault has that identifier and an :ID:."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed :denoted denoted
+          :authors authors :editors editors :unparsed unparsed :denoted denoted
           :ambiguous ambiguous)))
 
 (defun sp-author-notes--dblock-text (&optional spec)
@@ -843,10 +857,11 @@ vault has that identifier and an :ID:."
                (regexp-quote (or key sp-author-notes-key)))
        nil t))))
 
-(defun sp-author-notes--person-pass ()
-  "Add the Basics and Works headings and the tables to the buffer; return what was added.
-The tables are the one of the works and the one of the works only edited
-\(`sp-author-notes--edited-pass')."
+(defun sp-author-notes--person-pass (&optional with-edited)
+  "Add the Basics and Works headings and the Works table to the buffer; return what was added.
+With WITH-EDITED, add the table of the works only edited too
+\(`sp-author-notes--edited-pass').  That is for a person that is linked
+under `pub-editor' somewhere; nobody else gets the second table."
   (let (added)
     (unless (sp-author-notes--find-heading sp-author-notes-basics-heading)
       (sp-author-notes--insert-at (sp-author-notes--first-heading)
@@ -874,7 +889,7 @@ The tables are the one of the works and the one of the works only edited
         (sp-author-notes--insert-at (sp-author-notes--body-end (car works))
                                     (sp-author-notes--dblock-text)))
       (push 'table added))
-    (append (nreverse added) (sp-author-notes--edited-pass))))
+    (append (nreverse added) (and with-edited (sp-author-notes--edited-pass)))))
 
 (defun sp-author-notes--backup (run file)
   "Copy FILE to the backup folder of RUN."
@@ -921,11 +936,12 @@ of FILE with unsaved changes is saved first (and FILE is recorded in
               (ignore-errors (vulpea-db-update-file file))))
           (list result))))))
 
-(defun sp-author-notes--new-note-additions ()
-  "What the person pass adds to a note that has only the title and the tag."
+(defun sp-author-notes--new-note-additions (&optional with-edited)
+  "What the person pass adds to a note that has only the title and the tag.
+WITH-EDITED is as for `sp-author-notes--person-pass'."
   (with-temp-buffer
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: x\n\n")
-    (sp-author-notes--person-pass)))
+    (sp-author-notes--person-pass with-edited)))
 
 (defun sp-author-notes--populate (run file)
   "Fill the query table blocks for `sp-author-notes-key' in FILE.
@@ -966,8 +982,12 @@ folder.  A failure is recorded as a problem."
               (plist-get result :denoted) (plist-get result :ambiguous)
               (plist-get result :converted) (plist-get result :unparsed))
       (push (cons file result) (sp-author-notes--run-litnotes run)))
+    (dolist (editor (plist-get result :editors))
+      (unless (sp-author-notes--run-editors run)
+        (setf (sp-author-notes--run-editors run) (make-hash-table :test #'equal)))
+      (puthash (sp-author-notes--author-key editor) t (sp-author-notes--run-editors run)))
     (dolist (author (plist-get result :authors))
-      (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
+      (let ((key (sp-author-notes--author-key author)))
         (unless (gethash key seen)
           (puthash key t seen)
           (push author (sp-author-notes--run-authors run)))))))
@@ -976,7 +996,8 @@ folder.  A failure is recorded as a problem."
   "Plan the note of AUTHOR, an (ID . NAME) pair, for RUN."
   (pcase-let ((`(,id . ,name) author))
     (if (null id)
-        (push (list name nil nil (sp-author-notes--new-note-additions))
+        (push (list name nil nil (sp-author-notes--new-note-additions
+                                  (sp-author-notes--editor-p run author)))
               (sp-author-notes--run-people run))
       (let ((entry (gethash id (sp-author-notes--run-by-id run))))
         (cond
@@ -988,7 +1009,9 @@ folder.  A failure is recorded as a problem."
                    (plist-get entry :title) sp-author-notes-person-tag)))
          (t
           (when-let* ((wrapped (sp-author-notes--process-file
-                                run (plist-get entry :file) #'sp-author-notes--person-pass)))
+                                run (plist-get entry :file)
+                                (lambda () (sp-author-notes--person-pass
+                                            (sp-author-notes--editor-p run author))))))
             (push (list (plist-get entry :title) id (plist-get entry :file)
                         (car wrapped))
                   (sp-author-notes--run-people run)))))))))
@@ -1511,11 +1534,13 @@ with a block from `sp-author-notes-edited-spec'.  Call this after
   "Give the buffer the Works tables that `sp-author-notes' gives an author note.
 This is `sp-author-notes--person-pass', so the headings and blocks are the
 ones the lint makes (`sp-author-notes-works-spec' and, for the works that
-the person only edited, `sp-author-notes-edited-spec').  Return (ADDED WORKS . EDITED): the list of what was added, and
-the number of works that each table lists."
-  (let ((added (sp-author-notes--person-pass)))
-    (cons added (cons (sp-author-notes--works-count)
-                      (sp-author-notes--works-count sp-author-notes-edited-spec)))))
+the person only edited, `sp-author-notes-edited-spec'), but the second table
+only when the database has a work that the person only edited.  Return
+(ADDED WORKS . EDITED): the list of what was added, and the number of works
+that each table lists."
+  (let* ((edited (sp-author-notes--works-count sp-author-notes-edited-spec))
+         (added (sp-author-notes--person-pass (and edited (> edited 0)))))
+    (cons added (cons (sp-author-notes--works-count) edited))))
 
 (defun sp-author-notes--works-summary (file added counts apply)
   "A sentence about the author note FILE: ADDED to it, and the COUNTS of works.
