@@ -911,9 +911,12 @@ The =album= schema applies to notes tagged =album=.
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
 			(:key "relevance" :type string :required nil)
-			(:key "read-status" :type string :required t)
-			(:key "relevance-factor" :type number :required t)
-			(:key "read-priority" :type string :required t))
+			(:key "read-status" :type string :required t
+			      :one-of ("01-current" "02-preparing" "03-review" "04-paused" "05-done"))
+			(:key "relevance-factor" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05"))
+			(:key "read-priority" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05")))
 )
 #+end_src
 
@@ -2470,13 +2473,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Open questions in relevant literature notes
 
-Selects all vulpea notes whose =relevance-factor= metadata is 4 or higher (notes without it count as 0), takes their files, and uses =org-ql-select= to return the headings in those files with the TODO keyword =OPENQ=. This is a top-level expression rather than a function, so it is meant to be evaluated by hand, for example with =C-x C-e=.
+Selects all vulpea notes whose =relevance-factor= metadata is 2 or lower, that is =01= or =02=, the most relevant (notes without it count as 99), takes their files, and uses =org-ql-select= to return the headings in those files with the TODO keyword =OPENQ=. This is a top-level expression rather than a function, so it is meant to be evaluated by hand, for example with =C-x C-e=.
 
 #+begin_src emacs-lisp -i
 ;;;; Computing the relevance of certain literature notes
 (let* ((notes (vulpea-db-query
                (lambda (n)
-                 (>= (or (vulpea-note-meta-get n "relevance-factor" 'number) 0) 4))))
+                 (<= (or (vulpea-note-meta-get n "relevance-factor" 'number) 99) 2))))
        (files (mapcar #'vulpea-note-path notes)))
   (org-ql-select files '(todo "OPENQ")
                  :action #'org-get-heading))

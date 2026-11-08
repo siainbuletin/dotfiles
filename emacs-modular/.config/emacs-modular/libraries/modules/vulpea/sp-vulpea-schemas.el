@@ -95,9 +95,12 @@
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
 			(:key "relevance" :type string :required nil)
-			(:key "read-status" :type string :required t)
-			(:key "relevance-factor" :type number :required t)
-			(:key "read-priority" :type string :required t))
+			(:key "read-status" :type string :required t
+			      :one-of ("01-current" "02-preparing" "03-review" "04-paused" "05-done"))
+			(:key "relevance-factor" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05"))
+			(:key "read-priority" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05")))
 )
 
 (vulpea-schema-define 'article

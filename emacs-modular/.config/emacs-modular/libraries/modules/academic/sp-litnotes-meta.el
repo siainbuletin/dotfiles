@@ -5,7 +5,8 @@
 ;; A new literature note gets pub-author (linked to author notes, made when
 ;; missing), pub-title, pub-year, bib-parent (from the crossref) and
 ;; bib-project (picked) from its BibTeX entry.  It also sets read-status
-;; and asks for relevance-factor and read-priority.  See the doc
+;; and asks for relevance-factor and read-priority; `sp-litnotes-meta-status-report'
+;; lists all statuses and changes several at once.  See the doc
 ;; docs/tangles/academic/sp-litnotes-meta.org.
 
 ;;; Code:
@@ -59,16 +60,20 @@
   :type 'string
   :group 'sp-litnotes-meta)
 
-(defcustom sp-litnotes-meta-relevance-scale '("1" "2" "3" "4" "5")
-  "The suggestions for relevance-factor; 5 is the most relevant.
-Other input is accepted.  The scale is inferred from `sp-vulpea-org-ql',
-which treats 4 or more as relevant."
+(defcustom sp-litnotes-meta-read-statuses
+  '("01-current" "02-preparing" "03-review" "04-paused" "05-done")
+  "The allowed values of read-status, in order.
+Keep this in step with the schema in `sp-vulpea-schemas'."
   :type '(repeat string)
   :group 'sp-litnotes-meta)
 
-(defcustom sp-litnotes-meta-priority-scale '("1" "2" "3" "4" "5")
-  "The suggestions for read-priority; 1 is read first.
-Other input is accepted."
+(defcustom sp-litnotes-meta-relevance-scale '("01" "02" "03" "04" "05")
+  "The allowed values of relevance-factor; 01 is the most relevant."
+  :type '(repeat string)
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-priority-scale '("01" "02" "03" "04" "05")
+  "The allowed values of read-priority; 01 is read first."
   :type '(repeat string)
   :group 'sp-litnotes-meta)
 
@@ -204,18 +209,18 @@ Other input is accepted."
     (sp-litnotes-meta--link (cdr (assoc choice alist)))))
 
 (defun sp-litnotes-meta--read-scale (prompt scale)
-  "Ask PROMPT with the suggestions SCALE; return the answer, or nil when empty."
-  (let ((answer (string-trim (completing-read prompt scale nil nil))))
+  "Ask PROMPT for one of SCALE; return the answer, or nil when empty."
+  (let ((answer (string-trim (completing-read prompt scale nil t))))
     (and (not (string-empty-p answer)) answer)))
 
 (defun sp-litnotes-meta--read-relevance ()
   "Ask for the relevance-factor."
-  (sp-litnotes-meta--read-scale "relevance-factor (5 = most relevant, empty to skip): "
+  (sp-litnotes-meta--read-scale "relevance-factor (01 = most relevant, empty to skip): "
                                 sp-litnotes-meta-relevance-scale))
 
 (defun sp-litnotes-meta--read-priority ()
   "Ask for the read-priority."
-  (sp-litnotes-meta--read-scale "read-priority (1 = read first, empty to skip): "
+  (sp-litnotes-meta--read-scale "read-priority (01 = read first, empty to skip): "
                                 sp-litnotes-meta-priority-scale))
 
 (defconst sp-litnotes-meta--line-re "^-[ \t]+%s[ \t]+::\\(.*\\)$")
@@ -298,6 +303,184 @@ lines that were changed."
         (when changed (save-buffer))
         (unless buf (kill-buffer))
         (nreverse changed)))))
+
+;;;; Read-status report
+
+(defvar sp-litnotes-meta--status-keys '("read-status" "read-priority" "relevance-factor")
+  "The meta keys the status report shows, in column order.")
+
+(defun sp-litnotes-meta--file-meta (file)
+  "The title and the status keys of the litnote FILE, as a plist.
+The values are strings (empty when missing)."
+  (with-temp-buffer
+    (sp-author-notes--insert-file file 4096)
+    (let ((case-fold-search t)
+          (limit (sp-author-notes--first-heading))
+          (title ""))
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" limit t)
+        (setq title (string-trim (match-string 1))))
+      (cons :title
+            (cons title
+                  (mapcan (lambda (key)
+                            (goto-char (point-min))
+                            (list (intern (concat ":" key))
+                                  (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                                                         limit t)
+                                      (string-trim (match-string 1))
+                                    "")))
+                          sp-litnotes-meta--status-keys))))))
+
+(defun sp-litnotes-meta--put (key value)
+  "Set the meta line KEY to VALUE in the current buffer, replacing any value."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                               (sp-author-notes--first-heading) t)
+            (replace-match (concat " " value) t t nil 1)
+          (sp-litnotes-meta--set key value))))))
+
+(defun sp-litnotes-meta-set-status (file status)
+  "Set the read-status of the litnote FILE to STATUS and save it."
+  (let ((buf (find-buffer-visiting file)))
+    (when (and buf (buffer-modified-p buf))
+      (user-error "%s has unsaved changes; save it first" (file-name-nondirectory file)))
+    (with-current-buffer (or buf (find-file-noselect file))
+      (sp-litnotes-meta--put "read-status" status)
+      (save-buffer)
+      (unless buf (kill-buffer)))))
+
+(defun sp-litnotes-meta--status-files ()
+  "The litnote files the report lists."
+  (directory-files sp-author-notes-litnotes-directory t "\\.org\\'" t))
+
+(defvar-local sp-litnotes-meta--marked nil
+  "The files marked in the status report.")
+
+(defun sp-litnotes-meta--status-entries ()
+  "The `tabulated-list-entries' of the status report."
+  (mapcar
+   (lambda (file)
+     (let* ((meta (sp-litnotes-meta--file-meta file))
+            (status (plist-get meta :read-status))
+            (bad (not (member status sp-litnotes-meta-read-statuses))))
+       (list file
+             (vector (if (member file sp-litnotes-meta--marked) "*" "")
+                     (if bad (propertize (if (string-empty-p status) "(none)" status)
+                                         'face 'warning)
+                       status)
+                     (plist-get meta :read-priority)
+                     (plist-get meta :relevance-factor)
+                     (plist-get meta :title)))))
+   (sp-litnotes-meta--status-files)))
+
+(defun sp-litnotes-meta--status-header ()
+  "The header line: how many notes have each status."
+  (let ((counts (make-hash-table :test #'equal)) (other 0))
+    (dolist (entry tabulated-list-entries)
+      (let ((status (substring-no-properties (aref (cadr entry) 1))))
+        (if (member status sp-litnotes-meta-read-statuses)
+            (cl-incf (gethash status counts 0))
+          (cl-incf other))))
+    (concat (mapconcat (lambda (s) (format "%s: %d" s (gethash s counts 0)))
+                       sp-litnotes-meta-read-statuses "  ")
+            (format "  other: %d  marked: %d" other (length sp-litnotes-meta--marked)))))
+
+(defun sp-litnotes-meta-status-mark ()
+  "Mark the note at point and move down."
+  (interactive)
+  (when-let* ((file (tabulated-list-get-id)))
+    (cl-pushnew file sp-litnotes-meta--marked :test #'equal)
+    (sp-litnotes-meta-status-refresh)
+    (forward-line 1)))
+
+(defun sp-litnotes-meta-status-unmark ()
+  "Unmark the note at point and move down."
+  (interactive)
+  (when-let* ((file (tabulated-list-get-id)))
+    (setq sp-litnotes-meta--marked (delete file sp-litnotes-meta--marked))
+    (sp-litnotes-meta-status-refresh)
+    (forward-line 1)))
+
+(defun sp-litnotes-meta-status-mark-status (status)
+  "Mark every listed note whose read-status is STATUS."
+  (interactive (list (completing-read "Mark notes with status: "
+                                      (append sp-litnotes-meta-read-statuses '("(none)")) nil t)))
+  (dolist (entry tabulated-list-entries)
+    (when (equal (substring-no-properties (aref (cadr entry) 1)) status)
+      (cl-pushnew (car entry) sp-litnotes-meta--marked :test #'equal)))
+  (sp-litnotes-meta-status-refresh))
+
+(defun sp-litnotes-meta-status-unmark-all ()
+  "Remove all marks."
+  (interactive)
+  (setq sp-litnotes-meta--marked nil)
+  (sp-litnotes-meta-status-refresh))
+
+(defun sp-litnotes-meta-status-change (status)
+  "Set the read-status of the marked notes (else the note at point) to STATUS."
+  (interactive (list (completing-read "New read-status: " sp-litnotes-meta-read-statuses nil t)))
+  (let ((files (or sp-litnotes-meta--marked
+                   (and (tabulated-list-get-id) (list (tabulated-list-get-id))))))
+    (unless files (user-error "No note at point"))
+    (dolist (file files) (sp-litnotes-meta-set-status file status))
+    (setq sp-litnotes-meta--marked nil)
+    (sp-litnotes-meta-status-refresh)
+    (message "Set read-status %s on %d note%s" status (length files)
+             (if (cdr files) "s" ""))))
+
+(defun sp-litnotes-meta-status-visit ()
+  "Open the note at point."
+  (interactive)
+  (when-let* ((file (tabulated-list-get-id)))
+    (find-file file)))
+
+(defun sp-litnotes-meta-status-refresh ()
+  "Rescan the notes."
+  (interactive)
+  (let ((line (line-number-at-pos)))
+    (setq tabulated-list-entries (sp-litnotes-meta--status-entries))
+    (tabulated-list-print t)
+    (setq header-line-format (sp-litnotes-meta--status-header))
+    (goto-char (point-min))
+    (forward-line (1- line))))
+
+(defvar sp-litnotes-meta-status-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map tabulated-list-mode-map)
+    (define-key map "m" #'sp-litnotes-meta-status-mark)
+    (define-key map "u" #'sp-litnotes-meta-status-unmark)
+    (define-key map "M" #'sp-litnotes-meta-status-mark-status)
+    (define-key map "U" #'sp-litnotes-meta-status-unmark-all)
+    (define-key map "s" #'sp-litnotes-meta-status-change)
+    (define-key map "g" #'sp-litnotes-meta-status-refresh)
+    (define-key map (kbd "RET") #'sp-litnotes-meta-status-visit)
+    map)
+  "Keys of `sp-litnotes-meta-status-mode'.")
+
+(define-derived-mode sp-litnotes-meta-status-mode tabulated-list-mode "LitStatus"
+  "List the litnotes with their read-status; mark several and change them.
+\\{sp-litnotes-meta-status-mode-map}"
+  (setq tabulated-list-format [("" 1 nil) ("read-status" 12 t) ("priority" 8 t)
+                               ("relevance" 9 t) ("title" 0 t)]
+        tabulated-list-sort-key '("read-status")
+        tabulated-list-padding 1)
+  (tabulated-list-init-header))
+
+;;;###autoload
+(defun sp-litnotes-meta-status-report ()
+  "Show every litnote with its read-status, priority and relevance.
+Statuses outside `sp-litnotes-meta-read-statuses' are shown as a warning.
+Mark notes with \\`m' (or all of one status with \\`M'), then press \\`s' to change their
+read-status."
+  (interactive)
+  (with-current-buffer (get-buffer-create "*litnote status*")
+    (sp-litnotes-meta-status-mode)
+    (sp-litnotes-meta-status-refresh)
+    (pop-to-buffer (current-buffer))))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."

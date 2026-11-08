@@ -93,7 +93,7 @@
                      (lambda (name) (cons "aid" name)))
                     ((symbol-function 'sp-litnotes-meta--read-project)
                      (lambda () "[[id:p][Thesis]]"))
-                    ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () "4"))
+                    ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () "02"))
                     ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil)))
             (should (equal (sp-litnotes-meta-fill "doe2015chapter" file)
                            '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project"
@@ -105,7 +105,7 @@
               (should (string-match-p "- bib-parent :: \\[\\[id:lit-book\\]\\[Reuten (2014) Book\\]\\]" text))
               (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text))
               (should (string-match-p "- read-status :: 02-preparing" text))
-              (should (string-match-p "- relevance-factor :: 4" text))
+              (should (string-match-p "- relevance-factor :: 02" text))
               (should-not (string-match-p "read-priority" text)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
@@ -114,8 +114,38 @@
 (ert-deftest sp-litnotes-meta-read-scale-empty-skips ()
   (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "  ")))
     (should-not (sp-litnotes-meta--read-priority)))
-  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) " 5 ")))
-    (should (equal (sp-litnotes-meta--read-relevance) "5"))))
+  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) " 05 ")))
+    (should (equal (sp-litnotes-meta--read-relevance) "05"))))
+
+(ert-deftest sp-litnotes-meta-status-report-and-change ()
+  (let* ((dir (make-temp-file "sp-meta-status" t))
+         (sp-author-notes-litnotes-directory dir)
+         (a (expand-file-name "a.org" dir))
+         (b (expand-file-name "b.org" dir))
+         (c (expand-file-name "c.org" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file a
+            (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n\n- read-status :: 02-preparing\n- read-priority :: 01\n\n* H\n"))
+          (with-temp-file b
+            (insert ":PROPERTIES:\n:ID: b\n:END:\n#+title: B\n\n- read-status :: reading\n\n* H\n"))
+          (with-temp-file c (insert ":PROPERTIES:\n:ID: c\n:END:\n#+title: C\n\n"))
+          (let ((meta (sp-litnotes-meta--file-meta a)))
+            (should (equal (plist-get meta :title) "A"))
+            (should (equal (plist-get meta :read-status) "02-preparing"))
+            (should (equal (plist-get meta :read-priority) "01"))
+            (should (equal (plist-get meta :relevance-factor) "")))
+          ;; the report flags the two notes with a bad or missing status
+          (with-temp-buffer
+            (sp-litnotes-meta-status-mode)
+            (setq tabulated-list-entries (sp-litnotes-meta--status-entries))
+            (should (string-match-p "02-preparing: 1.*other: 2" (sp-litnotes-meta--status-header))))
+          ;; change replaces a value and adds a missing line
+          (sp-litnotes-meta-set-status b "05-done")
+          (sp-litnotes-meta-set-status c "03-review")
+          (should (equal (plist-get (sp-litnotes-meta--file-meta b) :read-status) "05-done"))
+          (should (equal (plist-get (sp-litnotes-meta--file-meta c) :read-status) "03-review")))
+      (delete-directory dir t))))
 
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
