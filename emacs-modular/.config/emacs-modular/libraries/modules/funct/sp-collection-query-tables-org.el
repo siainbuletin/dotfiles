@@ -11,11 +11,15 @@
 
 (require 'org)
 (require 'org-table)
+(require 'cl-lib)
 (require 'subr-x)
 (require 'sp-collection-query-tables-core)
 
 (declare-function sp-collec-query-views-get "sp-collection-query-tables-views")
 (declare-function sp-collec-query-views-read-name "sp-collection-query-tables-views")
+(declare-function sp-collec-query-views-put "sp-collection-query-tables-views")
+(declare-function sp-collec-query-views-names "sp-collection-query-tables-views")
+(defvar sp-collec-query-dblock-names)
 
 (defcustom sp-collec-query-link-titles t
   "Non-nil to write note titles as id: links in Org tables.
@@ -57,20 +61,63 @@ SPEC's :parent-of must be resolved already."
       (org-table-align)
       (string-trim-right (buffer-string)))))
 
+(defun sp-collec-query-expand-view (params)
+  "Return PARAMS with its :view replaced by the spec of that view.
+The other keys in PARAMS win over the view's, so a block can use a view
+and change one setting, such as :parent-of."
+  (if-let* ((name (plist-get params :view)))
+      (let ((spec (copy-tree (or (sp-collec-query-views-get name)
+                                 (user-error "No query table view called \"%s\"" name)))))
+        (cl-loop for (key value) on params by #'cddr
+                 unless (eq key :view)
+                 do (setq spec (plist-put spec key value)))
+        spec)
+    params))
+
 (defun org-dblock-write:collection-query-table (params)
   "Write a table of Vulpea notes into the current dynamic block.
 PARAMS is a spec, see `sp-collec-query-spec-keys'; :parent-of may be
 the string \"self\", resolved on every update to the note the block is in.
+:view NAME takes the spec from a saved or built-in view (see
+`sp-collec-query-views-defaults'); other keys override it.
 
   #+BEGIN: collection-query-table :tags (\"book\") :columns (:title \"author\" \"rating\") :sort-by \"rating\"
   #+END:
 
   #+BEGIN: collection-query-table :todo (\"TODO\" \"NEXT\") :columns (:title :todo :tags)
   #+END:"
-  (insert (sp-collec-query-org-text (sp-collec-query-resolve-spec params))))
+  (insert (sp-collec-query-org-text
+           (sp-collec-query-resolve-spec (sp-collec-query-expand-view params)))))
 
 (defalias 'org-dblock-write:vulpea-table #'org-dblock-write:collection-query-table
   "Old name of the `collection-query-table' dynamic block, read from existing notes.")
+
+(defun sp-collec-query-insert-view-dblock (name)
+  "Insert a dynamic block that uses the view NAME at point and fill it.
+The block holds only the name, so changing the view later changes the
+block the next time it is updated."
+  (interactive
+   (progn (require 'sp-collection-query-tables-views)
+          (list (sp-collec-query-views-read-name "Insert view: "))))
+  (org-create-dblock (list :name "collection-query-table" :view name))
+  (org-update-dblock))
+
+(defun sp-collec-query-view-save-from-dblock (name)
+  "Save the parameters of the dynamic block at point as the view NAME.
+A \"self\" :parent-of is kept, so the view can be used in any book.  The
+block is not changed; replace its parameters with :view to use the view.
+The view is written to `sp-collec-query-views-file'."
+  (interactive (list (read-string "Save view as: ")))
+  (require 'sp-collection-query-tables-views)
+  (when (string-empty-p name) (user-error "A view needs a name"))
+  (let ((params (save-excursion (org-prepare-dblock))))
+    (unless (member (format "%s" (plist-get params :name)) sp-collec-query-dblock-names)
+      (user-error "Not in a query table block"))
+    (setq params (sp-collec-query-expand-view params))
+    (when (or (not (member name (sp-collec-query-views-names)))
+              (y-or-n-p (format "Replace the view \"%s\"? " name)))
+      (sp-collec-query-views-put name params)
+      (message "Saved query table view \"%s\"" name))))
 
 (defun sp-collec-query-insert-dblock (spec)
   "Insert a `collection-query-table' dynamic block for SPEC at point and fill it.

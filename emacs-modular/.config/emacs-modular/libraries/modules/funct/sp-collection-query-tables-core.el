@@ -26,7 +26,7 @@
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
     :parent-of :parent-prop :level :title-match :fold-tag :fold-prop
-    :columns :sort-by :sort-desc :column-widths :wrap)
+    :flagged :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
 none of them); :DIRECTORIES a list of directories a note's file lies
@@ -38,8 +38,10 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 :FOLD-TAG a tag whose notes are left out of the table and counted on the
 note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
 in the :sections column (the parent is added when it is not a result);
+:FLAGGED non-nil to keep only the notes `sp-collec-query-check' warns about;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
+:CHECK the warning of `sp-collec-query-check';
 :PAGES shows the pub-pages meta key and :PAGE its first number (to sort on);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
@@ -55,7 +57,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page
+  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page :check
     :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 
@@ -133,6 +135,8 @@ switches buffers."
              (member parent-of
                      (vulpea-note-meta-get-list
                       note (or (plist-get spec :parent-prop) "parents") 'link)))
+         (or (not (plist-get spec :flagged))
+             (not (string-empty-p (sp-collec-query-check note))))
          (pcase (plist-get spec :level)
            ('nil t)
            (0 (eql (vulpea-note-level note) 0))
@@ -258,6 +262,45 @@ JSON.stringify(out);"
                                               (gethash b sp-collec-query--dt-uuids))))
                ", ")))
 
+(defcustom sp-collec-query-check-rules
+  '(("booksection" . "book") ("incollection" . "collection"))
+  "Pairs (CHILD-TAG . PARENT-TAG) that `sp-collec-query-check' enforces.
+A note with CHILD-TAG must link with `sp-collec-query-check-parent-prop'
+to a note with PARENT-TAG, and a note that links to a PARENT-TAG note must
+carry CHILD-TAG."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-collec-query)
+
+(defcustom sp-collec-query-check-parent-prop "bib-parent"
+  "Meta key `sp-collec-query-check' follows to the parent of a note."
+  :type 'string
+  :group 'sp-collec-query)
+
+(defun sp-collec-query-check (note)
+  "Return a warning for NOTE when its tags and its parent's do not fit, else \"\".
+The rules are `sp-collec-query-check-rules': a booksection belongs to a
+book, an incollection to a collection, and the other way round."
+  (let* ((prop sp-collec-query-check-parent-prop)
+         (parent (and-let* ((id (car (vulpea-note-meta-get-list note prop 'link))))
+                   (ignore-errors (vulpea-db-get-by-id id))))
+         (tags (vulpea-note-tags note))
+         (parent-tags (and parent (vulpea-note-tags parent)))
+         problems)
+    (dolist (rule sp-collec-query-check-rules)
+      (let ((child-tag (car rule)) (parent-tag (cdr rule)))
+        (cond ((member child-tag tags)
+               (cond ((null parent)
+                      (push (format "%s without %s" child-tag prop) problems))
+                     ((not (member parent-tag parent-tags))
+                      (push (format "%s but the parent is not tagged %s"
+                                    child-tag parent-tag)
+                            problems))))
+              ((and parent (member parent-tag parent-tags))
+               (push (format "the parent is a %s but this is not tagged %s"
+                             parent-tag child-tag)
+                     problems)))))
+    (if problems (concat "⚠ " (string-join (nreverse problems) "; ")) "")))
+
 (defun sp-collec-query-first-page (text)
   "Return the first number in TEXT, such as \"pp. 12-34\", or nil.
 Roman numerals and empty text give nil."
@@ -281,6 +324,7 @@ naming a meta key (several values are joined with \", \")."
     (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
     (:pdf (sp-collec-query--pdf-links note))
     (:devonthink (sp-collec-query--dt-links note))
+    (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
     (:page (if-let* ((n (sp-collec-query-first-page
                          (car (vulpea-note-meta-get-list note "pub-pages")))))
