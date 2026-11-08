@@ -212,3 +212,14 @@
     (should (equal (sp-collec-query-display-cell note "pub-title")
                    "[[id:ID-1][A odd title]]"))
     (should (equal (sp-collec-query-display-cell '(:id "ID-2" :meta nil) "pub-title") ""))))
+
+(ert-deftest sp-collec-query-test-except-prop-leaves-out-authored-works ()
+  (let ((spec '(:parent-of "p" :parent-prop "pub-editor" :except-prop "pub-author"))
+        (edited-only '(:meta (("pub-editor" "p"))))
+        (both '(:meta (("pub-editor" "p") ("pub-author" "p"))))
+        (other '(:meta (("pub-editor" "q")))))
+    (should (sp-collec-query-note-matches-p edited-only spec))
+    (should-not (sp-collec-query-note-matches-p both spec))
+    (should-not (sp-collec-query-note-matches-p other spec))
+    ;; without :except-prop both match
+    (should (sp-collec-query-note-matches-p both (list :parent-of "p" :parent-prop "pub-editor")))))

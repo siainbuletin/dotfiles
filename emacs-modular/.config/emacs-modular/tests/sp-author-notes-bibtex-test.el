@@ -126,3 +126,14 @@
 
 (provide 'sp-author-notes-bibtex-test)
 ;;; sp-author-notes-bibtex-test.el ends here
+
+(ert-deftest sp-an-bib-test-editor-only-entry ()
+  (sp-an-bib-test--with-vault
+    (with-temp-file bib
+      (insert "@book{smith2021volume,\n  editor = {Smith, John}, title = {Volume}, year = {2021}}\n"))
+    (let* ((groups (sp-author-notes-bibtex--compute))
+           (smith (assoc "John Smith" groups
+                         (lambda (g n) (equal (plist-get g :title) n))))
+           (entry (car (car (cdr smith)))))
+      (should (equal (plist-get entry :key) "smith2021volume"))
+      (should (equal (sp-author-notes-bibtex--role-key (car smith) entry) "pub-editor")))))

@@ -96,6 +96,22 @@ Book sections are left out and counted in :sections on their book."
   :type 'sexp
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-edited-heading "Edited works"
+  "The heading that holds the table of the works that the person only edited."
+  :type 'string
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-edited-spec
+  '(:parent-of "self" :parent-prop "pub-editor" :except-prop "pub-author"
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :sort-by "pub-year")
+  "The spec of the `collection-query-table' block put in the edited works heading.
+Like `sp-author-notes-works-spec', but for `pub-editor', and a work whose
+`pub-author' also names the person is left out (it is in the Works table)."
+  :type 'sexp
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-redirect-function #'sp-author-notes-read-redirect
   "Function that asks where a link to an ID that no note has should point.
 It is called with the orphan ID, the description of the link (or nil), the
@@ -769,9 +785,9 @@ vault has that identifier and an :ID:."
           :authors authors :unparsed unparsed :denoted denoted
           :ambiguous ambiguous)))
 
-(defun sp-author-notes--dblock-text ()
-  "The text of the query table block for `sp-author-notes-works-spec'."
-  (let ((spec sp-author-notes-works-spec) pairs)
+(defun sp-author-notes--dblock-text (&optional spec)
+  "The text of the query table block for SPEC, default `sp-author-notes-works-spec'."
+  (let ((spec (or spec sp-author-notes-works-spec)) pairs)
     (while spec
       (push (format "%s %S" (car spec) (cadr spec)) pairs)
       (setq spec (cddr spec)))
@@ -817,18 +833,20 @@ vault has that identifier and an :ID:."
     (insert text)
     (unless (or (eobp) (eq (char-after) ?\n)) (insert "\n"))))
 
-(defun sp-author-notes--has-table-p ()
-  "Non-nil if the buffer has a query table block for `sp-author-notes-key'."
+(defun sp-author-notes--has-table-p (&optional key)
+  "Non-nil if the buffer has a query table block for KEY, default `sp-author-notes-key'."
   (save-excursion
     (goto-char (point-min))
     (let ((case-fold-search t))
       (re-search-forward
        (format "^[ \t]*#\\+begin:[ \t]*\\(?:collection-query-table\\|vulpea-table\\)\\_>.*:parent-prop[ \t]+\"%s\""
-               (regexp-quote sp-author-notes-key))
+               (regexp-quote (or key sp-author-notes-key)))
        nil t))))
 
 (defun sp-author-notes--person-pass ()
-  "Add the Basics heading, the Works heading and the table to the buffer."
+  "Add the Basics and Works headings and the tables to the buffer; return what was added.
+The tables are the one of the works and the one of the works only edited
+\(`sp-author-notes--edited-pass')."
   (let (added)
     (unless (sp-author-notes--find-heading sp-author-notes-basics-heading)
       (sp-author-notes--insert-at (sp-author-notes--first-heading)
@@ -856,7 +874,7 @@ vault has that identifier and an :ID:."
         (sp-author-notes--insert-at (sp-author-notes--body-end (car works))
                                     (sp-author-notes--dblock-text)))
       (push 'table added))
-    (nreverse added)))
+    (append (nreverse added) (sp-author-notes--edited-pass))))
 
 (defun sp-author-notes--backup (run file)
   "Copy FILE to the backup folder of RUN."
@@ -925,7 +943,7 @@ folder.  A failure is recorded as a problem."
                   (goto-char (point-min))
                   (while (re-search-forward
                           (format "^[ \t]*#\\+begin:[ \t]*collection-query-table\\_>.*:parent-prop[ \t]+\"%s\""
-                                  (regexp-quote sp-author-notes-key))
+                                  (regexp-opt (list sp-author-notes-key "pub-editor")))
                           nil t)
                     (beginning-of-line)
                     (org-update-dblock)
@@ -1456,30 +1474,52 @@ deleted: they are listed, so you can merge them."
                 sp-author-notes-person-tag))
   buffer-file-name)
 
-(defun sp-author-notes--works-count ()
-  "How many rows the Works table of the buffer would list; nil if that cannot be told.
-The notes are asked for in the Vulpea database with `sp-author-notes-works-spec',
-for the ID in the buffer text, so the buffer does not need to visit a file."
+(defun sp-author-notes--works-count (&optional spec)
+  "How many rows a Works table of the buffer would list; nil if that cannot be told.
+The notes are asked for in the Vulpea database with SPEC, default
+`sp-author-notes-works-spec', for the ID in the buffer text, so the buffer
+does not need to visit a file."
   (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
     (save-excursion
       (goto-char (point-min))
       (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
         (ignore-errors
           (length (sp-collec-query-query
-                   (plist-put (copy-sequence sp-author-notes-works-spec)
+                   (plist-put (copy-sequence (or spec sp-author-notes-works-spec))
                               :parent-of (match-string 1)))))))))
 
-(defun sp-author-notes--works-pass ()
-  "Give the buffer the Works table that `sp-author-notes' gives an author note.
-This is `sp-author-notes--person-pass', so the headings and the block are
-the ones the lint makes (`sp-author-notes-works-spec').  Return (ADDED . COUNT):
-the list of what was added and the number of works the table lists."
-  (let ((added (sp-author-notes--person-pass)))
-    (cons added (sp-author-notes--works-count))))
+(defun sp-author-notes--edited-pass ()
+  "Add the edited works heading and its table to the buffer; return what was added.
+The heading goes at the end of the Works subtree, as a heading of its own,
+with a block from `sp-author-notes-edited-spec'.  Call this after
+`sp-author-notes--person-pass'."
+  (let (added)
+    (unless (sp-author-notes--find-heading sp-author-notes-edited-heading)
+      (let ((works (sp-author-notes--find-heading sp-author-notes-works-heading)))
+        (sp-author-notes--insert-at
+         (sp-author-notes--subtree-end (car works) (cdr works))
+         (format "* %s\n" sp-author-notes-edited-heading)))
+      (push 'edited-heading added))
+    (unless (sp-author-notes--has-table-p "pub-editor")
+      (let ((edited (sp-author-notes--find-heading sp-author-notes-edited-heading)))
+        (sp-author-notes--insert-at (sp-author-notes--body-end (car edited))
+                                    (sp-author-notes--dblock-text sp-author-notes-edited-spec)))
+      (push 'edited-table added))
+    (nreverse added)))
 
-(defun sp-author-notes--works-summary (file added count apply)
-  "A sentence about the author note FILE: ADDED to it, and the COUNT of works.
-APPLY says whether the note was written."
+(defun sp-author-notes--works-pass ()
+  "Give the buffer the Works tables that `sp-author-notes' gives an author note.
+This is `sp-author-notes--person-pass', so the headings and blocks are the
+ones the lint makes (`sp-author-notes-works-spec' and, for the works that
+the person only edited, `sp-author-notes-edited-spec').  Return (ADDED WORKS . EDITED): the list of what was added, and
+the number of works that each table lists."
+  (let ((added (sp-author-notes--person-pass)))
+    (cons added (cons (sp-author-notes--works-count)
+                      (sp-author-notes--works-count sp-author-notes-edited-spec)))))
+
+(defun sp-author-notes--works-summary (file added counts apply)
+  "A sentence about the author note FILE: ADDED to it, and the COUNTS of works.
+COUNTS is (WORKS . EDITED).  APPLY says whether the note was written."
   (format "%s: %s%s"
           (file-name-nondirectory file)
           (if added
@@ -1490,15 +1530,20 @@ APPLY says whether the note was written."
                                      ('works "the Works heading")
                                      ('moved-works "Works below Basics")
                                      ('table "the table")
+                                     ('edited-heading "the Edited works heading")
+                                     ('edited-table "the edited works table")
                                      (_ (symbol-name a))))
                                  added ", "))
-            "headings and table are there")
-          (cond ((null count) "; works not counted (vulpea is not loaded)")
-                (apply (format "; the table lists %d work%s" count (if (= count 1) "" "s")))
-                (t (format "; the table would list %d work%s" count (if (= count 1) "" "s"))))))
+            "headings and tables are there")
+          (if (null (car counts))
+              "; works not counted (vulpea is not loaded)"
+            (format "; %s %d work%s, %d edited only"
+                    (if apply "the table lists" "the table would list")
+                    (car counts) (if (= (car counts) 1) "" "s")
+                    (or (cdr counts) 0)))))
 
 (defun sp-author-notes--works-run (apply)
-  "Fill the Works table of the author note in the current buffer; write it when APPLY.
+  "Fill the Works tables of the author note in the current buffer; write it when APPLY.
 Return the message to show."
   (let* ((file (sp-author-notes--works-target))
          (sp-author-notes--excluded nil)
