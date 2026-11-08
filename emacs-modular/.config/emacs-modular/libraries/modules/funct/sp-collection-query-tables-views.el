@@ -31,6 +31,25 @@ files that are kept and not regenerated belong."
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
   "Where the views were saved before the module was renamed.")
 
+(defconst sp-collec-query-views-defaults
+  '(("book-sections"
+     :parent-of "self" :parent-prop "bib-parent"
+     :columns (:page :pages :title "pub-author" :tags :check)
+     :sort-by :page)
+    ("collection-articles"
+     :parent-of "self" :parent-prop "bib-parent"
+     :columns (:page :pages :title "pub-author" "pub-year" :tags :check)
+     :sort-by :page)
+    ("bib-parent-mismatches"
+     :meta (("bib-parent")) :flagged t
+     :columns (:title :tags "bib-parent" :check)
+     :sort-by :title))
+  "Views that come with the configuration, as (NAME . SPEC).
+\"book-sections\" and \"collection-articles\" list the notes linking to the
+note they are used in (\"self\"), by page, and flag those whose tags do not
+fit (see `sp-collec-query-check').  \"bib-parent-mismatches\" lists every
+note in the vault with such a warning.  A saved view with the same name wins.")
+
 (defvar sp-collec-query-views nil
   "Alist of (NAME . SPEC) for the saved query table views.")
 
@@ -94,12 +113,15 @@ over.  The next save writes `sp-collec-query-views-file'."
 (defun sp-collec-query-views-names ()
   "Return the names of the saved views."
   (sp-collec-query-views--ensure-loaded)
-  (mapcar #'car sp-collec-query-views))
+  (delete-dups (append (mapcar #'car sp-collec-query-views)
+                       (mapcar #'car sp-collec-query-views-defaults))))
 
 (defun sp-collec-query-views-get (name)
-  "Return the spec of the saved view NAME, or nil."
+  "Return the spec of the view NAME, or nil.
+A saved view wins over one of `sp-collec-query-views-defaults'."
   (sp-collec-query-views--ensure-loaded)
-  (cdr (assoc name sp-collec-query-views)))
+  (cdr (or (assoc name sp-collec-query-views)
+           (assoc name sp-collec-query-views-defaults))))
 
 (defun sp-collec-query-views-put (name spec)
   "Save SPEC as the view NAME, replacing a view of that name, and write the file."
@@ -118,6 +140,8 @@ over.  The next save writes `sp-collec-query-views-file'."
   "Delete the saved view NAME, asked for with completion."
   (interactive (list (sp-collec-query-views-read-name "Delete view: ")))
   (sp-collec-query-views--ensure-loaded)
+  (unless (assoc name sp-collec-query-views)
+    (user-error "\"%s\" is a built-in view; save a view of that name to override it" name))
   (setq sp-collec-query-views (assoc-delete-all name sp-collec-query-views))
   (sp-collec-query-views-save-to-disk)
   (message "Deleted query table view \"%s\"" name))
