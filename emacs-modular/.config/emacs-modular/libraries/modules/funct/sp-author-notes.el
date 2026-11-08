@@ -1436,6 +1436,107 @@ deleted: they are listed, so you can merge them."
                                                           (file-name-nondirectory (plist-get e :file))))
                                       (nreverse losers) "; ")))))))))
 
+;;;; Works table of one author note
+
+(defun sp-author-notes--person-note-p ()
+  "Non-nil if the buffer has `sp-author-notes-person-tag' in its #+filetags:."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (re-search-forward
+       (format "^#\\+filetags:.*:%s:" (regexp-quote sp-author-notes-person-tag))
+       nil t))))
+
+(defun sp-author-notes--works-target ()
+  "The file of the author note in the current buffer; signal a user error if it is none."
+  (unless (and buffer-file-name (derived-mode-p 'org-mode))
+    (user-error "This buffer does not visit an Org note"))
+  (unless (sp-author-notes--person-note-p)
+    (user-error "This note is not tagged %s, so it is not an author note"
+                sp-author-notes-person-tag))
+  buffer-file-name)
+
+(defun sp-author-notes--works-count ()
+  "How many rows the Works table of the buffer would list; nil if that cannot be told.
+The notes are asked for in the Vulpea database with `sp-author-notes-works-spec',
+for the ID in the buffer text, so the buffer does not need to visit a file."
+  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
+        (ignore-errors
+          (length (sp-collec-query-query
+                   (plist-put (copy-sequence sp-author-notes-works-spec)
+                              :parent-of (match-string 1)))))))))
+
+(defun sp-author-notes--works-pass ()
+  "Give the buffer the Works table that `sp-author-notes' gives an author note.
+This is `sp-author-notes--person-pass', so the headings and the block are
+the ones the lint makes (`sp-author-notes-works-spec').  Return (ADDED . COUNT):
+the list of what was added and the number of works the table lists."
+  (let ((added (sp-author-notes--person-pass)))
+    (cons added (sp-author-notes--works-count))))
+
+(defun sp-author-notes--works-summary (file added count apply)
+  "A sentence about the author note FILE: ADDED to it, and the COUNT of works.
+APPLY says whether the note was written."
+  (format "%s: %s%s"
+          (file-name-nondirectory file)
+          (if added
+              (format "%s %s" (if apply "added" "would add")
+                      (mapconcat (lambda (a)
+                                   (pcase a
+                                     ('basics "the Basics heading")
+                                     ('works "the Works heading")
+                                     ('moved-works "Works below Basics")
+                                     ('table "the table")
+                                     (_ (symbol-name a))))
+                                 added ", "))
+            "headings and table are there")
+          (cond ((null count) "; works not counted (vulpea is not loaded)")
+                (apply (format "; the table lists %d work%s" count (if (= count 1) "" "s")))
+                (t (format "; the table would list %d work%s" count (if (= count 1) "" "s"))))))
+
+(defun sp-author-notes--works-run (apply)
+  "Fill the Works table of the author note in the current buffer; write it when APPLY.
+Return the message to show."
+  (let* ((file (sp-author-notes--works-target))
+         (sp-author-notes--excluded nil)
+         (run (sp-author-notes--make-run
+               :apply apply :stamp (format-time-string "%Y%m%dT%H%M%S")
+               :names (make-hash-table :test #'equal)
+               :orphan-choices (make-hash-table :test #'equal)
+               :backed-up (make-hash-table :test #'equal)))
+         (result (car (sp-author-notes--process-file
+                       run file #'sp-author-notes--works-pass))))
+    (when apply
+      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+          (sp-author-notes--populate run file)
+        (sp-author-notes--problem
+         run file nil "Table not filled: the query tables and vulpea are not loaded")))
+    (concat (sp-author-notes--works-summary file (car result) (cdr result) apply)
+            (when-let* ((problem (car (sp-author-notes--run-problems run))))
+              (format "  Problem: %s" (nth 2 problem))))))
+
+;;;###autoload
+(defun sp-author-notes-works-dryrun ()
+  "Show what `sp-author-notes-works-convert' would do to this author note, and write nothing.
+The note is the one in the current buffer; it must be tagged `person'."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run nil)))
+
+;;;###autoload
+(defun sp-author-notes-works-convert ()
+  "Fill the Works table of the author note in this buffer with the works of the author.
+Works are the notes whose `pub-author' links to this note.  Add the Basics
+and Works headings and the `collection-query-table' block when the note lacks
+them (the same as `sp-author-notes' does, from `sp-author-notes-works-spec'),
+then fill the block.  A table that is already there is kept as it is and
+only filled.  The note is copied to `sp-author-notes-backup-directory' first,
+and a buffer with unsaved changes is saved before."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run t)))
+
 ;;;###autoload
 (defun sp-author-notes ()
   "Make author notes from the `pub-author' meta key of the litnotes.

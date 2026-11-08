@@ -466,3 +466,40 @@
       (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
         (should (string-match-p "- pub-author :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\]\n" text))
         (should (string-match-p "- pub-editor :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\], \\[\\[id:other\\]\\[Other\\]\\]" text))))))
+
+;;;; Works table of one author note
+
+(ert-deftest sp-author-notes-test-works-convert ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann" "* Basics" "bio")
+    (let ((file (expand-file-name "ann.org" vault)))
+      (with-current-buffer (find-file-noselect file)
+        (unwind-protect
+            (progn
+              ;; the dry run writes nothing and says what would be added
+              (let ((msg (sp-author-notes--works-run nil)))
+                (should (string-match-p "would add the Works heading, the table" msg)))
+              (should-not (string-match-p "BEGIN" (sp-author-notes-test--read file)))
+              ;; convert adds the lint's heading and block, fills it, backs up
+              (let ((msg (sp-author-notes--works-run t)))
+                (should (string-match-p "added the Works heading, the table" msg)))
+              (should (string-match-p
+                       "\\* Basics\nbio\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\"[^\n]*\nFILLED\n#\\+END:"
+                       (sp-author-notes-test--read file)))
+              (should (file-exists-p (expand-file-name "backups/" vault)))
+              ;; idempotent
+              (let ((text (sp-author-notes-test--read file)))
+                (should (string-match-p "headings and table are there"
+                                        (sp-author-notes--works-run t)))
+                (should (equal text (sp-author-notes-test--read file)))))
+          (kill-buffer))))))
+
+(ert-deftest sp-author-notes-test-works-needs-author-note ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "x.org" vault)
+     ":PROPERTIES:" ":ID: x" ":END:" "#+title: X" "")
+    (with-current-buffer (find-file-noselect (expand-file-name "x.org" vault))
+      (unwind-protect
+          (should-error (sp-author-notes--works-run t) :type 'user-error)
+        (kill-buffer)))))
