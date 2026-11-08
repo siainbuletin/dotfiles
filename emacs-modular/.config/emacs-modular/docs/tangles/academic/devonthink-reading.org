@@ -1,0 +1,833 @@
+#+TITLE: devonthink-reading.py: a small synced =reading= database
+#+PROPERTY: header-args:python :tangle ../../../tools/devonthink-reading.py :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =tools/devonthink-reading.py= and its tests, =tests/test_devonthink_reading.py=. Every line of both files lives in the =python= blocks below, in order. The script blocks tangle to the tool (the =#+PROPERTY= line above); the blocks under [[*Tests][Tests]] tangle to the test file. Design and context: [[file:../../architecture/devonthink-emacs-integration.org::*The =reading= database (sync budget)][DEVONthink and Emacs, "The reading database"]].
+
+To tangle: =C-c C-v t= in this buffer, or from =.config/emacs-modular=:
+
+#+begin_example
+emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/devonthink-reading.org")'
+#+end_example
+
+This doc is not picked up by =tools/tangle-all.el= or the =tangle= CI check, which only cover =sp-*.org= docs that write into =libraries/modules/=. Tangle it yourself after editing, and run the tests.
+
+* What it is for
+
+The =literature= database in DEVONthink is about 65 GB of indexed PDFs. That is too big for the iPad Pro (128 GB) and for the NAS's WebDAV sync store, which has about 20 GB on the SSD. So:
+
+- =literature= stays on the Mac only, always open, so DEVONthink and Emacs can search all of it.
+- A small =reading= database is the one that syncs to the iPad.
+- A rule decides what goes into =reading=, so nothing is sorted by hand.
+
+The rule: a PDF goes into =reading= when
+
+1. its litnote has a =read-status= you chose (default =to-be-read=), and
+2. its citekey is in one of the =.bib= files you chose (default: all of them).
+
+Both lists can change whenever you like (see [[*Settings][Settings]]).
+
+* Using it
+
+Both actions are dry runs unless you add =--apply=: they print what they would do and change nothing. DEVONthink has to be running, because even the dry run asks it for the list of records.
+
+** First time: create the database
+
+#+begin_example
+tools/devonthink-reading.py create             # shows what it would create
+tools/devonthink-reading.py create --apply     # creates ~/Databases/reading.dtBase2
+#+end_example
+
+It makes one group per selected =.bib= file (=/thesis=, =/marx=, ...), so records arrive sorted by topic. If the database file exists but is closed, =create= opens it; if it is open, it only makes sure the groups exist. =--no-groups= skips the groups.
+
+** Filling it: send
+
+#+begin_example
+tools/devonthink-reading.py send                       # dry run: the plan
+tools/devonthink-reading.py send --apply --limit 1     # first real run: one record
+tools/devonthink-reading.py send --apply               # everything in the plan
+tools/devonthink-reading.py send --return              # also show what would go back
+#+end_example
+
+The dry run prints one line per record:
+
+#+begin_example
+rule: read-status in to-be-read, in thesis, marx
+42 litnotes match; 3 already in reading (61.2 MB)
+send  smith-2017-atten                                   4.2 MB  -> /thesis
+back  old-2003-thing                                     1.1 MB
+none  jones-2010-value                                   no PDF named jones-2010-value.pdf in literature
+1.3 GB after the moves, budget 20.0 GB
+dry run: nothing moved. Re-run with --apply.
+#+end_example
+
+- =send= :: will move into =reading=, into the group of its =.bib= file.
+- =back= :: only with =--return=: in =reading= but no longer matching, will go back to its old place in =literature=.
+- =none= :: the litnote matches but there is no =KEY.pdf= in =literature=.
+
+If the result would be over the budget, =send= prints the plan, refuses and exits with status 1. Narrow the rule, raise =--budget-gb=, or pass =--over-budget=.
+
+** Changing the rule on the fly
+
+#+begin_example
+tools/devonthink-reading.py send --status to-be-read --status reading
+tools/devonthink-reading.py send --bib thesis --bib marx
+tools/devonthink-reading.py send --bib ~/elsewhere/extra.bib
+#+end_example
+
+A =.bib= name without a path means =~/Documents/bibliography/NAME.bib=. A name that matches no file is an error, so a typo never selects nothing silently.
+
+** For Emacs later
+
+=--json= goes /before/ the action and prints the plan (or the result of =create=) as one JSON object instead of text, for an Emacs command to read:
+
+#+begin_example
+tools/devonthink-reading.py --json send
+#+end_example
+
+* Settings
+
+By precedence: options, then the JSON file =~/.config/devonthink-reading/config.json= (or =--config FILE=), then the defaults in the script.
+
+| Key                | Option               | Default                             |
+|--------------------+----------------------+-------------------------------------|
+| =statuses=         | =--status= (repeat)  | =["to-be-read"]=                    |
+| =bib_files=        | =--bib= (repeat)     | =[]= = every =.bib= in =bib_dir=    |
+| =budget_gb=        | =--budget-gb=        | =20=                                |
+| =source_database=  | =--source-database=  | =literature=                        |
+| =reading_database= | =--reading-database= | =reading=                           |
+| =reading_path=     | =--reading-path=     | =~/Databases/reading.dtBase2=       |
+| =notes_dir=        | =--notes-dir=        | =~/notes/litnotes=                  |
+| =bib_dir=          | =--bib-dir=          | =~/Documents/bibliography=          |
+| =group_per_bib=    | =--no-groups=        | =true=                              |
+
+Example =config.json=:
+
+#+begin_src json :tangle no
+{"statuses": ["to-be-read", "reading"],
+ "bib_files": ["thesis", "marx"],
+ "budget_gb": 20}
+#+end_src
+
+* How it decides
+
+All three systems already share one key, the citekey:
+
+#+begin_example
+citekey ──┬── litnote:   :ROAM_REFS: @KEY  (or #+reference: KEY)   + read-status
+          ├── .bib file: @book{KEY, ...}
+          └── DEVONthink: the PDF's file name, KEY.pdf
+#+end_example
+
+Where records came from is remembered in =~/.local/state/devonthink-reading/origins.json= (record UUID → database and group), so =--return= puts each one back in its old group, or in =/From reading= if it was never recorded. Nothing in DEVONthink is written except the moves, the new database and its groups.
+
+* What is untested
+
+Written and tested on Linux with DEVONthink faked. On the Mac, check before trusting it:
+
+- The JXA calls: =createDatabase=, =openDatabase=, =createLocation=, =getRecordWithUuid=, =move=, and the bulk properties =filename=, =size=, =location=, =recordType=. The scripting name of the app is =DEVONthink= (version 4); for version 3 change =APP= to ="DEVONthink 3"=.
+- Moving an /indexed/ record between databases: the PDF should stay in =~/Documents/literature/=. Run =send --apply --limit 1= and check the file and the record.
+- Whether the WebDAV sync store then carries the indexed files, so the iPad can open them.
+
+* The script
+** Header and defaults
+
+The shebang, the usage text that =--help= prints, the imports and the defaults. =APP= is DEVONthink's scripting name (="DEVONthink 3"= for version 3). The shebang and the executable bit come from the =:shebang= and =:tangle-mode= header arguments of this block.
+
+#+begin_src python :shebang "#!/usr/bin/env python3" :tangle-mode (identity #o755)
+"""Keep a small DEVONthink `reading` database filled from litnote read-status.
+
+    devonthink-reading.py create [--apply]
+    devonthink-reading.py send [--apply] [--return] [--status S] [--bib B]
+    devonthink-reading.py --json send
+
+Both actions are dry runs unless --apply is given.  Settings: options, then
+~/.config/devonthink-reading/config.json, then the defaults below.
+
+Tangled from docs/tangles/academic/devonthink-reading.org; edit that file.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+DEFAULTS = {
+    "source_database": "literature",
+    "reading_database": "reading",
+    "reading_path": str(HOME / "Databases" / "reading.dtBase2"),
+    "notes_dir": str(HOME / "notes" / "litnotes"),
+    "bib_dir": str(HOME / "Documents" / "bibliography"),
+    "bib_files": [],              # empty = every .bib in bib_dir
+    "statuses": ["to-be-read"],
+    "budget_gb": 20,
+    "group_per_bib": True,
+}
+CONFIG_PATH = HOME / ".config" / "devonthink-reading" / "config.json"
+STATE_PATH = HOME / ".local" / "state" / "devonthink-reading" / "origins.json"
+APP = "DEVONthink"   # the scripting name of DEVONthink 4; "DEVONthink 3" for version 3
+#+end_src
+** Reading the .bib files
+
+Only the entry keys are read, with a regular expression: =@string=, =@comment= and =@preamble= are not entries. When a key is in more than one selected file, the first file wins, which also decides the group the record goes into (files are taken in the order given, or alphabetically when all are used).
+
+#+begin_src python
+BIB_ENTRY_RE = re.compile(r"@\s*([A-Za-z]+)\s*[{(]\s*([^,\s]+)\s*,")
+NOT_ENTRIES = {"string", "comment", "preamble"}
+
+
+def bib_keys(text):
+    """Return the entry keys of the BibTeX TEXT, in order."""
+    return [key for kind, key in BIB_ENTRY_RE.findall(text)
+            if kind.lower() not in NOT_ENTRIES]
+
+
+def resolve_bib_files(names, bib_dir):
+    """Turn NAMES (bare names or paths) into existing .bib paths.
+
+    Empty NAMES means every .bib file in BIB_DIR.  A name that matches no
+    file is an error, so a typo does not silently select nothing."""
+    bib_dir = Path(bib_dir).expanduser()
+    if not names:
+        return sorted(bib_dir.glob("*.bib"))
+    out = []
+    for name in names:
+        p = Path(name).expanduser()
+        if not p.suffix:
+            p = p.with_suffix(".bib")
+        if not p.is_absolute() and not p.exists():
+            p = bib_dir / p
+        if not p.exists():
+            raise SystemExit("devonthink-reading: no such .bib file: %s" % name)
+        out.append(p)
+    return out
+
+
+def bib_index(paths):
+    """Return {citekey: bib name} for PATHS; the first file that has a key wins."""
+    index = {}
+    for path in paths:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for key in bib_keys(f.read()):
+                index.setdefault(key, path.stem)
+    return index
+#+end_src
+
+** Reading the litnotes
+
+A litnote's citekey comes from =:ROAM_REFS:= (=@key=, =cite:key=, =[cite:@key; @k2]= or a bare key) and from =#+reference:=, the older form that =sp-litnotes-refs= converts. Its status comes from the vulpea meta line =- read-status :: VALUE= or a =:READ-STATUS:= property. A status written as a link counts by its description, and case is ignored, so =[[id:...][Reading]]= is =reading=. =wanted_keys= is the rule itself: status selected /and/ key in a selected =.bib=.
+
+#+begin_src python
+LINK_RE = re.compile(r"\[\[[^]]*\]\[([^]]*)\]\]|\[\[([^]]*)\]\]")
+REFS_RE = re.compile(r"^:ROAM_REFS:[ \t]*(.*)$", re.M | re.I)
+REFERENCE_RE = re.compile(r"^#\+reference:[ \t]*(\S+)", re.M | re.I)
+STATUS_META_RE = re.compile(r"^[ \t]*[-+][ \t]+read-status[ \t]+::[ \t]*(.*)$", re.M | re.I)
+STATUS_PROP_RE = re.compile(r"^:READ-STATUS:[ \t]*(.*)$", re.M | re.I)
+
+
+def normalise_status(value):
+    """Lower-case VALUE, with an Org link reduced to its description."""
+    value = LINK_RE.sub(lambda m: m.group(1) or m.group(2) or "", value)
+    return value.strip().strip("#").strip().lower()
+
+
+def ref_keys(value):
+    """Citekeys in a ROAM_REFS value: @key, cite:key, [cite:@key; @k2] or bare."""
+    keys = []
+    for token in re.split(r"[\s;\[\]]+", value):
+        token = token.strip()
+        if not token or token.lower() == "cite":
+            continue
+        if token.lower().startswith("cite:"):
+            token = token[5:]
+        token = token.lstrip("@").rstrip(",")
+        if token and "://" not in token:
+            keys.append(token)
+    return keys
+
+
+def parse_litnote(text):
+    """Return (citekeys, status) for the Org TEXT of a litnote."""
+    keys = []
+    for m in REFS_RE.finditer(text):
+        keys += ref_keys(m.group(1))
+    m = REFERENCE_RE.search(text)
+    if m and m.group(1) not in keys:
+        keys.append(m.group(1))
+    m = STATUS_META_RE.search(text) or STATUS_PROP_RE.search(text)
+    status = normalise_status(m.group(1)) if m else ""
+    return keys, status
+
+
+def litnote_statuses(notes_dir):
+    """Return {citekey: (status, note path)} for every litnote in NOTES_DIR."""
+    out = {}
+    for path in sorted(Path(notes_dir).expanduser().glob("*.org")):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            print("devonthink-reading: skipped %s: %s" % (path, e), file=sys.stderr)
+            continue
+        keys, status = parse_litnote(text)
+        for key in keys:
+            out.setdefault(key, (status, str(path)))
+    return out
+
+
+def wanted_keys(statuses, notes, bibs):
+    """Return {citekey: bib name} for the keys that should be in `reading`."""
+    statuses = {s.lower() for s in statuses}
+    return {key: bibs[key] for key, (status, _) in notes.items()
+            if status in statuses and key in bibs}
+
+
+#+end_src
+
+** Talking to DEVONthink
+
+Every call to DEVONthink is one =osascript -l JavaScript= run (JXA), the same route as =devonthink-to-litdb.py=. Records are listed with DEVONthink's bulk property getters (one call per property for the whole database), which is fast even for 15,000 records. =dt_move= creates the target group if it is missing and moves the record there.
+
+#+begin_src python
+def jxa(script):
+    """Run the JavaScript for Automation SCRIPT and return its JSON result."""
+    result = subprocess.run(["osascript", "-l", "JavaScript", "-e", script],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit("devonthink-reading: osascript failed: %s" % result.stderr.strip())
+    out = result.stdout.strip()
+    return json.loads(out) if out else None
+
+
+JS_HEAD = "const app = Application(%s);\n" % json.dumps(APP)
+
+
+def dt_database_state(name, path):
+    """Return "open", "closed" (file exists) or "missing" for the database."""
+    script = JS_HEAD + """
+const names = app.databases.name();
+JSON.stringify(names.indexOf(%s) >= 0 ? "open" : "");
+""" % json.dumps(name)
+    if jxa(script) == "open":
+        return "open"
+    return "closed" if Path(path).expanduser().exists() else "missing"
+
+
+def dt_create_database(path, groups):
+    script = JS_HEAD + """
+const db = app.createDatabase(%s);
+for (const g of %s) app.createLocation("/" + g, {in: db});
+JSON.stringify(db.name());
+""" % (json.dumps(str(Path(path).expanduser())), json.dumps(groups))
+    return jxa(script)
+
+
+def dt_open_database(path):
+    script = JS_HEAD + "JSON.stringify(app.openDatabase(%s).name());" % json.dumps(
+        str(Path(path).expanduser()))
+    return jxa(script)
+
+
+def dt_ensure_groups(database, groups):
+    script = JS_HEAD + """
+const db = app.databases.byName(%s);
+for (const g of %s) app.createLocation("/" + g, {in: db});
+JSON.stringify(true);
+""" % (json.dumps(database), json.dumps(groups))
+    return jxa(script)
+
+
+def dt_pdf_records(database):
+    """Return the PDF records of DATABASE: uuid, filename, size, location."""
+    script = JS_HEAD + """
+const db = app.databases.byName(%s);
+const c = db.contents;
+const ids = c.uuid(), files = c.filename(), sizes = c.size(), locs = c.location(), kinds = c.recordType();
+const out = [];
+for (let i = 0; i < ids.length; i++) {
+  const f = files[i] || "";
+  if (f.toLowerCase().endsWith(".pdf"))
+    out.push({uuid: ids[i], filename: f, size: sizes[i], location: locs[i], kind: String(kinds[i])});
+}
+JSON.stringify(out);
+""" % json.dumps(database)
+    return jxa(script) or []
+
+
+def dt_move(uuid, database, location):
+    """Move the record UUID to LOCATION (a group path) in DATABASE."""
+    script = JS_HEAD + """
+const rec = app.getRecordWithUuid(%s);
+const db = app.databases.byName(%s);
+const grp = app.createLocation(%s, {in: db});
+const moved = app.move({record: rec, to: grp});
+JSON.stringify(moved ? moved.uuid() : null);
+""" % (json.dumps(uuid), json.dumps(database), json.dumps(location or "/"))
+    return jxa(script)
+
+
+#+end_src
+
+** Planning the moves
+
+=plan_moves= is a pure function: given the wanted keys and the records of both databases, it returns what to send, what to bring back (only with =--return=), what is already in place, which keys have no PDF, and the sizes before and after. Keeping it free of DEVONthink calls is what lets the tests cover the logic.
+
+#+begin_src python
+def key_of(filename):
+    return filename[:-4] if filename.lower().endswith(".pdf") else filename
+
+
+def plan_moves(wanted, source_records, reading_records, budget_bytes, group_per_bib,
+               do_return):
+    """Work out what to move.  Pure function, so it can be tested without DEVONthink.
+
+    Returns a dict with lists `send`, `back`, `missing`, `keep` and the sizes."""
+    in_reading = {key_of(r["filename"]): r for r in reading_records}
+    in_source = {}
+    for r in source_records:
+        in_source.setdefault(key_of(r["filename"]), r)
+
+    send, missing, keep = [], [], []
+    for key in sorted(wanted):
+        if key in in_reading:
+            keep.append(dict(in_reading[key], key=key))
+        elif key in in_source:
+            r = in_source[key]
+            target = "/" + wanted[key] if group_per_bib else "/"
+            send.append(dict(r, key=key, target=target))
+        else:
+            missing.append(key)
+
+    back = []
+    if do_return:
+        back = [dict(r, key=k) for k, r in sorted(in_reading.items()) if k not in wanted]
+
+    kept_size = sum(r["size"] for r in keep)
+    send_size = sum(r["size"] for r in send)
+    back_size = sum(r["size"] for r in back)
+    after = (sum(r["size"] for r in reading_records) - back_size) + send_size
+    return {
+        "send": send, "back": back, "missing": missing, "keep": keep,
+        "kept_bytes": kept_size, "send_bytes": send_size, "back_bytes": back_size,
+        "after_bytes": after, "budget_bytes": budget_bytes,
+        "over_budget": after > budget_bytes,
+    }
+
+
+def human(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if abs(n) < 1000 or unit == "GB":
+            return "%.1f %s" % (n, unit) if unit != "B" else "%d B" % n
+        n /= 1000.0
+
+
+#+end_src
+
+** Remembering where records came from
+
+The origin of each sent record is written to the state file /before/ the move, so a crash halfway still leaves a record that can be returned. The file is replaced atomically.
+
+#+begin_src python
+def load_state():
+    try:
+        return json.loads(STATE_PATH.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=1, sort_keys=True))
+    tmp.replace(STATE_PATH)
+
+
+#+end_src
+
+** Settings and the two actions
+
+=load_settings= merges the defaults, the JSON file and the options. =cmd_create= creates, opens or tops up the database. =cmd_send= builds the plan, prints it, stops at the budget, and moves only with =--apply=.
+
+#+begin_src python
+def load_settings(args):
+    settings = dict(DEFAULTS)
+    path = Path(args.config).expanduser() if args.config else CONFIG_PATH
+    if path.exists():
+        try:
+            settings.update(json.loads(path.read_text()))
+        except ValueError as e:
+            raise SystemExit("devonthink-reading: bad JSON in %s: %s" % (path, e))
+    elif args.config:
+        raise SystemExit("devonthink-reading: no such config file: %s" % path)
+    for name in ("source_database", "reading_database", "reading_path", "notes_dir",
+                 "bib_dir", "budget_gb"):
+        value = getattr(args, name, None)
+        if value is not None:
+            settings[name] = value
+    if getattr(args, "status", None):
+        settings["statuses"] = args.status
+    if getattr(args, "bib", None):
+        settings["bib_files"] = args.bib
+    if getattr(args, "no_groups", False):
+        settings["group_per_bib"] = False
+    return settings
+
+
+def cmd_create(args, s):
+    bibs = resolve_bib_files(s["bib_files"], s["bib_dir"]) if s["group_per_bib"] else []
+    groups = [p.stem for p in bibs]
+    state = dt_database_state(s["reading_database"], s["reading_path"])
+    report = {"database": s["reading_database"], "path": s["reading_path"],
+              "state": state, "groups": groups, "applied": args.apply}
+    if state == "missing":
+        action = "create %s with groups %s" % (s["reading_path"], ", ".join(groups) or "(none)")
+        if args.apply:
+            dt_create_database(s["reading_path"], groups)
+    elif state == "closed":
+        action = "open %s and make sure its groups exist" % s["reading_path"]
+        if args.apply:
+            dt_open_database(s["reading_path"])
+            dt_ensure_groups(s["reading_database"], groups)
+    else:
+        action = "already open; make sure its groups exist"
+        if args.apply and groups:
+            dt_ensure_groups(s["reading_database"], groups)
+    report["action"] = action
+    if args.json:
+        print(json.dumps(report))
+    else:
+        print("%s: %s%s" % (s["reading_database"], action, "" if args.apply else "  (dry run)"))
+    return 0
+
+
+def cmd_send(args, s):
+    if dt_database_state(s["reading_database"], s["reading_path"]) != "open":
+        raise SystemExit("devonthink-reading: the %s database is not open; run `create` first"
+                         % s["reading_database"])
+    bibs = bib_index(resolve_bib_files(s["bib_files"], s["bib_dir"]))
+    notes = litnote_statuses(s["notes_dir"])
+    wanted = wanted_keys(s["statuses"], notes, bibs)
+    source = dt_pdf_records(s["source_database"])
+    reading = dt_pdf_records(s["reading_database"])
+    plan = plan_moves(wanted, source, reading, int(float(s["budget_gb"]) * 1e9),
+                      s["group_per_bib"], args.do_return)
+    if args.limit is not None:
+        plan["send"] = plan["send"][:args.limit]
+        plan["back"] = plan["back"][:args.limit]
+
+    if args.json:
+        print(json.dumps(dict(plan, statuses=s["statuses"], applied=args.apply)))
+    else:
+        print("rule: read-status in %s, in %s" % (
+            ", ".join(s["statuses"]), ", ".join(s["bib_files"]) or "every .bib file"))
+        print("%d litnotes match; %d already in %s (%s)" % (
+            len(wanted), len(plan["keep"]), s["reading_database"], human(plan["kept_bytes"])))
+        for r in plan["send"]:
+            print("send  %-50s %9s  -> %s" % (r["key"], human(r["size"]), r["target"]))
+        for r in plan["back"]:
+            print("back  %-50s %9s" % (r["key"], human(r["size"])))
+        for k in plan["missing"]:
+            print("none  %-50s no PDF named %s.pdf in %s" % (k, k, s["source_database"]))
+        print("%s after the moves, budget %s" % (human(plan["after_bytes"]),
+                                                human(plan["budget_bytes"])))
+
+    if plan["over_budget"] and not args.over_budget:
+        print("devonthink-reading: over budget; narrow the rule or pass --over-budget",
+              file=sys.stderr)
+        return 1
+    if not args.apply:
+        if not args.json:
+            print("dry run: nothing moved. Re-run with --apply.")
+        return 0
+
+    state = load_state()
+    moved = 0
+    for r in plan["send"]:
+        state[r["uuid"]] = {"database": s["source_database"], "location": r["location"],
+                            "key": r["key"]}
+        save_state(state)   # before the move, so a crash still remembers the origin
+        dt_move(r["uuid"], s["reading_database"], r["target"])
+        moved += 1
+    for r in plan["back"]:
+        origin = state.get(r["uuid"], {})
+        dt_move(r["uuid"], origin.get("database", s["source_database"]),
+                origin.get("location", "/From reading"))
+        state.pop(r["uuid"], None)
+        save_state(state)
+        moved += 1
+    if not args.json:
+        print("moved %d record(s)" % moved)
+    return 0
+#+end_src
+
+** Command line
+
+=--config= and =--json= belong to the program and go before the action; everything else belongs to the action.
+
+#+begin_src python
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--config", help="JSON settings file (default %s)" % CONFIG_PATH)
+    p.add_argument("--json", action="store_true", help="print the plan as JSON")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    def common(sp):
+        sp.add_argument("--apply", action="store_true", help="really do it (default: dry run)")
+        sp.add_argument("--reading-database", dest="reading_database")
+        sp.add_argument("--reading-path", dest="reading_path",
+                        help="where to create the database (default ~/Databases/reading.dtBase2)")
+        sp.add_argument("--bib", action="append",
+                        help="a .bib file by name or path; repeat for more (default: all)")
+        sp.add_argument("--bib-dir", dest="bib_dir")
+        sp.add_argument("--no-groups", action="store_true",
+                        help="don't make one group per .bib file")
+
+    c = sub.add_parser("create", help="create or open the reading database")
+    common(c)
+    s = sub.add_parser("send", help="move matching records into the reading database")
+    common(s)
+    s.add_argument("--status", action="append",
+                   help="a read-status value that selects a note; repeat for more "
+                        "(default: to-be-read)")
+    s.add_argument("--source-database", dest="source_database")
+    s.add_argument("--notes-dir", dest="notes_dir")
+    s.add_argument("--budget-gb", dest="budget_gb", type=float)
+    s.add_argument("--return", dest="do_return", action="store_true",
+                   help="also move records that no longer match back to the source")
+    s.add_argument("--limit", type=int, help="move at most this many records in each direction")
+    s.add_argument("--over-budget", action="store_true", help="move even when over the budget")
+
+    args = p.parse_args(argv)
+    settings = load_settings(args)
+    return cmd_create(args, settings) if args.command == "create" else cmd_send(args, settings)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:python: :tangle ../../../tests/test_devonthink_reading.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Run from =.config/emacs-modular=:
+
+#+begin_example
+python3 -m unittest tests/test_devonthink_reading.py
+#+end_example
+
+The tests load the script by path (its name has a dash, so it can't be imported normally) and replace every =dt_= function, so they run anywhere without DEVONthink.
+
+** Loading the script and fixtures
+
+Four litnotes cover the citekey and status forms (=ROAM_REFS=, =#+reference:=, a link status, a property status); two =.bib= files share one key, to check which file wins.
+
+#+begin_src python
+"""Tests for tools/devonthink-reading.py, with DEVONthink faked.
+
+Run from emacs-modular/.config/emacs-modular:
+    python3 -m unittest tests/test_devonthink_reading.py
+"""
+
+import importlib.util
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+HERE = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location(
+    "devonthink_reading", HERE.parent / "tools" / "devonthink-reading.py")
+dr = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dr)
+
+NOTE_A = """:PROPERTIES:
+:ID:       a1
+:ROAM_REFS: @smith-2017-atten
+:END:
+,#+title: Smith 2017
+
+- pub-year :: 2017
+- read-status :: to-be-read
+"""
+NOTE_B = """:PROPERTIES:
+:ID:       b1
+:END:
+,#+title: Jones
+,#+reference:  jones-2010-value
+
+- read-status :: [[id:xyz][Reading]]
+"""
+NOTE_C = """#+title: Done
+,#+reference: done-2001-x
+- read-status :: read
+"""
+NOTE_D = """:PROPERTIES:
+:ID: d1
+:ROAM_REFS: [cite:@other-1999-y]
+:READ-STATUS: to-be-read
+:END:
+"""
+
+BIB_THESIS = """@string{foo = "bar"}
+@book{smith-2017-atten,
+  title = {A},
+}
+@Article{ jones-2010-value ,
+  title = {B}}
+"""
+BIB_MARX = """@comment{x}
+@incollection{done-2001-x, title={C}}
+@book{other-1999-y, title={D}}
+@book{smith-2017-atten, title={dup}}
+"""
+#+end_src
+
+** Parsing
+
+#+begin_src python
+class Parsing(unittest.TestCase):
+    def test_bib_keys_skip_string_and_comment(self):
+        self.assertEqual(dr.bib_keys(BIB_THESIS), ["smith-2017-atten", "jones-2010-value"])
+        self.assertEqual(dr.bib_keys(BIB_MARX),
+                         ["done-2001-x", "other-1999-y", "smith-2017-atten"])
+
+    def test_litnote_roam_refs_and_meta(self):
+        self.assertEqual(dr.parse_litnote(NOTE_A), (["smith-2017-atten"], "to-be-read"))
+
+    def test_litnote_reference_and_link_status(self):
+        self.assertEqual(dr.parse_litnote(NOTE_B), (["jones-2010-value"], "reading"))
+
+    def test_litnote_property_status_and_cite_ref(self):
+        self.assertEqual(dr.parse_litnote(NOTE_D), (["other-1999-y"], "to-be-read"))
+
+    def test_ref_keys_forms(self):
+        self.assertEqual(dr.ref_keys("@a cite:b [cite:@c; @d] e https://x.org"),
+                         ["a", "b", "c", "d", "e"])
+#+end_src
+
+** Planning
+
+The rule across real files in a temporary folder, and =plan_moves= with the budget and =--return=.
+
+#+begin_src python
+class Planning(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        (root / "notes").mkdir()
+        (root / "bib").mkdir()
+        for name, text in (("a", NOTE_A), ("b", NOTE_B), ("c", NOTE_C), ("d", NOTE_D)):
+            (root / "notes" / (name + ".org")).write_text(text)
+        (root / "bib" / "thesis.bib").write_text(BIB_THESIS)
+        (root / "bib" / "marx.bib").write_text(BIB_MARX)
+        self.root = root
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_rule_status_and_bib(self):
+        notes = dr.litnote_statuses(self.root / "notes")
+        bibs = dr.bib_index(dr.resolve_bib_files(["thesis"], self.root / "bib"))
+        self.assertEqual(dr.wanted_keys(["to-be-read"], notes, bibs),
+                         {"smith-2017-atten": "thesis"})
+        bibs = dr.bib_index(dr.resolve_bib_files([], self.root / "bib"))
+        # all bibs, sorted: marx.bib first, so smith is filed under marx
+        self.assertEqual(dr.wanted_keys(["TO-BE-READ", "reading"], notes, bibs),
+                         {"smith-2017-atten": "marx", "jones-2010-value": "thesis",
+                          "other-1999-y": "marx"})
+
+    def test_unknown_bib_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            dr.resolve_bib_files(["nope"], self.root / "bib")
+
+    def test_plan_budget_and_return(self):
+        wanted = {"a": "thesis", "b": "marx", "gone": "thesis"}
+        source = [{"uuid": "1", "filename": "a.pdf", "size": 4, "location": "/x/"},
+                  {"uuid": "2", "filename": "b.pdf", "size": 5, "location": "/"}]
+        reading = [{"uuid": "3", "filename": "old.pdf", "size": 3, "location": "/thesis/"},
+                   {"uuid": "4", "filename": "b.pdf", "size": 5, "location": "/marx/"}]
+        plan = dr.plan_moves(wanted, source, reading, 100, True, do_return=True)
+        self.assertEqual([r["key"] for r in plan["send"]], ["a"])
+        self.assertEqual(plan["send"][0]["target"], "/thesis")
+        self.assertEqual([r["key"] for r in plan["keep"]], ["b"])
+        self.assertEqual([r["key"] for r in plan["back"]], ["old"])
+        self.assertEqual(plan["missing"], ["gone"])
+        self.assertEqual(plan["after_bytes"], 3 + 5 - 3 + 4)
+        self.assertFalse(plan["over_budget"])
+        plan = dr.plan_moves(wanted, source, reading, 8, True, do_return=False)
+        self.assertEqual(plan["back"], [])
+        self.assertTrue(plan["over_budget"])
+#+end_src
+
+** The send action end to end
+
+Dry run moves nothing and writes no state; =--apply= moves and remembers the origin; over budget refuses with status 1.
+
+#+begin_src python
+class Commands(unittest.TestCase):
+    """Run `send` end to end with the DEVONthink calls replaced."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        (root / "notes").mkdir()
+        (root / "bib").mkdir()
+        (root / "notes" / "a.org").write_text(NOTE_A)
+        (root / "bib" / "thesis.bib").write_text(BIB_THESIS)
+        self.root = root
+        self.state = root / "state.json"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_send(self, *extra):
+        moves = []
+        records = {
+            "literature": [{"uuid": "u1", "filename": "smith-2017-atten.pdf",
+                            "size": 10, "location": "/Inbox/"}],
+            "reading": [],
+        }
+        argv = ["send", "--notes-dir", str(self.root / "notes"),
+                 "--bib-dir", str(self.root / "bib"), *extra]
+        with mock.patch.object(dr, "CONFIG_PATH", self.root / "none.json"), \
+             mock.patch.object(dr, "STATE_PATH", self.state), \
+             mock.patch.object(dr, "dt_database_state", return_value="open"), \
+             mock.patch.object(dr, "dt_pdf_records", side_effect=lambda db: records[db]), \
+             mock.patch.object(dr, "dt_move", side_effect=lambda *a: moves.append(a)):
+            code = dr.main(argv)
+        return code, moves
+
+    def test_dry_run_moves_nothing(self):
+        code, moves = self.run_send()
+        self.assertEqual(code, 0)
+        self.assertEqual(moves, [])
+        self.assertFalse(self.state.exists())
+
+    def test_apply_moves_and_remembers_origin(self):
+        code, moves = self.run_send("--apply")
+        self.assertEqual(code, 0)
+        self.assertEqual(moves, [("u1", "reading", "/thesis")])
+        state = json.loads(self.state.read_text())
+        self.assertEqual(state["u1"]["location"], "/Inbox/")
+
+    def test_over_budget_refuses(self):
+        code, moves = self.run_send("--apply", "--budget-gb", "0.000000001")
+        self.assertEqual(code, 1)
+        self.assertEqual(moves, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
+#+end_src
+
+* Changes by pull request
+
+- [[https://github.com/siainbuletin/dotfiles/pull/324][#324]]
+  - ✨ Added the script, its tests and this doc: =create= and =send=, the rule from =read-status= and the chosen =.bib= files, the size budget, =--return=, =--json=. Tested with DEVONthink faked; not run on the Mac.

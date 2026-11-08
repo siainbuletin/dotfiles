@@ -152,6 +152,25 @@ Recommended: a custom metadata field of type URL named =litnote=. DEVONthink can
 - PDFs with no litnote, litnotes with no PDF, PDFs whose file name is not a citekey in any registered =.bib=, and litnotes whose =#+devonthink:= UUID points nowhere (the record moved or was deleted).
 - A dry run prints these and the changes it would make; nothing is written without a confirmation. The backfill touches about 1,255 notes and thousands of records, so it always shows the plan first and copies each changed note to a backup folder under =sp-var-dir=, as =sp-author-notes= already does.
 
+* The =reading= database (sync budget)
+
+/Added 2026-11-07./ The =literature= database (about 65 GB) is too big for the iPad and for the NAS's WebDAV sync store, which has room for about 20 GB on its SSD. So =literature= stays on the Mac, always open and searchable from DEVONthink and Emacs, and a small =reading= database is the one that syncs. What goes into it is decided by a rule, not by hand.
+
+=tools/devonthink-reading.py= (literate source and full documentation: [[file:../tangles/academic/devonthink-reading.org][devonthink-reading.org]]) has two actions, both dry runs unless =--apply= is given:
+
+| Action   | What it does |
+|----------+--------------|
+| =create= | creates =~/Databases/reading.dtBase2= with one group per selected =.bib= file, or opens it if the file is there but closed |
+| =send=   | moves into =reading= every PDF record whose citekey has a litnote with a selected =read-status= (default =to-be-read=) and is in a selected =.bib= file (default: all); with =--return=, moves records that no longer match back to where they came from |
+
+- The rule joins on the citekey, as the rest of this design does: the litnote's =ROAM_REFS= (or =#+reference:=), the =.bib= entry key, and the PDF's file name =KEY.pdf=.
+- =read-status= is read from the vulpea meta line (=- read-status :: VALUE=) or a =:READ-STATUS:= property; a link value counts by its description, case is ignored.
+- The statuses and =.bib= files change on the fly: =--status= and =--bib= (both repeatable), or =~/.config/devonthink-reading/config.json= (keys =statuses=, =bib_files=, =budget_gb=, =source_database=, =reading_database=, =reading_path=, =notes_dir=, =bib_dir=).
+- =send= refuses to go over =budget_gb= (default 20). Where each record came from is kept in =~/.local/state/devonthink-reading/origins.json=, so =--return= puts it back in its old group.
+- =--json= (before the action: =devonthink-reading.py --json send=) prints the plan as JSON, for an Emacs command later.
+
+Untested on the Mac: the JXA calls (=createDatabase=, =openDatabase=, =createLocation=, =getRecordWithUuid=, =move=) and whether moving an /indexed/ record between databases leaves its file in =~/Documents/literature/=. Run =send --apply --limit 1= first and check the record and the file. The parsing and planning are covered by =tests/test_devonthink_reading.py= (=python3 -m unittest tests/test_devonthink_reading.py=), with DEVONthink faked.
+
 * Alternatives considered
 
 - /Index every record page by page in litdb./ Rejected for size (above); DEVONthink search already covers unread documents.
