@@ -3433,7 +3433,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🔧 Changed sorting on =:pages= (or the =pub-pages= meta key) to compare the first number in the text, so there is no separate =:page= column
     - the =:page= column from #329 is removed, and the book and collection views sort by =:pages=.
   - Tested in Emacs 29.3 batch with stubbed Vulpea.
-- [[https://github.com/siainbuletin/dotfiles/pull/332][#332]]
+- [[https://github.com/siainbuletin/dotfiles/pull/337][#337]]
   - 🔧 Changed the default of =sp-collec-query-views-file= to =views/sp-collection-query-tables-views.el= in the configuration, a tracked file (empty at first), so saved views can be committed without moving files
     - views in the older places are still read until the new file holds a view.
   - After pulling a PR that adds files, run =stow -R emacs-modular= in =~/dotfiles=: a file that is not linked yet makes =(require ...)= fail, as =sp-collection-query-tables-book= did after #329.
