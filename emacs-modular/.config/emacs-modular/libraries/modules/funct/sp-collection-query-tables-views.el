@@ -34,12 +34,12 @@ files that are kept and not regenerated belong."
 (defconst sp-collec-query-views-defaults
   '(("book-sections"
      :parent-of "self" :parent-prop "bib-parent"
-     :columns (:page :pages :title "pub-author" :tags :check)
-     :sort-by :page)
+     :columns (:pages :title "pub-author" :tags :check)
+     :sort-by :pages)
     ("collection-articles"
      :parent-of "self" :parent-prop "bib-parent"
-     :columns (:page :pages :title "pub-author" "pub-year" :tags :check)
-     :sort-by :page)
+     :columns (:pages :title "pub-author" "pub-year" :tags :check)
+     :sort-by :pages)
     ("bib-parent-mismatches"
      :meta (("bib-parent")) :flagged t
      :columns (:title :tags "bib-parent" :check)

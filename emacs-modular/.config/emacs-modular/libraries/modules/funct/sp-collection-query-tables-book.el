@@ -36,9 +36,9 @@
   :group 'sp-collec-query-book)
 
 (defcustom sp-collec-query-book-columns
-  '(:page :pages :title "pub-author")
+  '(:pages :title "pub-author")
   "Columns of a section table, see `sp-collec-query-spec-keys'.
-:PAGE is the first page number, the key the table is sorted on."
+:PAGES is the text of pub-pages; the table is sorted on its first number."
   :type '(repeat (choice symbol string))
   :group 'sp-collec-query-book)
 
@@ -68,7 +68,7 @@ that is one."
   (list :parent-of (vulpea-note-id book)
         :parent-prop sp-collec-query-book-parent-prop
         :columns (copy-sequence sp-collec-query-book-columns)
-        :sort-by :page))
+        :sort-by :pages))
 
 (defun sp-collec-query-book-sections (book)
   "Return the notes that link to BOOK, in page order.

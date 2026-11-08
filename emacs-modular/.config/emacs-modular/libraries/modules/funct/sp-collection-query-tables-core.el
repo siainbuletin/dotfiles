@@ -42,7 +42,8 @@ in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
 :CHECK the warning of `sp-collec-query-check';
-:PAGES shows the pub-pages meta key and :PAGE its first number (to sort on);
+:PAGES shows the pub-pages meta key; sorting on it (or on the meta key
+pub-pages) compares the first number in the text (9-30 before 31-99);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
@@ -57,7 +58,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page :check
+  '(:title :tags :todo :level :priority :id :file :path :sections :pages :check
     :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 
@@ -326,10 +327,6 @@ naming a meta key (several values are joined with \", \")."
     (:devonthink (sp-collec-query--dt-links note))
     (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
-    (:page (if-let* ((n (sp-collec-query-first-page
-                         (car (vulpea-note-meta-get-list note "pub-pages")))))
-               (number-to-string n)
-             ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -429,13 +426,24 @@ Each key decides unless both cells are equal under it; then the next does."
                (setq decided t result desc)))))
     result))
 
+(defun sp-collec-query--sort-cell (note column)
+  "Return the text NOTE is compared on when sorting by COLUMN.
+That is the text of the cell, except for pages (:pages or the meta key
+\"pub-pages\"), where it is the first number in the text, or empty."
+  (if (member column '(:pages "pub-pages"))
+      (if-let* ((n (sp-collec-query-first-page
+                    (car (vulpea-note-meta-get-list note "pub-pages")))))
+          (number-to-string n)
+        "")
+    (sp-collec-query-cell note column)))
+
 (defun sp-collec-query-sort (notes sort-by &optional descending)
   "Return NOTES sorted by SORT-BY, descending when DESCENDING.
 SORT-BY is a column or a list of keys, see `sp-collec-query-sort-keys'.
 The sort is stable, so notes equal under every key keep their order."
   (if-let* ((keys (sp-collec-query-sort-keys sort-by descending)))
       (let ((rows (mapcar (lambda (n)
-                            (cons n (mapcar (lambda (k) (sp-collec-query-cell n (car k)))
+                            (cons n (mapcar (lambda (k) (sp-collec-query--sort-cell n (car k)))
                                             keys)))
                           notes)))
         (mapcar #'car (sort rows (lambda (a b)
