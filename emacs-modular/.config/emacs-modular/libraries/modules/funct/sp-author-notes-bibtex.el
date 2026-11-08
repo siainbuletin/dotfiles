@@ -72,19 +72,22 @@ was reached, so that the end of the buffer may not be."
         (goto-char beg)
         (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
                     (key (cdr (assoc "=key=" entry)))
-                    (author (cdr (assoc "author" entry))))
+                    (_ (or (assoc "author" entry) (assoc "editor" entry))))
           (push (list :key key
                       :title (replace-regexp-in-string
                               "[{}]" "" (or (cdr (assoc "title" entry)) ""))
                       :year (or (cdr (assoc "year" entry)) "")
-                      :authors (sp-author-notes-bibtex--split-authors author)
+                      :authors (when-let* ((author (cdr (assoc "author" entry))))
+                                 (sp-author-notes-bibtex--split-authors author))
+                      :editors (when-let* ((editor (cdr (assoc "editor" entry))))
+                                 (sp-author-notes-bibtex--split-authors editor))
                       :file file :pos beg)
                 entries))
         (goto-char (min (point-max) (1+ beg)))))
     (cons (nreverse entries) (and limit (>= count limit)))))
 
 (defun sp-author-notes-bibtex--entries (files)
-  "The entries of the .bib FILES as plists (:key :title :year :authors :file :pos)."
+  "The entries of the .bib FILES as plists (:key :title :year :authors :editors :file :pos)."
   (let (entries)
     (dolist (file files)
       (when (file-readable-p file)
@@ -158,7 +161,7 @@ people and tens of thousands of entries."
   (let ((exact (car index)) (possible (cadr index)) (order (cddr index)))
     (puthash entry (hash-table-count order) order)
     (unless (gethash (plist-get entry :key) covered)
-      (dolist (author (plist-get entry :authors))
+      (dolist (author (append (plist-get entry :authors) (plist-get entry :editors)))
         (push entry (gethash (sp-author-notes--title-key author) exact))
         (when-let* ((key (sp-author-notes-bibtex--possible-key author)))
           (push entry (gethash key possible)))))))
@@ -187,7 +190,7 @@ and initial with PERSON are compared."
         (puthash entry t candidates)))
     (maphash
      (lambda (entry _)
-       (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
+       (when-let* ((conf (cl-loop for a in (append (plist-get entry :authors) (plist-get entry :editors))
                                   for m = (sp-author-notes-bibtex--match title a)
                                   when (eq m 'exact) return 'exact
                                   when m collect m into found
@@ -265,9 +268,19 @@ MATCHES is a list of (ENTRY . CONFIDENCE).  Only people with at least one entry 
     (sp-author-notes-bibtex--compute-job (lambda (found) (setq groups found)))
     groups))
 
-(defun sp-author-notes-bibtex--add-author (file person)
-  "Add a pub-author line for the PERSON plist to the litnote FILE, if it has none.
-Return non-nil when the line was added."
+(defun sp-author-notes-bibtex--role-key (person entry)
+  "The meta key for PERSON in ENTRY: `pub-editor' if PERSON only edited it, else `pub-author'."
+  (let ((title (plist-get person :title)))
+    (if (and (null (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                            (plist-get entry :authors)))
+             (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                      (plist-get entry :editors)))
+        "pub-editor"
+      sp-author-notes-key)))
+
+(defun sp-author-notes-bibtex--add-author (file person &optional meta-key)
+  "Add a META-KEY line (default pub-author) for the PERSON plist to the litnote FILE.
+Nothing is added if the file has such a line.  Return non-nil when it was added."
   (let ((buf (find-buffer-visiting file)))
     (unless (and buf (buffer-modified-p buf))
       (with-current-buffer (or buf (find-file-noselect file))
@@ -278,7 +291,7 @@ Return non-nil when the line was added."
             (let ((limit (sp-author-notes--first-heading))
                   (case-fold-search t))
               (unless (re-search-forward
-                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote sp-author-notes-key)) limit t)
+                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote (or meta-key sp-author-notes-key))) limit t)
                 (goto-char (point-min))
                 (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
                     (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
@@ -288,7 +301,7 @@ Return non-nil when the line was added."
                   (unless (bolp) (insert "\n"))
                   (insert "\n"))
                 (insert (format "- %s :: [[id:%s][%s]]"
-                                sp-author-notes-key (plist-get person :id)
+                                (or meta-key sp-author-notes-key) (plist-get person :id)
                                 (plist-get person :title)))
                 (unless (eq (char-after) ?\n) (insert "\n"))
                 (save-buffer)
@@ -306,8 +319,9 @@ Return non-nil when the line was added."
         nil)
        (t
         (when sp-author-notes-bibtex-link-author
-          (unless (sp-author-notes-bibtex--add-author file person)
-            (message "%s: unsaved changes or a pub-author line already, left alone"
+          (unless (sp-author-notes-bibtex--add-author
+                 file person (sp-author-notes-bibtex--role-key person entry))
+            (message "%s: unsaved changes or a pub-author/pub-editor line already, left alone"
                      (file-name-nondirectory file))))
         file)))))
 

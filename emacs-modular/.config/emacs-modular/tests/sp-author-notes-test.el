@@ -83,9 +83,9 @@
 (ert-deftest sp-author-notes-test-person-pass ()
   (with-temp-buffer
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: X\n\n* Bio\ntext\n")
-    (should (equal (sp-author-notes--person-pass) '(basics works table)))
+    (should (equal (sp-author-notes--person-pass t) '(basics works table edited-heading edited-table)))
     (let ((text (buffer-string)))
-      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :fold-tag \"booksection\" :fold-prop \"bib-parent\" :columns (:title :sections \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Bio\ntext\n" text))
+      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :fold-tag \"booksection\" :fold-prop \"bib-parent\" :columns (:title :sections \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* Bio\ntext\n" text))
       ;; idempotent
       (should (null (sp-author-notes--person-pass)))
       (should (equal text (buffer-string))))))
@@ -93,15 +93,15 @@
 (ert-deftest sp-author-notes-test-person-pass-keeps-existing ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Basics\nmine\n** Sub\n* Works\nold text\n** Child\nc\n* Other\n")
-    (should (equal (sp-author-notes--person-pass) '(table)))
-    (should (string-match-p "\\* Works\nold text\n\n#\\+BEGIN: .*\n#\\+END:\n\n\\*\\* Child\nc\n\\* Other\n"
+    (should (equal (sp-author-notes--person-pass t) '(table edited-heading edited-table)))
+    (should (string-match-p "\\* Works\nold text\n\n#\\+BEGIN: .*\n#\\+END:\n\n\\*\\* Child\nc\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* Other\n"
                             (buffer-string)))
     (should (string-match-p "\\* Basics\nmine\n\\*\\* Sub\n" (buffer-string)))))
 
 (ert-deftest sp-author-notes-test-person-pass-existing-table-elsewhere ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Basics\n#+BEGIN: vulpea-table :parent-of \"self\" :parent-prop \"pub-author\"\n#+END:\n")
-    (should (equal (sp-author-notes--person-pass) '(works)))))
+    (should (equal (sp-author-notes--person-pass t) '(works edited-heading edited-table)))))
 
 (ert-deftest sp-author-notes-test-full-run ()
   (sp-author-notes-test--with-vault
@@ -210,9 +210,9 @@
 (ert-deftest sp-author-notes-test-moves-works-above-basics ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Works\nmine\n** Sub\n* Bio\n* Basics\nb\n* After\n")
-    (should (equal (sp-author-notes--person-pass) '(moved-works table)))
+    (should (equal (sp-author-notes--person-pass t) '(moved-works table edited-heading edited-table)))
     (let ((text (buffer-string)))
-      (should (string-match-p "\\* Bio\n\n?\\* Basics\nb\n\n\\* Works\nmine\n\n#\\+BEGIN: [^\n]*\n#\\+END:\n\n\\*\\* Sub\n\n\\* After\n" text))
+      (should (string-match-p "\\* Bio\n\n?\\* Basics\nb\n\n\\* Works\nmine\n\n#\\+BEGIN: [^\n]*\n#\\+END:\n\n\\*\\* Sub\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* After\n" text))
       (should (null (sp-author-notes--person-pass)))
       (should (equal text (buffer-string))))))
 
@@ -466,3 +466,69 @@
       (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
         (should (string-match-p "- pub-author :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\]\n" text))
         (should (string-match-p "- pub-editor :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\], \\[\\[id:other\\]\\[Other\\]\\]" text))))))
+
+;;;; Works table of one author note
+
+(ert-deftest sp-author-notes-test-works-convert ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann" "* Basics" "bio")
+    (let ((file (expand-file-name "ann.org" vault)))
+      (with-current-buffer (find-file-noselect file)
+        (unwind-protect
+            (progn
+              ;; the dry run writes nothing and says what would be added
+              (let ((msg (sp-author-notes--works-run nil)))
+                (should (string-match-p "would add the Works heading, the table" msg)))
+              (should-not (string-match-p "BEGIN" (sp-author-notes-test--read file)))
+              ;; convert adds the lint's heading and block, fills it, backs up
+              (let ((msg (sp-author-notes--works-run t)))
+                (should (string-match-p "added the Works heading, the table" msg)))
+              (should (string-match-p
+                       "\\* Basics\nbio\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\"[^\n]*\nFILLED\n#\\+END:"
+                       (sp-author-notes-test--read file)))
+              (should (file-exists-p (expand-file-name "backups/" vault)))
+              ;; idempotent
+              (let ((text (sp-author-notes-test--read file)))
+                (should (string-match-p "headings and tables are there"
+                                        (sp-author-notes--works-run t)))
+                (should (equal text (sp-author-notes-test--read file)))))
+          (kill-buffer))))))
+
+(ert-deftest sp-author-notes-test-works-needs-author-note ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "x.org" vault)
+     ":PROPERTIES:" ":ID: x" ":END:" "#+title: X" "")
+    (with-current-buffer (find-file-noselect (expand-file-name "x.org" vault))
+      (unwind-protect
+          (should-error (sp-author-notes--works-run t) :type 'user-error)
+        (kill-buffer)))))
+
+(ert-deftest sp-author-notes-test-edited-table-only-for-editors ()
+  (with-temp-buffer
+    (insert "#+title: X\n")
+    (should (equal (sp-author-notes--person-pass) '(basics works table)))
+    (should-not (sp-author-notes--has-table-p "pub-editor")))
+  (with-temp-buffer
+    (insert "#+title: X\n")
+    (should (equal (sp-author-notes--person-pass t)
+                   '(basics works table edited-heading edited-table)))
+    (should (string-match-p ":parent-prop \"pub-editor\" :except-prop \"pub-author\""
+                            (buffer-string)))
+    (should (sp-author-notes--has-table-p "pub-editor"))
+    (should (null (sp-author-notes--person-pass t)))))
+
+(ert-deftest sp-author-notes-test-lint-edited-table-follows-pub-editor ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann")
+    (sp-author-notes-test--person vault "Bo Roe" "bo")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: a" ""
+     "- pub-author :: [[id:ann][Ann Lee]]"
+     "- pub-editro :: [[id:bo][Bo Roe]]" "")
+    (sp-author-notes--run t)
+    (should-not (string-match-p "pub-editor"
+                                (sp-author-notes-test--read (expand-file-name "ann.org" vault))))
+    (should (string-match-p "\\* Edited works"
+                            (sp-author-notes-test--read (expand-file-name "bo.org" vault))))))

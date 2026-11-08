@@ -1557,7 +1557,7 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 1. Reads every note in =litnotes/= (the file-level meta list only) and *fixes typos of the key*: =pub-authro=, =pub-autor= and =Pub_Author= become =pub-author=. A key two edits away is only reported.
 2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and= (as BibTeX writes them; =Ann Lee, Bo Roe, and Cy Poe= is a list with commas, see below), but not by a single comma because =Smith, John= is one name; more than one comma is a case for disambiguation, see below. Each name gets its own note.
 3. *Creates a note tagged =:person:=* for every plain name that has no note, with =sp-org--write-note= (the function behind =sp-org-create-note-and-link=; there is no function called =sp-org--create-note=), and replaces the plain name in the litnote by an ID link to it. An existing note is found by its title, ignoring case; if it is not tagged =person= it is given that tag in its =#+filetags:=.
-4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=.
+4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=. Only for a person who is linked under =pub-editor= in some litnote, it does the same after the =Works= subtree for an =Edited works= heading and a block for =pub-editor= (see below).
 5. Fills the tables from the Vulpea database, so they are not left for =C-c C-c=.
 6. Shows a report buffer with everything above, and the same list as a preview before anything is written.
 
@@ -1584,7 +1584,23 @@ Safety:
 - In the report, =d= drops the candidate on the line from the plan and shows the preview again, =u= brings it back, =A= writes what is left. A note (a litnote, an author note, a note to tag) is dropped as a file: it is not read or changed. An author to create is dropped by name: no note is made and the name stays plain. The command asks =y= (write all), =r= (review in the report) or =q=.
 - Left alone and reported: two notes with one title, a note without an ID, and a value that mixes links with other text.
 
-What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= get a =Works= section, not every =person= note.
+*Backfilling one author note.* =sp-author-notes= goes through the whole vault; these two commands work on one author note.
+
+- =M-x sp-author-notes-works-dryrun= shows what would be added to the note in the current buffer, and writes nothing.
+- =M-x sp-author-notes-works-convert= writes it: Basics and Works headings and the block if they are missing, then fills the block.
+- The note must be tagged =person=; the commands say so otherwise.
+- The headings and the block come from the same code as the lint (=sp-author-notes--person-pass= and =sp-author-notes-works-spec=), so the table has the same columns and sorting.
+- /Works/ are the notes whose =pub-author= links to this note.
+- /Edited works/ are the notes whose =pub-editor= links to this note and whose =pub-author= does not. They are in a second table under their own heading (=sp-author-notes-edited-heading=, =sp-author-notes-edited-spec=), so a work is in one table only.
+- The second table needs the spec key =:except-prop= of the query tables: a meta key whose link to =:parent-of= leaves the note out.
+- The lint (=sp-author-notes=) adds the second heading and table only to a person who is linked under =pub-editor= in some litnote (a mistyped key counts).
+- The command adds them only when the database has a work that the person only edited; a person with none gets the =Works= table alone.
+- A table that is already in the note is kept as it is and only filled; its spec is not replaced. 
+- The dry run also says how many works each table would list, when vulpea is loaded.
+- The note is copied to =sp-author-notes-backup-directory= before it is written, and a buffer with unsaved changes is saved first.
+- No saved view of =sp-collec-query-views-defaults= is used: those list notes through =bib-parent=, not =pub-author=.
+
+What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= or =pub-editor= get a =Works= section, not every =person= note.
 
 ** Setup
 
@@ -1696,6 +1712,22 @@ you wrote as \"First Last\"."
   "The spec of the `collection-query-table' block put in the Works heading.
 See `sp-collec-query-spec-keys'.  :title is the note title, the citekey.
 Book sections are left out and counted in :sections on their book."
+  :type 'sexp
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-edited-heading "Edited works"
+  "The heading that holds the table of the works that the person only edited."
+  :type 'string
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-edited-spec
+  '(:parent-of "self" :parent-prop "pub-editor" :except-prop "pub-author"
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :sort-by "pub-year")
+  "The spec of the `collection-query-table' block put in the edited works heading.
+Like `sp-author-notes-works-spec', but for `pub-editor', and a work whose
+`pub-author' also names the person is left out (it is in the Works table)."
   :type 'sexp
   :group 'sp-author-notes)
 
@@ -2100,6 +2132,7 @@ A run holds what it found and did. It is the same code for the preview and for t
   orphan-choices ; hash: orphan ID -> chosen ID or `none'
   backed-up      ; hash: files already copied to the backup folder
   filled         ; list of files whose tables were filled
+  editors        ; hash: author key -> t for people linked under pub-editor
   litnote-count)
 
 (defvar sp-author-notes--excluded nil
@@ -2343,9 +2376,20 @@ vault has that identifier and an :ID:."
            (format "No note has the Denote identifier %s; link left as it is" identifier)))
         nil))))
 
+(defun sp-author-notes--author-key (author)
+  "The key of AUTHOR, an (ID . NAME) pair: its ID, or \"name:\" and the title key of its name."
+  (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author)))))
+
+(defun sp-author-notes--editor-p (run author)
+  "Non-nil if AUTHOR, an (ID . NAME) pair, is linked under `pub-editor' in a litnote of RUN."
+  (and (sp-author-notes--run-editors run)
+       (gethash (sp-author-notes--author-key author) (sp-author-notes--run-editors run))))
+
 (defun sp-author-notes--litnote-pass (run file)
-  "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed denoted ambiguous)
+  "Fix the key typos and link the plain authors in the buffer, a note from FILE.
+The result has :editors, the authors that are under `pub-editor' (also when
+the key is mistyped)."
+  (let (fixes suspects converted authors unparsed denoted ambiguous editors)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -2356,7 +2400,7 @@ vault has that identifier and an :ID:."
           (let ((items (sp-author-notes--parse-value value)))
             (if (eq items 'unparsed)
                 (push (cons value line) unparsed)
-              (let (parts changed)
+              (let ((before authors) parts changed)
                 (cl-flet ((do-name (name line)
                             (let ((id (sp-author-notes--resolve run name file line)))
                               (cond
@@ -2398,7 +2442,9 @@ vault has that identifier and an :ID:."
                 (when changed
                   (sp-author-notes--replace
                    (plist-get entry :value-beg) (plist-get entry :value-end)
-                   (mapconcat #'identity (nreverse parts) ", ")))))))
+                   (mapconcat #'identity (nreverse parts) ", ")))
+                (when (equal "pub-editor" (if (eq (car state) 'fix) (cdr state) key))
+                  (setq editors (append (cl-ldiff authors before) editors)))))))
         (when state
           (if (eq (car state) 'fix)
               (progn
@@ -2407,7 +2453,7 @@ vault has that identifier and an :ID:."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed :denoted denoted
+          :authors authors :editors editors :unparsed unparsed :denoted denoted
           :ambiguous ambiguous)))
 #+end_src
 
@@ -2423,9 +2469,9 @@ The buffer holds an author note. The pass adds what is missing and returns what 
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes--dblock-text ()
-  "The text of the query table block for `sp-author-notes-works-spec'."
-  (let ((spec sp-author-notes-works-spec) pairs)
+(defun sp-author-notes--dblock-text (&optional spec)
+  "The text of the query table block for SPEC, default `sp-author-notes-works-spec'."
+  (let ((spec (or spec sp-author-notes-works-spec)) pairs)
     (while spec
       (push (format "%s %S" (car spec) (cadr spec)) pairs)
       (setq spec (cddr spec)))
@@ -2471,18 +2517,21 @@ The buffer holds an author note. The pass adds what is missing and returns what 
     (insert text)
     (unless (or (eobp) (eq (char-after) ?\n)) (insert "\n"))))
 
-(defun sp-author-notes--has-table-p ()
-  "Non-nil if the buffer has a query table block for `sp-author-notes-key'."
+(defun sp-author-notes--has-table-p (&optional key)
+  "Non-nil if the buffer has a query table block for KEY, default `sp-author-notes-key'."
   (save-excursion
     (goto-char (point-min))
     (let ((case-fold-search t))
       (re-search-forward
        (format "^[ \t]*#\\+begin:[ \t]*\\(?:collection-query-table\\|vulpea-table\\)\\_>.*:parent-prop[ \t]+\"%s\""
-               (regexp-quote sp-author-notes-key))
+               (regexp-quote (or key sp-author-notes-key)))
        nil t))))
 
-(defun sp-author-notes--person-pass ()
-  "Add the Basics heading, the Works heading and the table to the buffer."
+(defun sp-author-notes--person-pass (&optional with-edited)
+  "Add the Basics and Works headings and the Works table to the buffer; return what was added.
+With WITH-EDITED, add the table of the works only edited too
+\(`sp-author-notes--edited-pass').  That is for a person that is linked
+under `pub-editor' somewhere; nobody else gets the second table."
   (let (added)
     (unless (sp-author-notes--find-heading sp-author-notes-basics-heading)
       (sp-author-notes--insert-at (sp-author-notes--first-heading)
@@ -2510,7 +2559,7 @@ The buffer holds an author note. The pass adds what is missing and returns what 
         (sp-author-notes--insert-at (sp-author-notes--body-end (car works))
                                     (sp-author-notes--dblock-text)))
       (push 'table added))
-    (nreverse added)))
+    (append (nreverse added) (and with-edited (sp-author-notes--edited-pass)))))
 #+end_src
 
 ** Files and the whole run
@@ -2574,11 +2623,12 @@ The order is fixed: litnotes first (this creates the notes of plain names), then
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes--new-note-additions ()
-  "What the person pass adds to a note that has only the title and the tag."
+(defun sp-author-notes--new-note-additions (&optional with-edited)
+  "What the person pass adds to a note that has only the title and the tag.
+WITH-EDITED is as for `sp-author-notes--person-pass'."
   (with-temp-buffer
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: x\n\n")
-    (sp-author-notes--person-pass)))
+    (sp-author-notes--person-pass with-edited)))
 
 (defun sp-author-notes--populate (run file)
   "Fill the query table blocks for `sp-author-notes-key' in FILE.
@@ -2596,7 +2646,7 @@ folder.  A failure is recorded as a problem."
                   (goto-char (point-min))
                   (while (re-search-forward
                           (format "^[ \t]*#\\+begin:[ \t]*collection-query-table\\_>.*:parent-prop[ \t]+\"%s\""
-                                  (regexp-quote sp-author-notes-key))
+                                  (regexp-opt (list sp-author-notes-key "pub-editor")))
                           nil t)
                     (beginning-of-line)
                     (org-update-dblock)
@@ -2619,8 +2669,12 @@ folder.  A failure is recorded as a problem."
               (plist-get result :denoted) (plist-get result :ambiguous)
               (plist-get result :converted) (plist-get result :unparsed))
       (push (cons file result) (sp-author-notes--run-litnotes run)))
+    (dolist (editor (plist-get result :editors))
+      (unless (sp-author-notes--run-editors run)
+        (setf (sp-author-notes--run-editors run) (make-hash-table :test #'equal)))
+      (puthash (sp-author-notes--author-key editor) t (sp-author-notes--run-editors run)))
     (dolist (author (plist-get result :authors))
-      (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
+      (let ((key (sp-author-notes--author-key author)))
         (unless (gethash key seen)
           (puthash key t seen)
           (push author (sp-author-notes--run-authors run)))))))
@@ -2629,7 +2683,8 @@ folder.  A failure is recorded as a problem."
   "Plan the note of AUTHOR, an (ID . NAME) pair, for RUN."
   (pcase-let ((`(,id . ,name) author))
     (if (null id)
-        (push (list name nil nil (sp-author-notes--new-note-additions))
+        (push (list name nil nil (sp-author-notes--new-note-additions
+                                  (sp-author-notes--editor-p run author)))
               (sp-author-notes--run-people run))
       (let ((entry (gethash id (sp-author-notes--run-by-id run))))
         (cond
@@ -2641,7 +2696,9 @@ folder.  A failure is recorded as a problem."
                    (plist-get entry :title) sp-author-notes-person-tag)))
          (t
           (when-let* ((wrapped (sp-author-notes--process-file
-                                run (plist-get entry :file) #'sp-author-notes--person-pass)))
+                                run (plist-get entry :file)
+                                (lambda () (sp-author-notes--person-pass
+                                            (sp-author-notes--editor-p run author))))))
             (push (list (plist-get entry :title) id (plist-get entry :file)
                         (car wrapped))
                   (sp-author-notes--run-people run)))))))))
@@ -3119,6 +3176,136 @@ deleted: they are listed, so you can merge them."
                                                           (file-name-nondirectory (plist-get e :file))))
                                       (nreverse losers) "; ")))))))))
 
+;;;; Works table of one author note
+
+(defun sp-author-notes--person-note-p ()
+  "Non-nil if the buffer has `sp-author-notes-person-tag' in its #+filetags:."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (re-search-forward
+       (format "^#\\+filetags:.*:%s:" (regexp-quote sp-author-notes-person-tag))
+       nil t))))
+
+(defun sp-author-notes--works-target ()
+  "The file of the author note in the current buffer; signal a user error if it is none."
+  (unless (and buffer-file-name (derived-mode-p 'org-mode))
+    (user-error "This buffer does not visit an Org note"))
+  (unless (sp-author-notes--person-note-p)
+    (user-error "This note is not tagged %s, so it is not an author note"
+                sp-author-notes-person-tag))
+  buffer-file-name)
+
+(defun sp-author-notes--works-count (&optional spec)
+  "How many rows a Works table of the buffer would list; nil if that cannot be told.
+The notes are asked for in the Vulpea database with SPEC, default
+`sp-author-notes-works-spec', for the ID in the buffer text, so the buffer
+does not need to visit a file."
+  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
+        (ignore-errors
+          (length (sp-collec-query-query
+                   (plist-put (copy-sequence (or spec sp-author-notes-works-spec))
+                              :parent-of (match-string 1)))))))))
+
+(defun sp-author-notes--edited-pass ()
+  "Add the edited works heading and its table to the buffer; return what was added.
+The heading goes at the end of the Works subtree, as a heading of its own,
+with a block from `sp-author-notes-edited-spec'.  Call this after
+`sp-author-notes--person-pass'."
+  (let (added)
+    (unless (sp-author-notes--find-heading sp-author-notes-edited-heading)
+      (let ((works (sp-author-notes--find-heading sp-author-notes-works-heading)))
+        (sp-author-notes--insert-at
+         (sp-author-notes--subtree-end (car works) (cdr works))
+         (format "* %s\n" sp-author-notes-edited-heading)))
+      (push 'edited-heading added))
+    (unless (sp-author-notes--has-table-p "pub-editor")
+      (let ((edited (sp-author-notes--find-heading sp-author-notes-edited-heading)))
+        (sp-author-notes--insert-at (sp-author-notes--body-end (car edited))
+                                    (sp-author-notes--dblock-text sp-author-notes-edited-spec)))
+      (push 'edited-table added))
+    (nreverse added)))
+
+(defun sp-author-notes--works-pass ()
+  "Give the buffer the Works tables that `sp-author-notes' gives an author note.
+This is `sp-author-notes--person-pass', so the headings and blocks are the
+ones the lint makes (`sp-author-notes-works-spec' and, for the works that
+the person only edited, `sp-author-notes-edited-spec'), but the second table
+only when the database has a work that the person only edited.  Return
+(ADDED WORKS . EDITED): the list of what was added, and the number of works
+that each table lists."
+  (let* ((edited (sp-author-notes--works-count sp-author-notes-edited-spec))
+         (added (sp-author-notes--person-pass (and edited (> edited 0)))))
+    (cons added (cons (sp-author-notes--works-count) edited))))
+
+(defun sp-author-notes--works-summary (file added counts apply)
+  "A sentence about the author note FILE: ADDED to it, and the COUNTS of works.
+COUNTS is (WORKS . EDITED).  APPLY says whether the note was written."
+  (format "%s: %s%s"
+          (file-name-nondirectory file)
+          (if added
+              (format "%s %s" (if apply "added" "would add")
+                      (mapconcat (lambda (a)
+                                   (pcase a
+                                     ('basics "the Basics heading")
+                                     ('works "the Works heading")
+                                     ('moved-works "Works below Basics")
+                                     ('table "the table")
+                                     ('edited-heading "the Edited works heading")
+                                     ('edited-table "the edited works table")
+                                     (_ (symbol-name a))))
+                                 added ", "))
+            "headings and tables are there")
+          (if (null (car counts))
+              "; works not counted (vulpea is not loaded)"
+            (format "; %s %d work%s, %d edited only"
+                    (if apply "the table lists" "the table would list")
+                    (car counts) (if (= (car counts) 1) "" "s")
+                    (or (cdr counts) 0)))))
+
+(defun sp-author-notes--works-run (apply)
+  "Fill the Works tables of the author note in the current buffer; write it when APPLY.
+Return the message to show."
+  (let* ((file (sp-author-notes--works-target))
+         (sp-author-notes--excluded nil)
+         (run (sp-author-notes--make-run
+               :apply apply :stamp (format-time-string "%Y%m%dT%H%M%S")
+               :names (make-hash-table :test #'equal)
+               :orphan-choices (make-hash-table :test #'equal)
+               :backed-up (make-hash-table :test #'equal)))
+         (result (car (sp-author-notes--process-file
+                       run file #'sp-author-notes--works-pass))))
+    (when apply
+      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+          (sp-author-notes--populate run file)
+        (sp-author-notes--problem
+         run file nil "Table not filled: the query tables and vulpea are not loaded")))
+    (concat (sp-author-notes--works-summary file (car result) (cdr result) apply)
+            (when-let* ((problem (car (sp-author-notes--run-problems run))))
+              (format "  Problem: %s" (nth 2 problem))))))
+
+;;;###autoload
+(defun sp-author-notes-works-dryrun ()
+  "Show what `sp-author-notes-works-convert' would do to this author note, and write nothing.
+The note is the one in the current buffer; it must be tagged `person'."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run nil)))
+
+;;;###autoload
+(defun sp-author-notes-works-convert ()
+  "Fill the Works table of the author note in this buffer with the works of the author.
+Works are the notes whose `pub-author' links to this note.  Add the Basics
+and Works headings and the `collection-query-table' block when the note lacks
+them (the same as `sp-author-notes' does, from `sp-author-notes-works-spec'),
+then fill the block.  A table that is already there is kept as it is and
+only filled.  The note is copied to `sp-author-notes-backup-directory' first,
+and a buffer with unsaved changes is saved before."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run t)))
+
 ;;;###autoload
 (defun sp-author-notes ()
   "Make author notes from the `pub-author' meta key of the litnotes.
@@ -3153,7 +3340,7 @@ What each pull request changed in this module; the one-line summary is in [[file
 The =Works= table that [[*sp-author-notes.el][sp-author-notes]] puts in an author note lists the literature notes that name the author. A work that is only a BibTeX entry, with no literature note yet, is not in it. =M-x sp-author-notes-bibtex= adds that second view, the /additional/ works:
 
 1. Reads every =.bib= file of =sp-bibtex-files= (the list =sp-bibtex-register= keeps, from =sp-bibliography-dir=), keys like =smith2020attention=.
-2. Takes every =:person:= note of the vault and compares its title with the =author= field of each entry. A name matches /exactly/ when both read the same after flipping =Last, First= to =First Last=; it is a /possible/ match when the last name and the first initial agree (=J. Smith= and =John Smith=).
+2. Takes every =:person:= note of the vault and compares its title with the =author= and =editor= fields of each entry (an entry with only an =editor=, such as an edited volume, is read too). A name matches /exactly/ when both read the same after flipping =Last, First= to =First Last=; it is a /possible/ match when the last name and the first initial agree (=J. Smith= and =John Smith=).
 3. Leaves out the entries that already have a literature note: a note in =litnotes/= whose head (the property drawer and the =#+= lines) or file name holds the key, as in =REFERENCES=, =ROAM_REFS=, =#+reference:= or =@key=.
 4. Shows the rest in a report buffer, one section per author note, with the key, year, title, =.bib= file and how sure the match is.
 
@@ -3166,7 +3353,7 @@ In the report buffer:
 - =c= offers to create a literature note for the entry at point; =C= offers it for every /exact/ entry in the section at point (possible matches are only made one at a time). Both ask first.
 - =RET= visits the BibTeX entry; =o= visits the author note; =g= reads everything again.
 
-The note itself is made by =sp-author-notes-bibtex-create-function=, =citar-create-note= by default, which follows the =citar-denote= / =citar-vulpea= settings of [[file:../academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] (so the title template and the =litnotes/= folder are theirs). Because those templates do not know the author note, the new note gets a =- pub-author :: [[id:...][Name]]= line afterwards (=sp-author-notes-bibtex-link-author=), which is what puts it in the =Works= table of the author. If the match was only "possible" the line is added too, as you chose to create the note under that author.
+The note itself is made by =sp-author-notes-bibtex-create-function=, =citar-create-note= by default, which follows the =citar-denote= / =citar-vulpea= settings of [[file:../academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] (so the title template and the =litnotes/= folder are theirs). Because those templates do not know the author note, the new note gets a =- pub-author :: [[id:...][Name]]= line afterwards (=sp-author-notes-bibtex-link-author=), which is what puts it in the =Works= table of the author. When the person only edited the entry (the name is in =editor= and not in =author=), the line is =- pub-editor :: ...= instead, which puts it in the =Edited works= table. If the match was only "possible" the line is added too, as you chose to create the note under that author.
 
 The module changes nothing but that: it never edits a =.bib= file or an author note, and it writes the line into the new note only. A new note whose buffer has unsaved changes is left alone and reported in the echo area.
 
@@ -3261,19 +3448,22 @@ was reached, so that the end of the buffer may not be."
         (goto-char beg)
         (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
                     (key (cdr (assoc "=key=" entry)))
-                    (author (cdr (assoc "author" entry))))
+                    (_ (or (assoc "author" entry) (assoc "editor" entry))))
           (push (list :key key
                       :title (replace-regexp-in-string
                               "[{}]" "" (or (cdr (assoc "title" entry)) ""))
                       :year (or (cdr (assoc "year" entry)) "")
-                      :authors (sp-author-notes-bibtex--split-authors author)
+                      :authors (when-let* ((author (cdr (assoc "author" entry))))
+                                 (sp-author-notes-bibtex--split-authors author))
+                      :editors (when-let* ((editor (cdr (assoc "editor" entry))))
+                                 (sp-author-notes-bibtex--split-authors editor))
                       :file file :pos beg)
                 entries))
         (goto-char (min (point-max) (1+ beg)))))
     (cons (nreverse entries) (and limit (>= count limit)))))
 
 (defun sp-author-notes-bibtex--entries (files)
-  "The entries of the .bib FILES as plists (:key :title :year :authors :file :pos)."
+  "The entries of the .bib FILES as plists (:key :title :year :authors :editors :file :pos)."
   (let (entries)
     (dolist (file files)
       (when (file-readable-p file)
@@ -3352,7 +3542,7 @@ people and tens of thousands of entries."
   (let ((exact (car index)) (possible (cadr index)) (order (cddr index)))
     (puthash entry (hash-table-count order) order)
     (unless (gethash (plist-get entry :key) covered)
-      (dolist (author (plist-get entry :authors))
+      (dolist (author (append (plist-get entry :authors) (plist-get entry :editors)))
         (push entry (gethash (sp-author-notes--title-key author) exact))
         (when-let* ((key (sp-author-notes-bibtex--possible-key author)))
           (push entry (gethash key possible)))))))
@@ -3381,7 +3571,7 @@ and initial with PERSON are compared."
         (puthash entry t candidates)))
     (maphash
      (lambda (entry _)
-       (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
+       (when-let* ((conf (cl-loop for a in (append (plist-get entry :authors) (plist-get entry :editors))
                                   for m = (sp-author-notes-bibtex--match title a)
                                   when (eq m 'exact) return 'exact
                                   when m collect m into found
@@ -3464,9 +3654,19 @@ MATCHES is a list of (ENTRY . CONFIDENCE).  Only people with at least one entry 
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes-bibtex--add-author (file person)
-  "Add a pub-author line for the PERSON plist to the litnote FILE, if it has none.
-Return non-nil when the line was added."
+(defun sp-author-notes-bibtex--role-key (person entry)
+  "The meta key for PERSON in ENTRY: `pub-editor' if PERSON only edited it, else `pub-author'."
+  (let ((title (plist-get person :title)))
+    (if (and (null (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                            (plist-get entry :authors)))
+             (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                      (plist-get entry :editors)))
+        "pub-editor"
+      sp-author-notes-key)))
+
+(defun sp-author-notes-bibtex--add-author (file person &optional meta-key)
+  "Add a META-KEY line (default pub-author) for the PERSON plist to the litnote FILE.
+Nothing is added if the file has such a line.  Return non-nil when it was added."
   (let ((buf (find-buffer-visiting file)))
     (unless (and buf (buffer-modified-p buf))
       (with-current-buffer (or buf (find-file-noselect file))
@@ -3477,7 +3677,7 @@ Return non-nil when the line was added."
             (let ((limit (sp-author-notes--first-heading))
                   (case-fold-search t))
               (unless (re-search-forward
-                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote sp-author-notes-key)) limit t)
+                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote (or meta-key sp-author-notes-key))) limit t)
                 (goto-char (point-min))
                 (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
                     (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
@@ -3487,7 +3687,7 @@ Return non-nil when the line was added."
                   (unless (bolp) (insert "\n"))
                   (insert "\n"))
                 (insert (format "- %s :: [[id:%s][%s]]"
-                                sp-author-notes-key (plist-get person :id)
+                                (or meta-key sp-author-notes-key) (plist-get person :id)
                                 (plist-get person :title)))
                 (unless (eq (char-after) ?\n) (insert "\n"))
                 (save-buffer)
@@ -3505,8 +3705,9 @@ Return non-nil when the line was added."
         nil)
        (t
         (when sp-author-notes-bibtex-link-author
-          (unless (sp-author-notes-bibtex--add-author file person)
-            (message "%s: unsaved changes or a pub-author line already, left alone"
+          (unless (sp-author-notes-bibtex--add-author
+                 file person (sp-author-notes-bibtex--role-key person entry))
+            (message "%s: unsaved changes or a pub-author/pub-editor line already, left alone"
                      (file-name-nondirectory file))))
         file)))))
 #+end_src

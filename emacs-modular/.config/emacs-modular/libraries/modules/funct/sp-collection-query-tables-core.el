@@ -25,7 +25,7 @@
 
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
-    :parent-of :parent-prop :level :title-match :fold-tag :fold-prop
+    :parent-of :parent-prop :except-prop :level :title-match :fold-tag :fold-prop
     :flagged :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
@@ -34,6 +34,8 @@ under; :TODO a list of TODO states; :LINKS a list of note IDs, at least
 one of which the note links to; :META a list of (KEY . VALUE) where a nil
 VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 \"self\", checked against the meta key :PARENT-PROP (default \"parents\");
+:EXCEPT-PROP a meta key whose links to :PARENT-OF leave a note out (an
+edited work whose editor is also its author);
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :FOLD-TAG a tag whose notes are left out of the table and counted on the
 note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
@@ -136,6 +138,10 @@ switches buffers."
              (member parent-of
                      (vulpea-note-meta-get-list
                       note (or (plist-get spec :parent-prop) "parents") 'link)))
+         (or (null parent-of) (null (plist-get spec :except-prop))
+             (not (member parent-of
+                          (vulpea-note-meta-get-list
+                           note (plist-get spec :except-prop) 'link))))
          (or (not (plist-get spec :flagged))
              (not (string-empty-p (sp-collec-query-check note))))
          (pcase (plist-get spec :level)
