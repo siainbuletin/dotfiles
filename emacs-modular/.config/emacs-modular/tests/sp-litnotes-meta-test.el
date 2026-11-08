@@ -147,6 +147,38 @@
           (should (equal (plist-get (sp-litnotes-meta--file-meta c) :read-status) "03-review")))
       (delete-directory dir t))))
 
+(ert-deftest sp-litnotes-meta-backfill-children ()
+  (sp-litnotes-meta-test--with-bib (concat sp-litnotes-meta-test--bib
+                                           "@incollection{roe2016chapter,
+  author = {Roe, Rick},
+  title = {Second Chapter},
+  crossref = {Reuten2014Book},
+}
+")
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (sp-litnotes-meta-auto nil)
+           (made nil) (presets nil))
+      (unwind-protect
+          (progn
+            (with-temp-file (expand-file-name "doe2015chapter.org" dir)
+              (insert ":PROPERTIES:\n:ID: c1\n:ROAM_REFS: @doe2015chapter\n:END:\n#+title: x\n\n"))
+            ;; doe2015chapter already has a note, so only roe2016chapter is a candidate
+            (should (equal (mapcar (lambda (c) (plist-get c :key))
+                                   (sp-litnotes-meta--children "reuten2014book"))
+                           '("roe2016chapter")))
+            (with-temp-buffer
+              (org-mode)
+              (insert "#+title: Book\n\n- bib-project :: [[id:p][Thesis]]\n\n")
+              (cl-letf (((symbol-function 'citar-create-note) (lambda (key &rest _) (push key made)))
+                        ((symbol-function 'sp-litnotes-meta-fill)
+                         (lambda (key &rest _) (push (cons key sp-litnotes-meta--preset) presets))))
+                (should (equal (sp-litnotes-meta-backfill-children "reuten2014book" '("roe2016chapter"))
+                               '("roe2016chapter")))))
+            (should (equal made '("roe2016chapter")))
+            (should (equal (cdr (assoc "bib-project" (cdr (car presets)))) "[[id:p][Thesis]]")))
+        (delete-directory dir t)))))
+
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
     (let* ((dir (make-temp-file "sp-meta-notes" t))

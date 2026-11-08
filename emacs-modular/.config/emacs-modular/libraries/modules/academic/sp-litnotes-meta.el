@@ -77,6 +77,10 @@ Keep this in step with the schema in `sp-vulpea-schemas'."
   :type '(repeat string)
   :group 'sp-litnotes-meta)
 
+(defvar sp-litnotes-meta--preset nil
+  "An alist of meta key to value that `sp-litnotes-meta-fill' uses instead of asking.
+A value of nil in it means: leave the line out, do not ask.")
+
 (defvar sp-litnotes-meta--depth 0
   "How many parent notes are being made inside each other.")
 
@@ -297,7 +301,9 @@ lines that were changed."
                         ("relevance-factor" . ,#'sp-litnotes-meta--read-relevance)
                         ("read-priority" . ,#'sp-litnotes-meta--read-priority)))
           (unless (sp-litnotes-meta--has-value-p (car spec))
-            (when-let* ((value (funcall (cdr spec)))
+            (when-let* ((value (if-let* ((preset (assoc (car spec) sp-litnotes-meta--preset)))
+                                   (cdr preset)
+                                 (funcall (cdr spec))))
                         (how (sp-litnotes-meta--set (car spec) value)))
               (push (car spec) changed))))
         (when changed (save-buffer))
@@ -481,6 +487,87 @@ read-status."
     (sp-litnotes-meta-status-mode)
     (sp-litnotes-meta-status-refresh)
     (pop-to-buffer (current-buffer))))
+
+;;;; Backfill the chapters of a book
+
+(defun sp-litnotes-meta--children (key)
+  "The BibTeX entries whose crossref is KEY, as plists (:key :title :type).
+Entries that already have a litnote are left out."
+  (let ((covered (sp-author-notes-bibtex--covered))
+        (seen (make-hash-table :test #'equal))
+        found)
+    (dolist (file (sp-author-notes-bibtex--files))
+      (with-temp-buffer
+        (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+        (delay-mode-hooks (bibtex-mode))
+        (goto-char (point-min))
+        (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
+          (goto-char (match-beginning 0))
+          (let ((entry (ignore-errors (bibtex-parse-entry t))))
+            (when-let* ((child (and entry (cdr (assoc "=key=" entry))))
+                        (ref (sp-litnotes-meta--field entry "crossref")))
+              (when (and (string-equal-ignore-case ref key)
+                         (not (gethash child covered))
+                         (not (gethash child seen)))
+                (puthash child t seen)
+                (push (list :key child
+                            :type (cdr (assoc "=type=" entry))
+                            :title (or (sp-litnotes-meta--field entry "title") ""))
+                      found))))
+          (goto-char (min (point-max) (1+ (point)))))))
+    (nreverse found)))
+
+(defun sp-litnotes-meta--buffer-meta (key)
+  "The raw value of the meta line KEY in the current buffer, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (when (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                               (sp-author-notes--first-heading) t)
+        (let ((value (string-trim (match-string 1))))
+          (and (not (string-empty-p value)) value))))))
+
+;;;###autoload
+(defun sp-litnotes-meta-backfill-children (key &optional children)
+  "Make the litnotes of the BibTeX entries that have KEY as their crossref.
+Interactively KEY is the citation key of the note you are in, a book or
+a collection, and you pick the entries in the minibuffer (an empty answer
+takes all of them).  Each new note goes through `citar-create-note', so it
+is filled like any other, with the parent linked in bib-parent.
+bib-project is copied from this note; relevance-factor and read-priority
+are asked once for the whole batch.  CHILDREN, a list of keys, skips the
+questions.  Return the keys that got a note."
+  (interactive (list (or (sp-litnotes-meta--buffer-key)
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))))
+  (let* ((candidates (or (sp-litnotes-meta--children key)
+                         (user-error "No BibTeX entry without a note has crossref %s" key)))
+         (labels (mapcar (lambda (c) (cons (format "%s  %s" (plist-get c :key) (plist-get c :title)) c))
+                         candidates))
+         (keys (or children
+                   (let ((picked (completing-read-multiple
+                                  (format "Make notes for (%d without one; empty = all): " (length labels))
+                                  (mapcar #'car labels) nil t)))
+                     (mapcar (lambda (l) (plist-get (cdr (assoc l labels)) :key))
+                             (or picked (mapcar #'car labels))))))
+         (project (and (derived-mode-p 'org-mode) (sp-litnotes-meta--buffer-meta "bib-project")))
+         (preset (append (and project `(("bib-project" . ,project)))
+                         (unless children
+                           (list (cons "relevance-factor" (sp-litnotes-meta--read-relevance))
+                                 (cons "read-priority" (sp-litnotes-meta--read-priority))))))
+         (sp-litnotes-meta--preset preset)
+         made)
+    (dolist (child keys)
+      (condition-case err
+          (progn
+            (citar-create-note child)
+            ;; The advice fills it; fill it here when the advice is off.
+            (unless sp-litnotes-meta-auto
+              (sp-litnotes-meta-fill child))
+            (push child made))
+        (error (message "sp-litnotes-meta: %s: %s" child (error-message-string err)))))
+    (message "Made %d of %d notes for the entries that cross-reference %s"
+             (length made) (length keys) key)
+    (nreverse made)))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
