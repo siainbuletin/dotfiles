@@ -3253,7 +3253,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added links in the query tables (follows #237): each key in the =:refs= column opens its entry in the =.bib= file (=sp-bib:= link, =citar-open-entry=), and the =pub-title= meta column (option =sp-collec-query-note-link-columns=) opens the note in Org.
   - Tested in Emacs 29.3 batch with citar stubbed
     - not run in the real vault or the exc and vui widgets.
-- [[https://github.com/siainbuletin/dotfiles/pull/328][#328]]
+- [[https://github.com/siainbuletin/dotfiles/pull/329][#329]]
   - ✨ Added =sp-collection-query-tables-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w b= (=sp-collec-query-book-open=).
   - ✨ Added the =:pages= and =:page= columns to the query tables (the =pub-pages= text and its first number).
   - ✨ Added the "Book position" =vulpea-ui= widget (=sp-collection-query-tables-book-widget=): the sections in page order, the current one marked, previous and next buttons.
