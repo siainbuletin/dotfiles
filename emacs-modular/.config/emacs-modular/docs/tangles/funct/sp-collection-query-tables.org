@@ -3,7 +3,7 @@
 
 Literate source for the =sp-collection-query-tables= family in =libraries/modules/funct/=.
 
-- Seven modules are written from this one file, each under its own heading below.
+- Nine modules are written from this one file, each under its own heading below.
 - The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 - This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
@@ -30,6 +30,8 @@ All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= req
 | =sp-collection-query-tables-menu= | Transient menu that builds a spec                           |
 | =sp-collection-query-tables-exc= | exc grid renderer (loaded on first use)                     |
 | =sp-collection-query-tables-vui= | vui renderer and inline tables (loaded on first use)        |
+| =sp-collection-query-tables-book= | Section table of a book or collection, in page order       |
+| =sp-collection-query-tables-book-widget= | =vulpea-ui= sidebar widget: position in the book (loaded with =vulpea-ui=) |
 
 * Names: why the prefix is =sp-collec-query-=
 
@@ -68,7 +70,7 @@ A plist. Every filter is optional and the filters are combined with /and/.
 | =:level=                         | nil, =0= (file-level notes) or =headings=                               |
 | =:title-match=                   | regexp for the title, case-insensitive                                  |
 | =:fold-tag=, =:fold-prop=        | leave out notes with this tag; count them in =:sections= on the note =:fold-prop= (default =bib-parent=) links to |
-| =:columns=                       | =:title :tags :todo :level :priority :id :file :path :sections :refs :pdf :devonthink= or a meta key |
+| =:columns=                       | =:title :tags :todo :level :priority :id :file :path :sections :pages :page :refs :pdf :devonthink= or a meta key |
 | =:sort-by=, =:sort-desc=         | a column or a list of them (primary key first), and non-nil for descending |
 | =:column-widths=                 | exc only: alist =(COLUMN . WIDTH)=; =t= stands for the columns not listed |
 | =:wrap=                          | exc only: =wrap= (wrap inside the width) or =fit= (size to the text)    |
@@ -90,6 +92,7 @@ In a note, the same spec is the parameter list of a dynamic block:
 | =C-c w v= | =sp-collec-query-open-view=      | Open a saved view                                    |
 | =C-c w V= | =sp-collec-query-view-save=      | Open the menu to save a view (was: prompts)          |
 | =C-c w t= | =sp-collec-query-inline-toggle=  | Live inline tables in this note (vui)                |
+| =C-c w b= | =sp-collec-query-book-open=     | Sections of this book or collection, in page order  |
 
 In an exc table: =C-c o= opens the note in the row, =C-c q= edits the query in the menu and redraws the table, =C-c C-u= runs the query again. Meta columns are edited in place and written to the note; titles, tags and the other built-in columns are read-only.
 
@@ -192,7 +195,7 @@ Try a spec without saving anything: evaluate with =C-c C-c=.
 
 The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It:
 
-- loads the core, the views, the Org output and the menu,
+- loads the core, the views, the Org output, the menu and the book sections,
 - picks a renderer,
 - installs exc through Elpaca,
 - binds the keys.
@@ -220,6 +223,7 @@ The header lists the parts. =sp-collec-query-menu= is the front door and =sp-col
 ;;   sp-collection-query-tables-menu    the transient menu that builds a spec
 ;;   sp-collection-query-tables-exc     exc grid renderer (loaded when first used)
 ;;   sp-collection-query-tables-vui     vui renderer and inline tables (loaded when first used)
+;;   sp-collection-query-tables-book    section table of a book or collection (and its vulpea-ui widget)
 ;;
 ;; `sp-collec-query-menu' (C-c w T) is the front door; `sp-collec-query-open'
 ;; is the function the others call.
@@ -240,6 +244,7 @@ The header lists the parts. =sp-collec-query-menu= is the front door and =sp-col
 (require 'sp-collection-query-tables-views)
 (require 'sp-collection-query-tables-org)
 (require 'sp-collection-query-tables-menu)
+(require 'sp-collection-query-tables-book)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -374,6 +379,7 @@ buffer is redrawn with SPEC instead of opening another."
 (keymap-global-set "C-c w v" #'sp-collec-query-open-view)
 (keymap-global-set "C-c w V" #'sp-collec-query-view-save)
 (keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
+(keymap-global-set "C-c w b" #'sp-collec-query-book-open)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -470,6 +476,7 @@ note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
 in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
+:PAGES shows the pub-pages meta key and :PAGE its first number (to sort on);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
@@ -486,7 +493,8 @@ same name.")
 
 #+begin_src emacs-lisp -i
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf :devonthink)
+  '(:title :tags :todo :level :priority :id :file :path :sections :pages :page
+    :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 #+end_src
 
@@ -708,6 +716,13 @@ JSON.stringify(out);"
                                               (gethash b sp-collec-query--dt-uuids))))
                ", ")))
 
+(defun sp-collec-query-first-page (text)
+  "Return the first number in TEXT, such as \"pp. 12-34\", or nil.
+Roman numerals and empty text give nil."
+  (and (stringp text)
+       (string-match "[0-9]+" text)
+       (string-to-number (match-string 0 text))))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -724,6 +739,11 @@ naming a meta key (several values are joined with \", \")."
     (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
     (:pdf (sp-collec-query--pdf-links note))
     (:devonthink (sp-collec-query--dt-links note))
+    (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
+    (:page (if-let* ((n (sp-collec-query-first-page
+                         (car (vulpea-note-meta-get-list note "pub-pages")))))
+               (number-to-string n)
+             ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -2825,6 +2845,342 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 ;;; sp-collection-query-tables-vui.el ends here
 #+end_src
 
+* Book sections: sp-collection-query-tables-book.el
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-book.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+The sections of a book or an edited collection as a table in page order, so it is easy to move between chapters.
+
+- *Parent*: a note tagged =book= or =collection=.
+- *Sections*: notes (=booksection=, =incollection=) whose =bib-parent= meta key links to the parent.
+- *Page key*: =pub-pages=, which the schemas in =sp-vulpea-schemas= already give to =booksection=, =incollection= and =journalarticle= notes.
+  - Chosen over a new key because the schemas and the BibTeX autofill of =sp-litnotes-meta= already know it.
+  - Its value is text (=12-34=, =pp. 12-34=); the first number in it is what the table sorts on.
+  - Roman numerals (a preface) have no number, so they go last.
+- The table is an ordinary query spec: =:parent-of= the book, =:parent-prop= =bib-parent=, sorted by the =:page= column.
+  - So it works with every renderer, can be saved as a view and can be inserted as a dynamic block.
+- The same data feeds the sidebar widget in the next section.
+- Two columns were added to the core for this: =:pages= (the text of =pub-pages=) and =:page= (its first number).
+
+** Header and requires
+
+#+begin_src emacs-lisp -i
+;;; sp-collection-query-tables-book.el --- Section tables for books and collections -*- lexical-binding: t; -*-
+#+end_src
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+#+begin_src emacs-lisp -i
+;; The sections of a book or an edited collection as a query table.
+;;
+;; A note tagged book or collection is the parent; its chapters (booksection,
+;; incollection) link back to it with the meta key bib-parent.  The table
+;; lists those chapters in page order, from their pub-pages meta key.
+;; The same data feeds the vulpea-ui widget in
+;; `sp-collection-query-tables-book-widget'.
+#+end_src
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+#+begin_src emacs-lisp -i
+(require 'subr-x)
+(require 'seq)
+(require 'vulpea)
+(require 'sp-collection-query-tables-core)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(declare-function sp-collec-query-open "sp-collection-query-tables")
+(declare-function org-entry-get "org")
+#+end_src
+
+** Options
+
+- =sp-collec-query-book-tags=: tags of the parent notes (=book=, =collection=).
+- =sp-collec-query-book-parent-prop=: the meta key a section links with (=bib-parent=).
+- =sp-collec-query-book-columns=: columns of the table.
+  - Default: =:page=, =:pages=, =:title=, =pub-author=.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-collec-query-book nil
+  "Section tables for books and collections."
+  :group 'sp-collec-query
+  :prefix "sp-collec-query-book-")
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-book-tags '("book" "collection")
+  "Tags of the notes whose sections are listed."
+  :type '(repeat string)
+  :group 'sp-collec-query-book)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-book-parent-prop "bib-parent"
+  "Meta key a section uses to link to its book or collection."
+  :type 'string
+  :group 'sp-collec-query-book)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-book-columns
+  '(:page :pages :title "pub-author")
+  "Columns of a section table, see `sp-collec-query-spec-keys'.
+:PAGE is the first page number, the key the table is sorted on."
+  :type '(repeat (choice symbol string))
+  :group 'sp-collec-query-book)
+#+end_src
+
+** Finding the book and its sections
+
+- =sp-collec-query-book-p=: the note has one of the tags.
+- =sp-collec-query-book-parent=: the note its =bib-parent= points at.
+- =sp-collec-query-book-root=: the note itself if it is a book, else its parent if that is one.
+- =sp-collec-query-book-spec=: the spec of the section table.
+- =sp-collec-query-book-sections=: the section notes in page order.
+  - A section without a page number goes last.
+- =sp-collec-query-book-position=: a plist of =:book=, =:sections=, =:index=, =:previous= and =:next=.
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-p (note)
+  "Non-nil if NOTE carries one of `sp-collec-query-book-tags'."
+  (and note
+       (seq-some (lambda (tag) (member tag (vulpea-note-tags note)))
+                 sp-collec-query-book-tags)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-parent (note)
+  "Return the note NOTE's bib-parent link points at, or nil."
+  (and-let* ((id (car (vulpea-note-meta-get-list
+                       note sp-collec-query-book-parent-prop 'link))))
+    (ignore-errors (vulpea-db-get-by-id id))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-root (note)
+  "Return the book or collection NOTE belongs to, or nil.
+NOTE itself when it is one; else the note its bib-parent points at, if
+that is one."
+  (cond ((null note) nil)
+        ((sp-collec-query-book-p note) note)
+        (t (let ((parent (sp-collec-query-book-parent note)))
+             (and (sp-collec-query-book-p parent) parent)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-spec (book)
+  "Return the query spec for the sections of BOOK, sorted by first page."
+  (list :parent-of (vulpea-note-id book)
+        :parent-prop sp-collec-query-book-parent-prop
+        :columns (copy-sequence sp-collec-query-book-columns)
+        :sort-by :page))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-sections (book)
+  "Return the notes that link to BOOK, in page order.
+Sections without a page number come last, in the order they were found."
+  (sp-collec-query-query (sp-collec-query-book-spec book)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-position (note)
+  "Return where NOTE sits in its book, or nil when it is in none.
+A plist with :BOOK, :SECTIONS (page order), :INDEX (0-based position of
+NOTE in :SECTIONS, nil when NOTE is the book itself), :PREVIOUS and :NEXT
+(the neighbouring sections, or nil)."
+  (when-let* ((book (sp-collec-query-book-root note)))
+    (let* ((sections (sp-collec-query-book-sections book))
+           (id (vulpea-note-id note))
+           (index (seq-position sections id
+                                (lambda (n id) (equal (vulpea-note-id n) id)))))
+      (list :book book
+            :sections sections
+            :index index
+            :previous (and index (> index 0) (nth (1- index) sections))
+            :next (and index (nth (1+ index) sections))))))
+#+end_src
+
+** The command
+
+- =M-x sp-collec-query-book-open= (=C-c w b=) opens the table for the note at point.
+  - The note may be the book or one of its sections.
+  - Anywhere else it asks for a book or collection.
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book--note-at-point ()
+  "Return the note at point, the one with the nearest ID, or nil."
+  (and (derived-mode-p 'org-mode)
+       (when-let* ((id (org-entry-get nil "ID" t)))
+         (ignore-errors (vulpea-db-get-by-id id)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-collec-query-book-open (&optional note)
+  "Open the section table of the book NOTE belongs to.
+NOTE defaults to the note at point; when that is in no book, a book or
+collection is asked for."
+  (interactive)
+  (let ((book (or (sp-collec-query-book-root
+                   (or note (sp-collec-query-book--note-at-point)))
+                  (sp-collec-query-book-root
+                   (sp-collec-query-select-note "Book or collection: ")))))
+    (unless book
+      (user-error "That note is not tagged %s"
+                  (string-join sp-collec-query-book-tags " or ")))
+    (sp-collec-query-open (sp-collec-query-book-spec book))))
+#+end_src
+
+** Loading the widget
+
+- The widget file loads once =vulpea-ui= has, so the table works without the sidebar.
+
+#+begin_src emacs-lisp -i
+(with-eval-after-load 'vulpea-ui
+  (require 'sp-collection-query-tables-book-widget))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(provide 'sp-collection-query-tables-book)
+;;; sp-collection-query-tables-book.el ends here
+#+end_src
+
+* Book position widget: sp-collection-query-tables-book-widget.el
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-book-widget.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+A =vulpea-ui= sidebar widget, "Book position", built like the widgets of =sp-tab-inbox=.
+
+- It shows for a note that is a book, or a section whose =bib-parent= is a book.
+- Contents:
+  - the book as a button;
+  - "Section N of M" for a section;
+  - =previous= and =next= buttons;
+  - every section as a row, pages first, the current one marked with a triangle.
+- Every button opens the note.
+- The widget count is the number of sections.
+- =sp-collec-query-book-widget-order= (345) puts it just before the unlinked mentions widget (350).
+- It is collapsed at first like the others (=vulpea-ui-default-widget-collapsed=).
+
+** Header and requires
+
+#+begin_src emacs-lisp -i
+;;; sp-collection-query-tables-book-widget.el --- vulpea-ui widget: position in a book -*- lexical-binding: t; -*-
+#+end_src
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+#+begin_src emacs-lisp -i
+;; A `vulpea-ui' sidebar widget that shows where the current note sits among
+;; the sections of its book or collection: the sections in page order, the
+;; current one marked, and buttons for the previous and next section.
+;; The data comes from `sp-collec-query-book-position'.
+#+end_src
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+#+begin_src emacs-lisp -i
+(require 'subr-x)
+(require 'vulpea)
+(require 'vulpea-ui)
+(require 'vui)
+(require 'sp-collection-query-tables-book)
+#+end_src
+
+** Widget
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-book-widget-order 345
+  "Order of the book position widget in the vulpea-ui sidebar.
+Lower numbers come first; the unlinked mentions widget is 350."
+  :type 'integer
+  :group 'sp-collec-query-book)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-widget--label (section)
+  "Return the text of the row of SECTION: its pages, then its title."
+  (let ((pages (sp-collec-query-cell section :pages)))
+    (format "%-9s %s" (if (string-empty-p pages) "-" pages)
+            (or (vulpea-note-title section) ""))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-book-widget--row (section current)
+  "Return the row for SECTION; it is marked when it is CURRENT."
+  (vui-hstack
+   (vui-text (if current "▶ " "  "))
+   (vui-button (if current
+                   (propertize (sp-collec-query-book-widget--label section) 'face 'bold)
+                 (sp-collec-query-book-widget--label section))
+               :on-click (lambda () (vulpea-visit section)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(vui-defcomponent sp-collec-query-book-widget ()
+  "Position of the current note among the sections of its book."
+  :render
+  (let ((note (use-vulpea-ui-note)))
+    (when note
+      (when-let* ((pos (vui-use-memo (note) (sp-collec-query-book-position note))))
+        (let ((book (plist-get pos :book))
+              (sections (plist-get pos :sections))
+              (index (plist-get pos :index))
+              (previous (plist-get pos :previous))
+              (next (plist-get pos :next)))
+          (vui-component 'vulpea-ui-widget
+            :title "Book position"
+            :count (length sections)
+            :children
+            (lambda ()
+              (apply #'vui-vstack
+                     (vui-button (or (vulpea-note-title book) "Book")
+                                 :on-click (lambda () (vulpea-visit book)))
+                     (vui-text (if index
+                                   (format "Section %d of %d" (1+ index) (length sections))
+                                 (format "%d sections" (length sections))))
+                     (vui-hstack
+                      (vui-button "previous"
+                                  :on-click (lambda ()
+                                              (if previous
+                                                  (vulpea-visit previous)
+                                                (message "This is the first section"))))
+                      (vui-text " ")
+                      (vui-button "next"
+                                  :on-click (lambda ()
+                                              (if next
+                                                  (vulpea-visit next)
+                                                (message "This is the last section")))))
+                     (mapcar (lambda (section)
+                               (sp-collec-query-book-widget--row
+                                section (equal (vulpea-note-id section)
+                                               (vulpea-note-id note))))
+                             sections)))))))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(vulpea-ui-register-widget 'book-position
+  :component 'sp-collec-query-book-widget
+  :order sp-collec-query-book-widget-order)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(provide 'sp-collection-query-tables-book-widget)
+;;; sp-collection-query-tables-book-widget.el ends here
+#+end_src
+
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
@@ -2897,3 +3253,9 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added links in the query tables (follows #237): each key in the =:refs= column opens its entry in the =.bib= file (=sp-bib:= link, =citar-open-entry=), and the =pub-title= meta column (option =sp-collec-query-note-link-columns=) opens the note in Org.
   - Tested in Emacs 29.3 batch with citar stubbed
     - not run in the real vault or the exc and vui widgets.
+- [[https://github.com/siainbuletin/dotfiles/pull/328][#328]]
+  - ✨ Added =sp-collection-query-tables-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w b= (=sp-collec-query-book-open=).
+  - ✨ Added the =:pages= and =:page= columns to the query tables (the =pub-pages= text and its first number).
+  - ✨ Added the "Book position" =vulpea-ui= widget (=sp-collection-query-tables-book-widget=): the sections in page order, the current one marked, previous and next buttons.
+  - Tested in Emacs 29.3 batch with stubbed Vulpea (6 tests in =tests/sp-collection-query-tables-book-test.el=)
+    - the widget and the table renderers are not run, and nothing was run against the real vault.
