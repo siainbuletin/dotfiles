@@ -87,8 +87,41 @@ A value of nil in it means: leave the line out, do not ask.")
 (defvar sp-litnotes-meta--created (make-hash-table :test #'equal)
   "Author notes made in this session: title key to (ID . TITLE).")
 
+(defvar sp-litnotes-meta--index nil
+  "Hash table of BibTeX key to entry, or nil to read the files for each key.
+Made by `sp-litnotes-meta-build-index'.")
+
+(defun sp-litnotes-meta--index-file (file table)
+  "Add the entries of the .bib FILE to the hash TABLE (key to entry).
+A key that is already in TABLE keeps its first entry."
+  (with-temp-buffer
+    (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+    (delay-mode-hooks (bibtex-mode))
+    (goto-char (point-min))
+    (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
+      (let ((beg (match-beginning 0)))
+        (goto-char beg)
+        (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
+                    (key (cdr (assoc "=key=" entry))))
+          (unless (gethash key table) (puthash key entry table)))
+        (goto-char (min (point-max) (1+ beg)))))))
+
+(defun sp-litnotes-meta-build-index ()
+  "Read the registered .bib files once; set `sp-litnotes-meta--index' to the result.
+Signal a `user-error' when there is no .bib file."
+  (let ((table (make-hash-table :test #'equal)))
+    (dolist (file (sp-author-notes-bibtex--files))
+      (sp-litnotes-meta--index-file file table))
+    (setq sp-litnotes-meta--index table)))
+
 (defun sp-litnotes-meta--entry (key)
   "The BibTeX entry KEY from the registered files, as an alist, or nil."
+  (if sp-litnotes-meta--index
+      (gethash key sp-litnotes-meta--index)
+    (sp-litnotes-meta--entry-from-files key)))
+
+(defun sp-litnotes-meta--entry-from-files (key)
+  "The BibTeX entry KEY, read from the registered files, or nil."
   (catch 'found
     (dolist (file (sp-author-notes-bibtex--files))
       (with-temp-buffer
