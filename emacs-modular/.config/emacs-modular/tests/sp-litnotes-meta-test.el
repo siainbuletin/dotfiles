@@ -179,6 +179,57 @@
             (should (equal (cdr (assoc "bib-project" (cdr (car presets)))) "[[id:p][Thesis]]")))
         (delete-directory dir t)))))
 
+(ert-deftest sp-litnotes-meta-backfill-all-children-adds-and-updates-table ()
+  (sp-litnotes-meta-test--with-bib (concat sp-litnotes-meta-test--bib
+                                           "@incollection{roe2016chapter,
+  title = {Second Chapter},
+  crossref = {reuten2014book},
+}
+")
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (sp-litnotes-meta-auto nil)
+           (made nil) (updates 0))
+      (unwind-protect
+          (progn
+            (provide 'sp-collection-query-tables-org)
+            (cl-letf (((symbol-function 'citar-create-note) (lambda (key &rest _) (push key made)))
+                      ((symbol-function 'sp-litnotes-meta-fill) #'ignore)
+                      ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () nil))
+                      ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil))
+                      ((symbol-function 'completing-read-multiple)
+                       (lambda (&rest _) (error "Nothing should be picked")))
+                      ((symbol-function 'sp-collec-query-dblock-has-block-p)
+                       (lambda () (save-excursion (goto-char (point-min))
+                                                  (re-search-forward "^#\\+BEGIN: collection-query-table" nil t))))
+                      ((symbol-function 'sp-collec-query-dblock-update-buffer)
+                       (lambda () (cl-incf updates)))
+                      ((symbol-function 'org-update-dblock) #'ignore))
+              (with-temp-buffer
+                (org-mode)
+                (insert ":PROPERTIES:\n:ID: b\n:ROAM_REFS: @reuten2014book\n:END:\n#+title: Book\n\n* H\n")
+                ;; doe2015chapter and roe2016chapter both lack a note: all are made, none picked
+                (should (equal (sp-litnotes-meta-backfill-all-children "reuten2014book")
+                               '("doe2015chapter" "roe2016chapter")))
+                (should (equal (reverse made) '("doe2015chapter" "roe2016chapter")))
+                (should (string-match-p
+                         "#\\+BEGIN: collection-query-table :view \"book-sections\"\n\n#\\+END:\n\n\\* H"
+                         (buffer-string)))
+                (should (= updates 1))
+                ;; a second run finds nothing left, keeps one block and refreshes it
+                (setq made nil)
+                (cl-letf (((symbol-function 'sp-litnotes-meta--children) (lambda (_) nil)))
+                  (should-not (sp-litnotes-meta-backfill-children "reuten2014book" nil t)))
+                (should-not made)
+                (should (= (how-many "#\\+BEGIN: collection-query-table" (point-min)) 1))
+                (should (= updates 2)))))
+        (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-table-view-by-type ()
+  (sp-litnotes-meta-test--with-bib "@book{b, title = {B}}\n@collection{c, title = {C}}\n"
+    (should (equal (sp-litnotes-meta--table-view "b") "book-sections"))
+    (should (equal (sp-litnotes-meta--table-view "c") "collection-articles"))))
+
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
     (let* ((dir (make-temp-file "sp-meta-notes" t))

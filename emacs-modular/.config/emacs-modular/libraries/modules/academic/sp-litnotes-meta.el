@@ -560,34 +560,98 @@ Entries that already have a litnote are left out."
         (let ((value (string-trim (match-string 1))))
           (and (not (string-empty-p value)) value))))))
 
+;;;; Show the children in the table of the book
+
+(declare-function sp-collec-query-dblock-has-block-p "sp-collection-query-tables-org")
+(declare-function sp-collec-query-dblock-update-buffer "sp-collection-query-tables-org")
+(declare-function org-create-dblock "org")
+(declare-function org-update-dblock "org")
+(declare-function vulpea-db-update-file "vulpea-db")
+
+(defconst sp-litnotes-meta--collection-types
+  '("collection" "mvcollection" "proceedings" "mvproceedings")
+  "BibTeX entry types that get the \"collection-articles\" view; others get \"book-sections\".")
+
+(defun sp-litnotes-meta--table-view (key)
+  "The built-in view name for the table of the children of KEY."
+  (let ((type (cdr (assoc "=type=" (let ((bibtex-dialect 'biblatex)) ; knows @collection
+                                     (sp-litnotes-meta--entry key))))))
+    (if (and type (member-ignore-case type sp-litnotes-meta--collection-types))
+        "collection-articles"
+      "book-sections")))
+
+(defun sp-litnotes-meta--ensure-table (key made)
+  "Make the current note show a table of its children, and refresh it.
+KEY is the citation key of the note; MADE the keys of the notes just made,
+which are put in the Vulpea database first.  Insert a
+`collection-query-table' block with the view for KEY, above the first
+heading, when the note has none.  Return `inserted', `updated' or nil."
+  (when (and (derived-mode-p 'org-mode)
+             (require 'sp-collection-query-tables-org nil t)
+             (fboundp 'sp-collec-query-dblock-update-buffer))
+    (let ((covered (ignore-errors (sp-author-notes-bibtex--covered)))
+          (was-modified (buffer-modified-p))
+          (how 'updated))
+      (when (fboundp 'vulpea-db-update-file)
+        (dolist (child made)
+          (when-let* ((file (and covered (gethash child covered))))
+            (ignore-errors (vulpea-db-update-file file)))))
+      (unless (sp-collec-query-dblock-has-block-p)
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (sp-author-notes--first-heading))
+            (unless (or (eobp) (bolp)) (insert "\n"))
+            (if (eobp)
+                (unless (or (bobp) (bolp)) (insert "\n"))
+              (insert "\n")
+              (forward-line -1))
+            (org-create-dblock (list :name "collection-query-table"
+                                     :view (sp-litnotes-meta--table-view key)))))
+        (setq how 'inserted))
+      (sp-collec-query-dblock-update-buffer)
+      (when (and buffer-file-name (not was-modified) (buffer-modified-p))
+        (save-buffer))
+      how)))
+
 ;;;###autoload
-(defun sp-litnotes-meta-backfill-children (key &optional children)
+(defun sp-litnotes-meta-backfill-children (key &optional children all)
   "Make the litnotes of the BibTeX entries that have KEY as their crossref.
 Interactively KEY is the citation key of the note you are in, a book or
 a collection, and you pick the entries in the minibuffer (an empty answer
-takes all of them).  Each new note goes through `citar-create-note', so it
-is filled like any other, with the parent linked in bib-parent.
-bib-project is copied from this note; relevance-factor and read-priority
-are asked once for the whole batch.  CHILDREN, a list of keys, skips the
-questions.  Return the keys that got a note."
+takes all of them).  With a prefix argument, or ALL, every entry without a
+note is taken and nothing is picked.  Each new note goes through
+`citar-create-note', so it is filled like any other, with the parent
+linked in bib-parent.  bib-project is copied from this note;
+relevance-factor and read-priority are asked once for the whole batch.
+CHILDREN, a list of keys, skips the questions.
+
+When this is an Org buffer, it then makes sure the note has a
+`collection-query-table' block (view \"book-sections\", or
+\"collection-articles\" for a collection) and updates it, so the new
+notes show in the table.  Return the keys that got a note."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
-                         (user-error "No citation key in the ROAM_REFS of this buffer"))))
-  (let* ((candidates (or (sp-litnotes-meta--children key)
-                         (user-error "No BibTeX entry without a note has crossref %s" key)))
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))
+                     nil current-prefix-arg))
+  (let* ((candidates (sp-litnotes-meta--children key))
+         (_ (unless (or candidates all)
+              (user-error "No BibTeX entry without a note has crossref %s" key)))
          (labels (mapcar (lambda (c) (cons (format "%s  %s" (plist-get c :key) (plist-get c :title)) c))
                          candidates))
-         (keys (or children
-                   (let ((picked (completing-read-multiple
-                                  (format "Make notes for (%d without one; empty = all): " (length labels))
-                                  (mapcar #'car labels) nil t)))
-                     (mapcar (lambda (l) (plist-get (cdr (assoc l labels)) :key))
-                             (or picked (mapcar #'car labels))))))
+         (keys (cond (children children)
+                     (all (mapcar (lambda (c) (plist-get c :key)) candidates))
+                     (t (let ((picked (completing-read-multiple
+                                       (format "Make notes for (%d without one; empty = all): " (length labels))
+                                       (mapcar #'car labels) nil t)))
+                          (mapcar (lambda (l) (plist-get (cdr (assoc l labels)) :key))
+                                  (or picked (mapcar #'car labels)))))))
          (project (and (derived-mode-p 'org-mode) (sp-litnotes-meta--buffer-meta "bib-project")))
          (preset (append (and project `(("bib-project" . ,project)))
-                         (unless children
+                         (unless (or children (null keys))
                            (list (cons "relevance-factor" (sp-litnotes-meta--read-relevance))
                                  (cons "read-priority" (sp-litnotes-meta--read-priority))))))
          (sp-litnotes-meta--preset preset)
+         (origin (current-buffer))
          made)
     (dolist (child keys)
       (condition-case err
@@ -598,9 +662,26 @@ questions.  Return the keys that got a note."
               (sp-litnotes-meta-fill child))
             (push child made))
         (error (message "sp-litnotes-meta: %s: %s" child (error-message-string err)))))
-    (message "Made %d of %d notes for the entries that cross-reference %s"
-             (length made) (length keys) key)
-    (nreverse made)))
+    (setq made (nreverse made))
+    ;; citar may have shown a new note; the table belongs in the book's note.
+    (let ((table (with-current-buffer origin
+                   (condition-case err
+                       (sp-litnotes-meta--ensure-table key made)
+                     (error (message "sp-litnotes-meta: table: %s" (error-message-string err))
+                            nil)))))
+      (message "Made %d of %d notes for the entries that cross-reference %s%s"
+               (length made) (length keys) key
+               (pcase table ('inserted ", table added") ('updated ", table updated") (_ ""))))
+    made))
+
+;;;###autoload
+(defun sp-litnotes-meta-backfill-all-children (key)
+  "Make the notes of all BibTeX entries that cross-reference KEY, picking none.
+Same as `sp-litnotes-meta-backfill-children' with a prefix argument; the
+table in the note is created or refreshed afterwards."
+  (interactive (list (or (sp-litnotes-meta--buffer-key)
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))))
+  (sp-litnotes-meta-backfill-children key nil t))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
