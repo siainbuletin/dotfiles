@@ -94,7 +94,10 @@
 		      '((:key "pub-author" :type note :multiple t)
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
-			(:key "relevance" :type string :required nil))
+			(:key "relevance" :type string :required nil)
+			(:key "read-status" :type string :required t)
+			(:key "relevance-factor" :type number :required t)
+			(:key "read-priority" :type string :required t))
 )
 
 (vulpea-schema-define 'article

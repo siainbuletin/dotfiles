@@ -4,7 +4,8 @@
 
 ;; A new literature note gets pub-author (linked to author notes, made when
 ;; missing), pub-title, pub-year, bib-parent (from the crossref) and
-;; bib-project (picked) from its BibTeX entry.  See the doc
+;; bib-project (picked) from its BibTeX entry.  It also sets read-status
+;; and asks for relevance-factor and read-priority.  See the doc
 ;; docs/tangles/academic/sp-litnotes-meta.org.
 
 ;;; Code:
@@ -51,6 +52,24 @@
 (defcustom sp-litnotes-meta-offer-parent t
   "Non-nil to offer to create the literature note of a crossref'd entry that has none."
   :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-initial-read-status "02-preparing"
+  "The read-status a new literature note gets, without asking."
+  :type 'string
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-relevance-scale '("1" "2" "3" "4" "5")
+  "The suggestions for relevance-factor; 5 is the most relevant.
+Other input is accepted.  The scale is inferred from `sp-vulpea-org-ql',
+which treats 4 or more as relevant."
+  :type '(repeat string)
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-priority-scale '("1" "2" "3" "4" "5")
+  "The suggestions for read-priority; 1 is read first.
+Other input is accepted."
+  :type '(repeat string)
   :group 'sp-litnotes-meta)
 
 (defvar sp-litnotes-meta--depth 0
@@ -184,6 +203,21 @@
                                   (mapcar #'car alist) nil t nil nil (cdr default))))
     (sp-litnotes-meta--link (cdr (assoc choice alist)))))
 
+(defun sp-litnotes-meta--read-scale (prompt scale)
+  "Ask PROMPT with the suggestions SCALE; return the answer, or nil when empty."
+  (let ((answer (string-trim (completing-read prompt scale nil nil))))
+    (and (not (string-empty-p answer)) answer)))
+
+(defun sp-litnotes-meta--read-relevance ()
+  "Ask for the relevance-factor."
+  (sp-litnotes-meta--read-scale "relevance-factor (5 = most relevant, empty to skip): "
+                                sp-litnotes-meta-relevance-scale))
+
+(defun sp-litnotes-meta--read-priority ()
+  "Ask for the read-priority."
+  (sp-litnotes-meta--read-scale "read-priority (1 = read first, empty to skip): "
+                                sp-litnotes-meta-priority-scale))
+
 (defconst sp-litnotes-meta--line-re "^-[ \t]+%s[ \t]+::\\(.*\\)$")
 
 (defun sp-litnotes-meta--has-value-p (key)
@@ -253,7 +287,10 @@ lines that were changed."
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
-                        ("bib-project" . ,#'sp-litnotes-meta--read-project)))
+                        ("bib-project" . ,#'sp-litnotes-meta--read-project)
+                        ("read-status" . ,(lambda () sp-litnotes-meta-initial-read-status))
+                        ("relevance-factor" . ,#'sp-litnotes-meta--read-relevance)
+                        ("read-priority" . ,#'sp-litnotes-meta--read-priority)))
           (unless (sp-litnotes-meta--has-value-p (car spec))
             (when-let* ((value (funcall (cdr spec)))
                         (how (sp-litnotes-meta--set (car spec) value)))

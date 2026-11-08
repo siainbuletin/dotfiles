@@ -20,6 +20,9 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 | =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
 | =bib-parent= | A link to the literature note of the =crossref= entry, when the entry has a crossref           |
 | =bib-project= | A link picked in the minibuffer; the default is the thesis project                            |
+| =read-status= | Set without asking to =02-preparing= (=sp-litnotes-meta-initial-read-status=) |
+| =relevance-factor= | Asked; suggestions 1 to 5, 5 is the most relevant (=sp-litnotes-meta-relevance-scale=) |
+| =read-priority= | Asked; suggestions 1 to 5, 1 is read first (=sp-litnotes-meta-priority-scale=) |
 
 ** Design choices
 
@@ -29,6 +32,13 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 - *Editors* go to =pub-editor= and authors to =pub-author=; both are looked up and made as author notes alike. An entry with only editors (a collected volume) gets only =pub-editor=.
 - *=bib-parent= may create the parent note.* A crossref'd entry is linked when it has a literature note (found as =sp-author-notes-bibtex= finds covered keys). If it has none, you are asked whether to create it (=sp-litnotes-meta-offer-parent=). Creating it goes through =citar-create-note=, so the parent is filled the same way, with its own authors, editors and project question. If you say no, or it still is not found, the line is left out and a message names the key.
 - *=bib-project= is asked only when the note has none.* The picker lists the notes tagged =project=, with the thesis as default (=sp-litnotes-meta-default-project=).
+- *=relevance-factor= and =read-priority= are asked only when the note lacks them.*
+  - Any input is accepted; the scales are only suggestions.
+  - An empty answer skips the line.
+  - The 1 to 5 scale of =relevance-factor= is inferred from =sp-vulpea-org-ql=, which treats 4 or more as relevant.
+  - The scale of =read-priority= is a guess; no existing code defines it.
+- *=read-status= is set, never asked.* Only the value =02-preparing= is known to be right; the other statuses are not listed anywhere.
+- *The three lines are required by the =base-text= schema* in =sp-vulpea-schemas.el=: =read-status= and =read-priority= as strings, =relevance-factor= as a number.
 - *Nothing is written to a note with unsaved changes.*
 - Not run on the real vault yet.
 
@@ -48,7 +58,8 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 
 ;; A new literature note gets pub-author (linked to author notes, made when
 ;; missing), pub-title, pub-year, bib-parent (from the crossref) and
-;; bib-project (picked) from its BibTeX entry.  See the doc
+;; bib-project (picked) from its BibTeX entry.  It also sets read-status
+;; and asks for relevance-factor and read-priority.  See the doc
 ;; docs/tangles/academic/sp-litnotes-meta.org.
 
 ;;; Code:
@@ -99,6 +110,24 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 (defcustom sp-litnotes-meta-offer-parent t
   "Non-nil to offer to create the literature note of a crossref'd entry that has none."
   :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-initial-read-status "02-preparing"
+  "The read-status a new literature note gets, without asking."
+  :type 'string
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-relevance-scale '("1" "2" "3" "4" "5")
+  "The suggestions for relevance-factor; 5 is the most relevant.
+Other input is accepted.  The scale is inferred from `sp-vulpea-org-ql',
+which treats 4 or more as relevant."
+  :type '(repeat string)
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-priority-scale '("1" "2" "3" "4" "5")
+  "The suggestions for read-priority; 1 is read first.
+Other input is accepted."
+  :type '(repeat string)
   :group 'sp-litnotes-meta)
 
 (defvar sp-litnotes-meta--depth 0
@@ -250,6 +279,21 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 ** Writing the meta lines
 
 #+begin_src emacs-lisp
+(defun sp-litnotes-meta--read-scale (prompt scale)
+  "Ask PROMPT with the suggestions SCALE; return the answer, or nil when empty."
+  (let ((answer (string-trim (completing-read prompt scale nil nil))))
+    (and (not (string-empty-p answer)) answer)))
+
+(defun sp-litnotes-meta--read-relevance ()
+  "Ask for the relevance-factor."
+  (sp-litnotes-meta--read-scale "relevance-factor (5 = most relevant, empty to skip): "
+                                sp-litnotes-meta-relevance-scale))
+
+(defun sp-litnotes-meta--read-priority ()
+  "Ask for the read-priority."
+  (sp-litnotes-meta--read-scale "read-priority (1 = read first, empty to skip): "
+                                sp-litnotes-meta-priority-scale))
+
 (defconst sp-litnotes-meta--line-re "^-[ \t]+%s[ \t]+::\\(.*\\)$")
 
 (defun sp-litnotes-meta--has-value-p (key)
@@ -323,7 +367,10 @@ lines that were changed."
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
-                        ("bib-project" . ,#'sp-litnotes-meta--read-project)))
+                        ("bib-project" . ,#'sp-litnotes-meta--read-project)
+                        ("read-status" . ,(lambda () sp-litnotes-meta-initial-read-status))
+                        ("relevance-factor" . ,#'sp-litnotes-meta--read-relevance)
+                        ("read-priority" . ,#'sp-litnotes-meta--read-priority)))
           (unless (sp-litnotes-meta--has-value-p (car spec))
             (when-let* ((value (funcall (cdr spec)))
                         (how (sp-litnotes-meta--set (car spec) value)))

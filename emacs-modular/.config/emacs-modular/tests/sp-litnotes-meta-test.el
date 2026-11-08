@@ -92,18 +92,30 @@
           (cl-letf (((symbol-function 'sp-litnotes-meta--author-note)
                      (lambda (name) (cons "aid" name)))
                     ((symbol-function 'sp-litnotes-meta--read-project)
-                     (lambda () "[[id:p][Thesis]]")))
+                     (lambda () "[[id:p][Thesis]]"))
+                    ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () "4"))
+                    ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil)))
             (should (equal (sp-litnotes-meta-fill "doe2015chapter" file)
-                           '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project")))
+                           '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project"
+                             "read-status" "relevance-factor")))
             (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
               (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Jane Doe\\]\\]" text))
               (should (string-match-p "- pub-title :: A Chapter" text))
               (should (string-match-p "- pub-year :: 2014" text))
               (should (string-match-p "- bib-parent :: \\[\\[id:lit-book\\]\\[Reuten (2014) Book\\]\\]" text))
-              (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text)))
+              (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text))
+              (should (string-match-p "- read-status :: 02-preparing" text))
+              (should (string-match-p "- relevance-factor :: 4" text))
+              (should-not (string-match-p "read-priority" text)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
         (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-read-scale-empty-skips ()
+  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "  ")))
+    (should-not (sp-litnotes-meta--read-priority)))
+  (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) " 5 ")))
+    (should (equal (sp-litnotes-meta--read-relevance) "5"))))
 
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
