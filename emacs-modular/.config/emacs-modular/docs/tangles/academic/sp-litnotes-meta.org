@@ -677,6 +677,14 @@ act on all of them."
   - A note that has a block keeps it; it is only updated.
   - The note is saved if it had no unsaved changes before.
 - Entries that are not made yet are not rows in the table (only existing notes are).
+- Each new note is cleaned up after it is made (=sp-litnotes-meta--tidy-new-note=):
+  - Citar's own file template writes =#+title: Notes on <author>, <title>= and a =#+print_bibliography:= line.
+  - =#+print_bibliography:= is the Org-cite marker that prints the bibliography of the cited works at that place; a litnote has no citations to print, so the line is removed.
+  - The title is replaced by =sp-litnotes-meta--new-title=, per =sp-litnotes-meta-new-title=:
+    - =title=: the BibTeX title alone.
+    - =standard= (default): "Last (Year) Title", as =sp-litnotes-titles-convert= writes it.
+  - A title that does not start with "Notes on" is left alone.
+- The note is made with the =citar-vulpea= notes source when it is registered, whatever =citar-notes-source= is, so citar's file template is not used at all.
 - Not run on the real vault.
 
 #+begin_src emacs-lisp
@@ -718,6 +726,60 @@ Entries that already have a litnote are left out."
                                (sp-author-notes--first-heading) t)
         (let ((value (string-trim (match-string 1))))
           (and (not (string-empty-p value)) value))))))
+
+;;;; Clean up a note made by `citar-create-note'
+
+(declare-function sp-litnotes-titles-format "sp-litnotes-titles")
+(defvar citar-notes-sources)
+(defvar citar-notes-source)
+
+(defcustom sp-litnotes-meta-new-title 'standard
+  "What the title of a litnote made by the backfill is.
+`title' is the title of the BibTeX entry alone.  `standard' is the
+Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."
+  :type '(choice (const :tag "The title only" title)
+                 (const :tag "Last (Year) Title" standard))
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta--new-title (entry)
+  "The title for a new note of the BibTeX ENTRY, per `sp-litnotes-meta-new-title'."
+  (let ((title (sp-litnotes-meta--field entry "title")))
+    (if (and title (eq sp-litnotes-meta-new-title 'standard))
+        (let ((names (mapcar #'sp-litnotes-titles--split-name
+                             (sp-litnotes-meta--author-names entry)))
+              (year (sp-litnotes-meta--year entry)))
+          (if (and names year)
+              (sp-litnotes-titles-format names year title)
+            title))
+      title)))
+
+(defun sp-litnotes-meta--tidy-new-note (key)
+  "Give the note just made for KEY a plain title and drop the bibliography block.
+Citar's own note template writes \"#+title: Notes on ...\" and a
+\"#+print_bibliography:\" line (the Org-cite marker that prints the
+bibliography of the note, of no use in a litnote).  Return non-nil if the
+note changed."
+  (when-let* ((file (gethash key (sp-author-notes-bibtex--covered)))
+              (entry (sp-litnotes-meta--entry key))
+              (title (sp-litnotes-meta--new-title entry)))
+    (let* ((buf (find-buffer-visiting file))
+           (changed nil))
+      (with-current-buffer (or buf (find-file-noselect file))
+        (save-excursion
+          (save-restriction
+            (widen)
+            (let ((case-fold-search t))
+              (goto-char (point-min))
+              (when (re-search-forward "^#\\+title:[ \t]*\\(Notes on .*\\)$" nil t)
+                (replace-match title t t nil 1)
+                (setq changed t))
+              (goto-char (point-min))
+              (while (re-search-forward "^#\\+print_bibliography:.*\n?" nil t)
+                (replace-match "" t t)
+                (setq changed t)))))
+        (when changed (save-buffer))
+        (unless buf (kill-buffer)))
+      changed)))
 
 ;;;; Show the children in the table of the book
 
@@ -815,10 +877,17 @@ notes show in the table.  Return the keys that got a note."
     (dolist (child keys)
       (condition-case err
           (progn
-            (citar-create-note child)
+            ;; Always the Vulpea source, so citar's own file template
+            ;; ("Notes on ...", a bibliography block) is not used.
+            (let ((citar-notes-source (if (and (boundp 'citar-notes-sources)
+                                               (assq 'citar-vulpea citar-notes-sources))
+                                          'citar-vulpea
+                                        (bound-and-true-p citar-notes-source))))
+              (citar-create-note child))
             ;; The advice fills it; fill it here when the advice is off.
             (unless sp-litnotes-meta-auto
               (sp-litnotes-meta-fill child))
+            (sp-litnotes-meta--tidy-new-note child)
             (push child made))
         (error (message "sp-litnotes-meta: %s: %s" child (error-message-string err)))))
     (setq made (nreverse made))
