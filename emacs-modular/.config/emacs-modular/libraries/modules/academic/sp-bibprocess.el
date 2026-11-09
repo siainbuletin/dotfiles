@@ -722,6 +722,68 @@ Each position is the start of a line."
   "The number of RESULTS that have a rewrite of KIND."
   (length (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
 
+(defvar sp-bibtex-lint--excluded nil
+  "Entries dropped from the author fixes with `d', as keys \"FILE::ENTRY-KEY\".
+The list lasts for the Emacs session, like the dropped entries of the other lint
+reports.  `u' in the report, or in the batch question, brings an entry back.")
+
+(defun sp-bibtex-lint--entry-key (file key)
+  "The key that drops the BibTeX entry KEY of FILE."
+  (concat (expand-file-name file) "::" key))
+
+(defun sp-bibtex-lint--key-entry (key)
+  "The entry key in the dropped KEY."
+  (substring key (+ 2 (string-search "::" key))))
+
+(defun sp-bibtex-lint--dropped-keys (file)
+  "The dropped keys of the entries of FILE."
+  (let ((prefix (concat (expand-file-name file) "::")))
+    (seq-filter (lambda (k) (string-prefix-p prefix k)) sp-bibtex-lint--excluded)))
+
+(defun sp-bibtex-lint--dropped-p (file result)
+  "Non-nil when the entry of the lint RESULT of FILE was dropped."
+  (member (sp-bibtex-lint--entry-key file (nth 1 result)) sp-bibtex-lint--excluded))
+
+(defun sp-bibtex-lint--undropped (file batch)
+  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE."
+  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item))) batch))
+
+(defun sp-bibtex-lint--key-label (key)
+  "The text of the dropped KEY in the report."
+  (let ((file (substring key 0 (string-search "::" key))))
+    (format "%s in %s" (sp-bibtex-lint--key-entry key) (sp-batch-report-file-link file))))
+
+(defun sp-bibtex-lint--choose (prompt candidates)
+  "Read several of CANDIDATES, separated by commas, with PROMPT."
+  (completing-read-multiple prompt candidates nil t))
+
+(defun sp-bibtex-lint--drop-dialog (file batch)
+  "Ask which entries of BATCH to drop from the author fixes of FILE; return how many."
+  (let ((picked (sp-bibtex-lint--choose
+                 "Drop from the author fixes, for later (comma separated): "
+                 (mapcar (lambda (item) (nth 1 (car item))) (sp-bibtex-lint--undropped file batch)))))
+    (dolist (name picked)
+      (cl-pushnew (sp-bibtex-lint--entry-key file name) sp-bibtex-lint--excluded :test #'equal))
+    (length picked)))
+
+(defun sp-bibtex-lint--restore-dialog (file)
+  "Ask which dropped entries of FILE to bring back; return how many."
+  (let ((picked (sp-bibtex-lint--choose
+                 "Bring back (comma separated): "
+                 (mapcar #'sp-bibtex-lint--key-entry (sp-bibtex-lint--dropped-keys file)))))
+    (dolist (name picked)
+      (setq sp-bibtex-lint--excluded
+            (delete (sp-bibtex-lint--entry-key file name) sp-bibtex-lint--excluded)))
+    (length picked)))
+
+;;;###autoload
+(defun sp-bibtex-lint-restore-dropped (file)
+  "Bring back entries of FILE that were dropped from the author fixes."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (if (null (sp-bibtex-lint--dropped-keys file))
+      (message "Nothing is dropped in %s" (file-name-nondirectory file))
+    (message "%d brought back" (sp-bibtex-lint--restore-dialog file))))
+
 (defun sp-bibtex-lint--section (title kind results pairs file)
   "The Org section TITLE with the RESULTS that have a rewrite of KIND.
 PAIRS says the line of each result in FILE.  Nothing when there are none."
@@ -732,19 +794,25 @@ PAIRS says the line of each result in FILE.  Nothing when there are none."
                                 mine)))
      (mapconcat
       (lambda (r)
-        (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
-                (mapconcat (lambda (d) (concat "- " d "\n"))
-                           (plist-get (alist-get kind (nth 4 r)) :desc) "")))
+        (propertize
+         (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
+                 (mapconcat (lambda (d) (concat "- " d "\n"))
+                            (plist-get (alist-get kind (nth 4 r)) :desc) ""))
+         'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
+         'sp-batch-report-file file))
       mine ""))))
 
 (defun sp-bibtex-lint--render (file results)
   "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS REWRITES) of FILE, as a report.
 Names with the surname of an author note have sections of their own, so they do
-not bury the typos."
+not bury the typos.  `d' drops an entry from the author fixes and `u' brings it
+back; the dropped ones are listed at the end."
   (let* ((pairs (cl-mapcar #'cons results
                            (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
-         (main (seq-filter (lambda (r) (nth 3 r)) results)))
-    (sp-batch-report-show
+         (shown (seq-remove (lambda (r) (sp-bibtex-lint--dropped-p file r)) results))
+         (dropped (sp-bibtex-lint--dropped-keys file))
+         (main (seq-filter (lambda (r) (nth 3 r)) shown)))
+    (sp-batch-report-open
      sp-bibtex-lint--buffer
      (concat
       (format "#+title: BibTeX lint of %s\n\n" (file-name-nondirectory file))
@@ -752,10 +820,11 @@ not bury the typos."
               (length main) (if (= 1 (length main)) "y" "ies")
               (sp-batch-report-file-link file))
       (format "- %d entr%s with a name that has the surname of an author note (own section below); %d with a name that fits several.\n"
-              (sp-bibtex-lint--count results 'surnames)
-              (if (= 1 (sp-bibtex-lint--count results 'surnames)) "y" "ies")
-              (sp-bibtex-lint--count results 'ambiguous))
-      (format "- Fixes (a button runs one; the file is copied first; author names go in batches of %d):\n"
+              (sp-bibtex-lint--count shown 'surnames)
+              (if (= 1 (sp-bibtex-lint--count shown 'surnames)) "y" "ies")
+              (sp-bibtex-lint--count shown 'ambiguous))
+      "- =d= drops an entry from the author fixes for later, =u= brings it back, =A= runs the author fixes.\n"
+      (format "- Fix, in batches of %d (a button runs the fix; the file is copied first):\n"
               sp-bibtex-lint-batch-size)
       (format "  - %s\n" (sp-bibtex-lint--button "order" file "field order"
                                                  (sp-bibtex-lint--count results 'order)))
@@ -765,15 +834,25 @@ not bury the typos."
                           "authors" file "author names"
                           (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
                                                                     '(authors notes surnames)))
-                                              results))))
-      "- =RET= on a link visits an entry or runs a fix, =g= refreshes.\n"
+                                              shown))))
       (mapconcat (lambda (r)
-                   (concat "\n" (sp-bibtex-lint--entry-text
-                                 r (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)))))
+                   (propertize
+                    (concat "\n" (sp-bibtex-lint--entry-text
+                                  r (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq))))
+                    'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
+                    'sp-batch-report-file file))
                  main "")
-      (sp-bibtex-lint--section "Same surname as an author note" 'surnames results pairs file)
-      (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous results pairs file))
-     (lambda () (sp-bibtex-lint-dryrun file)))))
+      (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
+      (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
+      (and dropped
+           (concat "\n" (sp-batch-report-dropped-section dropped nil #'sp-bibtex-lint--key-label))))
+     :refresh (lambda (excluded)
+                (setq sp-bibtex-lint--excluded excluded)
+                (sp-bibtex-lint-dryrun file))
+     :excluded sp-bibtex-lint--excluded
+     :apply (lambda (excluded)
+              (setq sp-bibtex-lint--excluded excluded)
+              (sp-bibtex-lint-fix-authors file)))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-dryrun (file)
@@ -792,8 +871,10 @@ button for each fix.  Notes for authors are never made."
 ;;;; Batches
 
 (defun sp-bibtex-lint--show-batch (file kind batch index total all)
-  "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE."
-  (let ((lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
+  "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE.
+Entries dropped from the author fixes are left out."
+  (let* ((batch (if (memq kind '(authors notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
+         (lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
     (sp-batch-report-show
      sp-bibtex-lint--batch-buffer
      (concat
@@ -811,11 +892,21 @@ button for each fix.  Notes for authors are never made."
 (defun sp-bibtex-lint--ask-batch (file batch index total all kind)
   "Show BATCH, number INDEX of TOTAL in FILE, and ask what to do with it.
 BATCH is a list of (RESULT BEG END); ALL is the number of entries in every
-batch.  KIND is the fix.  Return ?a to apply, ?s to skip or ?q to stop."
-  (sp-bibtex-lint--show-batch file kind batch index total all)
-  (read-char-choice
-   (format "Batch %d of %d (%d entries): [a]pply, [s]kip, [q]uit " index total (length batch))
-   '(?a ?s ?q)))
+batch.  KIND is the fix.  Return ?a to apply, ?s to skip or ?q to stop.  With ?d
+some entries are dropped from the author fixes for later, with ?u dropped ones
+are brought back; the batch is shown again each time."
+  (let (choice)
+    (while (progn
+             (sp-bibtex-lint--show-batch file kind batch index total all)
+             (setq choice
+                   (read-char-choice
+                    (format "Batch %d of %d (%d entries): [a]pply, [s]kip, [d]rop some for later, [u] bring back, [q]uit "
+                            index total (length (sp-bibtex-lint--undropped file batch)))
+                    '(?a ?s ?d ?u ?q)))
+             (pcase choice
+               (?d (sp-bibtex-lint--drop-dialog file batch) t)
+               (?u (sp-bibtex-lint--restore-dialog file) t))))
+    choice))
 
 (defun sp-bibtex-lint--replace (beg end new)
   "Replace the text between the markers BEG and END with NEW; END ends after it."
@@ -860,7 +951,10 @@ INDEX TOTAL ALL) and returns `skip', `quit' or an answer for APPLY-FN, which is
 called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
 FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
 is written without an answer.  THEN is called when the run was not quit."
-  (let* ((fixable (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results))
+  (let* ((authorial (memq kind '(authors notes surnames)))
+         (fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
+                                               (not (and authorial (sp-bibtex-lint--dropped-p file r)))))
+                              results))
          (what (alist-get kind sp-bibtex-lint--kinds))
          (work (generate-new-buffer " *sp-bibtex-lint-work*"))
          (stop nil))
@@ -883,7 +977,9 @@ is written without an answer.  THEN is called when the run was not quit."
             (while (and batches (not stop))
               (let* ((batch (pop batches))
                      (answer (funcall ask batch (cl-incf index) total (length items))))
-                (pcase answer
+                ;; Entries dropped while the batch was asked are not touched.
+                (when authorial (setq batch (sp-bibtex-lint--undropped file batch)))
+                (pcase (if (and authorial (null batch)) 'skip answer)
                   ('quit (setq stop t) (cl-incf skipped (length batch)))
                   ('skip (cl-incf skipped (length batch)))
                   (_
@@ -1006,12 +1102,20 @@ CASES are lists (FIELD NAME NOTE-NAME ...); the other names stay as written."
 (defun sp-bibtex-lint--ask-notes (file batch index total all &optional kind)
   "Show BATCH of names near an author note and ask what to do with the names.
 Return ?n to normalise the names in the BibTeX field, ?l to add each as an alias
-of the note, ?e to be asked for each name, ?s to skip or ?q to stop."
-  (sp-bibtex-lint--show-batch file (or kind 'notes) batch index total all)
-  (read-char-choice
-   (format "Batch %d of %d (%d entries): [n]ormalise in the field, [l] alias on the note, [e]ach name, [s]kip, [q]uit "
-           index total (length batch))
-   '(?n ?l ?e ?s ?q)))
+of the note, ?e to be asked for each name, ?s to skip or ?q to stop.  With ?d
+some entries are dropped for later, with ?u dropped ones are brought back."
+  (let (choice)
+    (while (progn
+             (sp-bibtex-lint--show-batch file (or kind 'notes) batch index total all)
+             (setq choice
+                   (read-char-choice
+                    (format "Batch %d of %d (%d entries): [n]ormalise in the field, [l] alias on the note, [e]ach name, [s]kip, [d]rop some for later, [u] bring back, [q]uit "
+                            index total (length (sp-bibtex-lint--undropped file batch)))
+                    '(?n ?l ?e ?s ?d ?u ?q)))
+             (pcase choice
+               (?d (sp-bibtex-lint--drop-dialog file batch) t)
+               (?u (sp-bibtex-lint--restore-dialog file) t))))
+    choice))
 
 (defun sp-bibtex-lint--ask-case (case)
   "Ask what to do with CASE, a list (FIELD NAME NOTE-NAME NOTE-FILE).
@@ -1083,7 +1187,7 @@ normalised in the BibTeX field, or added as an alias of the note."
      (pcase (sp-bibtex-lint--ask-notes file batch index total all kind)
        (?s 'skip)
        (?q 'quit)
-       (choice (sp-bibtex-lint--decide-notes batch choice kind))))
+       (choice (sp-bibtex-lint--decide-notes (sp-bibtex-lint--undropped file batch) choice kind))))
    (lambda (work batch decisions) (sp-bibtex-lint--apply-notes work batch decisions kind))
    then))
 

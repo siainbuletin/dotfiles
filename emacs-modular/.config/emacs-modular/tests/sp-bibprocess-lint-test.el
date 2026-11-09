@@ -47,6 +47,7 @@
 
 (defvar sp-bibtex-files)
 (defvar sp-bibtex-lint-backup-directory)
+(defvar sp-bibtex-lint--excluded)
 
 (defmacro sp-bibprocess-lint-test--with-bib (text &rest body)
   "Run BODY with FILE a .bib file holding TEXT, and the lint set up to use it."
@@ -56,6 +57,7 @@
           (sp-bibtex-files (list file))
           (sp-bibtex-lint-backup-directory (expand-file-name "bk/" dir))
           (sp-async-work-synchronous t)
+          (sp-bibtex-lint--excluded nil)
           (sp-bibtex--people-cache (cons (float-time) (sp-bibtex--make-people nil))))
      (unwind-protect
          (progn (with-temp-file file (insert ,text)) ,@body)
@@ -409,6 +411,108 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (should (< (string-match "\\[b\\]" text) (string-match "Same surname as" text)))
         (should-not (string-match-p "did you mean Adorno" text))))
     (kill-buffer sp-bibtex-lint--buffer)))
+
+
+(defun sp-bibprocess-lint-test--keys (&rest answers)
+  "Make `read-char-choice' give ANSWERS in turn; return the list of the answers given."
+  (let (given)
+    (cons (lambda (&rest _) (let ((a (pop answers))) (push a given) a))
+          (lambda () (nreverse given)))))
+
+(ert-deftest sp-bibtex-lint-test-drop-in-batch ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let* ((keys (sp-bibprocess-lint-test--keys ?d ?a))
+           (shown nil))
+      ;; Drop k2 for later, then apply the batch: k1 and k3 change, k2 does not.
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'sp-bibtex-lint--choose) (lambda (_prompt candidates)
+                                                               (setq shown candidates) '("k2"))))
+        (sp-bibtex-lint-fix-authors file))
+      (should (equal '("k1" "k2" "k3") shown))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{Smith1, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{Smith3, John}" text)))
+      (should (equal (list (sp-bibtex-lint--entry-key file "k2")) sp-bibtex-lint--excluded)))))
+
+(ert-deftest sp-bibtex-lint-test-dropped-stays-out-of-later-runs ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (setq sp-bibtex-lint--excluded (list (sp-bibtex-lint--entry-key file "k2")))
+    ;; Only two entries are asked about (and skipped here).
+    (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?s) #'sp-bibtex-lint-fix-authors)))
+    ;; Bring k2 back with `u' while a batch is asked, then skip that batch.
+    (let ((keys (sp-bibprocess-lint-test--keys ?u ?s)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k2"))))
+        (sp-bibtex-lint-fix-authors file)))
+    (should-not sp-bibtex-lint--excluded)
+    ;; The next run has all three, and k2 is fixed with the others.
+    (should (equal '(3) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-authors)))
+    (should (string-match-p "author =[ \t]+{Smith2, John}" (sp-bibprocess-lint-test--text file)))))
+
+(ert-deftest sp-bibtex-lint-test-drop-everything-skips-the-batch ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (let ((before (sp-bibprocess-lint-test--text file))
+          (keys (sp-bibprocess-lint-test--keys ?d ?a)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k1" "k2"))))
+        (sp-bibtex-lint-fix-authors file))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-lint-test-order-ignores-dropped ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (setq sp-bibtex-lint--excluded (list (sp-bibtex-lint--entry-key file "k1")))
+    ;; Dropping is for the author fixes only: the order fix still takes both entries.
+    (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?a))))))
+
+(ert-deftest sp-bibtex-lint-test-drop-in-notes-batch ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((keys (sp-bibprocess-lint-test--keys ?d ?n)))
+     ;; Drop entry a; the typo of entry b is normalised.
+     (cl-letf (((symbol-function 'read-char-choice) (car keys))
+               ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("a"))))
+       (sp-bibtex-lint-fix-authors file)))
+   (let ((text (sp-bibprocess-lint-test--text file)))
+     (should (string-match-p "@article{a,\n  author = {Smyth, John}" text))
+     (should (string-match-p "@article{b,\n  author =[ \t]+{Smith, John and Doe, Jane}" text)))))
+
+(ert-deftest sp-bibtex-lint-test-report-drop-and-restore ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file)
+      (with-current-buffer sp-bibtex-lint--buffer
+        (goto-char (point-min))
+        (re-search-forward "\\[k1\\]")
+        ;; `d' drops the entry at point; it moves to the dropped section.
+        (sp-batch-report-drop)
+        (should (equal (list (sp-bibtex-lint--entry-key file "k1")) sp-bibtex-lint--excluded))
+        (let ((text (buffer-string)))
+          (should (string-match "Dropped from the list (u brings one back) (1)" text))
+          (should (< (string-match "\\[k2\\]" text) (string-match "Dropped from the list" text)))
+          (should (string-match-p "k1 in " (substring text (string-match "Dropped from the list" text))))
+          (should (string-match-p "1 entry with problems" text))
+          ;; The order button still counts both.
+          (should (string-match-p "field order (2)" text))
+          (should (string-match-p "author names (1)" text)))
+        ;; `u' on the dropped entry brings it back.
+        (goto-char (point-min))
+        (re-search-forward "k1 in ")
+        (sp-batch-report-restore)
+        (should-not sp-bibtex-lint--excluded)
+        (should-not (string-match-p "Dropped from the list" (buffer-string)))
+        (should (string-match-p "2 entries with problems" (buffer-string)))))
+    (kill-buffer sp-bibtex-lint--buffer)))
+
+(ert-deftest sp-bibtex-lint-test-restore-command ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (setq sp-bibtex-lint--excluded (list (sp-bibtex-lint--entry-key file "k1")
+                                         (sp-bibtex-lint--entry-key file "k2")
+                                         "/elsewhere/b.bib::k1"))
+    (cl-letf (((symbol-function 'sp-bibtex-lint--choose) (lambda (_p candidates) (list (car candidates)))))
+      (sp-bibtex-lint-restore-dropped file))
+    (should (equal (list (sp-bibtex-lint--entry-key file "k2") "/elsewhere/b.bib::k1")
+                   sp-bibtex-lint--excluded))))
 
 
 (ert-deftest sp-bibtex-lint-test-rename-names ()
