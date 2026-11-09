@@ -102,7 +102,7 @@ In a note, the same spec is the parameter list of a dynamic block:
 - Register a new view without editing any file:
   - in the menu: =S= saves the spec being built;
   - from a block: =M-x sp-collec-query-view-save-from-dblock= with point in a =collection-query-table= block saves its parameters.
-  - Both write =sp-collec-query-views-file= (readable Lisp, one =(NAME . SPEC)= per view); a saved view with the name of a built-in one wins.
+  - Both write =sp-collec-query-views-file=, =views/sp-collection-query-tables-views.el= in the configuration, which is tracked in the repository: after =stow -R emacs-modular= it is a link into =~/dotfiles=, so a saved view appears in =git status= there. A saved view with the name of a built-in one wins.
 - Built-in views (=sp-collec-query-views-defaults=, in the repository):
   - =book-sections=: the notes linking to this note by =bib-parent=, by page, with a =Check= column.
   - =collection-articles=: the same, plus =pub-year=, for a =collection=.
@@ -1248,7 +1248,13 @@ The commands and helpers of the first version lived under =sia-vulpea-*=. These 
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-views.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-A view is a name and a spec, kept in =sp-collec-query-views-file= (below =sp-etc-dir=, the =etc/= folder of =sp-var-dir= for files that are kept and not regenerated, like the XDG config folder) as readable Lisp. The file used to be in =user-emacs-directory=; it is read from there once, until the new file exists. Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
+A view is a name and a spec. Views you save are written to =sp-collec-query-views-file= as readable Lisp.
+
+- The default is =views/sp-collection-query-tables-views.el= in the configuration, a file the repository tracks (empty at first), so it is a link into =~/dotfiles= under Stow.
+  - A view saved from the menu or from a dynamic block therefore shows up in =git status= in =~/dotfiles=, ready to commit. Nothing else is needed.
+  - Views in the older places (below =sp-etc-dir=, directly in =user-emacs-directory=) are read until the new file holds a view, and the next save writes the new file.
+- The built-in views are in the code (=sp-collec-query-views-defaults=), not in this file.
+- Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
 
 ** Header and requires
 
@@ -1283,15 +1289,20 @@ The views file, the in-memory alist, the converter for the first-version format,
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-views-file
-  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
-  "File where named query table views are saved.
-It is below `sp-etc-dir' (the `etc/' folder of `sp-var-dir'), where
-files that are kept and not regenerated belong."
+  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  "File where the views you save are written.
+It is inside the configuration (`user-emacs-directory'), so with Stow it
+is a link to the file in the dotfiles repository: a saved view shows up in
+`git status' there, ready to commit."
   :type 'file
   :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defconst sp-collec-query-views--etc-file
+  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
+  "Where the views were saved before they moved into the configuration.")
+
 (defconst sp-collec-query-views--old-file
   (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
   "Where the views were saved before they moved below `sp-etc-dir'.")
@@ -1348,14 +1359,22 @@ note in the vault with such a warning.  A saved view with the same name wins.")
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-views--read-file (file)
+  "Return the data in FILE, or nil when it is missing or holds no views."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (read (current-buffer)))))
+
 (defun sp-collec-query-views--source ()
   "Return the file to read the views from, or nil.
-That is `sp-collec-query-views-file'; while it does not exist yet,
-the file in `user-emacs-directory' where the views were saved before
-they moved, then the one from before the rename, so saved views carry
-over.  The next save writes `sp-collec-query-views-file'."
-  (cl-find-if #'file-exists-p
+That is `sp-collec-query-views-file' when it holds views; else the first
+older file that does (below `sp-etc-dir', in `user-emacs-directory', and
+from before the rename), so views saved there carry over.  The next save
+writes `sp-collec-query-views-file'."
+  (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
 
@@ -1364,9 +1383,7 @@ over.  The next save writes `sp-collec-query-views-file'."
   (interactive)
   (setq sp-collec-query-views
         (when-let* ((file (sp-collec-query-views--source)))
-          (let ((data (with-temp-buffer
-                        (insert-file-contents file)
-                        (read (current-buffer)))))
+          (let ((data (sp-collec-query-views--read-file file)))
             (mapcar (lambda (entry)
                       (if (sp-collec-query-views--legacy-entry-p entry)
                           (sp-collec-query-views--convert-legacy entry)
@@ -3416,3 +3433,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🔧 Changed sorting on =:pages= (or the =pub-pages= meta key) to compare the first number in the text, so there is no separate =:page= column
     - the =:page= column from #329 is removed, and the book and collection views sort by =:pages=.
   - Tested in Emacs 29.3 batch with stubbed Vulpea.
+- [[https://github.com/siainbuletin/dotfiles/pull/337][#337]]
+  - 🔧 Changed the default of =sp-collec-query-views-file= to =views/sp-collection-query-tables-views.el= in the configuration, a tracked file (empty at first), so saved views can be committed without moving files
+    - views in the older places are still read until the new file holds a view.
+  - After pulling a PR that adds files, run =stow -R emacs-modular= in =~/dotfiles=: a file that is not linked yet makes =(require ...)= fail, as =sp-collection-query-tables-book= did after #329.

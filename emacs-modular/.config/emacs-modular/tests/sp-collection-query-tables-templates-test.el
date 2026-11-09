@@ -27,6 +27,8 @@
   (dolist (f '("core" "views" "org"))
     (load (expand-file-name (format "../libraries/modules/funct/sp-collection-query-tables-%s.el" f) dir) nil t)))
 
+(setq sp-collec-query-views-file (expand-file-name "views/v.el" sp-etc-dir))
+
 (setq sp-collec-query-templ-test-db
       (mapcar (lambda (n) (cons (plist-get n :id) n))
               '((:id "book" :title "Book" :tags ("book"))
@@ -82,5 +84,18 @@
   (setq sp-collec-query-views--loaded nil)
   (should (equal (plist-get (sp-collec-query-views-get "mine") :tags) '("x")))
   (should-error (sp-collec-query-view-delete "collection-articles") :type 'user-error))
+
+;; An empty tracked views file does not hide views saved in an older place, and a save carries them over.
+(ert-deftest sp-collec-query-templ-test-empty-file-falls-back ()
+  (let ((old (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)))
+    (make-directory (file-name-directory sp-collec-query-views-file) t)
+    (with-temp-file sp-collec-query-views-file (insert ";; none\nnil\n"))
+    (with-temp-file old (insert "((\"older\" :tags (\"z\")))\n"))
+    (setq sp-collec-query-views--loaded nil)
+    (should (equal (plist-get (sp-collec-query-views-get "older") :tags) '("z")))
+    (sp-collec-query-views-put "new" '(:tags ("n")))
+    (setq sp-collec-query-views--loaded nil)
+    (should (equal (plist-get (sp-collec-query-views-get "new") :tags) '("n")))
+    (should (sp-collec-query-views-get "older"))))
 
 ;;; sp-collection-query-tables-templates-test.el ends here
