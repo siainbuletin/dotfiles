@@ -18,6 +18,7 @@
 (require 'sp-author-notes)
 (require 'sp-author-notes-bibtex)
 (require 'sp-litnotes-titles)
+(require 'sp-bibtex-types)
 
 (declare-function citar-create-note "citar")
 (declare-function vulpea-db-query "vulpea-db")
@@ -658,7 +659,8 @@ It is called with the key and returns the file of the new note."
 
 (defun sp-litnotes-meta-create-note (key)
   "Make the litnote of the citation KEY with `vulpea-create' and return its file.
-This does what the `citar-vulpea' source does (the `litnote' tag, ROAM_REFS,
+This does what the `citar-vulpea' source does (the `litnote' tag plus the
+tag of the BibTeX type, from `sp-bibtex-types', ROAM_REFS,
 the litnotes folder) but without going through citar, so the note always has:
 - an :ID: and a file name that is the key, from `vulpea-create';
 - :CREATED:, from `sp-org-created-stamp' (the advice of `sp-notes' on
@@ -676,7 +678,8 @@ The note is in the Vulpea database when this returns."
          (note (vulpea-create
                 title
                 (concat dir key ".org")
-                :tags (list (or (bound-and-true-p citar-vulpea-keyword) "litnote"))
+                :tags (list (or (bound-and-true-p citar-vulpea-keyword) "litnote")
+                             (sp-bibtex-types-entry-tag entry))
                 :properties (list (cons "ROAM_REFS" (concat "@" key))
                                   (cons "CREATED" (sp-org-created-stamp)))))
          (file (and note (vulpea-note-path note))))
@@ -694,15 +697,11 @@ The note is in the Vulpea database when this returns."
 (declare-function org-update-dblock "org")
 (declare-function vulpea-db-update-file "vulpea-db")
 
-(defconst sp-litnotes-meta--collection-types
-  '("collection" "mvcollection" "proceedings" "mvproceedings")
-  "BibTeX entry types that get the \"collection-articles\" view; others get \"book-sections\".")
-
 (defun sp-litnotes-meta--table-view (key)
   "The built-in view name for the table of the children of KEY."
   (let ((type (cdr (assoc "=type=" (let ((bibtex-dialect 'biblatex)) ; knows @collection
                                      (sp-litnotes-meta--entry key))))))
-    (if (and type (member-ignore-case type sp-litnotes-meta--collection-types))
+    (if (sp-bibtex-types-collection-p type)
         "collection-articles"
       "book-sections")))
 

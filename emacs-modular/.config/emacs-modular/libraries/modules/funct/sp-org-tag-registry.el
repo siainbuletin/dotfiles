@@ -30,7 +30,7 @@
         ("music"      "album" "genre")
         ("software"   "software" "package")
         ("literature" "text" "book" "journalarticle" "booksection"
-                      "collection" "incollection")
+                      "collection" "incollection" "phdthesis" "mastersthesis")
         ("inquiry"    "question" "error" "research-q" "exploratory")))
 
 ;; Tags that are in no group yet: the `unsorted' group.
