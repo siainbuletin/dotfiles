@@ -1399,3 +1399,6 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
   - ✨ The =sp-litnotes-meta-fill-all-dryrun= and =-convert= report lists every note as an Org link and opens in the shared =sp-batch-report-mode= buffer (=g= runs the dry run again).
+
+- [[https://github.com/siainbuletin/dotfiles/pull/357][#357]]
+  - ✨ =sp-litnotes-meta-fill= orders the meta lines by key (=sp-vulpea-meta-order=) and lists ="order"= when it did; the batch dry run and convert plan and do the same (=sp-litnotes-meta-order-meta= turns it off).

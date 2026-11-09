@@ -455,7 +455,7 @@ changed), nil (it did not) or the error text."
 
 What each pull request changed in this module, newest last.
 
-- The pull request that adds this module
+- [[https://github.com/siainbuletin/dotfiles/pull/357][#357]]
   - ✨ =sp-vulpea-meta-order-keys=, =-sorted-p=, =-buffer= and =-string= order a meta list by key, keeping repeated keys, continuation lines and the text around it.
   - ✨ =sp-vulpea-meta-order-note= orders the note you are in.
   - ✨ =sp-vulpea-meta-order-dryrun= and =-convert= go through the Vulpea notes (filter by tag and folder), with backups and a confirmation, in the shared report buffer.
