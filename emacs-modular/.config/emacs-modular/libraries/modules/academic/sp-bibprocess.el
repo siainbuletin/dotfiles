@@ -755,7 +755,7 @@ not bury the typos."
               (sp-bibtex-lint--count results 'surnames)
               (if (= 1 (sp-bibtex-lint--count results 'surnames)) "y" "ies")
               (sp-bibtex-lint--count results 'ambiguous))
-      (format "- Fix, in batches of %d (a button runs the fix; the file is copied first):\n"
+      (format "- Fixes (a button runs one; the file is copied first; author names go in batches of %d):\n"
               sp-bibtex-lint-batch-size)
       (format "  - %s\n" (sp-bibtex-lint--button "order" file "field order"
                                                  (sp-bibtex-lint--count results 'order)))
@@ -852,9 +852,10 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
     (unless (buffer-modified-p visiting)
       (with-current-buffer visiting (revert-buffer t t t)))))
 
-(defun sp-bibtex-lint--run (file kind results ask apply-fn &optional then)
+(defun sp-bibtex-lint--run (file kind results ask apply-fn &optional then whole)
   "Go through the entries of RESULTS with a fix of KIND for FILE, in batches.
-Batches have `sp-bibtex-lint-batch-size' entries.  ASK is called with (BATCH
+Batches have `sp-bibtex-lint-batch-size' entries, or with WHOLE all the entries
+are one batch.  ASK is called with (BATCH
 INDEX TOTAL ALL) and returns `skip', `quit' or an answer for APPLY-FN, which is
 called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
 FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
@@ -874,7 +875,7 @@ is written without an answer.  THEN is called when the run was not quit."
                                       (list r (copy-marker (plist-get rewrite :start))
                                             (copy-marker (plist-get rewrite :end)))))
                                   fixable)))
-                 (batches (seq-partition items (max 1 sp-bibtex-lint-batch-size)))
+                 (batches (seq-partition items (max 1 (if whole (length items) sp-bibtex-lint-batch-size))))
                  (total (length batches))
                  (stamp (format-time-string "%Y%m%dT%H%M%S"))
                  (signature (sp-bibtex-lint--signature file))
@@ -928,20 +929,34 @@ Each batch is applied, skipped or quit; see `sp-bibtex-lint--run'."
               ((buffer-modified-p visiting)))
     (user-error "Save %s first" (file-name-nondirectory file))))
 
+(defun sp-bibtex-lint--confirm (file kind count)
+  "Ask once whether to apply the fix KIND to COUNT entries of FILE."
+  (yes-or-no-p (format "Fix the %s of %d entr%s in %s (a backup is made first)? "
+                       (alist-get kind sp-bibtex-lint--kinds) count (if (= 1 count) "y" "ies")
+                       (file-name-nondirectory file))))
+
+(defun sp-bibtex-lint--review-whole (file kind results)
+  "Apply the fix KIND in RESULTS to the whole FILE after one confirmation."
+  (sp-bibtex-lint--run
+   file kind results
+   (lambda (batch _index _total _all)
+     (if (sp-bibtex-lint--confirm file kind (length batch)) 'apply 'skip))
+   (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
+   nil t))
+
 (defun sp-bibtex-lint--fix (file kind)
-  "Lint FILE and review the fix KIND in batches."
+  "Lint FILE and apply the fix KIND to all of it after one question."
   (sp-bibtex-lint--unsaved-check file)
   (sp-bibtex-lint--job "BibTeX lint" (list file) (list kind)
-                       (lambda (results) (sp-bibtex-lint--review file kind results))))
+                       (lambda (results) (sp-bibtex-lint--review-whole file kind results))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-order (file)
   "Put the fields of the entries of the .bib FILE in the order of `sp-bibtex-field-order'.
 FILE is the .bib file of the current buffer; with a prefix argument, or when
-the buffer is not a .bib file, it is read with completion.  The entries come in
-batches of `sp-bibtex-lint-batch-size'; for each batch you apply it, skip it or
-quit.  Nothing is written without an \"apply\", and FILE is copied to
-`sp-bibtex-lint-backup-directory' before the first write.  An entry with a
+the buffer is not a .bib file, it is read with completion.  All entries are
+fixed at once, after one yes-or-no question; FILE is copied to
+`sp-bibtex-lint-backup-directory' before it is written.  An entry with a
 comment inside is left alone."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--fix file 'order))
@@ -949,7 +964,7 @@ comment inside is left alone."
 ;;;###autoload
 (defun sp-bibtex-lint-fix-indent (file)
   "Indent every entry of the .bib FILE the way `bibtex-mode' does (`bibtex-fill-entry').
-Batches, backup and confirmation are those of `sp-bibtex-lint-fix-order'."
+All entries at once, after one question and a backup, as `sp-bibtex-lint-fix-order' does."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--fix file 'indent))
 
