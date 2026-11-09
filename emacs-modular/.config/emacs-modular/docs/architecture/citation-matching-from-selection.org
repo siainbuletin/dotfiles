@@ -114,17 +114,23 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
   - Indexing a file that DEVONthink already holds under another name would create a duplicate; the content-hash check in step 1 guards this.
   - The database package is never edited as files; everything goes through DEVONthink's scripting interface.
 
-** Options for the trigger
+** Trigger: Hammerspoon hotkey (decided, Sia 2026-11-09)
 
-- Hammerspoon hotkey (recommended):
-  - Binds e.g. =Hyper+C=, sends =Cmd+C=, waits ~100 ms, reads =hs.pasteboard=.
-  - Then calls =emacsclient= or opens an =org-protocol:= URL.
-  - Gives the frontmost app name for free (DEVONthink, or another reader for files not yet imported), which selects the source.
-  - One extra dependency, but Sia can keep it as a single Lua file in the dotfiles.
-- macOS Service (Automator/Shortcut "Run Shell Script" with input as stdin):
-  - Appears in the Services menu and gets a shortcut under System Settings, with no extra app.
-  - Receives the selected text directly, without the copy trick; DEVONthink offers Services for selected text, other PDF readers vary.
-  - Less flexible for passing the app name and the clipboard fallback.
+- Decision: use a Hammerspoon hotkey. A macOS Service is kept only as a fallback.
+- Why Hammerspoon:
+  - It works in any app. A Service only appears when the app's text view offers it; this is untested for readers other than DEVONthink.
+  - It knows the frontmost app, so the DEVONthink step (record UUID and page) runs only in DEVONthink. A Service gets the text and nothing else.
+  - It can show feedback, for example a notification "no match" or "3 candidates".
+  - The setup is one Lua file in the dotfiles (Stowed, like the existing =hammerspoon/= layer), instead of a workflow stored in =~/Library/Services=.
+  - Hammerspoon is already installed and configured on the Mac for the AeroSpace layer, so there is no new dependency.
+- What a Service would do better (accepted trade-offs):
+  - No extra app to keep running.
+  - It receives the selected text directly, so the clipboard is not touched; the hotkey should save and restore the pasteboard.
+  - The shortcut is assigned in System Settings.
+- Hotkey rules:
+  - Must not use Caps/Super/Option chords, Cmd+Space or Ctrl+Space (see the key scheme in =sp-keys.org=).
+  - Sends =Cmd+C=, waits ~100 ms, reads =hs.pasteboard=, restores the old pasteboard, then calls Emacs.
+  - Calls an =org-protocol:= URL (next section), not =emacsclient -e=, to avoid quoting problems.
 - Shortcuts.app: possible, but slower to start and awkward to version-control. Not recommended.
 - Avoid any overlay or accessibility screen scraping: it is fragile and unnecessary.
 
@@ -195,7 +201,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 * Open questions for Sia
 
-- Hammerspoon is already in the dotfiles (aerospace layer), so the hotkey route is the default; the Service stays as a fallback.
+- (Decided: Hammerspoon hotkey, Service only as fallback.)
 - Which reader for PDFs that are not in DEVONthink and that you decide not to import?
 - Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
 - Name of the end section and whether it should live in the litnote's front matter instead.
