@@ -325,6 +325,252 @@ Nothing is added if the file has such a line.  Return non-nil when it was added.
                      (file-name-nondirectory file))))
         file)))))
 
+(defcustom sp-author-notes-bibtex-apply-possible nil
+  "Non-nil to let `A' in the one-author report add the possible matches too.
+Possible matches only agree on the surname and the initials, so by default
+only the exact ones are added."
+  :type 'boolean
+  :group 'sp-author-notes)
+
+(defconst sp-author-notes-bibtex--author-buffer-name "*Author works (this note)*")
+
+(declare-function sp-bibtex--initials-compatible-p "sp-bibprocess")
+(declare-function sp-bibtex--surname-key "sp-bibprocess")
+(declare-function sp-bibtex--name-parts "sp-bibprocess")
+(declare-function sp-batch-report-open "sp-batch-report")
+(declare-function sp-batch-report-text "sp-batch-report")
+(declare-function sp-batch-report-item "sp-batch-report")
+(declare-function sp-batch-report-section "sp-batch-report")
+(declare-function sp-batch-report-file-link "sp-batch-report")
+
+(defun sp-author-notes-bibtex--note-aliases (file)
+  "The aliases in the head of the note FILE (its ROAM_ALIASES), as a list of strings."
+  (when (and file (file-readable-p file))
+    (with-temp-buffer
+      (sp-author-notes--insert-file file 4096)
+      (let ((case-fold-search t) aliases)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\(?:#\\+\\|[ \t]*:\\)ROAM_ALIASES:?[ \t]*\\(.*\\)$" nil t)
+          (setq aliases (append aliases (ignore-errors
+                                          (split-string-and-unquote (match-string-no-properties 1))))))
+        aliases))))
+
+(defun sp-author-notes-bibtex--current-person ()
+  "The author note in the current buffer, as a plist.
+It has :file :id :title :buffer and :forms, the title and the aliases
+cleaned like BibTeX names.  Signal a `user-error' when the buffer is not an
+author note, or the note has no ID."
+  (let* ((file (sp-author-notes--works-target))
+         (head (sp-author-notes--file-head file)))
+    (unless (plist-get head :id)
+      (user-error "This author note has no :ID:"))
+    (unless (plist-get head :title)
+      (user-error "This author note has no #+title:"))
+    (append head
+            (list :buffer (current-buffer)
+                  :forms (delete-dups
+                          (mapcar #'sp-author-notes--clean-name
+                                  (cons (plist-get head :title)
+                                        (sp-author-notes-bibtex--note-aliases file))))))))
+
+(defun sp-author-notes-bibtex--last-first (name)
+  "The name NAME (First Last) as \"Last, First\", or nil when it has one word."
+  (let ((words (split-string name "[ \t]+" t)))
+    (when (cdr words)
+      (format "%s, %s" (car (last words)) (string-join (butlast words) " ")))))
+
+(defun sp-author-notes-bibtex--given-compatible-p (form author)
+  "Non-nil when AUTHOR has the surname of FORM and compatible given names.
+That needs `sp-bibprocess'; without it the answer is always nil."
+  (when (and (fboundp 'sp-bibtex--initials-compatible-p)
+             (fboundp 'sp-bibtex--surname-key)
+             (fboundp 'sp-bibtex--name-parts))
+    (let ((f (sp-author-notes-bibtex--last-first form))
+          (a (sp-author-notes-bibtex--last-first author)))
+      (and f a
+           (equal (sp-bibtex--surname-key f) (sp-bibtex--surname-key a))
+           (sp-bibtex--initials-compatible-p (cdr (sp-bibtex--name-parts a))
+                                             (cdr (sp-bibtex--name-parts f)))))))
+
+(defun sp-author-notes-bibtex--match-forms (forms author)
+  "How the name AUTHOR matches the name FORMS: `exact', `possible' or nil."
+  (let (best)
+    (dolist (form forms best)
+      (let ((m (or (sp-author-notes-bibtex--match form author)
+                   (and (sp-author-notes-bibtex--given-compatible-p form author) 'possible))))
+        (cond ((eq m 'exact) (setq best 'exact))
+              ((and m (not best)) (setq best m)))))))
+
+(defun sp-author-notes-bibtex--best-match (forms names)
+  "The best way a name of NAMES matches the name FORMS: `exact', `possible' or nil."
+  (let (best)
+    (dolist (name names best)
+      (let ((m (sp-author-notes-bibtex--match-forms forms name)))
+        (cond ((eq m 'exact) (setq best 'exact))
+              ((and m (not best)) (setq best m)))))))
+
+(defun sp-author-notes-bibtex--entry-match (person entry)
+  "How the PERSON plist is named in ENTRY: (CONFIDENCE . META-KEY), or nil.
+META-KEY is `pub-editor' when the person is only an editor of the entry."
+  (let ((as-author (sp-author-notes-bibtex--best-match
+                    (plist-get person :forms) (plist-get entry :authors)))
+        (as-editor (sp-author-notes-bibtex--best-match
+                    (plist-get person :forms) (plist-get entry :editors))))
+    (when (or as-author as-editor)
+      (cons (if (or (eq as-author 'exact) (eq as-editor 'exact)) 'exact 'possible)
+            (if as-author sp-author-notes-key "pub-editor")))))
+
+(defun sp-author-notes-bibtex--links-p (file id)
+  "Non-nil when a person meta line in the head of the litnote FILE links to the note ID."
+  (with-temp-buffer
+    (sp-author-notes--insert-file file 4096)
+    (let ((case-fold-search t))
+      (goto-char (point-min))
+      (re-search-forward
+       (format "^-[ \t]+%s[ \t]+::.*id:%s"
+               (regexp-opt sp-author-notes-person-keys) (regexp-quote id))
+       (sp-author-notes--first-heading) t))))
+
+(defun sp-author-notes-bibtex--author-result (person entry covered)
+  "The result for ENTRY of the PERSON plist, or nil when it does not name the person.
+It is a plist with :entry :conf :role :status and :file, the litnote of the
+key.  COVERED is the table of `sp-author-notes-bibtex--covered'."
+  (when-let* ((match (sp-author-notes-bibtex--entry-match person entry)))
+    (let* ((file (gethash (plist-get entry :key) covered))
+           (status (cond ((null file) 'new)
+                         ((sp-author-notes-bibtex--links-p file (plist-get person :id)) 'linked)
+                         (t 'unlinked))))
+      (list :entry entry :conf (car match) :role (cdr match) :status status :file file))))
+
+(defun sp-author-notes-bibtex--author-job (person callback)
+  "Find the entries that name the PERSON plist in slices, and call CALLBACK with them.
+The list is of the plists of `sp-author-notes-bibtex--author-result', in the
+order of the files.  Return the job."
+  (let ((files (sp-author-notes-bibtex--files)) ; a user-error here reaches the command
+        (covered (make-hash-table :test #'equal))
+        entries result)
+    (sp-async-work-run
+     "Author works (one)"
+     (list (list "reading BibTeX" (lambda () files)
+                 (lambda (item job)
+                   (sp-author-notes-bibtex--bib-step
+                    item job (lambda (found) (dolist (e found) (push e entries))))))
+           (list "reading litnotes"
+                 (lambda () (sp-author-notes--org-files sp-author-notes-litnotes-directory))
+                 (lambda (file _job) (sp-author-notes-bibtex--cover-file covered file)))
+           (list "matching"
+                 (lambda () (nreverse entries))
+                 (lambda (entry _job)
+                   (when-let* ((found (sp-author-notes-bibtex--author-result person entry covered)))
+                     (push found result)))))
+     :done (lambda (_job) (funcall callback (nreverse result))))))
+
+(defun sp-author-notes-bibtex--author-compute (person)
+  "The entries that name the PERSON plist, found all at once."
+  (let ((sp-async-work-synchronous t) results)
+    (sp-author-notes-bibtex--author-job person (lambda (found) (setq results found)))
+    results))
+
+(defun sp-author-notes-bibtex--author-item (result)
+  "The report item of RESULT, a plist of `sp-author-notes-bibtex--author-result'."
+  (let* ((entry (plist-get result :entry))
+         (key (plist-get entry :key)))
+    (sp-batch-report-item
+     (format "(%s) %s%s%s"
+             (if (string-empty-p (plist-get entry :year)) "n.d." (plist-get entry :year))
+             (truncate-string-to-width (plist-get entry :title) 80 nil nil "…")
+             (if (equal (plist-get result :role) "pub-editor") "  [edited]" "")
+             (if (eq (plist-get result :status) 'unlinked)
+                 (format "  [litnote: %s]"
+                         (sp-batch-report-file-link (plist-get result :file)))
+               ""))
+     :file (plist-get entry :file) :line (format "/{%s,/" (regexp-quote key))
+     :label key :key key)))
+
+(defun sp-author-notes-bibtex--author-sections (results)
+  "The report sections for RESULTS: what is not in the Works tables comes first."
+  (cl-flet ((pick (status conf)
+              (mapcar #'sp-author-notes-bibtex--author-item
+                      (sort (seq-filter (lambda (r) (and (eq (plist-get r :status) status)
+                                                         (or (null conf) (eq (plist-get r :conf) conf))))
+                                        results)
+                            (lambda (a b) (string< (plist-get (plist-get a :entry) :year)
+                                                   (plist-get (plist-get b :entry) :year)))))))
+    (list (sp-batch-report-section "No litnote yet (exact name)" (pick 'new 'exact)
+                                   "every work found has a litnote")
+          (sp-batch-report-section "No litnote yet (possible: surname and initials)" (pick 'new 'possible))
+          (sp-batch-report-section "Litnote exists, not linked to this note" (pick 'unlinked nil))
+          (sp-batch-report-section "Already in this note" (pick 'linked nil)))))
+
+(defun sp-author-notes-bibtex--author-text (person results excluded)
+  "The Org text of the report of RESULTS for the PERSON plist, without the keys EXCLUDED."
+  (sp-batch-report-text
+   (format "Works of %s in BibTeX" (plist-get person :title))
+   (sp-author-notes-bibtex--author-sections results)
+   :intro (format "Names compared: %s.  A adds the works above \"Already in this note\" (possible matches only when `sp-author-notes-bibtex-apply-possible'); d drops one, u brings it back, g reads again."
+                  (string-join (plist-get person :forms) ", "))
+   :excluded excluded))
+
+(defun sp-author-notes-bibtex--author-apply (person results excluded)
+  "Add the RESULTS for the PERSON plist that are not EXCLUDED; return how many.
+New entries get a litnote, entries whose litnote is not linked get the line,
+and the author note gets its Works tables.  Ask once first."
+  (let ((todo (seq-filter
+               (lambda (r)
+                 (and (memq (plist-get r :status) '(new unlinked))
+                      (not (member (plist-get (plist-get r :entry) :key) excluded))
+                      (or (eq (plist-get r :conf) 'exact) sp-author-notes-bibtex-apply-possible)))
+               results))
+        (done 0))
+    (cond
+     ((null todo) (message "Nothing to add: no exact work is left outside the note") 0)
+     ((y-or-n-p (format "Add %d work%s to %s? " (length todo) (if (cdr todo) "s" "")
+                        (plist-get person :title)))
+      (dolist (r todo)
+        (let ((entry (plist-get r :entry)))
+          (if (eq (plist-get r :status) 'new)
+              (when (sp-author-notes-bibtex--create person entry) (cl-incf done))
+            (when (sp-author-notes-bibtex--add-author (plist-get r :file) person (plist-get r :role))
+              (cl-incf done)))))
+      (when-let* ((buffer (plist-get person :buffer))
+                  (_ (buffer-live-p buffer)))
+        (with-current-buffer buffer
+          (condition-case err
+              (message "%d added.  %s" done (sp-author-notes--works-run t))
+            (error (message "%d added; the Works tables were not updated: %s"
+                            done (error-message-string err))))))
+      done)
+     (t 0))))
+
+(defun sp-author-notes-bibtex--author-show (person results excluded)
+  "Show the report of RESULTS for the PERSON plist, without the keys EXCLUDED."
+  (sp-batch-report-open
+   sp-author-notes-bibtex--author-buffer-name
+   (sp-author-notes-bibtex--author-text person results excluded)
+   :excluded excluded
+   :redraw (lambda (excl) (sp-author-notes-bibtex--author-show person results excl))
+   :refresh (lambda (excl) (sp-author-notes-bibtex--author-run person excl))
+   :apply (lambda (excl)
+            (when (> (sp-author-notes-bibtex--author-apply person results excl) 0)
+              (sp-author-notes-bibtex--author-run person excl)))))
+
+(defun sp-author-notes-bibtex--author-run (person &optional excluded)
+  "Read the BibTeX files in slices and show the report for the PERSON plist."
+  (message "Reading BibTeX files for %s in the background..." (plist-get person :title))
+  (sp-author-notes-bibtex--author-job
+   person
+   (lambda (results) (sp-author-notes-bibtex--author-show person results excluded))))
+
+;;;###autoload
+(defun sp-author-notes-bibtex-author ()
+  "Show what the BibTeX files hold of the author of the note in this buffer.
+Works that no litnote links to this note come first, then the ones already
+in it.  In the report, `A' adds the works (a litnote for each, or the
+author line in the one that exists) and updates the Works tables of the
+note.  The all-authors report is `sp-author-notes-bibtex'."
+  (interactive)
+  (sp-author-notes-bibtex--author-run (sp-author-notes-bibtex--current-person)))
+
 (defvar sp-author-notes-bibtex-report-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)

@@ -137,3 +137,96 @@
            (entry (car (car (cdr smith)))))
       (should (equal (plist-get entry :key) "smith2021volume"))
       (should (equal (sp-author-notes-bibtex--role-key (car smith) entry) "pub-editor")))))
+
+;;; One author
+
+(require 'sp-batch-report)
+
+(defun sp-an-bib-test--person (vault name &rest aliases)
+  "The person plist of the note NAME written in VAULT, with ALIASES."
+  (let ((file (expand-file-name "me.org" vault)))
+    (apply #'sp-an-bib-test--write
+           file ":PROPERTIES:" ":ID: p-me"
+           (append (when aliases
+                     (list (format ":ROAM_ALIASES: %s"
+                                   (mapconcat (lambda (a) (format "%S" a)) aliases " "))))
+                   (list ":END:" (format "#+title: %s" name) "#+filetags: :person:" "")))
+    (with-current-buffer (find-file-noselect file)
+      (org-mode)
+      (sp-author-notes-bibtex--current-person))))
+
+(defun sp-an-bib-test--results (person)
+  (sort (mapcar (lambda (r) (list (plist-get (plist-get r :entry) :key)
+                                  (plist-get r :conf) (plist-get r :role) (plist-get r :status)))
+                (sp-author-notes-bibtex--author-compute person))
+        (lambda (a b) (string< (car a) (car b)))))
+
+(ert-deftest sp-an-bib-test-author-needs-an-author-note ()
+  (with-temp-buffer
+    (org-mode)
+    (should-error (sp-author-notes-bibtex--current-person) :type 'user-error)))
+
+(ert-deftest sp-an-bib-test-author-forms-and-statuses ()
+  (sp-an-bib-test--with-vault
+    (let ((person (sp-an-bib-test--person vault "Jane Doe" "J. Doe-Smith")))
+      (should (equal (plist-get person :forms) '("Jane Doe" "J. Doe-Smith")))
+      ;; doe2019covered has a litnote that does not link to Jane yet.
+      (should (equal (sp-an-bib-test--results person)
+                     '(("doe2019covered" exact "pub-author" unlinked)
+                       ("smith2020attention" exact "pub-author" new))))
+      ;; Once the litnote links to her, the work is already in the note.
+      (sp-an-bib-test--write
+       (expand-file-name "litnotes/doe.org" vault)
+       ":PROPERTIES:" ":ID: lit-doe" ":REFERENCES: @doe2019covered" ":END:"
+       "#+title: Covered" "" "- pub-author :: [[id:p-me][Jane Doe]]" "")
+      (should (eq 'linked (nth 3 (assoc "doe2019covered" (sp-an-bib-test--results person))))))))
+
+(ert-deftest sp-an-bib-test-author-alias-and-editor ()
+  (sp-an-bib-test--with-vault
+    (with-temp-file bib
+      (insert "@book{x2021volume,\n  editor = {Doe-Smith, J.}, title = {Volume}, year = {2021}}\n"
+              "@book{y2021other,\n  author = {Doe, Mary}, title = {Other}, year = {2021}}\n"))
+    (let ((person (sp-an-bib-test--person vault "Jane Doe" "J. Doe-Smith")))
+      (should (equal (sp-an-bib-test--results person)
+                     '(("x2021volume" exact "pub-editor" new)))))))
+
+(ert-deftest sp-an-bib-test-author-report-order ()
+  (sp-an-bib-test--with-vault
+    (let* ((person (sp-an-bib-test--person vault "John Smith"))
+           (results (sp-author-notes-bibtex--author-compute person))
+           (text (sp-author-notes-bibtex--author-text person results nil)))
+      (should (string-match "No litnote yet (exact name) (1)" text))
+      (should (string-match "possible: surname and initials) (1)" text))
+      (should (< (string-match "smith2020attention" text) (string-match "smith2018other" text)))
+      (should (string-match "Already in this note (0)" text))
+      (with-current-buffer (sp-author-notes-bibtex--author-show person results nil)
+        (should (derived-mode-p 'sp-batch-report-mode))
+        (goto-char (point-min))
+        (search-forward "smith2020attention")
+        (sp-batch-report-drop)
+        (should (equal sp-batch-report-excluded '("smith2020attention")))
+        (should (string-match-p "Dropped from the list" (buffer-string)))))))
+
+(ert-deftest sp-an-bib-test-author-apply-adds-exact-only ()
+  (sp-an-bib-test--with-vault
+    (let* ((sp-author-notes-backup-directory (expand-file-name "backup/" vault))
+           (person (sp-an-bib-test--person vault "John Smith"))
+           (results (sp-author-notes-bibtex--author-compute person)))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        ;; The possible match smith2018other is left out.
+        (should (= 1 (sp-author-notes-bibtex--author-apply person results nil)))
+        (let ((file (expand-file-name "litnotes/smith2020attention.org" vault)))
+          (should (file-exists-p file))
+          (should (string-match-p "- pub-author :: \\[\\[id:p-me\\]\\[John Smith\\]\\]"
+                                  (with-temp-buffer (insert-file-contents file) (buffer-string)))))
+        (should-not (file-exists-p (expand-file-name "litnotes/smith2018other.org" vault)))
+        ;; The note got its Works heading.
+        (should (string-match-p "^\\* Works"
+                                (with-temp-buffer
+                                  (insert-file-contents (expand-file-name "me.org" vault))
+                                  (buffer-string))))
+        ;; A dropped key is not added, even when the possible ones are allowed.
+        (let ((sp-author-notes-bibtex-apply-possible t))
+          (should (= 0 (sp-author-notes-bibtex--author-apply
+                        person (sp-author-notes-bibtex--author-compute person)
+                        '("smith2018other" "smith2020attention")))))))))
