@@ -31,6 +31,7 @@ yazi	all	.config/yazi
 zellij	all	.config/zellij
 ripgrep-all	all	.config/ripgrep-all
 typlite	all	.config/typlite
+gh-pr-pdf	all	.local/bin/gh-pr-pdf
 # --- research, notes, music ---
 beets	all	.config/beets
 bibiman	all	.config/bibiman
