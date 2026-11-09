@@ -18,6 +18,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'org)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -330,6 +331,21 @@ Return (HAS-FILETAGS . OCCURRENCES), OCCURRENCES being a list of
   "Major mode of the tag lint report.
 \\{sp-org-tag-lint-report-mode-map}")
 
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-org-tag-lint-report-mode 'sp-org-tag-lint-batch-mode "2026-11-09")
+(make-obsolete-variable 'sp-org-tag-lint-report-mode-map 'sp-org-tag-lint-batch-mode-map "2026-11-09")
+
+(defvar sp-org-tag-lint-batch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'sp-org-tag-lint-register-at-point)
+    map)
+  "Keymap of `sp-org-tag-lint-batch-mode'.")
+
+(define-derived-mode sp-org-tag-lint-batch-mode sp-batch-report-mode "TagLint"
+  "Tag lint report in the shared report buffer.
+\\<sp-org-tag-lint-batch-mode-map>\\[sp-org-tag-lint-register-at-point] registers the tag of the entry at point; d drops an entry from the list.")
+
 (defun sp-org-tag-lint--abbreviate (file)
   "FILE shortened for display."
   (abbreviate-file-name file))
@@ -373,10 +389,68 @@ Return (HAS-FILETAGS . OCCURRENCES), OCCURRENCES being a list of
         (sp-org-tag-lint--insert-location file nil nil)))
     (insert "\nRET visit   a register the tag at point   g run again\n")))
 
+(defvar-local sp-org-tag-lint--result nil
+  "The result of the lint shown in the report buffer, for drawing it again.")
+
+(defun sp-org-tag-lint--sections (result)
+  "The sections of the report of RESULT, for `sp-batch-report-text'."
+  (let ((registered (sp-org-tag-lint-registered-tags)))
+    (list
+     (sp-batch-report-section
+      "Unregistered tags"
+      (mapcar (lambda (entry)
+                (let* ((tag (car entry))
+                       (near (sp-org-tag-lint--closest tag registered)))
+                  (list :text (format ":%s:  x%d%s" tag (length (cdr entry))
+                                      (if near (format "  (probably %s)" near) ""))
+                        :key (concat "tag:" tag)
+                        :props (list 'sp-tag-name tag)
+                        :children (mapcar (lambda (o)
+                                            (sp-batch-report-file-link
+                                             (car o) (sp-org-tag-lint--abbreviate (car o)) (cdr o)))
+                                          (cdr entry)))))
+              (plist-get result :unknown)))
+     (sp-batch-report-section
+      "Notes without #+filetags"
+      (mapcar (lambda (file)
+                (list :text "" :file file :label (sp-org-tag-lint--abbreviate file)))
+              (plist-get result :untagged))))))
+
+(defun sp-org-tag-lint--show-batch (files result &optional excluded)
+  "Show RESULT, the lint of FILES, in the shared report buffer, dropping EXCLUDED."
+  (sp-batch-report-open
+   sp-org-tag-lint--buffer-name
+   (sp-batch-report-text
+    "Org tag lint"
+    (sp-org-tag-lint--sections result)
+    :excluded excluded
+    :intro (format "- %d files\n- %d registered tags" (plist-get result :files)
+                   (length (sp-org-tag-lint-registered-tags))))
+   :mode 'sp-org-tag-lint-batch-mode
+   :refresh #'sp-org-tag-lint-refresh
+   :redraw (lambda (excl)
+             (sp-org-tag-lint--show-batch sp-org-tag-lint--files sp-org-tag-lint--result excl))
+   :excluded excluded)
+  (with-current-buffer sp-org-tag-lint--buffer-name
+    (setq sp-org-tag-lint--files files
+          sp-org-tag-lint--result result)))
+
 (defun sp-org-tag-lint--show (files)
-  "Lint FILES and show the report."
-  (let ((result (sp-org-tag-lint--run files))
-        (buffer (get-buffer-create sp-org-tag-lint--buffer-name)))
+  "Lint FILES and show the report, in the view `sp-batch-report-interface' picks."
+  (let ((result (sp-org-tag-lint--run files)))
+    (if (sp-batch-report-new-p)
+        (sp-org-tag-lint--show-batch files result)
+      (sp-org-tag-lint--show-old files result))
+    (message "%d unregistered tags, %d notes without tags"
+             (length (plist-get result :unknown))
+             (length (plist-get result :untagged)))
+    result))
+
+(make-obsolete 'sp-org-tag-lint--show-old 'sp-org-tag-lint--show-batch "2026-11-09")
+
+(defun sp-org-tag-lint--show-old (files result)
+  "Show RESULT, the lint of FILES, in the old `sp-org-tag-lint-report-mode'."
+  (let ((buffer (get-buffer-create sp-org-tag-lint--buffer-name)))
     (with-current-buffer buffer
       (sp-org-tag-lint-report-mode)
       (setq sp-org-tag-lint--files files)
@@ -384,11 +458,7 @@ Return (HAS-FILETAGS . OCCURRENCES), OCCURRENCES being a list of
         (erase-buffer)
         (sp-org-tag-lint--render result))
       (goto-char (point-min)))
-    (pop-to-buffer buffer)
-    (message "%d unregistered tags, %d notes without tags"
-             (length (plist-get result :unknown))
-             (length (plist-get result :untagged)))
-    result))
+    (pop-to-buffer buffer)))
 
 (defun sp-org-tag-lint-visit ()
   "Visit the file on the report line at point."

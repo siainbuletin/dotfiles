@@ -397,6 +397,22 @@
                            (sp-litnotes-meta--entry "doe2015chapter")))))
         (delete-directory dir t)))))
 
+(ert-deftest sp-litnotes-meta-batch-report-drop-and-apply ()
+  (sp-litnotes-meta-test--with-batch
+    (let ((file (expand-file-name "bk.org" dir)) seen)
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-meta-fill-all-dryrun))
+      (with-current-buffer sp-litnotes-meta--batch-buffer
+        (goto-char (point-min))
+        (re-search-forward "\\[\\[file:[^]]*bk\\.org")
+        (sp-batch-report-drop)
+        (should (equal sp-batch-report-excluded (list file)))
+        (cl-letf (((symbol-function 'sp-litnotes-meta-fill-all-convert)
+                   (lambda (&optional _o excl) (setq seen excl))))
+          (sp-batch-report-apply))
+        (should (equal seen (list file))))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
+
 (provide 'sp-litnotes-meta-test)
 ;;; sp-litnotes-meta-test.el ends here
 

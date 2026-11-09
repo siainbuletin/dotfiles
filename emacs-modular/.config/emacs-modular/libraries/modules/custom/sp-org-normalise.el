@@ -20,6 +20,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -448,6 +449,24 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
 (define-derived-mode sp-org-normalise-report-mode special-mode "Org-normalise"
   "Report of the changes proposed by `sp-org-normalise-dryrun'.")
 
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-org-normalise-report-mode 'sp-org-normalise-batch-mode "2026-11-09")
+(make-obsolete-variable 'sp-org-normalise-report-mode-map 'sp-org-normalise-batch-mode-map "2026-11-09")
+
+(defvar sp-org-normalise-batch-mode-map (make-sparse-keymap)
+  "Keymap of `sp-org-normalise-batch-mode'.")
+
+(define-derived-mode sp-org-normalise-batch-mode sp-batch-report-mode "Org-normalise"
+  "Report of `sp-org-normalise-dryrun' in the shared report buffer.
+d drops a file from the list; A applies the rest, asking file by file.")
+
+(defvar sp-org-normalise--last-dir nil
+  "The folder of the last dry run, for the report's \\`g' and \\`A'.")
+
+(defvar sp-org-normalise--excluded nil
+  "The files dropped from the report with \\`d'; `sp-org-normalise-convert' skips them.")
+
 (defun sp-org-normalise-visit ()
   "Visit the file and line of the change at point."
   (interactive)
@@ -457,8 +476,57 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
              (forward-line (cdr loc)))
     (user-error "No change here")))
 
+(defun sp-org-normalise--sections (plans)
+  "The sections of the report of PLANS, for `sp-batch-report-text'."
+  (list
+   (sp-batch-report-section
+    "Files to change"
+    (mapcar (lambda (p)
+              (let ((file (car p)))
+                (list :text (format "%d change(s)"
+                                    (length (cl-remove-if-not (lambda (c) (plist-get c :new)) (cddr p))))
+                      :file file :label (abbreviate-file-name file)
+                      :children (mapcar (lambda (c)
+                                          (let ((start (plist-get c :start)))
+                                            (concat (and start
+                                                         (concat (sp-batch-report-file-link
+                                                                  file (format "line %d" (1+ start)) (1+ start))
+                                                                 ": "))
+                                                    (sp-org-normalise-describe-change c))))
+                                        (cddr p)))))
+            plans)
+    "Nothing to change.")))
+
+(defun sp-org-normalise--show-batch (plans &optional excluded)
+  "Show PLANS in the shared report buffer, leaving out the files EXCLUDED."
+  (sp-batch-report-open
+   "*Org normalise*"
+   (sp-batch-report-text
+    "Org normalise: dry run"
+    (sp-org-normalise--sections plans)
+    :excluded excluded
+    :intro (format "%d file(s), %d change(s).  Nothing has been written."
+                   (length plans)
+                   (cl-loop for p in plans
+                            sum (length (cl-remove-if-not (lambda (c) (plist-get c :new)) (cddr p))))))
+   :mode 'sp-org-normalise-batch-mode
+   :refresh (lambda () (sp-org-normalise-dryrun sp-org-normalise--last-dir))
+   :redraw (lambda (excl) (sp-org-normalise--show-batch plans excl))
+   :apply (lambda (excl)
+            (let ((sp-org-normalise--excluded excl))
+              (sp-org-normalise-convert sp-org-normalise--last-dir)))
+   :excluded excluded))
+
 (defun sp-org-normalise--show-plan (plans)
-  "Show PLANS in the report buffer."
+  "Show PLANS in the view `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p)
+      (sp-org-normalise--show-batch plans sp-org-normalise--excluded)
+    (sp-org-normalise--show-plan-old plans)))
+
+(make-obsolete 'sp-org-normalise--show-plan-old 'sp-org-normalise--show-batch "2026-11-09")
+
+(defun sp-org-normalise--show-plan-old (plans)
+  "Show PLANS in the old report buffer."
   (with-current-buffer (get-buffer-create "*Org normalise*")
     (let ((inhibit-read-only t))
       (sp-org-normalise-report-mode)
@@ -508,6 +576,8 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
 (defun sp-org-normalise-dryrun (&optional dir)
   "Show the changes proposed for the Org files under DIR.  Writes nothing."
   (interactive (list (sp-org-normalise--dir-arg)))
+  (setq sp-org-normalise--last-dir dir
+        sp-org-normalise--excluded nil)
   (sp-org-normalise--show-plan (sp-org-normalise-plan-files (sp-org-normalise-files dir))))
 
 
@@ -528,8 +598,10 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
 (defun sp-org-normalise-convert (&optional dir)
   "Preview the changes under DIR, then apply them file by file after asking."
   (interactive (list (sp-org-normalise--dir-arg)))
-  (let ((plans (sp-org-normalise-plan-files (sp-org-normalise-files dir)))
+  (let ((plans (cl-remove-if (lambda (p) (member (car p) sp-org-normalise--excluded))
+                             (sp-org-normalise-plan-files (sp-org-normalise-files dir))))
         (done 0) (quit nil))
+    (setq sp-org-normalise--last-dir dir)
     (sp-org-normalise--show-plan plans)
     (dolist (p plans)
       (unless quit
