@@ -612,13 +612,14 @@ Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."
             title))
       title)))
 
-(defun sp-litnotes-meta--tidy-new-note (key)
+(defun sp-litnotes-meta--tidy-new-note (key &optional file)
   "Give the note just made for KEY a plain title and drop the bibliography block.
+FILE is the note, by default the one the litnotes folder has for KEY.
 Citar's own note template writes \"#+title: Notes on ...\" and a
 \"#+print_bibliography:\" line (the Org-cite marker that prints the
 bibliography of the note, of no use in a litnote).  Return non-nil if the
 note changed."
-  (when-let* ((file (gethash key (sp-author-notes-bibtex--covered)))
+  (when-let* ((file (or file (gethash key (sp-author-notes-bibtex--covered))))
               (entry (sp-litnotes-meta--entry key))
               (title (sp-litnotes-meta--new-title entry)))
     (let* ((buf (find-buffer-visiting file))
@@ -640,6 +641,51 @@ note changed."
         (unless buf (kill-buffer)))
       changed)))
 
+;;;; Make a litnote
+
+(declare-function vulpea-create "vulpea-create")
+(declare-function vulpea-note-path "vulpea-note")
+(declare-function sp-org-created-stamp "sp-org-link-conversion")
+(declare-function sp-notes-ensure-created "sp-notes")
+(defvar citar-vulpea-notes-directory)
+(defvar citar-vulpea-keyword)
+
+(defcustom sp-litnotes-meta-create-function #'sp-litnotes-meta-create-note
+  "Function that makes the note of a citation key for the backfill.
+It is called with the key and returns the file of the new note."
+  :type 'function
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta-create-note (key)
+  "Make the litnote of the citation KEY with `vulpea-create' and return its file.
+This does what the `citar-vulpea' source does (the `litnote' tag, ROAM_REFS,
+the litnotes folder) but without going through citar, so the note always has:
+- an :ID: and a file name that is the key, from `vulpea-create';
+- :CREATED:, from `sp-org-created-stamp' (the advice of `sp-notes' on
+  `vulpea-create' adds it too, and `sp-notes-ensure-created' checks);
+- the title of `sp-litnotes-meta-new-title'.
+The note is in the Vulpea database when this returns."
+  (require 'vulpea)
+  (require 'sp-org-link-conversion)
+  (let* ((entry (or (sp-litnotes-meta--entry key)
+                    (user-error "No BibTeX entry %s in the registered files" key)))
+         (title (or (sp-litnotes-meta--new-title entry) key))
+         (dir (file-name-as-directory
+               (expand-file-name (or (bound-and-true-p citar-vulpea-notes-directory)
+                                     sp-author-notes-litnotes-directory))))
+         (note (vulpea-create
+                title
+                (concat dir key ".org")
+                :tags (list (or (bound-and-true-p citar-vulpea-keyword) "litnote"))
+                :properties (list (cons "ROAM_REFS" (concat "@" key))
+                                  (cons "CREATED" (sp-org-created-stamp)))))
+         (file (and note (vulpea-note-path note))))
+    (unless (and file (file-exists-p file))
+      (error "vulpea-create made no file for %s" key))
+    (when (require 'sp-notes nil t)
+      (sp-notes-ensure-created file))
+    file))
+
 ;;;; Show the children in the table of the book
 
 (declare-function sp-collec-query-dblock-has-block-p "sp-collection-query-tables-org")
@@ -660,22 +706,21 @@ note changed."
         "collection-articles"
       "book-sections")))
 
-(defun sp-litnotes-meta--ensure-table (key made)
+(defun sp-litnotes-meta--ensure-table (key files)
   "Make the current note show a table of its children, and refresh it.
-KEY is the citation key of the note; MADE the keys of the notes just made,
+KEY is the citation key of the note; FILES the files of the notes just made,
 which are put in the Vulpea database first.  Insert a
 `collection-query-table' block with the view for KEY, above the first
 heading, when the note has none.  Return `inserted', `updated' or nil."
-  (when (and (derived-mode-p 'org-mode)
-             (require 'sp-collection-query-tables-org nil t)
-             (fboundp 'sp-collec-query-dblock-update-buffer))
-    (let ((covered (ignore-errors (sp-author-notes-bibtex--covered)))
-          (was-modified (buffer-modified-p))
+  (when (derived-mode-p 'org-mode)
+    (unless (and (require 'sp-collection-query-tables-org nil t)
+                 (fboundp 'sp-collec-query-dblock-update-buffer))
+      (user-error "The query table module (sp-collection-query-tables-org) did not load"))
+    (let ((was-modified (buffer-modified-p))
           (how 'updated))
       (when (fboundp 'vulpea-db-update-file)
-        (dolist (child made)
-          (when-let* ((file (and covered (gethash child covered))))
-            (ignore-errors (vulpea-db-update-file file)))))
+        (dolist (file files)
+          (ignore-errors (vulpea-db-update-file file))))
       (unless (sp-collec-query-dblock-has-block-p)
         (save-excursion
           (save-restriction
@@ -700,9 +745,10 @@ heading, when the note has none.  Return `inserted', `updated' or nil."
 Interactively KEY is the citation key of the note you are in, a book or
 a collection, and you pick the entries in the minibuffer (an empty answer
 takes all of them).  With a prefix argument, or ALL, every entry without a
-note is taken and nothing is picked.  Each new note goes through
-`citar-create-note', so it is filled like any other, with the parent
-linked in bib-parent.  bib-project is copied from this note;
+note is taken and nothing is picked.  Each new note is made by
+`sp-litnotes-meta-create-function' (an ID, :CREATED:, the litnote tag and
+ROAM_REFS) and filled from BibTeX like `sp-litnotes-meta-fill' does, with
+the parent linked in bib-parent.  bib-project is copied from this note;
 relevance-factor and read-priority are asked once for the whole batch.
 CHILDREN, a list of keys, skips the questions.
 
@@ -732,28 +778,23 @@ notes show in the table.  Return the keys that got a note."
                                  (cons "read-priority" (sp-litnotes-meta--read-priority))))))
          (sp-litnotes-meta--preset preset)
          (origin (current-buffer))
-         made)
+         made made-files)
     (dolist (child keys)
       (condition-case err
-          (progn
-            ;; Always the Vulpea source, so citar's own file template
-            ;; ("Notes on ...", a bibliography block) is not used.
-            (let ((citar-notes-source (if (and (boundp 'citar-notes-sources)
-                                               (assq 'citar-vulpea citar-notes-sources))
-                                          'citar-vulpea
-                                        (bound-and-true-p citar-notes-source))))
-              (citar-create-note child))
-            ;; The advice fills it; fill it here when the advice is off.
-            (unless sp-litnotes-meta-auto
-              (sp-litnotes-meta-fill child))
-            (sp-litnotes-meta--tidy-new-note child)
-            (push child made))
+          (let ((file (funcall sp-litnotes-meta-create-function child)))
+            ;; Not `citar-create-note', so its advice does not fill the note.
+            (sp-litnotes-meta-fill child file)
+            (sp-litnotes-meta--tidy-new-note child file)
+            (when (fboundp 'vulpea-db-update-file)
+              (ignore-errors (vulpea-db-update-file file)))
+            (push child made)
+            (push file made-files))
         (error (message "sp-litnotes-meta: %s: %s" child (error-message-string err)))))
     (setq made (nreverse made))
     ;; citar may have shown a new note; the table belongs in the book's note.
     (let ((table (with-current-buffer origin
                    (condition-case err
-                       (sp-litnotes-meta--ensure-table key made)
+                       (sp-litnotes-meta--ensure-table key (nreverse made-files))
                      (error (message "sp-litnotes-meta: table: %s" (error-message-string err))
                             nil)))))
       (message "Made %d of %d notes for the entries that cross-reference %s%s"
