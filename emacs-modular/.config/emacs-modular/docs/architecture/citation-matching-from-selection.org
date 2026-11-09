@@ -1,8 +1,8 @@
 #+title: Matching a selected citation to a BibTeX or DEVONthink record
 #+date: 2026-11-09
-#+status: proposed
+#+status: partly implemented (macOS: matcher, Cited works section, org-protocol, DEVONthink lookup; see the module docs)
 
-This is a design, not an implementation. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
+This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match= and =sp-reading= (see their module docs); the Linux script, the DEVONthink selection/UUID return and the item-link backfill are not built. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
 
 * Goal
 

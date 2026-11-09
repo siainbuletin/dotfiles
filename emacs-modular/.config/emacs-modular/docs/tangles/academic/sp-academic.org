@@ -158,6 +158,8 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
 (require 'sp-litdb)
+(require 'sp-cite-match)
+(require 'sp-reading)
 #+end_src
 
 ** Helper libraries

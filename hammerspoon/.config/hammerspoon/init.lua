@@ -11,3 +11,12 @@ end)
 if not ok then
   hs.printf("stackline not loaded: %s", tostring(err))
 end
+
+-- Send the selected citation to Emacs (sp-cite-match).  Optional, like stackline.
+local ok_cite, err_cite = pcall(function()
+  cite_match = require "cite-match"
+  cite_match.bind()
+end)
+if not ok_cite then
+  hs.printf("cite-match not loaded: %s", tostring(err_cite))
+end
