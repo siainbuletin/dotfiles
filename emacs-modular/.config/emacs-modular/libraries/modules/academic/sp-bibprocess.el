@@ -282,13 +282,14 @@ Return (TEXT . OPEN), or nil for a value that is a macro or a concatenation."
         aliases))))
 
 (defun sp-bibtex--make-people (people)
-  "The index of PEOPLE: a plist of :names, :keys, :files and :buckets.
+  "The index of PEOPLE: a plist of :names, :keys, :files, :surnames and :buckets.
 Each of PEOPLE is a title, or a plist with :title and :file from
 `sp-author-notes--file-head'.  The aliases of the note files count as known
 names, so a name that is an alias is not suggested to be a typo."
   (let ((keys (make-hash-table :test #'equal))
         (buckets (make-hash-table :test #'equal))
         (files (make-hash-table :test #'equal))
+        (surnames (make-hash-table :test #'equal))
         names)
     (dolist (person people)
       (let* ((title (if (stringp person) person (plist-get person :title)))
@@ -296,6 +297,7 @@ names, so a name that is an alias is not suggested to be a typo."
              (key (sp-bibtex--name-key canonical)))
         (unless (gethash key keys)
           (puthash key canonical keys)
+          (push canonical (gethash (sp-bibtex--surname-key canonical) surnames))
           (when-let* ((file (and (consp person) (plist-get person :file))))
             (puthash key file files))
           (push canonical names)
@@ -306,7 +308,8 @@ names, so a name that is an alias is not suggested to be a typo."
           (let ((key (sp-bibtex--name-key (sp-bibtex-canonical-name alias))))
             (unless (gethash key keys)
               (puthash key (sp-bibtex-canonical-name (plist-get person :title)) keys))))))
-    (list :names (sort names #'string<) :keys keys :files files :buckets buckets
+    (list :names (sort names #'string<) :keys keys :files files :surnames surnames
+          :buckets buckets
           :memo (make-hash-table :test #'equal))))
 
 (defun sp-bibtex--bucket (key)
@@ -327,6 +330,75 @@ names, so a name that is an alias is not suggested to be a typo."
           (cons (float-time)
                 (sp-bibtex--make-people (sp-author-notes-bibtex--people)))))
   (cdr sp-bibtex--people-cache))
+
+;; The names that are not typos of an author note but share its surname.
+
+(defun sp-bibtex--fold (string)
+  "STRING without accents, when `sp-author-notes-fold-diacritics' is loaded."
+  (if (fboundp 'sp-author-notes-fold-diacritics)
+      (sp-author-notes-fold-diacritics string)
+    string))
+
+(defun sp-bibtex--name-parts (canonical)
+  "The last name and the given names of the CANONICAL name, as (LAST . GIVEN).
+GIVEN is nil for a name without a comma."
+  (let ((parts (mapcar #'string-trim (sp-bibtex--split-depth0 canonical ","))))
+    (cons (car parts) (cadr parts))))
+
+(defun sp-bibtex--surname-key (canonical)
+  "A lookup key for the last name of the CANONICAL name: no accents, braces or case."
+  (sp-bibtex--name-key (sp-bibtex--fold (car (sp-bibtex--name-parts canonical)))))
+
+(defun sp-bibtex--given-units (given)
+  "The given names GIVEN as a list of units (INITIAL . WORD).
+INITIAL is an upper case letter.  WORD is the lower case name for a name
+written out and nil for an initial: `TW' and `T. W.' give (\"T\") (\"W\"), and
+`Theodor W.' gives (\"T\" . \"theodor\") (\"W\").  A hyphen starts a new unit."
+  (let (units)
+    (dolist (token (split-string (replace-regexp-in-string "[{}.]" " " (sp-bibtex--fold (or given "")))
+                                 "[ \t]+" t))
+      (dolist (part (split-string token "-" t))
+        (cond
+         ((string-match-p "\\`[[:upper:]]\\{1,3\\}\\'" part)
+          (dolist (c (string-to-list part)) (push (list (char-to-string c)) units)))
+         ((= (length part) 1) (push (list (upcase part)) units))
+         (t (push (cons (upcase (substring part 0 1)) (downcase part)) units)))))
+    (nreverse units)))
+
+(defun sp-bibtex--initials-compatible-p (given note-given)
+  "Non-nil when the given names GIVEN fit the NOTE-GIVEN names of an author note.
+Each name, in order, has the initial of the other's name in that place, and two
+names written out are the same.  One side may stop early or go on: `T', `TW',
+`Theodor' and `Theodor W. X.' fit `Theodor W.'; `W', `Michael', `Theodor L.'
+and `Theodore' do not."
+  (let ((mine (sp-bibtex--given-units given))
+        (theirs (sp-bibtex--given-units note-given)))
+    (and mine theirs
+         (cl-every (lambda (m n)
+                     (and (equal (car m) (car n))
+                          (or (null (cdr m)) (null (cdr n)) (equal (cdr m) (cdr n)))))
+                   mine theirs))))
+
+(defun sp-bibtex--surname-match (canonical people)
+  "The author notes with the last name of CANONICAL and compatible given names.
+Return nil when CANONICAL is a name of a note already, has no given names, or
+no note matches; else the list of the matching note names (canonical).  When
+several notes match, those that have as many given names as CANONICAL are
+preferred: `TW Adorno' is `Theodor W. Adorno', not `Tamara Adorno'."
+  (let ((parts (sp-bibtex--name-parts canonical)))
+    (when (and (cdr parts)
+               (not (gethash (sp-bibtex--name-key canonical) (plist-get people :keys))))
+      (let* ((hits (seq-filter
+                    (lambda (note)
+                      (when-let* ((given (cdr (sp-bibtex--name-parts note))))
+                        (sp-bibtex--initials-compatible-p (cdr parts) given)))
+                    (gethash (sp-bibtex--surname-key canonical) (plist-get people :surnames))))
+             (wanted (length (sp-bibtex--given-units (cdr parts))))
+             (full (seq-filter (lambda (note)
+                                 (>= (length (sp-bibtex--given-units (cdr (sp-bibtex--name-parts note))))
+                                     wanted))
+                               hits)))
+        (if (and (cdr hits) full) full hits)))))
 
 (defun sp-bibtex--suggestion (canonical people)
   "The author note a name CANONICAL is probably a typo of, or nil.
@@ -349,16 +421,22 @@ that has a note, or none close to it, gets nil."
   (or (seq-position sp-bibtex-field-order (downcase name)) (length sp-bibtex-field-order)))
 
 (defun sp-bibtex--case-problem (case)
-  "The sentence for CASE, a list (FIELD NAME NOTE-NAME NOTE-FILE)."
-  (format "%s: %s is not an author note; did you mean %s?"
-          (nth 0 case) (nth 1 case) (nth 2 case)))
+  "The sentence for CASE, a list (FIELD NAME NOTE-NAME NOTE-FILE [KIND]).
+KIND is `surname' for a name with the surname of a note, else a typo of one."
+  (if (eq (nth 4 case) 'surname)
+      (format "%s: %s → %s (same surname)" (nth 0 case) (nth 1 case) (nth 2 case))
+    (format "%s: %s is not an author note; did you mean %s?"
+            (nth 0 case) (nth 1 case) (nth 2 case))))
 
 (defun sp-bibtex--lint-names (fields people)
   "Check the author and editor names in FIELDS, an alist of name and raw value.
-Return (NEW-FIELDS PROBLEMS CASES): FIELDS with canonical names, the strings
-that say what changed, and for each name one typo away from an author note a
-list (FIELD NAME NOTE-NAME NOTE-FILE)."
-  (let (problems cases new)
+Return (NEW-FIELDS PROBLEMS CASES AMBIGUOUS): FIELDS with canonical names, the
+strings that say what changed, for each name one typo away from an author note
+a list (FIELD NAME NOTE-NAME NOTE-FILE), and for each name with the surname of
+one note and compatible initials the same list with `surname' added.  AMBIGUOUS
+lists (FIELD NAME NOTE-NAMES) for names whose surname and initials fit several
+notes."
+  (let (problems cases ambiguous new)
     (dolist (field fields)
       (let ((name (car field)) (value (cdr field)))
         (when (member (downcase name) '("author" "editor"))
@@ -374,12 +452,21 @@ list (FIELD NAME NOTE-NAME NOTE-FILE)."
                               (format "{%s}" fixed))))
               (when people
                 (dolist (n (sp-bibtex-split-names fixed))
-                  (when-let* ((near (sp-bibtex--suggestion n people)))
-                    (push (list name n near
-                                (gethash (sp-bibtex--name-key near) (plist-get people :files)))
-                          cases)))))))
+                  (if-let* ((near (sp-bibtex--suggestion n people)))
+                      (push (list name n near
+                                  (gethash (sp-bibtex--name-key near) (plist-get people :files)))
+                            cases)
+                    (let ((same (sp-bibtex--surname-match n people)))
+                      (cond
+                       ((null same))
+                       ((null (cdr same))
+                        (push (list name n (car same)
+                                    (gethash (sp-bibtex--name-key (car same)) (plist-get people :files))
+                                    'surname)
+                              cases))
+                       (t (push (list name n same) ambiguous))))))))))
         (push (cons name value) new)))
-    (list (nreverse new) (nreverse problems) (nreverse cases))))
+    (list (nreverse new) (nreverse problems) (nreverse cases) (nreverse ambiguous))))
 
 (defun sp-bibtex--sort-fields (fields)
   "FIELDS in the order of `sp-bibtex-field-order'."
@@ -400,7 +487,8 @@ configured order, and a list of strings that say what differs."
          (sorted (sp-bibtex--sort-fields (car names))))
     (cons sorted
           (append (nth 1 names)
-                  (mapcar #'sp-bibtex--case-problem (nth 2 names))
+                  (mapcar #'sp-bibtex--case-problem (seq-remove (lambda (c) (eq (nth 4 c) 'surname))
+                                                                (nth 2 names)))
                   (when-let* ((problem (sp-bibtex--order-problem (car names) sorted)))
                     (list problem))))))
 
@@ -436,14 +524,17 @@ text at `bibtex-text-indentation'.  TEXT itself when it cannot be filled."
 (defun sp-bibtex--entry-rewrites (kinds type key fields people old start end)
   "The rewrites of the entry TYPE, KEY and FIELDS that are of one of KINDS.
 OLD is the text of the entry, between START and END.  KINDS are `order',
-`indent', `authors' (names to `Last, First') and `notes' (names near an author
-note).  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+`indent', `authors' (names to `Last, First'), `notes' (names one typo away from
+an author note), `surnames' (names with the surname of one author note and
+compatible initials) and `ambiguous' (the same for several notes; reported only).  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
          (sorted (sp-bibtex--sort-fields fields))
          (order (sp-bibtex--order-problem fields sorted))
-         (near (mapcar #'sp-bibtex--case-problem (nth 2 names)))
+         (cases (seq-remove (lambda (c) (eq (nth 4 c) 'surname)) (nth 2 names)))
+         (same (seq-filter (lambda (c) (eq (nth 4 c) 'surname)) (nth 2 names)))
+         (near (mapcar #'sp-bibtex--case-problem cases))
          (form (nth 1 names))
          (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
          (base (list :start start :end end :old old))
@@ -461,8 +552,19 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                                               :new (sp-bibtex--fill-text
                                                     (sp-bibtex--entry-text type key (car names))))))
             rewrites))
-    (when (and (nth 2 names) (memq 'notes kinds))
-      (push (cons 'notes (append base (list :desc near :cases (nth 2 names)))) rewrites))
+    (when (and cases (memq 'notes kinds))
+      (push (cons 'notes (append base (list :desc near :cases cases))) rewrites))
+    (when (and same (memq 'surnames kinds))
+      (push (cons 'surnames (append base (list :desc (mapcar #'sp-bibtex--case-problem same)
+                                               :cases same)))
+            rewrites))
+    (when (and (nth 3 names) (memq 'ambiguous kinds))
+      (push (cons 'ambiguous
+                  (append base (list :desc (mapcar (lambda (a)
+                                                     (format "%s: %s could be %s" (nth 0 a) (nth 1 a)
+                                                             (string-join (nth 2 a) " or ")))
+                                                   (nth 3 names)))))
+            rewrites))
     (cons (nreverse rewrites)
           (append form near (and order (list order))
                   (and filled (not (equal filled old))
@@ -506,7 +608,7 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
               (puthash key (or (gethash key seen) file) seen)
               (when commented
                 (setq problems (append problems '("has a comment inside, left as it is"))))
-              (when problems
+              (when (or problems (car analysis))
                 (push (list file key beg problems (car analysis)) results))
               (goto-char end))))))
     (cons (nreverse results) (>= count limit))))
@@ -516,7 +618,8 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
 
 (defconst sp-bibtex-lint--kinds
   '((order . "field order") (indent . "indentation") (authors . "author names")
-    (notes . "author notes"))
+    (notes . "names near an author note") (surnames . "names with the surname of an author note")
+    (ambiguous . "names that fit several author notes"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -619,16 +722,39 @@ Each position is the start of a line."
   "The number of RESULTS that have a rewrite of KIND."
   (length (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
 
+(defun sp-bibtex-lint--section (title kind results pairs file)
+  "The Org section TITLE with the RESULTS that have a rewrite of KIND.
+PAIRS says the line of each result in FILE.  Nothing when there are none."
+  (when-let* ((mine (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
+    (concat
+     (format "\n* %s (%d)\n" title
+             (apply #'+ (mapcar (lambda (r) (length (plist-get (alist-get kind (nth 4 r)) :desc)))
+                                mine)))
+     (mapconcat
+      (lambda (r)
+        (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
+                (mapconcat (lambda (d) (concat "- " d "\n"))
+                           (plist-get (alist-get kind (nth 4 r)) :desc) "")))
+      mine ""))))
+
 (defun sp-bibtex-lint--render (file results)
-  "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS REWRITES) of FILE, as a report."
-  (let ((lines (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
+  "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS REWRITES) of FILE, as a report.
+Names with the surname of an author note have sections of their own, so they do
+not bury the typos."
+  (let* ((pairs (cl-mapcar #'cons results
+                           (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
+         (main (seq-filter (lambda (r) (nth 3 r)) results)))
     (sp-batch-report-show
      sp-bibtex-lint--buffer
      (concat
       (format "#+title: BibTeX lint of %s\n\n" (file-name-nondirectory file))
-      (format "- %d entr%s to look at in %s.\n"
-              (length results) (if (= 1 (length results)) "y" "ies")
+      (format "- %d entr%s with problems in %s.\n"
+              (length main) (if (= 1 (length main)) "y" "ies")
               (sp-batch-report-file-link file))
+      (format "- %d entr%s with a name that has the surname of an author note (own section below); %d with a name that fits several.\n"
+              (sp-bibtex-lint--count results 'surnames)
+              (if (= 1 (sp-bibtex-lint--count results 'surnames)) "y" "ies")
+              (sp-bibtex-lint--count results 'ambiguous))
       (format "- Fix, in batches of %d (a button runs the fix; the file is copied first):\n"
               sp-bibtex-lint-batch-size)
       (format "  - %s\n" (sp-bibtex-lint--button "order" file "field order"
@@ -637,14 +763,16 @@ Each position is the start of a line."
                                                  (sp-bibtex-lint--count results 'indent)))
       (format "  - %s\n" (sp-bibtex-lint--button
                           "authors" file "author names"
-                          (length (seq-filter (lambda (r) (or (alist-get 'authors (nth 4 r))
-                                                              (alist-get 'notes (nth 4 r))))
+                          (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
+                                                                    '(authors notes surnames)))
                                               results))))
       "- =RET= on a link visits an entry or runs a fix, =g= refreshes.\n"
       (mapconcat (lambda (r)
                    (concat "\n" (sp-bibtex-lint--entry-text
-                                 r (sp-batch-report-file-link file (nth 1 r) (pop lines)))))
-                 results ""))
+                                 r (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)))))
+                 main "")
+      (sp-bibtex-lint--section "Same surname as an author note" 'surnames results pairs file)
+      (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous results pairs file))
      (lambda () (sp-bibtex-lint-dryrun file)))))
 
 ;;;###autoload
@@ -653,11 +781,12 @@ Each position is the start of a line."
 FILE is the .bib file of the current buffer; with a prefix argument, or when
 the buffer is not a .bib file, it is read with completion.  It checks the author
 and editor names (canonical form `Last, First', and names one typo away from an
-author note), the order of the fields (`sp-bibtex-field-order'), the indentation
+author note, and, in sections of their own, names with the surname of one
+author note or of several), the order of the fields (`sp-bibtex-field-order'), the indentation
 \(as `bibtex-fill-entry' lays it out) and duplicate keys.  The report has a
 button for each fix.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors notes)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors notes surnames ambiguous)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -859,11 +988,11 @@ CASES are lists (FIELD NAME NOTE-NAME ...); the other names stay as written."
       (vulpea-buffer-alias-add alias)
       (save-buffer))))
 
-(defun sp-bibtex-lint--ask-notes (file batch index total all)
+(defun sp-bibtex-lint--ask-notes (file batch index total all &optional kind)
   "Show BATCH of names near an author note and ask what to do with the names.
 Return ?n to normalise the names in the BibTeX field, ?l to add each as an alias
 of the note, ?e to be asked for each name, ?s to skip or ?q to stop."
-  (sp-bibtex-lint--show-batch file 'notes batch index total all)
+  (sp-bibtex-lint--show-batch file (or kind 'notes) batch index total all)
   (read-char-choice
    (format "Batch %d of %d (%d entries): [n]ormalise in the field, [l] alias on the note, [e]ach name, [s]kip, [q]uit "
            index total (length batch))
@@ -878,14 +1007,14 @@ Return ?n to normalise, ?l for an alias, ?s to skip or ?q to stop."
            (if (nth 3 case) ", [l] add as alias of the note" ""))
    (if (nth 3 case) '(?n ?l ?s ?q) '(?n ?s ?q))))
 
-(defun sp-bibtex-lint--decide-notes (batch choice)
-  "The decisions for BATCH from CHOICE, or `quit'.
+(defun sp-bibtex-lint--decide-notes (batch choice &optional kind)
+  "The decisions for BATCH of the fix KIND (default `notes') from CHOICE, or `quit'.
 A decision is a list (ITEM CASE DECISION), DECISION `normalise' or `alias'.
 With ?e each case is asked."
   (catch 'quit
     (let (decisions)
       (dolist (item batch)
-        (dolist (case (plist-get (alist-get 'notes (nth 4 (car item))) :cases))
+        (dolist (case (plist-get (alist-get (or kind 'notes) (nth 4 (car item))) :cases))
           (let ((decision (pcase choice
                             (?n 'normalise)
                             (?l (and (nth 3 case) 'alias))
@@ -897,8 +1026,8 @@ With ?e each case is asked."
             (when decision (push (list item case decision) decisions)))))
       (nreverse decisions))))
 
-(defun sp-bibtex-lint--apply-notes (work batch decisions)
-  "Carry out DECISIONS for BATCH: rewrite entries in WORK, add aliases to notes.
+(defun sp-bibtex-lint--apply-notes (work batch decisions &optional kind)
+  "Carry out DECISIONS for BATCH of the fix KIND: rewrite entries in WORK, add aliases.
 Return (CHANGED STALE WROTE)."
   (let ((changed 0) (stale 0) (wrote nil) aliases)
     (dolist (d decisions)
@@ -910,7 +1039,7 @@ Return (CHANGED STALE WROTE)."
                                                     decisions))))
         (pcase-let ((`(,r ,beg ,end) item))
           (with-current-buffer work
-            (if (not (equal (plist-get (alist-get 'notes (nth 4 r)) :old)
+            (if (not (equal (plist-get (alist-get (or kind 'notes) (nth 4 r)) :old)
                             (buffer-substring-no-properties beg end)))
                 (cl-incf stale)
               (goto-char beg)
@@ -929,21 +1058,23 @@ Return (CHANGED STALE WROTE)."
     (when aliases (setq sp-bibtex--people-cache nil))
     (list changed stale wrote)))
 
-(defun sp-bibtex-lint--review-notes (file results)
-  "Go through the names near an author note in RESULTS for FILE, a batch at a time.
-Each name is normalised in the BibTeX field, or added as an alias of the note."
+(defun sp-bibtex-lint--review-notes (file kind results &optional then)
+  "Go through the names of the fix KIND in RESULTS for FILE, a batch at a time.
+KIND is `notes' (typos of an author note) or `surnames'.  Each name is
+normalised in the BibTeX field, or added as an alias of the note."
   (sp-bibtex-lint--run
-   file 'notes results
+   file kind results
    (lambda (batch index total all)
-     (pcase (sp-bibtex-lint--ask-notes file batch index total all)
+     (pcase (sp-bibtex-lint--ask-notes file batch index total all kind)
        (?s 'skip)
        (?q 'quit)
-       (choice (sp-bibtex-lint--decide-notes batch choice))))
-   #'sp-bibtex-lint--apply-notes))
+       (choice (sp-bibtex-lint--decide-notes batch choice kind))))
+   (lambda (work batch decisions) (sp-bibtex-lint--apply-notes work batch decisions kind))
+   then))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-authors (file)
-  "Normalise the author and editor names of the .bib FILE, in two steps.
+  "Normalise the author and editor names of the .bib FILE, in three steps.
 FILE is the .bib file of the current buffer; with a prefix argument, or when
 the buffer is not a .bib file, it is read with completion.  Both steps go in
 batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
@@ -951,7 +1082,12 @@ batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
 2. Names one typo away from an author note: for a batch you normalise the name
    in the BibTeX field to the name of the note, add the name as an alias of the
    note (a vulpea alias, so the name is known from then on), or are asked for
-   each name.  Notes for authors are never made."
+   each name.
+3. Names with the surname of one author note and given names that fit the
+   note's (`TW Adorno' and `Theodor Adorno' for `Theodor W. Adorno'; not
+   `Michael Smith' for `John Smith'): the same choices.  A name that fits
+   several notes is reported, never changed.
+Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--unsaved-check file)
   (sp-bibtex-lint--job
@@ -962,7 +1098,13 @@ batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
       (lambda ()
         (sp-bibtex-lint--job
          "BibTeX lint" (list file) '(notes)
-         (lambda (results) (sp-bibtex-lint--review-notes file results))))))))
+         (lambda (results)
+           (sp-bibtex-lint--review-notes
+            file 'notes results
+            (lambda ()
+              (sp-bibtex-lint--job
+               "BibTeX lint" (list file) '(surnames)
+               (lambda (results) (sp-bibtex-lint--review-notes file 'surnames results))))))))))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)

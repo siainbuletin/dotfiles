@@ -179,7 +179,7 @@ Return the sizes of the batches that were asked."
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (with-current-buffer sp-bibtex-lint--buffer
         (should (derived-mode-p 'sp-batch-report-mode))
-        (should (string-match-p "2 entries to look at" (buffer-string)))
+        (should (string-match-p "2 entries with problems" (buffer-string)))
         ;; Each entry links to its own line.
         (should (string-match-p (format "\\[\\[file:%s::1\\]\\[k1\\]\\]" (regexp-quote file)) (buffer-string)))
         (should (string-match-p (format "\\[\\[file:%s::6\\]\\[k2\\]\\]" (regexp-quote file)) (buffer-string))))
@@ -293,6 +293,100 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
        (sp-bibtex-lint-fix-authors file))
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not added))))
+
+(ert-deftest sp-bibtex-lint-test-given-names-compatible ()
+  (let ((fits (lambda (given note) (sp-bibtex--initials-compatible-p given note))))
+    ;; Initials, with or without dots and spaces, and a name written out, fit the note.
+    (dolist (given '("TW" "T. W." "T" "Theodor" "Theodor W." "T W" "Theodor W. X." "TWX"))
+      (should (funcall fits given "Theodor W.")))
+    ;; A different first name, a wrong middle initial or too many names do not.
+    (dolist (given '("W" "Michael" "M" "Theodor Ludwig" "Theodore" "TL"))
+      (should-not (funcall fits given "Theodor W.")))
+    (should (funcall fits "J-P" "Jean-Paul"))
+    (should-not (funcall fits "" "Theodor W."))))
+
+(ert-deftest sp-bibtex-lint-test-surname-match ()
+  (let ((people (sp-bibtex--make-people '("Theodor W. Adorno" "John Smith" "Michael Smith"
+                                          "Tamara Adorno"))))
+    (should (equal '("Adorno, Theodor W.") (sp-bibtex--surname-match "Adorno, TW" people)))
+    (should (equal '("Adorno, Theodor W.") (sp-bibtex--surname-match "Adorno, Theodor" people)))
+    ;; Same surname and a T that fits two notes: ambiguous.
+    (should (= 2 (length (sp-bibtex--surname-match "Adorno, T" people))))
+    ;; John Smith is not Michael Smith.
+    (should (equal '("Smith, John") (sp-bibtex--surname-match "Smith, J" people)))
+    (should (equal '("Smith, Michael") (sp-bibtex--surname-match "Smith, Michael R." people)))
+    (should-not (sp-bibtex--surname-match "Smith, M. J. X." (sp-bibtex--make-people '("John Smith"))))
+    (should-not (sp-bibtex--surname-match "Smith, Peter" people))
+    ;; A name of a note, a name without given names and another surname are not matches.
+    (should-not (sp-bibtex--surname-match "Smith, John" people))
+    (should-not (sp-bibtex--surname-match "Adorno" people))
+    (should-not (sp-bibtex--surname-match "Nobody, T" people))))
+
+(defmacro sp-bibprocess-lint-test--with-surnames (text &rest body)
+  "Run BODY with notes for Theodor W. Adorno, John Smith and Michael Smith, and TEXT as the .bib."
+  (declare (indent 1))
+  `(sp-bibprocess-lint-test--with-bib ,text
+     (let* ((adorno (expand-file-name "adorno.org" dir))
+            (added nil)
+            (sp-bibtex--people-cache
+             (cons (float-time)
+                   (sp-bibtex--make-people
+                    (list (list :title "Theodor W. Adorno" :file adorno)
+                          "John Smith" "Michael Smith")))))
+       (with-temp-file adorno (insert "#+title: Theodor W. Adorno\n"))
+       (cl-letf (((symbol-function 'sp-bibtex-lint--add-alias)
+                  (lambda (f alias) (push (cons f alias) added))))
+         ,@body))))
+
+(ert-deftest sp-bibtex-lint-test-surname-normalise ()
+  (sp-bibprocess-lint-test--with-surnames
+      (concat "@article{a,\n  author = {TW Adorno and John Smith},\n  title = {T}\n}\n\n"
+              "@article{b,\n  author = {Theodor Adorno},\n  title = {U}\n}\n")
+    (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a))
+              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+      (sp-bibtex-lint-fix-authors file))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "author =[ \t]+{Adorno, Theodor W. and Smith, John}" text))
+      (should (string-match-p "author =[ \t]+{Adorno, Theodor W.}" text)))
+    (should-not added)))
+
+(ert-deftest sp-bibtex-lint-test-surname-alias ()
+  (sp-bibprocess-lint-test--with-surnames
+      "@article{a,\n  author = {Adorno, TW},\n  title = {T}\n}\n"
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
+        (sp-bibtex-lint-fix-authors file))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should (equal (list (cons adorno "Adorno, TW")) added)))))
+
+(ert-deftest sp-bibtex-lint-test-surname-ambiguous-and-other-smith-untouched ()
+  (sp-bibprocess-lint-test--with-surnames
+      (concat "@article{a,\n  author = {Smith, Peter and Adorno, T},\n  title = {T}\n}\n")
+    ;; Peter Smith matches no note; T Adorno would fit only one note here, so add another.
+    (setq sp-bibtex--people-cache
+          (cons (float-time)
+                (sp-bibtex--make-people (list "Theodor W. Adorno" "Tamara Adorno" "John Smith"))))
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+        (sp-bibtex-lint-fix-authors file))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not added))))
+
+(ert-deftest sp-bibtex-lint-test-report-sections ()
+  (sp-bibprocess-lint-test--with-surnames
+      (concat "@article{a,\n  author = {TW Adorno},\n  title = {T}\n}\n\n"
+              "@article{b,\n  author = {Smyth, John},\n  title = {T}\n}\n")
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (let ((text (buffer-string)))
+        ;; The typo is in the main list; the surname match has its own section.
+        (should (string-match "\\* \\[\\[[^]]*\\]\\[b\\]\\]" text))
+        (should (string-match "^\\* Same surname as an author note (1)\n\\*\\* \\[\\[[^]]*\\]\\[a\\]\\]\n- author: Adorno, TW → Adorno, Theodor W. (same surname)" text))
+        (should (< (string-match "\\[b\\]" text) (string-match "Same surname as" text)))
+        (should-not (string-match-p "did you mean Adorno" text))))
+    (kill-buffer sp-bibtex-lint--buffer)))
+
 
 (ert-deftest sp-bibtex-lint-test-rename-names ()
   (should (equal '(("author" . "{Smith, John and Doe, Jane}") ("title" . "{T}"))
