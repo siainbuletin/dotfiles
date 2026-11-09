@@ -1,0 +1,36 @@
+#+title: gh-pr-pdf
+
+Turns the pull requests of a GitHub repository (and, if asked, its Discussions) into one org file per pull request, then into one paginated PDF, so that the history of a codebase can be searched as plain text with =rg=, Emacs or =pdfgrep=. Stow links the script to =~/.local/bin/gh-pr-pdf=, so =~/.local/bin= must be on =PATH=.
+
+* What it makes
+
+#+begin_example
+gh-pr-pdf siainbuletin/dotfiles
+#+end_example
+
+writes =./dotfiles-prs/= with:
+
+- =backup/=: the raw JSON from =github-backup=, kept so that =--skip-fetch= can render again without the network.
+- =org/pr-00012.org=, ...: one file per pull request, in number order, plus =all.org= with all of them. Each has a property drawer (=:PR_NUMBER:=, =:STATE:=, =:AUTHOR:=, =:URL:=) for org-ql, and the description, conversation, reviews, inline review comments (with their diff hunk) and the commit list. Every commit is a link to =https://github.com/OWNER/REPO/commit/<sha>=.
+- =dotfiles-prs.pdf=: the same text, paginated, with a table of contents of the pull requests and clickable links. The Typst source (=.typ=) stays next to it.
+
+Options: =--discussions= (also fetch Discussions), =--skip-fetch= (render from =backup/=), =--no-pdf= (org files only), =--per-pdf N= (several PDFs of N items), =--reverse= (newest first), =--private= (private repository), =-o DIR= (output folder).
+
+* Needs
+
+- =github-backup= (=pipx install github-backup=) and =gh= logged in (=gh auth login=); the token is taken from =gh=.
+- =pandoc= 3.1.2 or newer (it has to write Typst) and =typst=.
+
+I believe =typst= and =pandoc-cli= are in the official Arch repositories; check with =pacman -Ss=. Without =typst= the script still writes the org files and the =.typ= file and says so.
+
+* Safety
+
+Pull request text comes from other people. Raw HTML is dropped, =pandoc= runs with =--sandbox= (so an =#+INCLUDE:= line cannot read a file), and lines that start with an org directive are turned into literal text.
+
+* Not run
+
+Written in a container without a Mac or a Linux desktop, without Typst and without network access to GitHub's API. What was run: the org and Typst-source output on made-up JSON, including headings in bodies, empty bodies, an injected =#+INCLUDE:= and the splitting into several PDFs. Not run:
+
+- =typst compile=, so the PDF itself has not been seen.
+- =github-backup= against a real repository. The JSON key names the script reads (=comment_regular_data=, =comment_data=, =review_data=, =commit_data=) are from memory; if a pull request reports commits but no list is found, the script prints the keys it did see, and the fix is the key names in =render_pr=.
+- The Discussions fetch (=gh api graphql=). It reads up to 100 comments and 50 replies per discussion and warns when there are more.
