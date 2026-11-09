@@ -51,6 +51,8 @@
         "litnote"
         "film"
         "hardware"
+        "computing"
+        "networking"
         ;; sp-org-tag-add: new tags go above this line
         ))
 
