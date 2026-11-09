@@ -454,13 +454,12 @@ The transient package also has configuration for creating a menu of notes within
     :ensure t)
 #+end_src
 
-This denote dispatch was actually contained in the =use-package= for transient, but I took it out because =transient-define-prefix= is void.
 
-#+begin_src emacs-lisp :tangle no :eval never
-  :bind
-  (:map global-map
-        ("M-s-d" . denote-transient))
-  :config
+Creating a dispatcher for my notes collection
+- this should go in `sp-notes`
+- it was in my old `denote` configuration
+- could be useful only if I want to have an easier interface for dealing with the files.
+
   (transient-define-prefix denote-transient () "Denote dispatch"
     [["Note creation (d)"
       ("dd" "new note" denote)
@@ -492,7 +491,6 @@ This denote dispatch was actually contained in the =use-package= for transient, 
       ("sd" "deft" deft)
       ("sn" "consult-notes" consult-notes)
       ("ss" "consult-notes search" consult-notes-search-in-all-notes)]]))
-#+end_src
 
 #+begin_src emacs-lisp :tangle no :eval never
   (transient-define-prefix sia-xeft-transient ()
