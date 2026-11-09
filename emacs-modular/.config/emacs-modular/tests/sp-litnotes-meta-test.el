@@ -367,51 +367,163 @@
             (should (member (expand-file-name "doe2015chapter.org" dir) indexed)))
         (delete-directory dir t)))))
 
-(ert-deftest sp-litnotes-meta-offer-to-create-parent ()
-  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
-    (let* ((dir (make-temp-file "sp-meta-notes" t))
-           (sp-author-notes-litnotes-directory dir)
-           (sp-litnotes-meta-auto nil)
-           (asked 0) (filled nil))
-      (unwind-protect
-          (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) (cl-incf asked) t))
-                    ((symbol-function 'citar-create-note)
-                     (lambda (key &rest _)
-                       (with-temp-file (expand-file-name (concat key ".org") dir)
-                         (insert (format ":PROPERTIES:\n:ID: new-%s\n:ROAM_REFS: @%s\n:END:\n#+title: %s\n\n"
-                                         key key key)))))
-                    ((symbol-function 'sp-litnotes-meta-fill)
-                     (lambda (key &rest _) (push key filled))))
-            (let ((entry (sp-litnotes-meta--entry "doe2015chapter")))
-              (should (equal (sp-litnotes-meta--parent-value entry)
-                             "[[id:new-reuten2014book][reuten2014book]]"))
-              (should (= asked 1))
-              (should (equal filled '("reuten2014book")))))
-        (delete-directory dir t)))
-    ;; saying no leaves the line out
-    (let ((dir (make-temp-file "sp-meta-notes" t)))
-      (unwind-protect
-          (let ((sp-author-notes-litnotes-directory dir))
-            (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
-              (should-not (sp-litnotes-meta--parent-value
-                           (sp-litnotes-meta--entry "doe2015chapter")))))
-        (delete-directory dir t)))))
+(defvar sp-litnotes-meta-test--made nil
+  "The keys the test create function made, newest first.")
 
-(ert-deftest sp-litnotes-meta-batch-report-drop-and-apply ()
-  (sp-litnotes-meta-test--with-batch
-    (let ((file (expand-file-name "bk.org" dir)) seen)
-      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
-        (sp-litnotes-meta-fill-all-dryrun))
-      (with-current-buffer sp-litnotes-meta--batch-buffer
-        (goto-char (point-min))
-        (re-search-forward "\\[\\[file:[^]]*bk\\.org")
-        (sp-batch-report-drop)
-        (should (equal sp-batch-report-excluded (list file)))
-        (cl-letf (((symbol-function 'sp-litnotes-meta-fill-all-convert)
-                   (lambda (&optional _o excl) (setq seen excl))))
-          (sp-batch-report-apply))
-        (should (equal seen (list file))))
-      (kill-buffer sp-litnotes-meta--batch-buffer))))
+(defun sp-litnotes-meta-test--make-note (dir)
+  "A create function that writes a note with ID id-KEY in DIR and records the key in `made'."
+  (lambda (key)
+    (let ((file (expand-file-name (concat key ".org") dir)))
+      (with-temp-file file
+        (insert (format ":PROPERTIES:\n:ID: id-%s\n:ROAM_REFS: @%s\n:END:\n#+title: %s\n#+filetags: :litnote:\n\n"
+                        key key key)))
+      (push key sp-litnotes-meta-test--made)
+      file)))
+
+(defmacro sp-litnotes-meta-test--with-parents (bib &rest body)
+  "Run BODY with BIB registered, a litnotes DIR, the questions stubbed to no answer.
+`sp-litnotes-meta-test--made' collects the keys that the create function made."
+  (declare (indent 1))
+  `(sp-litnotes-meta-test--with-bib ,bib
+     (let* ((dir (make-temp-file "sp-meta-notes" t))
+            (sp-author-notes-litnotes-directory dir)
+            (sp-litnotes-meta-backup-directory (expand-file-name "bak/" dir))
+            (sp-litnotes-meta-auto nil)
+            (sp-litnotes-meta--created (make-hash-table :test #'equal))
+            (sp-litnotes-meta--preset '(("bib-project") ("relevance-factor") ("read-priority")))
+            (sp-litnotes-meta-create-function (sp-litnotes-meta-test--make-note dir))
+            (sp-litnotes-meta-test--made nil))
+       (cl-flet ((note (name text) (with-temp-file (expand-file-name name dir) (insert text))))
+         (unwind-protect
+             (cl-letf (((symbol-function 'sp-litnotes-meta--author-note)
+                        (lambda (name) (cons "aid" name)))
+                       ((symbol-function 'y-or-n-p) (lambda (&rest _) (error "Nothing should be asked")))
+                       ((symbol-function 'citar-create-note)
+                        (lambda (&rest _) (error "citar must not make the parent"))))
+               ,@body)
+           (delete-directory dir t))))))
+
+(defun sp-litnotes-meta-test--read (dir name)
+  (with-temp-buffer (insert-file-contents (expand-file-name name dir)) (buffer-string)))
+
+(defconst sp-litnotes-meta-test--parent-bib
+  "@book{bk,
+  author = {Reuten, Geert},
+  title = {The Book},
+  year = {2014},
+}
+@incollection{ch1,
+  author = {Doe, Jane},
+  title = {One},
+  crossref = {bk},
+}
+@incollection{ch2,
+  author = {Roe, Rick},
+  title = {Two},
+  crossref = {bk},
+}
+")
+
+(ert-deftest sp-litnotes-meta-creates-missing-parent-silently ()
+  "A crossref without a note gets one, filled from BibTeX, and is linked; nobody is asked."
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (note "ch1.org" ":PROPERTIES:\n:ID: id-ch1\n:ROAM_REFS: @ch1\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (should (member "bib-parent" (sp-litnotes-meta-fill "ch1")))
+    (should (equal sp-litnotes-meta-test--made '("bk")))
+    (should (string-match-p "- bib-parent :: \\[\\[id:id-bk\\]\\[bk\\]\\]" (sp-litnotes-meta-test--read dir "ch1.org")))
+    ;; the parent itself was filled from its BibTeX entry
+    (let ((parent (sp-litnotes-meta-test--read dir "bk.org")))
+      (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Geert Reuten\\]\\]" parent))
+      (should (string-match-p "- pub-year :: 2014" parent))
+      (should (string-match-p "#\\+filetags: :litnote:book:" parent)))
+    ;; a second run finds the note and makes nothing
+    (should-not (sp-litnotes-meta-fill "ch1"))
+    (should (equal sp-litnotes-meta-test--made '("bk")))))
+
+(ert-deftest sp-litnotes-meta-existing-parent-is-not-made ()
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (note "bk.org" ":PROPERTIES:\n:ID: lit-bk\n:ROAM_REFS: @bk\n:END:\n#+title: Book\n\n")
+    (should (equal (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "ch1"))
+                   "[[id:lit-bk][Book]]"))
+    (should-not sp-litnotes-meta-test--made)))
+
+(ert-deftest sp-litnotes-meta-create-parent-off-leaves-line-out ()
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (let ((sp-litnotes-meta-create-parent nil))
+      (should-not (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "ch1")))
+      (should-not sp-litnotes-meta-test--made))))
+
+(ert-deftest sp-litnotes-meta-parent-of-itself-is-left-out ()
+  (sp-litnotes-meta-test--with-parents "@book{self, title = {S}, crossref = {self}}\n"
+    (note "self.org" ":PROPERTIES:\n:ID: id-self\n:ROAM_REFS: @self\n:END:\n#+title: S\n\n")
+    (let ((sp-litnotes-meta--making '("self")))
+      (should-not (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "self"))))
+    (should-not sp-litnotes-meta-test--made)))
+
+(ert-deftest sp-litnotes-meta-crossref-loop-makes-each-parent-once ()
+  "ch -> b -> c -> b: b and c are made once, and c's link back to b is left out."
+  (sp-litnotes-meta-test--with-parents
+      "@incollection{ch, title = {Ch}, crossref = {b}}
+@book{b, title = {B}, crossref = {c}}
+@book{c, title = {C}, crossref = {b}}
+"
+    (note "ch.org" ":PROPERTIES:\n:ID: id-ch\n:ROAM_REFS: @ch\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    ;; The batch reads the existing notes once, so b is not found while c is made.
+    (let* ((covered (sp-author-notes-bibtex--covered))
+           (sp-litnotes-meta--made-parents (make-hash-table :test #'equal)))
+      (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered) (lambda () covered)))
+        (sp-litnotes-meta-fill "ch"))
+      (should (equal (reverse sp-litnotes-meta-test--made) '("b" "c")))
+      (should (string-match-p "- bib-parent :: \\[\\[id:id-b\\]" (sp-litnotes-meta-test--read dir "ch.org")))
+      (should (string-match-p "- bib-parent :: \\[\\[id:id-c\\]" (sp-litnotes-meta-test--read dir "b.org")))
+      (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "c.org"))))))
+
+(ert-deftest sp-litnotes-meta-missing-parents-chain ()
+  (sp-litnotes-meta-test--with-bib
+      "@incollection{ch, crossref = {b}}
+@book{b, crossref = {c}}
+@book{c, crossref = {b}}
+@book{d, crossref = {nokey}}
+"
+    (let ((covered (make-hash-table :test #'equal)))
+      (should (equal (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "ch") covered)
+                     '("b" "c")))
+      ;; stops at a parent that has a note, and at one without a BibTeX entry
+      (puthash "c" "c.org" covered)
+      (should (equal (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "ch") covered) '("b")))
+      (should-not (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "d") covered)))))
+
+(ert-deftest sp-litnotes-meta-batch-report-lists-each-parent-once ()
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (note "ch1.org" ":PROPERTIES:\n:ID: id-ch1\n:ROAM_REFS: @ch1\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (note "ch2.org" ":PROPERTIES:\n:ID: id-ch2\n:ROAM_REFS: @ch2\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+               (lambda () (directory-files dir t "\\.org\\'"))))
+      (let* ((plans (sp-litnotes-meta--batch-plans nil))
+             (text (sp-litnotes-meta--batch-report-text plans nil)))
+        (should (equal (plist-get (sp-litnotes-meta-test--plan-of plans "ch1.org") :new-parents) '("bk")))
+        (should (equal (sp-litnotes-meta--planned-parents plans) '(("bk" "ch2" "ch1"))))
+        (should (string-match-p "Parent notes to make: 1" text))
+        (should (string-match-p "fill bib-parent :: bk (new note)" text))
+        (should (string-match-p "\\* Parent notes to make[^\n]*\n- bk: Reuten (2014) The Book (linked from ch1, ch2)" text))
+        (should (= 1 (with-temp-buffer (insert text) (how-many "^- bk: " (point-min)))))))))
+
+(ert-deftest sp-litnotes-meta-batch-convert-makes-each-parent-once ()
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (note "ch1.org" ":PROPERTIES:\n:ID: id-ch1\n:ROAM_REFS: @ch1\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (note "ch2.org" ":PROPERTIES:\n:ID: id-ch2\n:ROAM_REFS: @ch2\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+               (lambda () (directory-files dir t "\\`ch.*\\.org\\'")))
+              ((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) ""))
+              ((symbol-function 'pop-to-buffer) #'ignore))
+      (let ((sp-litnotes-meta--preset nil))
+        (sp-litnotes-meta-fill-all-convert)))
+    (should (equal sp-litnotes-meta-test--made '("bk")))
+    (dolist (name '("ch1.org" "ch2.org"))
+      (should (string-match-p "- bib-parent :: \\[\\[id:id-bk\\]" (sp-litnotes-meta-test--read dir name))))
+    (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
 
 (provide 'sp-litnotes-meta-test)
 ;;; sp-litnotes-meta-test.el ends here
