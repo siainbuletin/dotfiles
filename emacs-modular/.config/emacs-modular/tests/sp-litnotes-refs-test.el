@@ -148,5 +148,27 @@
     (should (string-match-p "@book{k-1," stub))
     (should-not (string-match-p "title" stub))))
 
+(ert-deftest sp-litnotes-refs-report-drop-and-apply ()
+  "A dropped note leaves the plan list and is passed on as excluded."
+  (sp-litnotes-refs-test--with-vault
+    (with-temp-file bib (insert "@book{k1, title = {B}}\n"))
+    (let ((file (expand-file-name "a.org" dir)) seen)
+      (sp-litnotes-refs-test--write file
+        ":PROPERTIES:" ":ID:       abc" ":END:" "#+reference: k1")
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-refs--show-report (sp-litnotes-refs--plans)
+                                       (sp-litnotes-refs--bib-index (list bib))))
+      (with-current-buffer "*litnote refs*"
+        (goto-char (point-min))
+        (re-search-forward "^- \\[\\[file:[^]]*a\\.org")
+        (sp-batch-report-drop)
+        (should (equal sp-batch-report-excluded (list file)))
+        (should (string-match-p "Dropped from the list" (buffer-string)))
+        (cl-letf (((symbol-function 'sp-litnotes-refs-convert)
+                   (lambda (&optional excl) (setq seen excl))))
+          (sp-batch-report-apply))
+        (should (equal seen (list file)))
+        (kill-buffer)))))
+
 (provide 'sp-litnotes-refs-test)
 ;;; sp-litnotes-refs-test.el ends here

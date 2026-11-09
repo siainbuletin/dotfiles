@@ -17,6 +17,7 @@
 (require 'subr-x)
 (require 'org)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -1103,6 +1104,11 @@ a dropped one, A writes what is left, g shows the preview again.")
 
 (defconst sp-author-notes--buffer-name "*Author notes*")
 
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-author-notes-report-mode 'sp-batch-report-mode "2026-11-09")
+(make-obsolete-variable 'sp-author-notes-report-mode-map 'sp-batch-report-mode-map "2026-11-09")
+
 (defun sp-author-notes--short (file)
   "FILE relative to the vault, for the report."
   (let ((root (file-name-as-directory (expand-file-name sp-author-notes-directory))))
@@ -1293,8 +1299,8 @@ a dropped one, A writes what is left, g shows the preview again.")
                 "\nRET visit   g preview again\n"
               "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
 
-(defun sp-author-notes--show (run)
-  "Show the report of RUN."
+(defun sp-author-notes--show-old (run)
+  "Show the report of RUN in the old `sp-author-notes-report-mode'."
   (with-current-buffer (get-buffer-create sp-author-notes--buffer-name)
     (sp-author-notes-report-mode)
     (let ((inhibit-read-only t))
@@ -1303,6 +1309,162 @@ a dropped one, A writes what is left, g shows the preview again.")
       (goto-char (point-min)))
     (pop-to-buffer (current-buffer)))
   run)
+
+(make-obsolete 'sp-author-notes--show-old 'sp-author-notes--show-batch "2026-11-09")
+
+(defun sp-author-notes--key-label (key)
+  "The text of the dropped KEY: an author by name, a note as a link."
+  (if (string-prefix-p "name:" key)
+      (format "author %s" (substring key 5))
+    (sp-batch-report--key-label key)))
+
+(defun sp-author-notes--sections (run)
+  "The sections of the report of RUN, for `sp-batch-report-text'."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (lits (sp-author-notes--run-litnotes run))
+         (people (sp-author-notes--run-people run))
+         (item (lambda (text file line &optional key)
+                 (list :text text :file file :line line
+                       :label (and file (if line
+                                            (format "%s:%d" (sp-author-notes--short file) line)
+                                          (sp-author-notes--short file)))
+                       :key (or key file))))
+         sections)
+    (cl-flet ((add (title items &optional empty)
+                (push (sp-batch-report-section title items empty) sections)))
+      (let ((fixes (cl-loop for (file . r) in lits
+                            append (mapcar (lambda (f) (cons file f)) (plist-get r :fixes))))
+            (suspects (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (f) (cons file f)) (plist-get r :suspects)))))
+        (add (if apply "Meta key typos fixed" "Meta key typos to fix")
+             (mapcar (lambda (f)
+                       (funcall item (format "%s -> %s" (cadr f)
+                                             (or (cdr (sp-author-notes--key-state (cadr f)))
+                                                 sp-author-notes-key))
+                                (car f) (cddr f)))
+                     fixes))
+        (when suspects
+          (add "Possible typos, not changed"
+               (mapcar (lambda (f) (funcall item (format "%s" (cadr f)) (car f) (cddr f)))
+                       suspects))))
+      (add (if apply "Author notes created" "Author notes to create")
+           (mapcar (lambda (m)
+                     (funcall item (car m) (cadr m) nil
+                              (concat "name:" (sp-author-notes--title-key (car m)))))
+                   (if apply
+                       (mapcar (lambda (c) (list (nth 0 c) (nth 2 c)))
+                               (sp-author-notes--run-created run))
+                     (mapcar #'list (sp-author-notes--run-pending run)))))
+      (add (if apply "Plain names turned into links" "Plain names to turn into links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (c) (funcall item (nth 1 c) file (nth 3 c)))
+                                   (plist-get r :converted))))
+      (add "Lists of names with commas, to disambiguate"
+           (cl-loop for (file . r) in lits
+                    append (mapcar
+                            (lambda (a)
+                              (pcase-let ((`(,raw ,names ,line ,chosen)
+                                           (list (nth 1 a) (nth 2 a) (nth 3 a) (nth 4 a))))
+                                (append
+                                 (funcall item (format "\"%s\"" raw) file line)
+                                 (list :children
+                                       (list (format "as %d: %s" (length names)
+                                                     (string-join names " | "))
+                                             (cond (chosen "split into these authors")
+                                                   (apply "left as it is")
+                                                   (t "will ask whether to split it")))))))
+                            (plist-get r :ambiguous))))
+      (add (if apply "Denote links turned into ID links" "Denote links to turn into ID links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (d)
+                                     (funcall item (format "denote:%s -> id:%s" (nth 1 d) (nth 2 d))
+                                              file (nth 3 d)))
+                                   (plist-get r :denoted))))
+      (add (if apply "Notes tagged for authors" "Notes to tag as authors")
+           (mapcar (lambda (tg)
+                     (funcall item (format "%s  + :%s:" (nth 0 tg) sp-author-notes-person-tag)
+                              (nth 2 tg) nil))
+                   (sp-author-notes--run-tagged run)))
+      (add (if apply "Buffers saved first (they had unsaved changes)"
+             "Buffers that will be saved first (unsaved changes)")
+           (mapcar (lambda (f) (funcall item "" f nil)) (sp-author-notes--run-saved run)))
+      (add "Links to an ID that no note has"
+           (mapcar
+            (lambda (o)
+              (pcase-let ((`(,file ,line ,id ,desc ,new ,suggestion) o))
+                (funcall item
+                         (format "%s (\"%s\")  %s" id (or desc "")
+                                 (cond (new (format "-> redirected to %s"
+                                                    (plist-get (gethash new (sp-author-notes--run-by-id run))
+                                                               :title)))
+                                       (apply "left as it is")
+                                       (suggestion (format "will ask; suggestion: %s" suggestion))
+                                       (t "will ask where it should point")))
+                         file line)))
+            (sp-author-notes--run-orphans run)))
+      (let ((changed (seq-filter (lambda (p) (nth 3 p)) people))
+            (same (seq-remove (lambda (p) (nth 3 p)) people)))
+        (add (if apply "Author notes updated" "Author notes to update")
+             (mapcar (lambda (p)
+                       (funcall item (format "%s  + %s" (nth 0 p) (mapconcat #'symbol-name (nth 3 p) ", "))
+                                (nth 2 p) nil))
+                     changed))
+        (add "Author notes already complete"
+             (mapcar (lambda (p) (funcall item (nth 0 p) (nth 2 p) nil)) same))
+        (when apply
+          (add "Tables filled"
+               (list (list :text (format "%d, from the vulpea database; if the links were only just written and the database has not caught up, update a table with C-c C-c"
+                                         (length (sp-author-notes--run-filled run)))
+                           :key nil)))))
+      (let ((unparsed (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (u) (cons file u)) (plist-get r :unparsed)))))
+        (add "Left alone, needs you"
+             (append
+              (mapcar (lambda (u)
+                        (funcall item (format "value mixes links and other text: %s" (cadr u))
+                                 (car u) (cddr u)))
+                      unparsed)
+              (mapcar (lambda (p) (funcall item (nth 2 p) (nth 0 p) (nth 1 p)))
+                      (sp-author-notes--run-problems run))))))
+    (nreverse sections)))
+
+(defun sp-author-notes--show-batch (run)
+  "Show the report of RUN in the shared `sp-batch-report-mode' buffer."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (n (sp-author-notes--change-count run))
+         (authors (length (sp-author-notes--run-authors run)))
+         (reload (lambda (excluded)
+                   (setq sp-author-notes--excluded excluded)
+                   (sp-author-notes-refresh))))
+    (sp-batch-report-open
+     sp-author-notes--buffer-name
+     (sp-batch-report-text
+      (if apply "Author notes: DONE" "Author notes: PREVIEW, nothing has been written")
+      (sp-author-notes--sections run)
+      :excluded sp-author-notes--excluded
+      :key-label #'sp-author-notes--key-label
+      :intro (concat
+              (format "- %d literature notes read in %s\n- %d author%s\n- %d change%s"
+                      (sp-author-notes--run-litnote-count run)
+                      (abbreviate-file-name sp-author-notes-litnotes-directory)
+                      authors (if (= 1 authors) "" "s") n (if (= 1 n) "" "s"))
+              (and apply sp-author-notes-backup-directory (> n 0)
+                   (format "\n- originals copied to %s%s/"
+                           (abbreviate-file-name sp-author-notes-backup-directory)
+                           (sp-author-notes--run-stamp run)))))
+     :refresh reload
+     :excluded sp-author-notes--excluded
+     :apply (unless apply
+              (lambda (excluded)
+                (setq sp-author-notes--excluded excluded)
+                (sp-author-notes-convert))))
+    run))
+
+(defun sp-author-notes--show (run)
+  "Show the report of RUN, in the view `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p)
+      (sp-author-notes--show-batch run)
+    (sp-author-notes--show-old run)))
 
 (defun sp-author-notes-visit ()
   "Visit the file on the report line at point."

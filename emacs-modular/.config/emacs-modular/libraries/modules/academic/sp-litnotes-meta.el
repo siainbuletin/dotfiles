@@ -983,25 +983,44 @@ The .bib files are read once for all of them."
                           (string-join (cadr tag) ", ") (cddr tag)))))
       (buffer-string))))
 
+(defvar sp-litnotes-meta--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
+(defun sp-litnotes-meta--without-excluded (plans)
+  "PLANS minus the notes dropped from the report."
+  (sp-batch-report-without-excluded plans (lambda (p) (plist-get p :file))
+                                    sp-litnotes-meta--excluded))
+
 (defun sp-litnotes-meta--show-report (plans overwrite)
-  "Show the report of PLANS in its own buffer."
-  (sp-batch-report-show sp-litnotes-meta--batch-buffer
-                        (sp-litnotes-meta--batch-report-text plans overwrite)
-                        (lambda () (sp-litnotes-meta-fill-all-dryrun overwrite))))
+  "Show the report of PLANS in its own buffer, without the dropped notes."
+  (let ((excluded sp-litnotes-meta--excluded))
+    (sp-batch-report-open
+     sp-litnotes-meta--batch-buffer
+     (concat (sp-batch-report-key-entries
+              (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--without-excluded plans) overwrite))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (lambda () (sp-litnotes-meta-fill-all-dryrun overwrite sp-litnotes-meta--excluded))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-meta--excluded excl)
+               (sp-litnotes-meta--show-report plans overwrite))
+     :apply (lambda (excl) (sp-litnotes-meta-fill-all-convert overwrite excl))
+     :excluded excluded)))
 
 ;;;###autoload
-(defun sp-litnotes-meta-fill-all-dryrun (&optional overwrite)
+(defun sp-litnotes-meta-fill-all-dryrun (&optional overwrite excluded)
   "Show what `sp-litnotes-meta-fill-all-convert' would do; write nothing.
 Every note tagged `sp-litnotes-meta-batch-tag' is checked against its BibTeX
 entry.  The report lists the lines that would be filled, the notes without a
 citation key or without a .bib entry (skipped), the default lines nobody
 filled, and notes whose type tag differs from the entry type.  With a prefix
 argument (OVERWRITE) it also lists the pub-* values that would be replaced.
+EXCLUDED lists notes (files) to leave out; the report's \\`d' sets it.
 Return the plans."
   (interactive "P")
+  (setq sp-litnotes-meta--excluded excluded)
   (let ((plans (sp-litnotes-meta--batch-plans overwrite)))
     (sp-litnotes-meta--show-report plans overwrite)
-    plans))
+    (sp-litnotes-meta--without-excluded plans)))
 
 (defun sp-litnotes-meta--ask-defaults (plans)
   "Ask once for each default line some of PLANS lack; return the preset alist.
@@ -1073,7 +1092,7 @@ made after #+title when missing.  Return non-nil when the buffer changed."
       changed)))
 
 ;;;###autoload
-(defun sp-litnotes-meta-fill-all-convert (&optional overwrite)
+(defun sp-litnotes-meta-fill-all-convert (&optional overwrite excluded)
   "Fill the meta lines of every note tagged `sp-litnotes-meta-batch-tag' from BibTeX.
 Run `sp-litnotes-meta-fill-all-dryrun' first.  This makes the same plan, asks
 once before writing, then copies each note to a time-stamped folder in
@@ -1088,11 +1107,14 @@ once before writing, then copies each note to a time-stamped folder in
 - A note with no citation key, or whose key is not in the .bib files, is skipped.
 - A note without a type tag gets the one of `sp-bibtex-types' (`sp-litnotes-meta-fill' does that).
 - A note with unsaved changes is skipped, and the error is listed.
-After the run the report is shown again with what is still left.  Return an
-alist of file to the lines changed (or the error)."
+After the run the report is shown again with what is still left.  EXCLUDED
+lists notes (files) to leave out; the report's \\`A' passes the ones dropped
+with \\`d'.  Return an alist of file to the lines changed (or the error)."
   (interactive "P")
+  (setq sp-litnotes-meta--excluded excluded)
   (let* ((plans (sp-litnotes-meta--batch-plans overwrite))
-         (todo (seq-filter #'sp-litnotes-meta--actionable-p plans)))
+         (todo (seq-filter #'sp-litnotes-meta--actionable-p
+                           (sp-litnotes-meta--without-excluded plans))))
     (sp-litnotes-meta--show-report plans overwrite)
     (if (null todo)
         (progn (message "Nothing to change.") nil)

@@ -217,5 +217,34 @@
       (delete-directory dir t)
       (delete-directory backups t))))
 
+(ert-deftest sp-org-lint-footnote-batch-view ()
+  "The shared view: files and lines are links, d drops a file from the apply."
+  (let ((plan (list :file "/tmp/vault/a.org" :changed t :sha "s"
+                    :moves (list (list :label "a" :from "Footnotes" :to "Alpha" :new "a" :line 7))
+                    :orphans '("z"))))
+    (with-temp-buffer
+      (sp-org-lint-fn-batch-mode)
+      (should (derived-mode-p 'sp-batch-report-mode))
+      (setq sp-org-lint-fn--run (list :plans (list plan) :phase 'ready :scanned 1))
+      (sp-org-lint-fn--render)
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org\\]\\[/tmp/vault/a\\.org\\]\\]" (buffer-string)))
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org::7\\]\\[line 7\\]\\]: \\[fn:a\\] Footnotes -> Alpha"
+                              (buffer-string)))
+      (should (string-match-p "orphan: \\[fn:z\\]" (buffer-string)))
+      (goto-char (point-min))
+      (re-search-forward "orphan: ")
+      (sp-batch-report-drop)
+      (should (equal sp-batch-report-excluded '("/tmp/vault/a.org")))
+      (should (string-match-p "Files with footnotes to look at (0)" (buffer-string)))
+      (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+      ;; everything dropped: nothing to apply
+      (should-error (sp-org-lint-footnotes-convert) :type 'user-error)
+      (goto-char (point-min))
+      (re-search-forward "Dropped from the list")
+      (re-search-forward "a\\.org")
+      (sp-batch-report-restore)
+      (should (null sp-batch-report-excluded))
+      (should (string-match-p "Files with footnotes to look at (1)" (buffer-string))))))
+
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here

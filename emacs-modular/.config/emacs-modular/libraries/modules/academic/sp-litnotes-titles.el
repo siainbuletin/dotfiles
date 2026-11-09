@@ -584,27 +584,47 @@ Signal a `user-error' at once when the mode is on and there is no .bib file."
     (sp-author-notes-bibtex--files)))
 
 ;;;###autoload
-(defun sp-litnotes-titles-dryrun (&optional bibtex)
+(defun sp-litnotes-titles-dryrun (&optional bibtex excluded)
   "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read.  BibTeX, from the prefix argument (\\[universal-argument] is
 `missing', twice is `always'), takes the authors, year and title from the BibTeX
-entry of each key instead of `sp-litnotes-titles-bibtex'; see there."
+entry of each key instead of `sp-litnotes-titles-bibtex'; see there.
+EXCLUDED lists notes (files) to leave out; the report's \\`d' sets it."
   (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
   (sp-litnotes-titles--start bibtex)
   (sp-litnotes-titles--show-report))
 
+
+(defvar sp-litnotes-titles--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
+(defun sp-litnotes-titles--display (plans links &optional callback)
+  "Show the report of PLANS and LINKS, without the dropped notes.
+Call CALLBACK with the plans that are left.  Return them."
+  (let* ((excluded sp-litnotes-titles--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote titles*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-titles--report-text shown links))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (unless callback (lambda () (sp-litnotes-titles--show-report)))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-titles--excluded excl)
+               (sp-litnotes-titles--display plans links))
+     :apply (lambda (excl) (sp-litnotes-titles-convert sp-litnotes-titles--bibtex-mode excl))
+     :excluded excluded)
+    (when callback (funcall callback shown))
+    shown))
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
 Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-titles--scan
-   (lambda (plans links)
-     (let ((text (sp-litnotes-titles--report-text plans links)))
-       (sp-batch-report-show "*litnote titles*" text
-                             (unless callback #'sp-litnotes-titles--show-report)))
-     (when callback (funcall callback plans)))))
+   (lambda (plans links) (sp-litnotes-titles--display plans links callback))))
 
 ;;;; Writing
 
@@ -771,7 +791,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-convert (&optional bibtex)
+(defun sp-litnotes-titles-convert (&optional bibtex excluded)
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -784,8 +804,10 @@ change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
 links to old names are listed in the report but not changed.  Running it
 again changes nothing.  Only when `sp-async-work-synchronous' is set does
 this return the results, a plist per note.  BibTeX is as in
-`sp-litnotes-titles-dryrun'."
+`sp-litnotes-titles-dryrun'.  EXCLUDED lists notes (files) to leave out;
+the report's \\`A' passes the ones dropped with \\`d'."
   (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
   (sp-litnotes-titles--start bibtex)
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
