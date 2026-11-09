@@ -1,0 +1,120 @@
+#+TITLE: sp-bibtex-types.el: one table from BibTeX entry type to litnote tag
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-bibtex-types.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-bibtex-types.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* What it does
+
+- One place that says which org tag a litnote gets for each BibTeX entry type.
+- The table is the option =sp-bibtex-types-tag-alist=; the entry types are compared ignoring case.
+- The mapping:
+
+| BibTeX type                      | Org tag            |
+|----------------------------------+--------------------|
+| =BookSection=                    | =:booksection:=    |
+| =InCollection=                   | =:incollection:=   |
+| =Article=                        | =:journalarticle:= |
+| =Book=                           | =:book:=           |
+| =Collection=, =MvCollection=     | =:collection:=     |
+| =PhdThesis=                      | =:phdthesis:=      |
+| =MastersThesis=                  | =:mastersthesis:=  |
+| anything else                    | =:text:=           |
+
+- A multi-volume collection is not told apart from a regular collection.
+- =:text:= is the tag of the =base-text= scheme in =sp-vulpea-schemas=; every other tag above has its own scheme that includes =base-text=.
+
+** Where it is used
+
+- =sp-litnotes-meta-create-note= (the backfill of the chapters of a book) puts the tag of the entry in the new note, next to =litnote=.
+- =sp-litnotes-meta--table-view= picks the =collection-articles= view when the tag of the parent is =collection=, and =book-sections= otherwise.
+- =sp-litnotes-refs= keeps its own table for the other direction (litnote tag to BibTeX type for stub entries); it only has to agree with the tags here.
+
+** Functions
+
+- =sp-bibtex-types-tag= :: tag for an entry type string
+- =sp-bibtex-types-entry-tag= :: tag for a parsed entry (reads its =\"=type=\"=)
+- =sp-bibtex-types-all-tags= :: every tag the table can give, including the default
+- =sp-bibtex-types-collection-p= :: whether an entry type files as a collection
+
+* sp-bibtex-types.el
+
+** Header
+
+#+begin_src emacs-lisp
+;;; sp-bibtex-types.el --- BibTeX entry type to litnote tag -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; One table, `sp-bibtex-types-tag-alist', says which org tag a litnote gets
+;; for a BibTeX entry type.  Entry types that are not in it are filed as
+;; `sp-bibtex-types-default-tag' (the base-text scheme of sp-vulpea-schemas).
+;; See the doc docs/tangles/academic/sp-bibtex-types.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+#+end_src
+
+** Options
+
+#+begin_src emacs-lisp
+(defgroup sp-bibtex-types nil
+  "BibTeX entry types and the litnote tags they are filed under."
+  :group 'sp-author-notes
+  :prefix "sp-bibtex-types-")
+
+(defcustom sp-bibtex-types-tag-alist
+  '(("booksection" . "booksection")
+    ("incollection" . "incollection")
+    ("article" . "journalarticle")
+    ("book" . "book")
+    ("collection" . "collection")
+    ("mvcollection" . "collection")
+    ("phdthesis" . "phdthesis")
+    ("mastersthesis" . "mastersthesis"))
+  "Org tag of a litnote for each BibTeX entry type (compared ignoring case).
+Each element is (TYPE . TAG), both strings without colons."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-bibtex-types)
+
+(defcustom sp-bibtex-types-default-tag "text"
+  "Tag for an entry type that `sp-bibtex-types-tag-alist' does not list.
+It is the tag of the `base-text' scheme in `sp-vulpea-schemas'."
+  :type 'string
+  :group 'sp-bibtex-types)
+#+end_src
+
+** Functions
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-types-tag (type)
+  "The org tag, without colons, for the BibTeX entry TYPE.
+TYPE is a string such as \"InCollection\", compared ignoring case; with a
+nil or empty TYPE, or one not in `sp-bibtex-types-tag-alist', the result
+is `sp-bibtex-types-default-tag'."
+  (or (and (stringp type)
+           (cdr (assoc-string (string-trim type) sp-bibtex-types-tag-alist t)))
+      sp-bibtex-types-default-tag))
+
+(defun sp-bibtex-types-entry-tag (entry)
+  "The org tag for ENTRY, an alist as `bibtex-parse-entry' returns."
+  (sp-bibtex-types-tag (cdr (assoc "=type=" entry))))
+
+(defun sp-bibtex-types-all-tags ()
+  "Every tag `sp-bibtex-types-tag' can return, each once."
+  (delete-dups (append (mapcar #'cdr sp-bibtex-types-tag-alist)
+                       (list sp-bibtex-types-default-tag))))
+
+(defun sp-bibtex-types-collection-p (type)
+  "Non-nil when the BibTeX entry TYPE is filed as a collection."
+  (equal (sp-bibtex-types-tag type) "collection"))
+
+(provide 'sp-bibtex-types)
+;; sp-bibtex-types.el ends here
+#+end_src

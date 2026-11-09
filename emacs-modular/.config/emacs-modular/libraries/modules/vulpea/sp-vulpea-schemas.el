@@ -110,6 +110,10 @@
 		      '((:key "pub-pages" :type string :required nil))
 )
 
+(vulpea-schema-define 'book
+		      :predicate (lambda (note) (member "book" (vulpea-note-tags note)))
+		      :include 'base-text)
+
 (vulpea-schema-define 'booksection
 		      :predicate (lambda (note) (member "booksection" (vulpea-note-tags note)))
 		      :include 'base-text
@@ -133,6 +137,14 @@
 		      (:key "bib-parent" :type note :required t :target-tags ("collection"))
 		      (:key "pub-author" :type note :required t))
 		      )
+
+(vulpea-schema-define 'phdthesis
+		      :predicate (lambda (note) (member "phdthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
+
+(vulpea-schema-define 'mastersthesis
+		      :predicate (lambda (note) (member "mastersthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
 
 (provide 'sp-vulpea-schemas)
 ;; sp-vulpea-schemas.el ends here.
