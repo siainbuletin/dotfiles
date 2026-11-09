@@ -6,7 +6,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 * Goal
 
-- Select a citation in a PDF (Highlights) or in DEVONthink: a Chicago, APA or IEEE in-text citation, or a full entry of the Bibliography section.
+- Select a citation in a PDF in DEVONthink's own reader (Highlights is dropped for records already in DEVONthink): a Chicago, APA or IEEE in-text citation, or a full entry of the Bibliography section.
 - Press one hotkey; Emacs finds the matching BibTeX record (and its DEVONthink record).
 - Insert the citekey, or the list of all works cited by the source, into the end section of the litnote being written.
 - Show which cited works already have a litnote.
@@ -21,7 +21,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
   - Entries of the Bibliography section can be matched well; short in-text citations (=Smith 2017=) are ambiguous and can only give a candidate list.
   - Own BibTeX records diverge (casing, abbreviations, missing subtitle, =and others=). Scoring must be forgiving, and a human must confirm below a threshold.
   - Works not in BibTeX at all are normal. The result must say "no match" and offer to create a record, not guess.
-  - Highlights has no scripting dictionary that exposes the selection; the clipboard is the only interface (see below).
+  - The selection property of DEVONthink's PDF reader has not been tested; the clipboard is the fallback (see below).
 
 * Part 1: matching a citation string
 
@@ -82,21 +82,48 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 * Part 2: getting the selection into Emacs
 
-** Why the clipboard is the interface
+** Reading happens in DEVONthink (Highlights is dropped)
 
-- Highlights does not expose the selection to AppleScript or JXA. The robust path is the clipboard: a hotkey sends =Cmd+C=, reads the pasteboard and hands the text to Emacs.
-- DEVONthink does expose it: =selected text of think window= style properties, and =selection= of records, in AppleScript/JXA. The same clipboard path also works there and keeps one code path; use the scripting route only to learn the record UUID and page (for the link back).
+- Decision (Sia, 2026-11-09): read every record that is already in DEVONthink with its own PDF reader; stop using Highlights for those.
+- Consequence: DEVONthink is the one source app, so the selection comes from DEVONthink only.
+  - Its scripting interface exposes the selected record(s) (UUID, name, path) and, in a PDF window, the selected text. The exact property for the selected text is to be verified on the Mac.
+  - Fallback if that property fails: the clipboard (hotkey sends =Cmd+C=, reads the pasteboard).
+- Documents not yet in DEVONthink (new downloads, files outside the database) still need some reader. See the next section for how to choose and import.
+
+** In DEVONthink or not: choosing per document
+
+- One Emacs command, =sp-reading-open=, takes a citekey (from the litnote, a =citar= pick or a point on =[cite:@key]=) and decides:
+  - Step 1, is the record in DEVONthink?
+    - First look in the cache =sp-devonthink-index= (citekey to UUID, from the DEVONthink design); no AppleScript call needed.
+    - If the cache has no hit, ask DEVONthink directly with =osascript=, in this order:
+      - =lookup records with path= (the PDF is an /indexed/ file under =~/Documents/literature/=);
+      - =lookup records with content hash= (survives renames and moves; to be verified in the dictionary);
+      - search by name =KEY.pdf= as the last resort.
+  - Step 2a, found: open it at the right page with =x-devonthink-item://UUID?page=N= (the link type =sp-litdb= already follows).
+  - Step 2b, not found but the PDF exists (BibTeX =file= field):
+    - Ask: "Import into DEVONthink?" with the choices /index in place/, /import (copy)/, /open in the system PDF app/.
+    - Default is /index in place/, so the file stays in =~/Documents/literature/= (the same layout as the existing records, and what =citar= and the BibTeX =file= field expect).
+    - Done with =index path ... to group= (not =import=, which copies the file into the database package).
+    - Then set the name to =KEY.pdf= if it differs, add the new UUID to the cache, and open the record.
+  - Step 2c, no PDF at all: offer =sp-fetch-academic= (DOI download), then go back to 2b.
+- Choosing which documents to import is a rule, not a manual job:
+  - =sp-reading-import-policy= (defcustom): =ask= (default), =always= (any cited-work PDF with a litnote) or =never=.
+  - A batch command, =sp-reading-import-missing=, lists every BibTeX entry with a PDF but no DEVONthink record, so a backlog can be indexed in one go after a preview buffer; nothing is imported before confirmation.
+- Risks:
+  - A scripting call per lookup is slow if repeated for a list; always use the cache and refresh it with one call that lists names and UUIDs.
+  - Indexing a file that DEVONthink already holds under another name would create a duplicate; the content-hash check in step 1 guards this.
+  - The database package is never edited as files; everything goes through DEVONthink's scripting interface.
 
 ** Options for the trigger
 
 - Hammerspoon hotkey (recommended):
   - Binds e.g. =Hyper+C=, sends =Cmd+C=, waits ~100 ms, reads =hs.pasteboard=.
   - Then calls =emacsclient= or opens an =org-protocol:= URL.
-  - Gives the frontmost app name for free (Highlights or DEVONthink), which selects the source.
+  - Gives the frontmost app name for free (DEVONthink, or another reader for files not yet imported), which selects the source.
   - One extra dependency, but Sia can keep it as a single Lua file in the dotfiles.
 - macOS Service (Automator/Shortcut "Run Shell Script" with input as stdin):
   - Appears in the Services menu and gets a shortcut under System Settings, with no extra app.
-  - Receives the selected text directly, without the copy trick; not every app offers Services for PDF text (Highlights should, DEVONthink does).
+  - Receives the selected text directly, without the copy trick; DEVONthink offers Services for selected text, other PDF readers vary.
   - Less flexible for passing the app name and the clipboard fallback.
 - Shortcuts.app: possible, but slower to start and awkward to version-control. Not recommended.
 - Avoid any overlay or accessibility screen scraping: it is fragile and unnecessary.
@@ -152,7 +179,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 * Alternatives considered
 
-- Overlay on top of Highlights/DEVONthink: rejected; fragile, needs accessibility permissions, adds nothing a hotkey does not.
+- Overlay on top of DEVONthink: rejected; fragile, needs accessibility permissions, adds nothing a hotkey does not.
 - Citation parser first (AnyStyle): deferred; extra dependency, little gain for the common case.
 - Match inside DEVONthink with its search/"See also": rejected for citations; non-deterministic and slow for lists.
 - Match inside =litdb= only: rejected as primary; semantic, so it confuses similar titles by different authors.
@@ -168,6 +195,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 * Open questions for Sia
 
-- Is Hammerspoon already installed, or should the Service route be the first one?
+- Hammerspoon is already in the dotfiles (aerospace layer), so the hotkey route is the default; the Service stays as a fallback.
+- Which reader for PDFs that are not in DEVONthink and that you decide not to import?
 - Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
 - Name of the end section and whether it should live in the litnote's front matter instead.
