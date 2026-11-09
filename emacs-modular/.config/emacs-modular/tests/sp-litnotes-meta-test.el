@@ -218,9 +218,11 @@
             (with-temp-buffer
               (org-mode)
               (insert "#+title: Book\n\n- bib-project :: [[id:p][Thesis]]\n\n")
-              (cl-letf (((symbol-function 'citar-create-note) (lambda (key &rest _) (push key made)))
-                        ((symbol-function 'sp-litnotes-meta-fill)
-                         (lambda (key &rest _) (push (cons key sp-litnotes-meta--preset) presets))))
+              (cl-letf* ((sp-litnotes-meta-create-function
+                          (lambda (key) (push key made) (expand-file-name (concat key ".org") dir)))
+                         ((symbol-function 'sp-litnotes-meta--tidy-new-note) #'ignore)
+                         ((symbol-function 'sp-litnotes-meta-fill)
+                          (lambda (key &rest _) (push (cons key sp-litnotes-meta--preset) presets))))
                 (should (equal (sp-litnotes-meta-backfill-children "reuten2014book" '("roe2016chapter"))
                                '("roe2016chapter")))))
             (should (equal made '("roe2016chapter")))
@@ -241,8 +243,10 @@
       (unwind-protect
           (progn
             (provide 'sp-collection-query-tables-org)
-            (cl-letf (((symbol-function 'citar-create-note) (lambda (key &rest _) (push key made)))
-                      ((symbol-function 'sp-litnotes-meta-fill) #'ignore)
+            (cl-letf* ((sp-litnotes-meta-create-function
+                        (lambda (key) (push key made) (expand-file-name (concat key ".org") dir)))
+                       ((symbol-function 'sp-litnotes-meta--tidy-new-note) #'ignore)
+                       ((symbol-function 'sp-litnotes-meta-fill) #'ignore)
                       ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () nil))
                       ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil))
                       ((symbol-function 'completing-read-multiple)
@@ -298,6 +302,68 @@
             (let ((sp-litnotes-meta-new-title 'title))
               (should (equal (sp-litnotes-meta--new-title (sp-litnotes-meta--entry "doe2015chapter"))
                              "A Chapter"))))
+        (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-create-note-has-id-created-refs ()
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (args nil))
+      (unwind-protect
+          (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+                    ((symbol-function 'sp-org-created-stamp) (lambda () "[2026-11-09 10:00]"))
+                    ((symbol-function 'sp-notes-ensure-created) #'ignore)
+                    ((symbol-function 'vulpea-note-path) (lambda (n) n))
+                    ((symbol-function 'vulpea-create)
+                     (lambda (title template &rest keys)
+                       (setq args (list title template keys))
+                       (with-temp-file template (insert "x"))
+                       template)))
+            (let ((file (sp-litnotes-meta-create-note "doe2015chapter")))
+              (should (equal file (expand-file-name "doe2015chapter.org" dir)))
+              (should (equal (car args) "Doe (2014) A Chapter"))
+              (should (equal (plist-get (nth 2 args) :tags) '("litnote")))
+              (should (equal (plist-get (nth 2 args) :properties)
+                             '(("ROAM_REFS" . "@doe2015chapter") ("CREATED" . "[2026-11-09 10:00]"))))))
+        (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-backfill-fills-bibtex-and-indexes-note ()
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (sp-litnotes-meta-auto nil)
+           (sp-litnotes-meta--created (make-hash-table :test #'equal))
+           (indexed nil))
+      (unwind-protect
+          (progn
+            (with-temp-file (expand-file-name "reuten2014book.org" dir)
+              (insert ":PROPERTIES:\n:ID: lit-book\n:ROAM_REFS: @reuten2014book\n:END:\n#+title: Reuten (2014) Book\n\n"))
+            (cl-letf* ((sp-litnotes-meta-create-function
+                        (lambda (key)
+                          (let ((f (expand-file-name (concat key ".org") dir)))
+                            (with-temp-file f
+                              (insert (format ":PROPERTIES:\n:ID: n1\n:ROAM_REFS: @%s\n:CREATED: [2026-11-09 10:00]\n:END:\n#+title: Notes on Doe, A Chapter\n#+print_bibliography:\n\n" key)))
+                            f)))
+                       ((symbol-function 'sp-litnotes-meta--author-note)
+                        (lambda (name) (cons "aid" name)))
+                       ((symbol-function 'sp-litnotes-meta--read-project) (lambda () nil))
+                       ((symbol-function 'sp-litnotes-meta--read-relevance) (lambda () nil))
+                       ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil))
+                       ((symbol-function 'vulpea-db-update-file) (lambda (f) (push f indexed))))
+              (should (equal (sp-litnotes-meta-backfill-children "reuten2014book" '("doe2015chapter"))
+                             '("doe2015chapter"))))
+            (let ((text (with-temp-buffer
+                          (insert-file-contents (expand-file-name "doe2015chapter.org" dir))
+                          (buffer-string))))
+              (should (string-match-p ":ID: n1" text))
+              (should (string-match-p ":CREATED:" text))
+              (should (string-match-p "^#\\+title: Doe (2014) A Chapter$" text))
+              (should-not (string-match-p "print_bibliography" text))
+              (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Jane Doe\\]\\]" text))
+              (should (string-match-p "- pub-year :: 2014" text))
+              (should (string-match-p "- bib-parent :: \\[\\[id:lit-book\\]" text)))
+            ;; the file just made is in the database, whatever any cache holds
+            (should (member (expand-file-name "doe2015chapter.org" dir) indexed)))
         (delete-directory dir t)))))
 
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()
