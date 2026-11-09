@@ -727,7 +727,8 @@
 
 (ert-deftest sp-litnotes-meta-batch-convert ()
   (sp-litnotes-meta-test--with-batch
-    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+    (cl-letf* ((sp-litnotes-meta-update-changed nil)
+               ((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
               ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
               ((symbol-function 'completing-read) (lambda (&rest _) "")))
       (let ((results (sp-litnotes-meta-fill-all-convert)))
@@ -780,3 +781,132 @@
                (format "\\[\\[file:%s\\]\\[bk\\.org\\]\\]" (regexp-quote (expand-file-name "bk.org" dir)))
                (buffer-string))))
     (kill-buffer sp-litnotes-meta--batch-buffer)))
+
+(ert-deftest sp-litnotes-meta-batch-update-changed-by-default ()
+  "A pub-* value that differs from the .bib is an update, with old and new value."
+  (sp-litnotes-meta-test--with-batch
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (let* ((plans (sp-litnotes-meta-fill-all-dryrun))
+             (art (sp-litnotes-meta-test--plan-of plans "art.org")))
+        (should (equal (plist-get art :replace) '(("pub-title" . "Right Title"))))
+        (should (equal (plist-get art :old) '(("pub-title" . "Old Title"))))
+        (with-current-buffer sp-litnotes-meta--batch-buffer
+          (should (string-match-p "update pub-title :: Old Title -> Right Title" (buffer-string))))
+        (let ((sp-litnotes-meta-update-changed nil))
+          (should-not (plist-get (sp-litnotes-meta-test--plan-of
+                                  (sp-litnotes-meta-fill-all-dryrun) "art.org")
+                                 :replace)))
+        (kill-buffer sp-litnotes-meta--batch-buffer)))))
+
+(ert-deftest sp-litnotes-meta-batch-convert-stops-after-a-batch ()
+  (sp-litnotes-meta-test--with-batch
+    (let ((sp-batch-report-batch-size 1) (asked 0))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+                ((symbol-function 'completing-read) (lambda (&rest _) ""))
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'read-char-choice)
+                 (lambda (&rest _) (cl-incf asked) (if (= asked 1) ?a ?q))))
+        (let ((results (sp-litnotes-meta-fill-all-convert)))
+          (should (= asked 2))
+          (should (= (length results) 1)))
+        (kill-buffer sp-litnotes-meta--batch-buffer)))))
+
+(defconst sp-litnotes-meta-test--parent-lint-bib
+  "@book{bk2014,
+  author = {Reuten, Geert},
+  title = {The Book},
+  year = {2014},
+}
+@incollection{ch2014,
+  author = {Doe, Jane},
+  title = {A Chapter},
+  crossref = {bk2014},
+}
+@incollection{ch2,
+  author = {Doe, Jane},
+  title = {Another Chapter},
+  crossref = {bk2014},
+}
+@article{solo2020,
+  author = {Lee, Ann},
+  title = {Alone},
+  year = {2020},
+}
+")
+
+(defmacro sp-litnotes-meta-test--with-parent-lint (&rest body)
+  (declare (indent 0))
+  `(sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--parent-lint-bib
+     (let* ((dir (make-temp-file "sp-meta-parent" t))
+            (sp-author-notes-litnotes-directory dir)
+            (sp-litnotes-meta-backup-directory (expand-file-name "bak/" dir)))
+       (cl-flet ((note (name id key extra)
+                   (with-temp-file (expand-file-name name dir)
+                     (insert (format ":PROPERTIES:\n:ID: %s\n:ROAM_REFS: @%s\n:END:\n#+title: x\n#+filetags: :litnote:\n\n%s\n" id key extra)))))
+         (note "bk.org" "bk" "bk2014" "")
+         (note "ch.org" "ch" "ch2014" "- bib-parent :: [[id:ch][Self]]")
+         (note "ch2.org" "ch2" "ch2" "- bib-parent :: [[id:solo][Wrong]]")
+         (note "good.org" "good" "ch2014" "- bib-parent :: [[id:bk][The Book]]")
+         (note "solo.org" "solo" "solo2020" "- bib-parent :: [[id:bk][The Book]]"))
+       (unwind-protect
+           (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+                      (lambda () (directory-files dir t "\\.org\\'")))
+                     ((symbol-function 'sp-author-notes-bibtex--covered)
+                      (lambda ()
+                        (let ((h (make-hash-table :test #'equal)))
+                          (dolist (k '(("bk2014" . "bk.org") ("ch2014" . "ch.org") ("ch2" . "ch2.org")
+                                       ("solo2020" . "solo.org")))
+                            (puthash (car k) (expand-file-name (cdr k) dir) h))
+                          h))))
+             ,@body)
+         (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-parent-plans ()
+  (sp-litnotes-meta-test--with-parent-lint
+    (let* ((plans (sp-litnotes-meta--parent-plans))
+           (kind (lambda (name) (plist-get (seq-find (lambda (p) (equal (file-name-nondirectory (plist-get p :file)) name)) plans) :kind))))
+      (should (eq (funcall kind "ch.org") 'self))
+      (should (eq (funcall kind "ch2.org") 'wrong))
+      (should (eq (funcall kind "solo.org") 'no-crossref))
+      (should-not (funcall kind "good.org"))
+      (should-not (funcall kind "bk.org")))))
+
+(ert-deftest sp-litnotes-meta-parent-convert-fixes-and-stops ()
+  (sp-litnotes-meta-test--with-parent-lint
+    (let ((sp-batch-report-batch-size 2) (answers (list ?a ?q)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'read-char-choice) (lambda (&rest _) (pop answers))))
+        (let ((results (sp-litnotes-meta-parent-lint-convert)))
+          ;; three candidates, batches of two: the first batch is fixed, then quit
+          (should (= (length results) 2))
+          (should (equal (mapcar #'cdr results) '(fixed fixed))))
+        (let ((text (lambda (n) (with-temp-buffer (insert-file-contents (expand-file-name n dir)) (buffer-string)))))
+          (should (string-match-p "bib-parent :: \\[\\[id:bk\\]" (funcall text "ch.org")))
+          (should (string-match-p "bib-parent :: \\[\\[id:bk\\]" (funcall text "ch2.org")))
+          ;; the third candidate (no crossref) was not reached
+          (should (string-match-p "bib-parent :: \\[\\[id:bk\\]" (funcall text "solo.org"))))
+        (kill-buffer sp-litnotes-meta--parent-buffer)))))
+
+(ert-deftest sp-litnotes-meta-parent-convert-choose-remove ()
+  (sp-litnotes-meta-test--with-parent-lint
+    (let ((sp-batch-report-batch-size 2) (answers (list ?c ?r ?f ?s)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'read-char-choice) (lambda (&rest _) (pop answers))))
+        (let ((results (sp-litnotes-meta-parent-lint-convert)))
+          (should (equal (mapcar #'cdr results) '(removed fixed))))
+        (should-not (string-match-p "id:ch\\]"
+                                    (with-temp-buffer (insert-file-contents (expand-file-name "ch.org" dir))
+                                                      (buffer-string))))
+        (kill-buffer sp-litnotes-meta--parent-buffer)))))
+
+(ert-deftest sp-litnotes-meta-parent-dropped-note-is-left-out ()
+  (sp-litnotes-meta-test--with-parent-lint
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (let ((plans (sp-litnotes-meta-parent-lint-dryrun (list (expand-file-name "ch.org" dir)))))
+        (should (= (length plans) 2))
+        (with-current-buffer sp-litnotes-meta--parent-buffer
+          (should (string-match-p "Dropped from the list" (buffer-string))))
+        (kill-buffer sp-litnotes-meta--parent-buffer)))))

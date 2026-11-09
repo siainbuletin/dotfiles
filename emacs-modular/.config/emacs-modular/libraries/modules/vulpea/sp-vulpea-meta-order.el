@@ -300,7 +300,8 @@ before writing, copies each note to a time-stamped folder in
 `sp-vulpea-meta-order-backup-directory' and sorts it.  FILTER and EXCLUDED
 are as in the dry run; the report's \\`A' passes the notes dropped with \\`d'.
 After the run the report is shown again.  Return an alist of file to t (it
-changed), nil (it did not) or the error text."
+changed), nil (it did not) or the error text.  The notes go in batches of
+`sp-batch-report-batch-size'; before each you apply, choose, skip or quit."
   (interactive (list (sp-vulpea-meta-order--read-filter)))
   (let* ((filter (or filter (sp-vulpea-meta-order--default-filter)))
          (plans (sp-vulpea-meta-order--plans filter))
@@ -309,23 +310,28 @@ changed), nil (it did not) or the error text."
     (sp-vulpea-meta-order--show plans filter excluded)
     (if (null todo)
         (progn (message "Nothing to reorder.") nil)
-      (when (yes-or-no-p (format "Reorder the meta lines of %d notes (backups in %s)? "
-                                 (length todo) sp-vulpea-meta-order-backup-directory))
+      (when (yes-or-no-p (format "Reorder the meta lines of %d notes, %d at a time (backups in %s)? "
+                                 (length todo) (or sp-batch-report-batch-size (length todo))
+                                 sp-vulpea-meta-order-backup-directory))
         (let* ((stamp (format-time-string "%Y%m%d-%H%M%S"))
-               (progress (make-progress-reporter "Ordering meta lines..." 0 (length todo)))
-               (n 0) results)
-          (dolist (plan todo)
-            (push (cons (plist-get plan :file)
-                        (condition-case err
-                            (sp-vulpea-meta-order--apply (plist-get plan :file) stamp)
-                          (error (error-message-string err))))
-                  results)
-            (progress-reporter-update progress (cl-incf n)))
-          (progress-reporter-done progress)
+               results
+               (run (sp-batch-report-run-batches
+                     todo
+                     (lambda (plan _decision)
+                       (push (cons (plist-get plan :file)
+                                   (condition-case err
+                                       (sp-vulpea-meta-order--apply (plist-get plan :file) stamp)
+                                     (error (error-message-string err))))
+                             results))
+                     :label "Meta order"
+                     :describe (lambda (plan)
+                                 (format "Order the meta lines of %s?"
+                                         (file-name-nondirectory (plist-get plan :file)))))))
           (setq results (nreverse results))
-          (message "Ordered %d of %d notes; %d failed"
+          (message "Ordered %d of %d notes; %d failed%s"
                    (seq-count (lambda (r) (eq (cdr r) t)) results) (length todo)
-                   (seq-count (lambda (r) (stringp (cdr r))) results))
+                   (seq-count (lambda (r) (stringp (cdr r))) results)
+                   (sp-batch-report-batches-note run))
           (sp-vulpea-meta-order--show (sp-vulpea-meta-order--plans filter) filter excluded)
           results)))))
 
