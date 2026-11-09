@@ -16,12 +16,24 @@ writes =./dotfiles-prs/= with:
 
 ** Options: 
 - =--discussions= (also fetch Discussions), 
-- =--skip-fetch= (render from =backup/=), 
-- =--no-pdf= (org files only), 
+- =--skip-fetch= (render from =backup/=),
+- =--full= (fetch everything again, not only what changed),
+- =--full-every DAYS= (also do that when the last full fetch is this old; 30 by default, 0 turns it off),
+- =--no-pdf= (org files only),
 - =--per-pdf N= (several PDFs of N items), 
 - =--reverse= (newest first), 
 - =--private= (private repository), 
 - =-o DIR= (output folder).
+
+* Running it again
+
+The first run fetches everything. Later runs ask =github-backup= for only what changed (its =-i= option), render again only the pull requests whose JSON changed, and then rebuild the PDF from all the org files. The last step is local and does not use the API, so the PDF is always complete.
+
+- =backup/.gh-pr-pdf-state.json= records when the last full fetch was, which options it used, and a hash of each rendered pull request.
+- A full fetch is forced by =--full=, when the options differ from the last run (=-i= does not backfill a flag that is new), and when the last full fetch is older than =--full-every= days. The =github-backup= documentation warns that a failed earlier run can leave a gap in an incremental backup; the periodic full fetch is the cure.
+- A full fetch first deletes =github-backup='s own checkpoint files (=last_update=, =reviews_last_update=) in =backup/=, so the next incremental run starts from the full fetch and not from an older checkpoint.
+- A failed fetch does not move the state forward.
+- With =--discussions=, discussions are fetched in full every time. That is one query per 25 discussions.
 
 * Needs
 
@@ -41,5 +53,6 @@ Text that Typst reads as code is escaped too: =@key= (a reference: "label =<key>
 Written in a container without a Mac or a Linux desktop, without Typst and without network access to GitHub's API. What was run: the org and Typst-source output on made-up JSON, including headings in bodies, empty bodies, an injected =#+INCLUDE:= and the splitting into several PDFs. Not run:
 
 - =typst compile= in this container. A first run elsewhere failed on =@key= in a title and a commit message; the escaping above is the fix, checked on made-up JSON and with a scanner for leftover references, but not by compiling again.
-- =github-backup= against a real repository. The JSON key names the script reads (=comment_regular_data=, =comment_data=, =review_data=, =commit_data=) are from memory; if a pull request reports commits but no list is found, the script prints the keys it did see, and the fix is the key names in =render_pr=.
+- =github-backup= against a real repository. The JSON key names the script reads (=comment_regular_data=, =comment_data=, =review_data=, =commit_data=) match the =github-backup= page on PyPI, which mentions =commit_data= only in passing; they have not been checked against real output. If a pull request reports commits but no list is found, the script prints the keys it did see, and the fix is the key names in =render_pr=.
+- The incremental mode against the real =github-backup=. Its decisions (full or incremental, deleting the checkpoints, the state file, which pull requests are rendered again) were run against a stand-in that records how it is called, including a failed fetch, changed options, a pull request that disappears and a corrupt state file. Not seen: how =github-backup= applies =-i= to pull requests, whether it fetches the comments and commits of a pull request that changed, and that it fetches everything when it finds no checkpoint (the PyPI page says it only requests new data since the last successful backup). The first thing to check on a real run is the number of API requests for the second run against the first.
 - The Discussions fetch (=gh api graphql=). It reads up to 100 comments and 50 replies per discussion and warns when there are more.
