@@ -292,6 +292,26 @@
                               (sp-litnotes-titles-test--read
                                (expand-file-name "reuten2014value.org" dir)))))))
 
+(ert-deftest sp-litnotes-titles-report-drop-and-apply ()
+  "A note dropped from the report is excluded from what A applies."
+  (sp-litnotes-titles-test--with-vault
+    (let ((file (expand-file-name "20240101T120000--a.org" dir)) seen)
+      (sp-litnotes-titles-test--write file
+        ":PROPERTIES:" ":ID: 1" ":ROAM_REFS: @reuten2014value" ":END:" "#+title: a"
+        "- pub-author :: Reuten, Geert" "- pub-year :: 2014" "- pub-title :: Value")
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-titles-dryrun)
+        (with-current-buffer "*litnote titles*"
+          (goto-char (point-min))
+          (re-search-forward "^\\*\\* \\[\\[file:")
+          (sp-batch-report-drop)
+          (should (equal sp-batch-report-excluded (list file)))
+          (should (string-match-p "Dropped from the list" (buffer-string)))
+          (cl-letf (((symbol-function 'sp-litnotes-titles-convert)
+                     (lambda (&optional _b excl) (setq seen excl))))
+            (sp-batch-report-apply))
+          (should (equal seen (list file))))))))
+
 (provide 'sp-litnotes-titles-test)
 ;; sp-litnotes-titles-test.el ends here
 

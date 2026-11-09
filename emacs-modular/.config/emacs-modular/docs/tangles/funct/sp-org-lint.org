@@ -562,6 +562,7 @@ This section tangles to =sp-org-lint-footnotes.el=, so the headless worker can l
 (require 'org)
 (require 'org-element)
 (require 'subr-x)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -1179,7 +1180,9 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready " Footnote lint: RET visit, a apply, g rescan, q quit")
+      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
+                " Footnote lint: RET visit, a apply, g rescan, q quit"))
       ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
       (_ " Footnote lint"))))
 
@@ -1195,6 +1198,28 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
 (define-derived-mode sp-org-lint-fn-report-mode special-mode "FnLint"
   "Report of the footnote lint of the vault."
   (setq-local header-line-format '(:eval (sp-org-lint-fn--header))))
+
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-org-lint-fn-report-mode 'sp-org-lint-fn-batch-mode "2026-11-09")
+(make-obsolete-variable 'sp-org-lint-fn-report-mode-map 'sp-org-lint-fn-batch-mode-map "2026-11-09")
+
+(defvar sp-org-lint-fn-batch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    map)
+  "Keymap of `sp-org-lint-fn-batch-mode'.")
+
+(define-derived-mode sp-org-lint-fn-batch-mode sp-batch-report-mode "FnLint"
+  "Report of the footnote lint of the vault, in the shared report buffer.
+\\<sp-org-lint-fn-batch-mode-map>\\[sp-org-lint-footnotes-convert] applies the moves, d drops a file from them."
+  (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
+              sp-batch-report-apply-function #'sp-org-lint-footnotes-convert
+              sp-batch-report-redraw-function #'sp-org-lint-fn--render))
+
+(defun sp-org-lint-fn--report-mode ()
+  "The report mode `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p) 'sp-org-lint-fn-batch-mode 'sp-org-lint-fn-report-mode))
 
 (defun sp-org-lint-fn-visit ()
   "Visit the file and line of the report line at point."
@@ -1212,7 +1237,88 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
       (plist-get plan :dangling) (plist-get plan :conflicts)
       (plist-get plan :error)))
 
+(defun sp-org-lint-fn--plan-item (plan)
+  "The report item of PLAN, for `sp-batch-report-text'."
+  (let ((file (plist-get plan :file)))
+    (cl-flet ((at (line text)
+                (concat (sp-batch-report-file-link file (format "line %d" line) line) ": " text)))
+      (list :text ""
+            :file file :label (abbreviate-file-name file)
+            :children
+            (append
+             (when-let* ((err (plist-get plan :error))) (list (format "error: %s" err)))
+             (mapcar (lambda (m)
+                       (at (plist-get m :line)
+                           (format "[fn:%s] %s -> %s%s"
+                                   (plist-get m :label) (plist-get m :from) (plist-get m :to)
+                                   (if (equal (plist-get m :new) (plist-get m :label))
+                                       ""
+                                     (format " (as [fn:%s])" (plist-get m :new))))))
+                     (plist-get plan :moves))
+             (mapcar (lambda (l) (format "orphan: [fn:%s] is defined and never cited" l))
+                     (plist-get plan :orphans))
+             (mapcar (lambda (l) (format "dangling: [fn:%s] is cited and never defined" l))
+                     (plist-get plan :dangling))
+             (mapcar (lambda (c) (format "left alone: [fn:%s] is %s" (car c) (cdr c)))
+                     (plist-get plan :conflicts))
+             (mapcar (lambda (title) (format "the empty \"%s\" heading would be removed" title))
+                     (plist-get plan :removed)))))))
+
+(defun sp-org-lint-fn--batch-text ()
+  "The whole report, as Org text, from the state of the run."
+  (let* ((plans (reverse (sp-org-lint-fn--get :plans)))
+         (results (reverse (sp-org-lint-fn--get :results)))
+         (shown (seq-filter #'sp-org-lint-fn--shown-p
+                            (mapcar (lambda (p)
+                                      ;; What was applied is no longer pending.
+                                      (if (seq-some (lambda (r) (and (eq (plist-get r :status) 'written)
+                                                                     (equal (plist-get r :file)
+                                                                            (plist-get p :file))))
+                                                    results)
+                                          (plist-put (plist-put (copy-sequence p) :moves nil) :removed nil)
+                                        p))
+                                    plans))))
+    (sp-batch-report-text
+     "Footnote lint"
+     (append
+      (when results
+        (list (sp-batch-report-section
+               (format "Applied (backups are in %s)"
+                       (abbreviate-file-name (or (sp-org-lint-fn--get :backup-root) "")))
+               (mapcar (lambda (r)
+                         (list :text (if (eq (plist-get r :status) 'written)
+                                         (format "written (%d move(s)); backup %s"
+                                                 (plist-get r :moves)
+                                                 (abbreviate-file-name (plist-get r :backup)))
+                                       (format "skipped (%s)" (plist-get r :reason)))
+                               :file (plist-get r :file) :label (abbreviate-file-name (plist-get r :file))
+                               :key nil))
+                       results))))
+      (list (sp-batch-report-section "Files with footnotes to look at"
+                                     (mapcar #'sp-org-lint-fn--plan-item shown))))
+     :intro (sp-org-lint-fn--summary)
+     :excluded sp-batch-report-excluded)))
+
+(defun sp-org-lint-fn--render-batch ()
+  "Draw the whole report in the shared view."
+  (let ((inhibit-read-only t)
+        (line (line-number-at-pos)))
+    (erase-buffer)
+    (insert (sp-org-lint-fn--batch-text))
+    (outline-show-all)
+    (goto-char (point-min))
+    (forward-line (1- line))))
+
 (defun sp-org-lint-fn--insert-plan (plan)
+  "Insert the report of PLAN at the end of the buffer, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (goto-char (point-max))
+          (insert (sp-batch-report--item-string (sp-org-lint-fn--plan-item plan)))))
+    (sp-org-lint-fn--insert-plan-old plan)))
+
+(defun sp-org-lint-fn--insert-plan-old (plan)
   "Insert the report of PLAN at the end of the buffer."
   (let ((file (plist-get plan :file))
         (inhibit-read-only t))
@@ -1254,7 +1360,16 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
             (seq-count (lambda (p) (plist-get p :error)) plans))))
 
 (defun sp-org-lint-fn--render ()
-  "Draw the whole report, from the state of the run."
+  "Draw the whole report, from the state of the run, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (sp-org-lint-fn--render-batch)
+    (sp-org-lint-fn--render-old)))
+
+(make-obsolete 'sp-org-lint-fn--render-old 'sp-org-lint-fn--render-batch "2026-11-09")
+(make-obsolete 'sp-org-lint-fn--insert-plan-old 'sp-org-lint-fn--plan-item "2026-11-09")
+
+(defun sp-org-lint-fn--render-old ()
+  "Draw the whole report in the old view, from the state of the run."
   (let ((inhibit-read-only t)
         (plans (reverse (sp-org-lint-fn--get :plans)))
         (results (reverse (sp-org-lint-fn--get :results))))
@@ -1388,7 +1503,9 @@ EXTRA is a plist merged into the control file."
                 :buffer nil
                 :command (list (expand-file-name invocation-name
                                                  invocation-directory)
-                               "-Q" "--batch" "-l" sp-org-lint--library
+                               "-Q" "--batch"
+                               "-L" (file-name-directory sp-org-lint--library)
+                               "-l" sp-org-lint--library
                                "--eval"
                                (format "(sp-org-lint-fn--batch %S)" ctl))
                 :connection-type 'pipe
@@ -1446,14 +1563,20 @@ instead of using the vulpea database."
     (unless files (user-error "No Org files to lint"))
     (with-current-buffer buffer
       (sp-org-lint-fn--stop)
-      (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
-        (sp-org-lint-fn-report-mode))
+      (unless (eq major-mode (sp-org-lint-fn--report-mode))
+        (funcall (sp-org-lint-fn--report-mode)))
       (setq sp-org-lint-fn--run nil)
+      (when (derived-mode-p 'sp-org-lint-fn-batch-mode)
+        (setq sp-batch-report-refresh-function (lambda () (sp-org-lint-footnotes-dryrun))))
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (propertize "Footnote lint\n" 'face 'bold)
-                (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
-                        (length files))))
+        (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+            (insert "#+title: Footnote lint\n\n"
+                    (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n* Files with footnotes to look at\n"
+                            (length files)))
+          (insert (propertize "Footnote lint\n" 'face 'bold)
+                  (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
+                          (length files)))))
       (sp-org-lint-fn--start 'scan files nil))
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
@@ -1466,11 +1589,14 @@ Every file is copied to `sp-org-lint-fn-backup-directory' first.  Files
 that are open with unsaved changes, or that changed since the scan,
 are skipped.  The work is done by a second Emacs."
   (interactive)
-  (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
+  (unless (or (derived-mode-p 'sp-org-lint-fn-report-mode)
+              (derived-mode-p 'sp-org-lint-fn-batch-mode))
     (user-error "Run this in the footnote lint report"))
   (unless (eq (sp-org-lint-fn--get :phase) 'ready)
     (user-error "The scan has not finished"))
-  (let* ((plans (seq-filter (lambda (p) (plist-get p :changed))
+  (let* ((plans (seq-filter (lambda (p) (and (plist-get p :changed)
+                                             (not (member (plist-get p :file)
+                                                          sp-batch-report-excluded))))
                             (sp-org-lint-fn--get :plans)))
          (busy (seq-filter (lambda (p)
                              (when-let* ((b (find-buffer-visiting
@@ -1631,6 +1757,7 @@ What it does not do: it reads =litnotes/= only, so works that exist only as BibT
 (require 'subr-x)
 (require 'org)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -2796,6 +2923,11 @@ a dropped one, A writes what is left, g shows the preview again.")
 
 (defconst sp-author-notes--buffer-name "*Author notes*")
 
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-author-notes-report-mode 'sp-batch-report-mode "2026-11-09")
+(make-obsolete-variable 'sp-author-notes-report-mode-map 'sp-batch-report-mode-map "2026-11-09")
+
 (defun sp-author-notes--short (file)
   "FILE relative to the vault, for the report."
   (let ((root (file-name-as-directory (expand-file-name sp-author-notes-directory))))
@@ -2986,8 +3118,8 @@ a dropped one, A writes what is left, g shows the preview again.")
                 "\nRET visit   g preview again\n"
               "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
 
-(defun sp-author-notes--show (run)
-  "Show the report of RUN."
+(defun sp-author-notes--show-old (run)
+  "Show the report of RUN in the old `sp-author-notes-report-mode'."
   (with-current-buffer (get-buffer-create sp-author-notes--buffer-name)
     (sp-author-notes-report-mode)
     (let ((inhibit-read-only t))
@@ -2996,6 +3128,162 @@ a dropped one, A writes what is left, g shows the preview again.")
       (goto-char (point-min)))
     (pop-to-buffer (current-buffer)))
   run)
+
+(make-obsolete 'sp-author-notes--show-old 'sp-author-notes--show-batch "2026-11-09")
+
+(defun sp-author-notes--key-label (key)
+  "The text of the dropped KEY: an author by name, a note as a link."
+  (if (string-prefix-p "name:" key)
+      (format "author %s" (substring key 5))
+    (sp-batch-report--key-label key)))
+
+(defun sp-author-notes--sections (run)
+  "The sections of the report of RUN, for `sp-batch-report-text'."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (lits (sp-author-notes--run-litnotes run))
+         (people (sp-author-notes--run-people run))
+         (item (lambda (text file line &optional key)
+                 (list :text text :file file :line line
+                       :label (and file (if line
+                                            (format "%s:%d" (sp-author-notes--short file) line)
+                                          (sp-author-notes--short file)))
+                       :key (or key file))))
+         sections)
+    (cl-flet ((add (title items &optional empty)
+                (push (sp-batch-report-section title items empty) sections)))
+      (let ((fixes (cl-loop for (file . r) in lits
+                            append (mapcar (lambda (f) (cons file f)) (plist-get r :fixes))))
+            (suspects (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (f) (cons file f)) (plist-get r :suspects)))))
+        (add (if apply "Meta key typos fixed" "Meta key typos to fix")
+             (mapcar (lambda (f)
+                       (funcall item (format "%s -> %s" (cadr f)
+                                             (or (cdr (sp-author-notes--key-state (cadr f)))
+                                                 sp-author-notes-key))
+                                (car f) (cddr f)))
+                     fixes))
+        (when suspects
+          (add "Possible typos, not changed"
+               (mapcar (lambda (f) (funcall item (format "%s" (cadr f)) (car f) (cddr f)))
+                       suspects))))
+      (add (if apply "Author notes created" "Author notes to create")
+           (mapcar (lambda (m)
+                     (funcall item (car m) (cadr m) nil
+                              (concat "name:" (sp-author-notes--title-key (car m)))))
+                   (if apply
+                       (mapcar (lambda (c) (list (nth 0 c) (nth 2 c)))
+                               (sp-author-notes--run-created run))
+                     (mapcar #'list (sp-author-notes--run-pending run)))))
+      (add (if apply "Plain names turned into links" "Plain names to turn into links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (c) (funcall item (nth 1 c) file (nth 3 c)))
+                                   (plist-get r :converted))))
+      (add "Lists of names with commas, to disambiguate"
+           (cl-loop for (file . r) in lits
+                    append (mapcar
+                            (lambda (a)
+                              (pcase-let ((`(,raw ,names ,line ,chosen)
+                                           (list (nth 1 a) (nth 2 a) (nth 3 a) (nth 4 a))))
+                                (append
+                                 (funcall item (format "\"%s\"" raw) file line)
+                                 (list :children
+                                       (list (format "as %d: %s" (length names)
+                                                     (string-join names " | "))
+                                             (cond (chosen "split into these authors")
+                                                   (apply "left as it is")
+                                                   (t "will ask whether to split it")))))))
+                            (plist-get r :ambiguous))))
+      (add (if apply "Denote links turned into ID links" "Denote links to turn into ID links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (d)
+                                     (funcall item (format "denote:%s -> id:%s" (nth 1 d) (nth 2 d))
+                                              file (nth 3 d)))
+                                   (plist-get r :denoted))))
+      (add (if apply "Notes tagged for authors" "Notes to tag as authors")
+           (mapcar (lambda (tg)
+                     (funcall item (format "%s  + :%s:" (nth 0 tg) sp-author-notes-person-tag)
+                              (nth 2 tg) nil))
+                   (sp-author-notes--run-tagged run)))
+      (add (if apply "Buffers saved first (they had unsaved changes)"
+             "Buffers that will be saved first (unsaved changes)")
+           (mapcar (lambda (f) (funcall item "" f nil)) (sp-author-notes--run-saved run)))
+      (add "Links to an ID that no note has"
+           (mapcar
+            (lambda (o)
+              (pcase-let ((`(,file ,line ,id ,desc ,new ,suggestion) o))
+                (funcall item
+                         (format "%s (\"%s\")  %s" id (or desc "")
+                                 (cond (new (format "-> redirected to %s"
+                                                    (plist-get (gethash new (sp-author-notes--run-by-id run))
+                                                               :title)))
+                                       (apply "left as it is")
+                                       (suggestion (format "will ask; suggestion: %s" suggestion))
+                                       (t "will ask where it should point")))
+                         file line)))
+            (sp-author-notes--run-orphans run)))
+      (let ((changed (seq-filter (lambda (p) (nth 3 p)) people))
+            (same (seq-remove (lambda (p) (nth 3 p)) people)))
+        (add (if apply "Author notes updated" "Author notes to update")
+             (mapcar (lambda (p)
+                       (funcall item (format "%s  + %s" (nth 0 p) (mapconcat #'symbol-name (nth 3 p) ", "))
+                                (nth 2 p) nil))
+                     changed))
+        (add "Author notes already complete"
+             (mapcar (lambda (p) (funcall item (nth 0 p) (nth 2 p) nil)) same))
+        (when apply
+          (add "Tables filled"
+               (list (list :text (format "%d, from the vulpea database; if the links were only just written and the database has not caught up, update a table with C-c C-c"
+                                         (length (sp-author-notes--run-filled run)))
+                           :key nil)))))
+      (let ((unparsed (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (u) (cons file u)) (plist-get r :unparsed)))))
+        (add "Left alone, needs you"
+             (append
+              (mapcar (lambda (u)
+                        (funcall item (format "value mixes links and other text: %s" (cadr u))
+                                 (car u) (cddr u)))
+                      unparsed)
+              (mapcar (lambda (p) (funcall item (nth 2 p) (nth 0 p) (nth 1 p)))
+                      (sp-author-notes--run-problems run))))))
+    (nreverse sections)))
+
+(defun sp-author-notes--show-batch (run)
+  "Show the report of RUN in the shared `sp-batch-report-mode' buffer."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (n (sp-author-notes--change-count run))
+         (authors (length (sp-author-notes--run-authors run)))
+         (reload (lambda (excluded)
+                   (setq sp-author-notes--excluded excluded)
+                   (sp-author-notes-refresh))))
+    (sp-batch-report-open
+     sp-author-notes--buffer-name
+     (sp-batch-report-text
+      (if apply "Author notes: DONE" "Author notes: PREVIEW, nothing has been written")
+      (sp-author-notes--sections run)
+      :excluded sp-author-notes--excluded
+      :key-label #'sp-author-notes--key-label
+      :intro (concat
+              (format "- %d literature notes read in %s\n- %d author%s\n- %d change%s"
+                      (sp-author-notes--run-litnote-count run)
+                      (abbreviate-file-name sp-author-notes-litnotes-directory)
+                      authors (if (= 1 authors) "" "s") n (if (= 1 n) "" "s"))
+              (and apply sp-author-notes-backup-directory (> n 0)
+                   (format "\n- originals copied to %s%s/"
+                           (abbreviate-file-name sp-author-notes-backup-directory)
+                           (sp-author-notes--run-stamp run)))))
+     :refresh reload
+     :excluded sp-author-notes--excluded
+     :apply (unless apply
+              (lambda (excluded)
+                (setq sp-author-notes--excluded excluded)
+                (sp-author-notes-convert))))
+    run))
+
+(defun sp-author-notes--show (run)
+  "Show the report of RUN, in the view `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p)
+      (sp-author-notes--show-batch run)
+    (sp-author-notes--show-old run)))
 
 (defun sp-author-notes-visit ()
   "Visit the file on the report line at point."
@@ -4163,21 +4451,37 @@ Nothing is written.  Return the job."
                             (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
       (buffer-string))))
 
+(defvar sp-litnotes-refs--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
 ;;;###autoload
-(defun sp-litnotes-refs-dryrun ()
+(defun sp-litnotes-refs-dryrun (&optional excluded)
   "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
+when they are read.  EXCLUDED lists notes (files) to leave out; the report's
+\\`d' sets it."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
 
 
 (defun sp-litnotes-refs--show-report (plans index)
-  "Show the report for PLANS and INDEX in `*litnote refs*'."
-  (let ((text (sp-litnotes-refs--report-text plans index)))
-    (sp-batch-report-show "*litnote refs*" text #'sp-litnotes-refs-dryrun)))
+  "Show the report for PLANS and INDEX in `*litnote refs*', without the dropped notes."
+  (let* ((excluded sp-litnotes-refs--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote refs*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-refs--report-text shown index))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (lambda () (sp-litnotes-refs-dryrun sp-litnotes-refs--excluded))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-refs--excluded excl)
+               (sp-litnotes-refs--show-report plans index))
+     :apply (lambda (excl) (sp-litnotes-refs-convert excl))
+     :excluded excluded)))
 
 ;;;; Conversion
 
@@ -4255,7 +4559,7 @@ is left alone.  An open buffer without changes is reverted."
         'written))))
 
 ;;;###autoload
-(defun sp-litnotes-refs-convert ()
+(defun sp-litnotes-refs-convert (&optional excluded)
   "Convert the notes of the report, after showing it and asking three times.
 1. Move =#+reference:= to =ROAM_REFS= in the notes that have an ID.
 2. Create an ID (and move the reference) in the notes that have none.
@@ -4266,14 +4570,19 @@ follow at once, so that nothing interrupts you later.  Each question is
 asked only when there is something to do.  The notes are then written in
 slices, each copied to `sp-litnotes-refs-backup-directory' first; one with
 unsaved changes in its buffer, or changed since the report, is skipped.
-The inbox file is copied too.  Running it again changes nothing."
+The inbox file is copied too.  Running it again changes nothing.
+EXCLUDED lists notes (files) to leave out; the report's \\`A' passes the ones
+dropped with \\`d'."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan #'sp-litnotes-refs--convert-plans))
 
 (defun sp-litnotes-refs--convert-plans (plans index)
   "Show the report of PLANS and INDEX, ask the questions and write what was agreed."
   (sp-litnotes-refs--show-report plans index)
+  (setq plans (sp-batch-report-without-excluded
+               plans (lambda (p) (plist-get p :file)) sp-litnotes-refs--excluded))
   (let* ((todo (cl-remove-if-not
                 (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
                 plans))
@@ -4978,27 +5287,47 @@ Signal a `user-error' at once when the mode is on and there is no .bib file."
     (sp-author-notes-bibtex--files)))
 
 ;;;###autoload
-(defun sp-litnotes-titles-dryrun (&optional bibtex)
+(defun sp-litnotes-titles-dryrun (&optional bibtex excluded)
   "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
 when they are read.  BibTeX, from the prefix argument (\\[universal-argument] is
 `missing', twice is `always'), takes the authors, year and title from the BibTeX
-entry of each key instead of `sp-litnotes-titles-bibtex'; see there."
+entry of each key instead of `sp-litnotes-titles-bibtex'; see there.
+EXCLUDED lists notes (files) to leave out; the report's \\`d' sets it."
   (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
   (sp-litnotes-titles--start bibtex)
   (sp-litnotes-titles--show-report))
 
+
+(defvar sp-litnotes-titles--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
+(defun sp-litnotes-titles--display (plans links &optional callback)
+  "Show the report of PLANS and LINKS, without the dropped notes.
+Call CALLBACK with the plans that are left.  Return them."
+  (let* ((excluded sp-litnotes-titles--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote titles*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-titles--report-text shown links))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (unless callback (lambda () (sp-litnotes-titles--show-report)))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-titles--excluded excl)
+               (sp-litnotes-titles--display plans links))
+     :apply (lambda (excl) (sp-litnotes-titles-convert sp-litnotes-titles--bibtex-mode excl))
+     :excluded excluded)
+    (when callback (funcall callback shown))
+    shown))
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
 Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-titles--scan
-   (lambda (plans links)
-     (let ((text (sp-litnotes-titles--report-text plans links)))
-       (sp-batch-report-show "*litnote titles*" text
-                             (unless callback #'sp-litnotes-titles--show-report)))
-     (when callback (funcall callback plans)))))
+   (lambda (plans links) (sp-litnotes-titles--display plans links callback))))
 
 ;;;; Writing
 
@@ -5171,7 +5500,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-convert (&optional bibtex)
+(defun sp-litnotes-titles-convert (&optional bibtex excluded)
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -5184,8 +5513,10 @@ change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
 links to old names are listed in the report but not changed.  Running it
 again changes nothing.  Only when `sp-async-work-synchronous' is set does
 this return the results, a plist per note.  BibTeX is as in
-`sp-litnotes-titles-dryrun'."
+`sp-litnotes-titles-dryrun'.  EXCLUDED lists notes (files) to leave out;
+the report's \\`A' passes the ones dropped with \\`d'."
   (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
   (sp-litnotes-titles--start bibtex)
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
@@ -5432,6 +5763,35 @@ Test fixtures:
             (should-not (directory-files-recursively backups "a\\.org\\'"))))
       (delete-directory dir t)
       (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-batch-view ()
+  "The shared view: files and lines are links, d drops a file from the apply."
+  (let ((plan (list :file "/tmp/vault/a.org" :changed t :sha "s"
+                    :moves (list (list :label "a" :from "Footnotes" :to "Alpha" :new "a" :line 7))
+                    :orphans '("z"))))
+    (with-temp-buffer
+      (sp-org-lint-fn-batch-mode)
+      (should (derived-mode-p 'sp-batch-report-mode))
+      (setq sp-org-lint-fn--run (list :plans (list plan) :phase 'ready :scanned 1))
+      (sp-org-lint-fn--render)
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org\\]\\[/tmp/vault/a\\.org\\]\\]" (buffer-string)))
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org::7\\]\\[line 7\\]\\]: \\[fn:a\\] Footnotes -> Alpha"
+                              (buffer-string)))
+      (should (string-match-p "orphan: \\[fn:z\\]" (buffer-string)))
+      (goto-char (point-min))
+      (re-search-forward "orphan: ")
+      (sp-batch-report-drop)
+      (should (equal sp-batch-report-excluded '("/tmp/vault/a.org")))
+      (should (string-match-p "Files with footnotes to look at (0)" (buffer-string)))
+      (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+      ;; everything dropped: nothing to apply
+      (should-error (sp-org-lint-footnotes-convert) :type 'user-error)
+      (goto-char (point-min))
+      (re-search-forward "Dropped from the list")
+      (re-search-forward "a\\.org")
+      (sp-batch-report-restore)
+      (should (null sp-batch-report-excluded))
+      (should (string-match-p "Files with footnotes to look at (1)" (buffer-string))))))
 
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here

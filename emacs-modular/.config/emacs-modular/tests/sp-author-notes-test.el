@@ -366,10 +366,11 @@
             (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))))))))
 
 (ert-deftest sp-author-notes-test-report-keys ()
+  "The old view: d, u and RET work on the report lines."
   (sp-author-notes-test--with-vault
     (sp-author-notes-test--write (expand-file-name "litnotes/a.org" vault)
                                  "#+title: x" "" "- pub-author :: Ann Lee" "")
-    (let ((sp-author-notes--excluded nil))
+    (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'old))
       (sp-author-notes-dryrun)
       (with-current-buffer sp-author-notes--buffer-name
         (goto-char (point-min))
@@ -532,3 +533,32 @@
                                 (sp-author-notes-test--read (expand-file-name "ann.org" vault))))
     (should (string-match-p "\\* Edited works"
                             (sp-author-notes-test--read (expand-file-name "bo.org" vault))))))
+
+(ert-deftest sp-author-notes-test-batch-report-keys ()
+  "The shared view: entries are links, d drops by key, u restores, A applies the rest."
+  (sp-author-notes-test--with-vault
+    (let ((file (expand-file-name "litnotes/a.org" vault)))
+      (sp-author-notes-test--write file "#+title: x" "" "- pub-authro :: Ann Lee" "")
+      (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'new))
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+          (sp-author-notes-dryrun))
+        (with-current-buffer sp-author-notes--buffer-name
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (functionp sp-batch-report-apply-function))
+          (should (string-match-p (format "\\[\\[file:%s::3\\]\\[litnotes/a\\.org:3\\]\\]  pub-authro"
+                                          (regexp-quote file))
+                                  (buffer-string)))
+          ;; a candidate author is dropped by name
+          (goto-char (point-min))
+          (re-search-forward "^- Ann Lee")
+          (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+            (sp-batch-report-drop))
+          (should (equal sp-author-notes--excluded '("name:ann lee")))
+          (with-current-buffer sp-author-notes--buffer-name
+            (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+            (should (string-match-p "^- author ann lee" (buffer-string)))
+            (goto-char (point-min))
+            (re-search-forward "^- author ann lee")
+            (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+              (sp-batch-report-restore))
+            (should (null sp-author-notes--excluded))))))))

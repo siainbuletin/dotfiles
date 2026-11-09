@@ -136,5 +136,39 @@
         (should (equal (sp-org-tag-read-note-tags) '("album")))
         (should-not (member "unknown" (sp-org-tag-lint-note-tags)))))))
 
+(ert-deftest sp-org-tag-lint-test-batch-report ()
+  "The shared view: unknown tags with occurrence links, d hides a tag, a registers it."
+  (sp-org-tag-lint-test--with-registry
+    (let* ((dir (file-name-directory copy))
+           (a (expand-file-name "a.org" dir))
+           (b (expand-file-name "b.org" dir))
+           (sp-batch-report-interface 'new))
+      (with-temp-file a
+        (insert (sp-org-tag-lint-test--text "#+filetags: :person:perosn:" "* Task :@home:oops:")))
+      (with-temp-file b (insert (sp-org-tag-lint-test--text "#+title: untagged")))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-org-tag-lint--show (list a b)))
+      (with-current-buffer sp-org-tag-lint--buffer-name
+        (should (derived-mode-p 'sp-batch-report-mode))
+        (should (string-match-p (format "\\[\\[file:%s::2\\]\\[[^]]*a\\.org\\]\\]" (regexp-quote a))
+                                (buffer-string)))
+        (should (string-match-p "Notes without #\\+filetags (1)" (buffer-string)))
+        ;; d hides the tag at point
+        (goto-char (point-min))
+        (re-search-forward "^- :oops:")
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+          (sp-batch-report-drop))
+        (should (equal sp-batch-report-excluded '("tag:oops")))
+        (should (string-match-p "Unregistered tags (1)" (buffer-string)))
+        (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+        ;; a registers the tag of the entry at point
+        (goto-char (point-min))
+        (re-search-forward "^- :perosn:")
+        (let (added)
+          (cl-letf (((symbol-function 'sp-org-tag-add) (lambda (tag) (setq added tag)))
+                    ((symbol-function 'pop-to-buffer) #'ignore))
+            (sp-org-tag-lint-register-at-point))
+          (should (equal added "perosn")))))))
+
 (provide 'sp-org-tag-lint-test)
 ;;; sp-org-tag-lint-test.el ends here

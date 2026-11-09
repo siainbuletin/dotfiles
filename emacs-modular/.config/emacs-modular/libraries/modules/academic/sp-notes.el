@@ -541,15 +541,12 @@ Return the tags that are still unregistered."
 
 (defvar-local sp-notes-filing--current-plan nil)
 
-(defvar sp-notes-filing-report-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'sp-notes-filing-convert)
-    (define-key map (kbd "g") #'sp-notes-filing-dryrun)
-    (define-key map (kbd "q") #'quit-window)
-    map))
+(defvar sp-notes-filing--excluded nil
+  "The files the user dropped from the report; they stay where they are.")
 
 (define-derived-mode sp-notes-filing-report-mode sp-batch-report-mode "NotesFiling"
-  "Dry-run report of `sp-notes-filing-dryrun'.  \\[sp-notes-filing-convert] applies it.")
+  "Dry-run report of `sp-notes-filing-dryrun'.
+The keys are those of `sp-batch-report-mode'; \\[sp-batch-report-apply] applies the plan.")
 
 (defun sp-notes-filing--render (plan)
   "Insert PLAN into the current buffer."
@@ -572,17 +569,33 @@ Return the tags that are still unregistered."
                       (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))))))
 
 ;;;###autoload
-(defun sp-notes-filing-dryrun ()
+(defun sp-notes-filing-dryrun (&optional excluded)
   "Show which notes would move where.  This moves nothing.
-First offers to register the rule tags that the tag registry lacks."
+First offers to register the rule tags that the tag registry lacks.
+EXCLUDED lists the files (their full names) to leave out of the plan."
   (interactive)
   (sp-notes-filing-check-rule-tags)
-  (let ((plan (sp-notes-filing-plan)))
-    (sp-batch-report-show "*Notes filing*"
-                          (with-temp-buffer (sp-notes-filing--render plan) (buffer-string))
-                          #'sp-notes-filing-dryrun #'sp-notes-filing-report-mode)
+  (setq sp-notes-filing--excluded excluded)
+  (sp-notes-filing--show (sp-notes-filing-plan) excluded))
+
+(defun sp-notes-filing--show (plan excluded)
+  "Show PLAN in `*Notes filing*', without the files in EXCLUDED."
+  (let ((shown (sp-batch-report-without-excluded
+                plan (lambda (e) (plist-get e :from)) excluded)))
+    (sp-batch-report-open
+     "*Notes filing*"
+     (concat (sp-batch-report-key-entries
+              (with-temp-buffer (sp-notes-filing--render shown) (buffer-string)))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :mode #'sp-notes-filing-report-mode
+     :refresh (lambda () (sp-notes-filing-dryrun sp-notes-filing--excluded))
+     :redraw (lambda (excl)
+               (setq sp-notes-filing--excluded excl)
+               (sp-notes-filing--show plan excl))
+     :apply (lambda (_excl) (sp-notes-filing-convert))
+     :excluded excluded)
     (with-current-buffer "*Notes filing*"
-      (setq sp-notes-filing--current-plan plan))))
+      (setq sp-notes-filing--current-plan shown))))
 
 
 (defun sp-notes-filing-convert ()

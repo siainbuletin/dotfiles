@@ -16,6 +16,7 @@
 (require 'org)
 (require 'org-element)
 (require 'subr-x)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -518,7 +519,9 @@ relative to it."
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready " Footnote lint: RET visit, a apply, g rescan, q quit")
+      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
+                " Footnote lint: RET visit, a apply, g rescan, q quit"))
       ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
       (_ " Footnote lint"))))
 
@@ -534,6 +537,28 @@ relative to it."
 (define-derived-mode sp-org-lint-fn-report-mode special-mode "FnLint"
   "Report of the footnote lint of the vault."
   (setq-local header-line-format '(:eval (sp-org-lint-fn--header))))
+
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-org-lint-fn-report-mode 'sp-org-lint-fn-batch-mode "2026-11-09")
+(make-obsolete-variable 'sp-org-lint-fn-report-mode-map 'sp-org-lint-fn-batch-mode-map "2026-11-09")
+
+(defvar sp-org-lint-fn-batch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    map)
+  "Keymap of `sp-org-lint-fn-batch-mode'.")
+
+(define-derived-mode sp-org-lint-fn-batch-mode sp-batch-report-mode "FnLint"
+  "Report of the footnote lint of the vault, in the shared report buffer.
+\\<sp-org-lint-fn-batch-mode-map>\\[sp-org-lint-footnotes-convert] applies the moves, d drops a file from them."
+  (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
+              sp-batch-report-apply-function #'sp-org-lint-footnotes-convert
+              sp-batch-report-redraw-function #'sp-org-lint-fn--render))
+
+(defun sp-org-lint-fn--report-mode ()
+  "The report mode `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p) 'sp-org-lint-fn-batch-mode 'sp-org-lint-fn-report-mode))
 
 (defun sp-org-lint-fn-visit ()
   "Visit the file and line of the report line at point."
@@ -551,7 +576,88 @@ relative to it."
       (plist-get plan :dangling) (plist-get plan :conflicts)
       (plist-get plan :error)))
 
+(defun sp-org-lint-fn--plan-item (plan)
+  "The report item of PLAN, for `sp-batch-report-text'."
+  (let ((file (plist-get plan :file)))
+    (cl-flet ((at (line text)
+                (concat (sp-batch-report-file-link file (format "line %d" line) line) ": " text)))
+      (list :text ""
+            :file file :label (abbreviate-file-name file)
+            :children
+            (append
+             (when-let* ((err (plist-get plan :error))) (list (format "error: %s" err)))
+             (mapcar (lambda (m)
+                       (at (plist-get m :line)
+                           (format "[fn:%s] %s -> %s%s"
+                                   (plist-get m :label) (plist-get m :from) (plist-get m :to)
+                                   (if (equal (plist-get m :new) (plist-get m :label))
+                                       ""
+                                     (format " (as [fn:%s])" (plist-get m :new))))))
+                     (plist-get plan :moves))
+             (mapcar (lambda (l) (format "orphan: [fn:%s] is defined and never cited" l))
+                     (plist-get plan :orphans))
+             (mapcar (lambda (l) (format "dangling: [fn:%s] is cited and never defined" l))
+                     (plist-get plan :dangling))
+             (mapcar (lambda (c) (format "left alone: [fn:%s] is %s" (car c) (cdr c)))
+                     (plist-get plan :conflicts))
+             (mapcar (lambda (title) (format "the empty \"%s\" heading would be removed" title))
+                     (plist-get plan :removed)))))))
+
+(defun sp-org-lint-fn--batch-text ()
+  "The whole report, as Org text, from the state of the run."
+  (let* ((plans (reverse (sp-org-lint-fn--get :plans)))
+         (results (reverse (sp-org-lint-fn--get :results)))
+         (shown (seq-filter #'sp-org-lint-fn--shown-p
+                            (mapcar (lambda (p)
+                                      ;; What was applied is no longer pending.
+                                      (if (seq-some (lambda (r) (and (eq (plist-get r :status) 'written)
+                                                                     (equal (plist-get r :file)
+                                                                            (plist-get p :file))))
+                                                    results)
+                                          (plist-put (plist-put (copy-sequence p) :moves nil) :removed nil)
+                                        p))
+                                    plans))))
+    (sp-batch-report-text
+     "Footnote lint"
+     (append
+      (when results
+        (list (sp-batch-report-section
+               (format "Applied (backups are in %s)"
+                       (abbreviate-file-name (or (sp-org-lint-fn--get :backup-root) "")))
+               (mapcar (lambda (r)
+                         (list :text (if (eq (plist-get r :status) 'written)
+                                         (format "written (%d move(s)); backup %s"
+                                                 (plist-get r :moves)
+                                                 (abbreviate-file-name (plist-get r :backup)))
+                                       (format "skipped (%s)" (plist-get r :reason)))
+                               :file (plist-get r :file) :label (abbreviate-file-name (plist-get r :file))
+                               :key nil))
+                       results))))
+      (list (sp-batch-report-section "Files with footnotes to look at"
+                                     (mapcar #'sp-org-lint-fn--plan-item shown))))
+     :intro (sp-org-lint-fn--summary)
+     :excluded sp-batch-report-excluded)))
+
+(defun sp-org-lint-fn--render-batch ()
+  "Draw the whole report in the shared view."
+  (let ((inhibit-read-only t)
+        (line (line-number-at-pos)))
+    (erase-buffer)
+    (insert (sp-org-lint-fn--batch-text))
+    (outline-show-all)
+    (goto-char (point-min))
+    (forward-line (1- line))))
+
 (defun sp-org-lint-fn--insert-plan (plan)
+  "Insert the report of PLAN at the end of the buffer, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (goto-char (point-max))
+          (insert (sp-batch-report--item-string (sp-org-lint-fn--plan-item plan)))))
+    (sp-org-lint-fn--insert-plan-old plan)))
+
+(defun sp-org-lint-fn--insert-plan-old (plan)
   "Insert the report of PLAN at the end of the buffer."
   (let ((file (plist-get plan :file))
         (inhibit-read-only t))
@@ -593,7 +699,16 @@ relative to it."
             (seq-count (lambda (p) (plist-get p :error)) plans))))
 
 (defun sp-org-lint-fn--render ()
-  "Draw the whole report, from the state of the run."
+  "Draw the whole report, from the state of the run, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (sp-org-lint-fn--render-batch)
+    (sp-org-lint-fn--render-old)))
+
+(make-obsolete 'sp-org-lint-fn--render-old 'sp-org-lint-fn--render-batch "2026-11-09")
+(make-obsolete 'sp-org-lint-fn--insert-plan-old 'sp-org-lint-fn--plan-item "2026-11-09")
+
+(defun sp-org-lint-fn--render-old ()
+  "Draw the whole report in the old view, from the state of the run."
   (let ((inhibit-read-only t)
         (plans (reverse (sp-org-lint-fn--get :plans)))
         (results (reverse (sp-org-lint-fn--get :results))))
@@ -715,7 +830,9 @@ EXTRA is a plist merged into the control file."
                 :buffer nil
                 :command (list (expand-file-name invocation-name
                                                  invocation-directory)
-                               "-Q" "--batch" "-l" sp-org-lint--library
+                               "-Q" "--batch"
+                               "-L" (file-name-directory sp-org-lint--library)
+                               "-l" sp-org-lint--library
                                "--eval"
                                (format "(sp-org-lint-fn--batch %S)" ctl))
                 :connection-type 'pipe
@@ -763,14 +880,20 @@ instead of using the vulpea database."
     (unless files (user-error "No Org files to lint"))
     (with-current-buffer buffer
       (sp-org-lint-fn--stop)
-      (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
-        (sp-org-lint-fn-report-mode))
+      (unless (eq major-mode (sp-org-lint-fn--report-mode))
+        (funcall (sp-org-lint-fn--report-mode)))
       (setq sp-org-lint-fn--run nil)
+      (when (derived-mode-p 'sp-org-lint-fn-batch-mode)
+        (setq sp-batch-report-refresh-function (lambda () (sp-org-lint-footnotes-dryrun))))
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (propertize "Footnote lint\n" 'face 'bold)
-                (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
-                        (length files))))
+        (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+            (insert "#+title: Footnote lint\n\n"
+                    (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n* Files with footnotes to look at\n"
+                            (length files)))
+          (insert (propertize "Footnote lint\n" 'face 'bold)
+                  (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
+                          (length files)))))
       (sp-org-lint-fn--start 'scan files nil))
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
@@ -783,11 +906,14 @@ Every file is copied to `sp-org-lint-fn-backup-directory' first.  Files
 that are open with unsaved changes, or that changed since the scan,
 are skipped.  The work is done by a second Emacs."
   (interactive)
-  (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
+  (unless (or (derived-mode-p 'sp-org-lint-fn-report-mode)
+              (derived-mode-p 'sp-org-lint-fn-batch-mode))
     (user-error "Run this in the footnote lint report"))
   (unless (eq (sp-org-lint-fn--get :phase) 'ready)
     (user-error "The scan has not finished"))
-  (let* ((plans (seq-filter (lambda (p) (plist-get p :changed))
+  (let* ((plans (seq-filter (lambda (p) (and (plist-get p :changed)
+                                             (not (member (plist-get p :file)
+                                                          sp-batch-report-excluded))))
                             (sp-org-lint-fn--get :plans)))
          (busy (seq-filter (lambda (p)
                              (when-let* ((b (find-buffer-visiting
