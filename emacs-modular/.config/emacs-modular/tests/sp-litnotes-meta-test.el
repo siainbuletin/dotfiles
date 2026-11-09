@@ -97,7 +97,7 @@
                     ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil)))
             (should (equal (sp-litnotes-meta-fill "doe2015chapter" file)
                            '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project"
-                             "read-status" "relevance-factor")))
+                             "read-status" "relevance-factor" "tag")))
             (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
               (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Jane Doe\\]\\]" text))
               (should (string-match-p "- pub-title :: A Chapter" text))
@@ -106,6 +106,7 @@
               (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text))
               (should (string-match-p "- read-status :: 02-preparing" text))
               (should (string-match-p "- relevance-factor :: 02" text))
+              (should (string-match-p "#\\+filetags: :litnote:incollection:" text))
               (should-not (string-match-p "read-priority" text)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
@@ -411,3 +412,122 @@
   (sp-litnotes-meta-test--with-bib "@mvcollection{vol2020,\n  title = {V},\n}\n@book{b2020,\n  title = {B},\n}\n"
     (should (equal (sp-litnotes-meta--table-view "vol2020") "collection-articles"))
     (should (equal (sp-litnotes-meta--table-view "b2020") "book-sections"))))
+
+;;;; Batch
+
+(defconst sp-litnotes-meta-test--batch-bib
+  "@book{bk2014,
+  author = {Reuten, Geert},
+  title = {The Book},
+  year = {2014},
+}
+@article{art2020,
+  author = {Doe, Jane},
+  title = {Right Title},
+  year = {2020},
+}
+")
+
+(defmacro sp-litnotes-meta-test--with-batch (&rest body)
+  "Run BODY with notes bk, art, nokey, noentry in DIR and a .bib file."
+  (declare (indent 0))
+  `(sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--batch-bib
+     (let* ((dir (make-temp-file "sp-meta-batch" t))
+            (sp-author-notes-litnotes-directory dir)
+            (sp-litnotes-meta-backup-directory (expand-file-name "bak/" dir))
+            (sp-litnotes-meta--created (make-hash-table :test #'equal)))
+       (cl-flet ((note (name text) (with-temp-file (expand-file-name name dir) (insert text))))
+         (note "bk.org" ":PROPERTIES:\n:ID: bk\n:ROAM_REFS: @bk2014\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+         (note "art.org" ":PROPERTIES:\n:ID: art\n:ROAM_REFS: @art2020\n:END:\n#+title: x\n#+filetags: :litnote:text:\n\n- pub-title :: Old Title\n- pub-year :: 2020\n\n")
+         (note "nokey.org" ":PROPERTIES:\n:ID: nk\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+         (note "noentry.org" ":PROPERTIES:\n:ID: ne\n:ROAM_REFS: @missing\n:END:\n#+title: x\n#+filetags: :litnote:\n\n"))
+       (unwind-protect
+           (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+                      (lambda () (directory-files dir t "\\.org\\'")))
+                     ((symbol-function 'sp-litnotes-meta--author-note)
+                      (lambda (name) (cons "aid" name))))
+             ,@body)
+         (delete-directory dir t)))))
+
+(defun sp-litnotes-meta-test--plan-of (plans name)
+  (seq-find (lambda (p) (equal (sp-litnotes-meta--name p) name)) plans))
+
+(ert-deftest sp-litnotes-meta-batch-plan ()
+  (sp-litnotes-meta-test--with-batch
+    (let* ((plans (sp-litnotes-meta--batch-plans nil))
+           (bk (sp-litnotes-meta-test--plan-of plans "bk.org"))
+           (art (sp-litnotes-meta-test--plan-of plans "art.org")))
+      (should (eq (plist-get (sp-litnotes-meta-test--plan-of plans "nokey.org") :status) 'no-key))
+      (should (eq (plist-get (sp-litnotes-meta-test--plan-of plans "noentry.org") :status) 'no-entry))
+      (should (equal (plist-get bk :fill)
+                     '(("pub-author" . "Geert Reuten") ("pub-title" . "The Book") ("pub-year" . "2014"))))
+      (should (equal (plist-get bk :tag) '(add . "book")))
+      (should (member "relevance-factor" (plist-get bk :missing)))
+      ;; art has title and year; only the author is to fill; its text tag is a mismatch
+      (should (equal (plist-get art :fill) '(("pub-author" . "Jane Doe"))))
+      (should (equal (plist-get art :tag) '(mismatch ("text") . "journalarticle")))
+      (should-not (plist-get art :replace))
+      ;; a prefix argument lists the differing title only
+      (let ((art2 (sp-litnotes-meta-test--plan-of (sp-litnotes-meta--batch-plans t) "art.org")))
+        (should (equal (plist-get art2 :replace) '(("pub-title" . "Right Title"))))))))
+
+(ert-deftest sp-litnotes-meta-batch-report-text ()
+  (sp-litnotes-meta-test--with-batch
+    (let ((text (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--batch-plans nil) nil)))
+      (should (string-match-p "To change: 2" text))
+      (should (string-match-p "Skipped: no citation key\n- nokey.org" text))
+      (should (string-match-p "- noentry.org (missing)" text))
+      (should (string-match-p "art.org: has text, the entry type says journalarticle" text)))))
+
+(ert-deftest sp-litnotes-meta-batch-dryrun-writes-nothing ()
+  (sp-litnotes-meta-test--with-batch
+    (let ((before (with-temp-buffer (insert-file-contents (expand-file-name "bk.org" dir)) (buffer-string))))
+      (sp-litnotes-meta-fill-all-dryrun)
+      (should (equal before (with-temp-buffer (insert-file-contents (expand-file-name "bk.org" dir))
+                                              (buffer-string))))
+      (should-not (file-exists-p sp-litnotes-meta-backup-directory))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-batch-convert ()
+  (sp-litnotes-meta-test--with-batch
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) "")))
+      (let ((results (sp-litnotes-meta-fill-all-convert)))
+        (should (equal (cdr (assoc (expand-file-name "bk.org" dir) results))
+                       '("pub-author" "pub-title" "pub-year" "tag")))
+        (let ((bk (with-temp-buffer (insert-file-contents (expand-file-name "bk.org" dir)) (buffer-string)))
+              (art (with-temp-buffer (insert-file-contents (expand-file-name "art.org" dir)) (buffer-string))))
+          (should (string-match-p "#\\+filetags: :litnote:book:" bk))
+          (should (string-match-p "pub-author :: \\[\\[id:aid\\]\\[Geert Reuten\\]\\]" bk))
+          ;; nothing asked: the empty answers left the default lines out
+          (should-not (string-match-p "relevance-factor" bk))
+          ;; existing value kept, tag untouched
+          (should (string-match-p "pub-title :: Old Title" art))
+          (should (string-match-p ":litnote:text:" art)))
+        (should (= 2 (length (directory-files (car (directory-files sp-litnotes-meta-backup-directory t "\\`[0-9]"))
+                                              nil "\\.org\\'"))))
+        ;; a second run has nothing left to do
+        (should-not (sp-litnotes-meta-fill-all-convert)))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-batch-convert-overwrite ()
+  (sp-litnotes-meta-test--with-batch
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) "")))
+      (sp-litnotes-meta-fill-all-convert t)
+      (should (string-match-p "pub-title :: Right Title"
+                              (with-temp-buffer (insert-file-contents (expand-file-name "art.org" dir))
+                                                (buffer-string))))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-type-tag-keeps-existing ()
+  (let ((entry '(("=type=" . "book"))))
+    (with-temp-buffer
+      (insert "#+title: T\n#+filetags: :litnote:phdthesis:\n")
+      (should-not (sp-litnotes-meta--ensure-type-tag entry)))
+    (with-temp-buffer
+      (insert "#+title: T\n\n")
+      (should (sp-litnotes-meta--ensure-type-tag entry))
+      (should (string-match-p "#\\+title: T\n#\\+filetags: :litnote:book:\n" (buffer-string))))))
