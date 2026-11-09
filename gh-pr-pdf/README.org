@@ -14,7 +14,14 @@ writes =./dotfiles-prs/= with:
 - =org/pr-00012.org=, ...: one file per pull request, in number order, plus =all.org= with all of them. Each has a property drawer (=:PR_NUMBER:=, =:STATE:=, =:AUTHOR:=, =:URL:=) for org-ql, and the description, conversation, reviews, inline review comments (with their diff hunk) and the commit list. Every commit is a link to =https://github.com/OWNER/REPO/commit/<sha>=.
 - =dotfiles-prs.pdf=: the same text, paginated, with a table of contents of the pull requests and clickable links. The Typst source (=.typ=) stays next to it.
 
-Options: =--discussions= (also fetch Discussions), =--skip-fetch= (render from =backup/=), =--no-pdf= (org files only), =--per-pdf N= (several PDFs of N items), =--reverse= (newest first), =--private= (private repository), =-o DIR= (output folder).
+** Options: 
+- =--discussions= (also fetch Discussions), 
+- =--skip-fetch= (render from =backup/=), 
+- =--no-pdf= (org files only), 
+- =--per-pdf N= (several PDFs of N items), 
+- =--reverse= (newest first), 
+- =--private= (private repository), 
+- =-o DIR= (output folder).
 
 * Needs
 
