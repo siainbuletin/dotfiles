@@ -48,6 +48,9 @@ keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
 pub-pages) compares the first number in the text (9-30 before 31-99);
 :REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
 keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
+:BIBTEX shows the citation keys of ROAM_REFS as links that open the BibTeX
+entry (and offer the `embark-act' actions of citar); :DT-PAGE links to the
+page of the top-level PDF in DEVONthink where the note's pub-pages start;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
 columns, applied in order: the first is the primary key and each next
 one breaks the ties of those before it.  An element may be (COLUMN . asc)
@@ -61,7 +64,7 @@ same name.")
 
 (defconst sp-collec-query-builtin-columns
   '(:title :tags :todo :level :priority :id :file :path :sections :pages :check
-    :refs :pdf :devonthink)
+    :refs :pdf :devonthink :bibtex :dt-page)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -256,18 +259,64 @@ JSON.stringify(out);"
    (mapcar #'file-name-nondirectory
            (seq-mapcat #'sp-collec-query--root-files notes))))
 
-(defun sp-collec-query--dt-links (note)
-  "Return the DEVONthink item links of NOTE's top-level files, each once."
+(defun sp-collec-query--dt-record-uuids (note)
+  "Return the DEVONthink UUIDs of NOTE's top-level files, each once.
+Files DEVONthink does not know are left out."
   (let ((files (mapcar #'file-name-nondirectory (sp-collec-query--root-files note))))
     (sp-collec-query--dt-lookup files)
-    (mapconcat (lambda (name)
-                 (format "[[x-devonthink-item://%s][x]]"
-                         (gethash name sp-collec-query--dt-uuids)))
-               (seq-uniq (seq-filter (lambda (n) (stringp (gethash n sp-collec-query--dt-uuids)))
-                                     files)
-                         (lambda (a b) (equal (gethash a sp-collec-query--dt-uuids)
-                                              (gethash b sp-collec-query--dt-uuids))))
-               ", ")))
+    (seq-uniq (seq-filter #'stringp
+                          (mapcar (lambda (name) (gethash name sp-collec-query--dt-uuids))
+                                  files)))))
+
+(defun sp-collec-query--dt-links (note)
+  "Return the DEVONthink item links of NOTE's top-level files, each once."
+  (mapconcat (lambda (uuid) (format "[[x-devonthink-item://%s][x]]" uuid))
+             (sp-collec-query--dt-record-uuids note) ", "))
+
+(defcustom sp-collec-query-dt-page-offset 0
+  "Pages of the PDF in front of the printed page 1.
+Added to the first number of pub-pages to find the PDF page, so with a
+preface of 12 pages the printed page 1 is page 13.  A book or collection
+note may set its own with the meta key `sp-collec-query-dt-offset-prop'."
+  :type 'integer
+  :group 'sp-collec-query)
+
+(defcustom sp-collec-query-dt-offset-prop "pdf-offset"
+  "Meta key of a book or collection note that sets the page offset of its PDF.
+It takes the place of `sp-collec-query-dt-page-offset' for the sections
+whose bib-parent links to that note."
+  :type 'string
+  :group 'sp-collec-query)
+
+(defvar sp-collec-query-check-parent-prop)
+
+(defun sp-collec-query--dt-page-offset (note)
+  "Return the page offset for the PDF of NOTE's parent, else the default."
+  (or (ignore-errors
+        (and-let* ((id (car (vulpea-note-meta-get-list
+                             note sp-collec-query-check-parent-prop 'link)))
+                   (parent (vulpea-db-get-by-id id))
+                   (text (car (vulpea-note-meta-get-list
+                               parent sp-collec-query-dt-offset-prop)))
+                   ((string-match-p "\\`[-+]?[0-9]+\\'" (string-trim text))))
+          (string-to-number text)))
+      sp-collec-query-dt-page-offset))
+
+(defun sp-collec-query--dt-page-links (note)
+  "Return links to the page of NOTE's top-level PDF where its pub-pages start.
+The link is an x-devonthink-item URL with the page parameter, which counts
+pages from 0; its text is the printed page.  Without a number in pub-pages
+the link opens the PDF at its first page."
+  (let ((printed (sp-collec-query-first-page
+                  (car (vulpea-note-meta-get-list note "pub-pages"))))
+        (offset (sp-collec-query--dt-page-offset note)))
+    (mapconcat
+     (lambda (uuid)
+       (if printed
+           (format "[[x-devonthink-item://%s?page=%d][p. %d]]"
+                   uuid (max 0 (+ printed offset -1)) printed)
+         (format "[[x-devonthink-item://%s][open]]" uuid)))
+     (sp-collec-query--dt-record-uuids note) ", ")))
 
 (defcustom sp-collec-query-check-rules
   '(("booksection" . "book") ("incollection" . "collection"))
@@ -331,6 +380,9 @@ naming a meta key (several values are joined with \", \")."
     (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
     (:pdf (sp-collec-query--pdf-links note))
     (:devonthink (sp-collec-query--dt-links note))
+    (:dt-page (sp-collec-query--dt-page-links note))
+    (:bibtex (mapconcat (lambda (key) (concat "@" key))
+                        (sp-collec-query--citekeys note) " "))
     (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
@@ -358,6 +410,27 @@ Following the link opens the note in Org, like the :title column does."
 (with-eval-after-load 'org
   (org-link-set-parameters "sp-bib" :follow #'sp-collec-query--open-bib-entry))
 
+(defvar embark-target-finders)
+
+(defun sp-collec-query--bib-key-at-point ()
+  "Return an embark target for the sp-bib: link at point, or nil.
+The target is a `citar-key', so `embark-act' offers the actions of citar
+\(open the entry, the files, the notes, the links, copy the reference).
+The link is found by its text property in the vui and exc tables and as
+an Org link in the dynamic block and the Org buffer."
+  (let ((link (or (get-text-property (point) 'sp-org-link) ; already unescaped
+                  (and (derived-mode-p 'org-mode)
+                       (let ((context (org-element-context)))
+                         (and (eq (org-element-type context) 'link)
+                              (org-link-unescape
+                               (org-element-property :raw-link context))))))))
+    (when (and (stringp link) (string-prefix-p "sp-bib:" link))
+      (cons 'citar-key (substring link (length "sp-bib:"))))))
+
+(with-eval-after-load 'embark
+  (require 'citar-embark nil t)
+  (add-hook 'embark-target-finders #'sp-collec-query--bib-key-at-point))
+
 (defun sp-collec-query--refs-links (text)
   "Return TEXT with each citation key in it written as an sp-bib: link."
   (replace-regexp-in-string
@@ -382,7 +455,7 @@ open their BibTeX entry and the columns of `sp-collec-query-note-link-columns'
 open the note.  Sorting
 keeps using `sp-collec-query-cell', so it still compares the plain text."
   (let ((text (sp-collec-query-cell note column)))
-    (cond ((eq column :refs) (sp-collec-query--refs-links text))
+    (cond ((memq column '(:refs :bibtex)) (sp-collec-query--refs-links text))
           ((and (stringp column) (member column sp-collec-query-note-link-columns))
            (sp-collec-query--note-link note text))
           ((or (eq column :id) (stringp column))
@@ -392,6 +465,8 @@ keeps using `sp-collec-query-cell', so it still compares the plain text."
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (cond ((eq column :devonthink) "DT")
+        ((eq column :dt-page) "DT page")
+        ((eq column :bibtex) "BibTeX")
         ((keywordp column) (capitalize (substring (symbol-name column) 1)))
         (t column)))
 
@@ -487,7 +562,7 @@ dropped from the count when no note has the ID."
 
 (defun sp-collec-query--warm (notes spec)
   "Return NOTES, after looking up what the columns of SPEC need in one go."
-  (when (memq :devonthink (plist-get spec :columns))
+  (when (seq-intersection '(:devonthink :dt-page) (plist-get spec :columns))
     (sp-collec-query--dt-warm notes))
   notes)
 

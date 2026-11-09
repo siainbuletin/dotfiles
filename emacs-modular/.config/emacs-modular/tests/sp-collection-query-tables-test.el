@@ -223,3 +223,57 @@
     (should-not (sp-collec-query-note-matches-p other spec))
     ;; without :except-prop both match
     (should (sp-collec-query-note-matches-p both (list :parent-of "p" :parent-prop "pub-editor")))))
+
+;;;; :bibtex and :dt-page
+
+(ert-deftest sp-collec-query-test-bibtex-column ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@smith2020 cite:jones2021 https://x.org")))))
+    (should (equal (sp-collec-query-cell note :bibtex) "@smith2020 @jones2021"))
+    (should (equal (sp-collec-query-display-cell note :bibtex)
+                   "[[sp-bib:smith2020][@smith2020]] [[sp-bib:jones2021][@jones2021]]"))
+    (should (equal (sp-collec-query-cell '(:title "y") :bibtex) ""))
+    (should (equal (sp-collec-query-header-label :bibtex) "BibTeX"))))
+
+(ert-deftest sp-collec-query-test-bib-key-at-point ()
+  (with-temp-buffer
+    (insert (propertize "@k" 'sp-org-link "sp-bib:a b"))
+    (goto-char 1)
+    (should (equal (sp-collec-query--bib-key-at-point) '(citar-key . "a b"))))
+  (with-temp-buffer
+    (insert (propertize "x" 'sp-org-link "id:1"))
+    (goto-char 1)
+    (should-not (sp-collec-query--bib-key-at-point))))
+
+(ert-deftest sp-collec-query-test-dt-page-column ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1"))
+                :meta (("pub-pages" "pp. 41-60"))))
+        (preface '(:title "p" :props (("ROAM_REFS" . "@chap1")) :meta (("pub-pages" "ix-xii")))))
+    (puthash "book 1.pdf" "UUID-1" sp-collec-query--dt-uuids)
+    (should (equal (sp-collec-query-header-label :dt-page) "DT page"))
+    (should (equal (sp-collec-query-cell note :dt-page)
+                   "[[x-devonthink-item://UUID-1?page=40][p. 41]]"))
+    (should (equal (sp-collec-query-cell preface :dt-page)
+                   "[[x-devonthink-item://UUID-1][open]]"))
+    (let ((sp-collec-query-dt-page-offset 12))
+      (should (equal (sp-collec-query-cell note :dt-page)
+                     "[[x-devonthink-item://UUID-1?page=52][p. 41]]")))
+    (should (equal (sp-collec-query-cell '(:title "y" :meta (("pub-pages" "3"))) :dt-page) ""))))
+
+(ert-deftest sp-collec-query-test-dt-page-offset-from-parent ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1"))
+                :meta (("pub-pages" "10") ("bib-parent" "PARENT"))))
+        (sp-collec-query-test-db '(("PARENT" . (:title "b" :meta (("pdf-offset" "7")))))))
+    (puthash "book 1.pdf" "UUID-1" sp-collec-query--dt-uuids)
+    (should (equal (sp-collec-query-cell note :dt-page)
+                   "[[x-devonthink-item://UUID-1?page=16][p. 10]]"))))
+
+(ert-deftest sp-collec-query-test-bib-key-at-point-in-org-buffer ()
+  (with-temp-buffer
+    (delay-mode-hooks (org-mode))
+    (insert "| [[sp-bib:smith2020][@smith2020]] |")
+    (goto-char 8)
+    (should (equal (sp-collec-query--bib-key-at-point) '(citar-key . "smith2020")))
+    (erase-buffer)
+    (insert "[[id:1][x]]")
+    (goto-char 5)
+    (should-not (sp-collec-query--bib-key-at-point))))

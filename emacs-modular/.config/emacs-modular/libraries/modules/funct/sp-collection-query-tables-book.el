@@ -36,9 +36,11 @@
   :group 'sp-collec-query-book)
 
 (defcustom sp-collec-query-book-columns
-  '(:pages :title "pub-author")
+  '(:pages :title "pub-author" :bibtex :dt-page)
   "Columns of a section table, see `sp-collec-query-spec-keys'.
-:PAGES is the text of pub-pages; the table is sorted on its first number."
+:PAGES is the text of pub-pages; the table is sorted on its first number.
+:BIBTEX opens the BibTeX entry of the section's ROAM_REFS and :DT-PAGE the
+page of the book's PDF in DEVONthink where the section starts."
   :type '(repeat (choice symbol string))
   :group 'sp-collec-query-book)
 
