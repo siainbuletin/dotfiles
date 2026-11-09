@@ -3,7 +3,7 @@
 ;;; Commentary:
 
 ;; A new literature note gets pub-author (linked to author notes, made when
-;; missing), pub-title, pub-year, bib-parent (from the crossref) and
+;; missing), pub-title, pub-year, pub-pages, bib-parent (from the crossref) and
 ;; bib-project (picked) from its BibTeX entry.  It also sets read-status
 ;; and asks for relevance-factor and read-priority; `sp-litnotes-meta-status-report'
 ;; lists all statuses and changes several at once.  See the doc
@@ -169,6 +169,12 @@ Signal a `user-error' when there is no .bib file."
         (or (sp-litnotes-meta--field parent "year")
             (when-let* ((date (sp-litnotes-meta--field parent "date")))
               (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))))))
+
+(defun sp-litnotes-meta--pages (entry)
+  "The pages of ENTRY, with every kind of dash between the numbers made a single hyphen.
+So `9--30' and `9–30' both give `9-30'.  Nil without a pages field."
+  (when-let* ((pages (sp-litnotes-meta--field entry "pages")))
+    (string-trim (replace-regexp-in-string "[ \t]*\\(?:-+\\|\u2013\\|\u2014\\)[ \t]*" "-" pages))))
 
 (defun sp-litnotes-meta--author-names (entry &optional field)
   "The names in the FIELD of ENTRY (default author), as First Last."
@@ -385,7 +391,7 @@ Return `added' or `filled', or nil when the line already has a value."
   "Fill the meta lines of the literature note of KEY from its BibTeX entry.
 FILE is the note; by default the current buffer's file, else the note
 found for KEY.  Lines that have a value are left alone, except the pub-author,
-pub-editor, pub-title and pub-year ones when OVERWRITE is non-nil (a prefix
+pub-editor, pub-title, pub-year and pub-pages ones when OVERWRITE is non-nil (a prefix
 argument).  A note without a type tag gets the tag of the BibTeX entry type
 (`sp-bibtex-types').  Return the lines that were changed, and \"tag\" when the
 tag was added.  A crossref'd entry without a note gets one (see
@@ -407,6 +413,7 @@ tag was added.  A crossref'd entry without a note gets one (see
                         ("pub-editor" . ,(lambda () (sp-litnotes-meta--authors-value entry "editor")))
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
+                        ("pub-pages" . ,(lambda () (sp-litnotes-meta--pages entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
                         ("bib-project" . ,#'sp-litnotes-meta--read-project)
                         ("read-status" . ,(lambda () sp-litnotes-meta-initial-read-status))
@@ -945,10 +952,10 @@ Every run makes a sub-folder named with the time."
   :type 'directory
   :group 'sp-litnotes-meta)
 
-(defconst sp-litnotes-meta--bib-keys '("pub-author" "pub-editor" "pub-title" "pub-year" "bib-parent")
+(defconst sp-litnotes-meta--bib-keys '("pub-author" "pub-editor" "pub-title" "pub-year" "pub-pages" "bib-parent")
   "The meta lines that come from the BibTeX entry.")
 
-(defconst sp-litnotes-meta--overwritable '("pub-author" "pub-editor" "pub-title" "pub-year")
+(defconst sp-litnotes-meta--overwritable '("pub-author" "pub-editor" "pub-title" "pub-year" "pub-pages")
   "The meta lines a prefix argument replaces.  bib-parent is a link to a note and stays.")
 
 (defconst sp-litnotes-meta--default-keys '("bib-project" "read-status" "relevance-factor" "read-priority")
@@ -984,6 +991,7 @@ is for the convert step."
                     (string-join names ", ")))
     ("pub-title" (sp-litnotes-meta--field entry "title"))
     ("pub-year" (sp-litnotes-meta--year entry))
+    ("pub-pages" (sp-litnotes-meta--pages entry))
     ("bib-parent" (sp-litnotes-meta--field entry "crossref"))))
 
 (defun sp-litnotes-meta--differs-p (key entry)
@@ -1294,7 +1302,7 @@ once before writing, then copies each note to a time-stamped folder in
 `sp-litnotes-meta-backup-directory' and fills it like `sp-litnotes-meta-fill'.
 
 - A line that has a value is left alone, except the pub-author, pub-editor,
-  pub-title and pub-year ones that differ from the BibTeX entry: they are
+  pub-title, pub-year and pub-pages ones that differ from the BibTeX entry: they are
   updated while `sp-litnotes-meta-update-changed' is non-nil (the default) or
   with a prefix argument (OVERWRITE).  bib-parent is never replaced here; see
   `sp-litnotes-meta-parent-lint-convert'.

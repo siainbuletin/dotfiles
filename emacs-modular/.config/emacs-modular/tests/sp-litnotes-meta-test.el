@@ -633,6 +633,12 @@
   title = {Right Title},
   year = {2020},
 }
+@incollection{pg2021,
+  author = {Roe, Rick},
+  title = {Pages Chapter},
+  year = {2021},
+  pages = {9--30},
+}
 ")
 
 (defmacro sp-litnotes-meta-test--with-batch (&rest body)
@@ -658,6 +664,53 @@
 
 (defun sp-litnotes-meta-test--plan-of (plans name)
   (seq-find (lambda (p) (equal (sp-litnotes-meta--name p) name)) plans))
+
+(ert-deftest sp-litnotes-meta-pages-normalised ()
+  (sp-litnotes-meta-test--with-bib
+      "@article{a, pages = {9--30}}
+@article{b, pages = {9 \u2013 30}}
+@article{c, pages = {12}}
+@article{d, title = {No pages}}
+@article{e, pages = {1-5, 9--10}}
+"
+    (should (equal (sp-litnotes-meta--pages (sp-litnotes-meta--entry "a")) "9-30"))
+    (should (equal (sp-litnotes-meta--pages (sp-litnotes-meta--entry "b")) "9-30"))
+    (should (equal (sp-litnotes-meta--pages (sp-litnotes-meta--entry "c")) "12"))
+    (should-not (sp-litnotes-meta--pages (sp-litnotes-meta--entry "d")))
+    (should (equal (sp-litnotes-meta--pages (sp-litnotes-meta--entry "e")) "1-5, 9-10"))))
+
+(ert-deftest sp-litnotes-meta-pages-fill-and-update ()
+  "pub-pages is filled when empty (single and batch), and updated when it differs."
+  (sp-litnotes-meta-test--with-batch
+    (with-temp-file (expand-file-name "pg.org" dir)
+      (insert ":PROPERTIES:\n:ID: pg\n:ROAM_REFS: @pg2021\n:END:\n#+title: x\n#+filetags: :litnote:incollection:\n\n- pub-pages :: 5-6\n\n"))
+    (with-temp-file (expand-file-name "pg2.org" dir)
+      (insert ":PROPERTIES:\n:ID: pg2\n:ROAM_REFS: @pg2021\n:END:\n#+title: x\n#+filetags: :litnote:incollection:\n\n"))
+    ;; dry run plans: empty note fills pub-pages, differing one lists a replace
+    (let* ((plans (sp-litnotes-meta--batch-plans t))
+           (pg (sp-litnotes-meta-test--plan-of plans "pg.org"))
+           (pg2 (sp-litnotes-meta-test--plan-of plans "pg2.org")))
+      (should (equal (cdr (assoc "pub-pages" (plist-get pg2 :fill))) "9-30"))
+      (should (equal (plist-get pg :replace) '(("pub-pages" . "9-30"))))
+      (should (equal (plist-get pg :old) '(("pub-pages" . "5-6")))))
+    ;; without the update the differing value stays
+    (should-not (assoc "pub-pages" (plist-get (sp-litnotes-meta-test--plan-of
+                                               (sp-litnotes-meta--batch-plans nil) "pg.org")
+                                              :replace)))
+    ;; single path (what convert calls per note)
+    (let ((sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority")))
+          (file (expand-file-name "pg2.org" dir)))
+      (sp-litnotes-meta-fill "pg2021" file)
+      (with-temp-buffer (insert-file-contents file)
+                        (should (string-match-p "- pub-pages :: 9-30" (buffer-string)))))
+    (let ((sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority")))
+          (file (expand-file-name "pg.org" dir)))
+      (sp-litnotes-meta-fill "pg2021" file nil)
+      (with-temp-buffer (insert-file-contents file)
+                        (should (string-match-p "- pub-pages :: 5-6" (buffer-string))))
+      (sp-litnotes-meta-fill "pg2021" file t)
+      (with-temp-buffer (insert-file-contents file)
+                        (should (string-match-p "- pub-pages :: 9-30" (buffer-string)))))))
 
 (ert-deftest sp-litnotes-meta-batch-plan ()
   (sp-litnotes-meta-test--with-batch
