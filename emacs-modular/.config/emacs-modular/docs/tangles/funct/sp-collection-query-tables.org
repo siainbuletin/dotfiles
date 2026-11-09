@@ -92,7 +92,7 @@ In a note, the same spec is the parameter list of a dynamic block:
 | =C-c w v= | =sp-collec-query-open-view=      | Open a saved view                                    |
 | =C-c w V= | =sp-collec-query-view-save=      | Open the menu to save a view (was: prompts)          |
 | =C-c w t= | =sp-collec-query-inline-toggle=  | Live inline tables in this note (vui)                |
-| =C-c w b= | =sp-collec-query-book-open=     | Sections of this book or collection, in page order  |
+| =C-c w B= | =sp-collec-query-book-open=     | Sections of this book or collection, in page order  |
 
 *Views as templates for dynamic blocks*
 
@@ -398,7 +398,7 @@ buffer is redrawn with SPEC instead of opening another."
 (keymap-global-set "C-c w v" #'sp-collec-query-open-view)
 (keymap-global-set "C-c w V" #'sp-collec-query-view-save)
 (keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
-(keymap-global-set "C-c w b" #'sp-collec-query-book-open)
+(keymap-global-set "C-c w B" #'sp-collec-query-book-open)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3174,7 +3174,7 @@ NOTE in :SECTIONS, nil when NOTE is the book itself), :PREVIOUS and :NEXT
 
 ** The command
 
-- =M-x sp-collec-query-book-open= (=C-c w b=) opens the table for the note at point.
+- =M-x sp-collec-query-book-open= (=C-c w B=) opens the table for the note at point.
   - The note may be the book or one of its sections.
   - Anywhere else it asks for a book or collection.
 
@@ -3419,7 +3419,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - Tested in Emacs 29.3 batch with citar stubbed
     - not run in the real vault or the exc and vui widgets.
 - [[https://github.com/siainbuletin/dotfiles/pull/329][#329]]
-  - ✨ Added =sp-collection-query-tables-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w b= (=sp-collec-query-book-open=).
+  - ✨ Added =sp-collection-query-tables-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w B= (=sp-collec-query-book-open=).
   - ✨ Added the =:pages= and =:page= columns to the query tables (the =pub-pages= text and its first number).
   - ✨ Added the "Book position" =vulpea-ui= widget (=sp-collection-query-tables-book-widget=): the sections in page order, the current one marked, previous and next buttons.
   - Tested in Emacs 29.3 batch with stubbed Vulpea (6 tests in =tests/sp-collection-query-tables-book-test.el=)

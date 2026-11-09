@@ -136,7 +136,7 @@ buffer is redrawn with SPEC instead of opening another."
 (keymap-global-set "C-c w v" #'sp-collec-query-open-view)
 (keymap-global-set "C-c w V" #'sp-collec-query-view-save)
 (keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
-(keymap-global-set "C-c w b" #'sp-collec-query-book-open)
+(keymap-global-set "C-c w B" #'sp-collec-query-book-open)
 
 (provide 'sp-collection-query-tables)
 ;;; sp-collection-query-tables.el ends here
