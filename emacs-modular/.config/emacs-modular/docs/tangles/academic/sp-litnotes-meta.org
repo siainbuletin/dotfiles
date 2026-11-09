@@ -681,8 +681,8 @@ act on all of them."
   - Citar's own file template writes =#+title: Notes on <author>, <title>= and a =#+print_bibliography:= line.
   - =#+print_bibliography:= is the Org-cite marker that prints the bibliography of the cited works at that place; a litnote has no citations to print, so the line is removed.
   - The title is replaced by =sp-litnotes-meta--new-title=, per =sp-litnotes-meta-new-title=:
-    - =title= (default): the BibTeX title alone.
-    - =standard=: "Last (Year) Title", as =sp-litnotes-titles-convert= writes it.
+    - =title=: the BibTeX title alone.
+    - =standard= (default): "Last (Year) Title", as =sp-litnotes-titles-convert= writes it.
   - A title that does not start with "Notes on" is left alone.
 - The note is made with the =citar-vulpea= notes source when it is registered, whatever =citar-notes-source= is, so citar's file template is not used at all.
 - Not run on the real vault.
@@ -733,7 +733,7 @@ Entries that already have a litnote are left out."
 (defvar citar-notes-sources)
 (defvar citar-notes-source)
 
-(defcustom sp-litnotes-meta-new-title 'title
+(defcustom sp-litnotes-meta-new-title 'standard
   "What the title of a litnote made by the backfill is.
 `title' is the title of the BibTeX entry alone.  `standard' is the
 Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."

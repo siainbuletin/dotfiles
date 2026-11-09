@@ -289,15 +289,15 @@
             (with-temp-file file (insert text))
             (should (sp-litnotes-meta--tidy-new-note "doe2015chapter"))
             (let ((new (with-temp-buffer (insert-file-contents file) (buffer-string))))
-              (should (string-match-p "^#\\+title: A Chapter$" new))
+              (should (string-match-p "^#\\+title: Doe (2014) A Chapter$" new))
               (should-not (string-match-p "print_bibliography\\|Notes on" new))
               (should (string-match-p "- pub-year :: 2014" new)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta--tidy-new-note "doe2015chapter"))
-            ;; the standard form is available
-            (let ((sp-litnotes-meta-new-title 'standard))
+            ;; the plain title is available
+            (let ((sp-litnotes-meta-new-title 'title))
               (should (equal (sp-litnotes-meta--new-title (sp-litnotes-meta--entry "doe2015chapter"))
-                             "Doe (2014) A Chapter"))))
+                             "A Chapter"))))
         (delete-directory dir t)))))
 
 (ert-deftest sp-litnotes-meta-offer-to-create-parent ()

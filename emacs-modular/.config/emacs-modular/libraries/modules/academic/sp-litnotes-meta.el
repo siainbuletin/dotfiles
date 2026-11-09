@@ -592,7 +592,7 @@ Entries that already have a litnote are left out."
 (defvar citar-notes-sources)
 (defvar citar-notes-source)
 
-(defcustom sp-litnotes-meta-new-title 'title
+(defcustom sp-litnotes-meta-new-title 'standard
   "What the title of a litnote made by the backfill is.
 `title' is the title of the BibTeX entry alone.  `standard' is the
 Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."
