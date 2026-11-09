@@ -149,14 +149,54 @@ Signal a `user-error' when there is no .bib file."
           (when-let* ((entry (ignore-errors (bibtex-parse-entry t))))
             (throw 'found entry)))))))
 
+(defconst sp-litnotes-meta--quote-pairs
+  '((?\" . ?\") (?\u201C . ?\u201D) (?\u201E . ?\u201C) (?\u2018 . ?\u2019) (?\' . ?\'))
+  "Opening and closing quote characters that `sp-litnotes-meta--unquote' strips.
+Straight and curly, double and single, and the German low-high pair.")
+
+(defun sp-litnotes-meta--wrapped-p (value)
+  "Non-nil when the first character of VALUE is a quote closed by its last character.
+The quote must enclose the whole value: in `\"A\" and \"B\"' the first one closes
+after the A, so it does not."
+  (let* ((open (aref value 0))
+         (close (cdr (assq open sp-litnotes-meta--quote-pairs)))
+         (last (1- (length value)))
+         (depth 0) (ok t) (i 0))
+    (while (and ok (<= i last))
+      (let ((c (aref value i)))
+        (cond ((eq open close)
+               (when (and (eq c open) (> i 0) (< i last)) (setq ok nil)))
+              ((eq c open) (cl-incf depth))
+              ((eq c close)
+               (cl-decf depth)
+               (when (and (<= depth 0) (< i last)) (setq ok nil)))))
+      (cl-incf i))
+    (and ok close (eq (aref value last) close) (or (eq open close) (= depth 0)))))
+
+(defun sp-litnotes-meta--unquote (value)
+  "VALUE without the quotes that enclose all of it, or nil when it has none.
+Only quotes around the whole value go; quotes inside stay.  Quotes around quotes
+(`\"\u201CA\u201D\"') are all removed.  A value that is only quotes gives nil."
+  (let ((value (string-trim value)) result)
+    (while (and (>= (length value) 2)
+                (sp-litnotes-meta--wrapped-p value)
+                (not (string-empty-p (string-trim (substring value 1 -1)))))
+      (setq value (string-trim (substring value 1 -1))
+            result value))
+    result))
+
 (defun sp-litnotes-meta--field (entry name)
-  "The field NAME of ENTRY, braces removed and white space collapsed, or nil."
+  "The field NAME of ENTRY, braces removed and white space collapsed, or nil.
+A title that BibTeX holds inside quotes (`{\"Title\"}') loses them."
   (when-let* ((value (cdr (assoc-string name entry t)))
               (clean (string-trim (replace-regexp-in-string
                                    "[ \t\n]+" " "
                                    (replace-regexp-in-string
                                     "[{}]" "" (sp-author-notes-latex-to-unicode value))))))
-    (and (not (string-empty-p clean)) clean)))
+    (and (not (string-empty-p clean))
+         (if (string-equal-ignore-case name "title")
+             (or (sp-litnotes-meta--unquote clean) clean)
+           clean))))
 
 (defun sp-litnotes-meta--year (entry)
   "The year of ENTRY: its year, the year in its date, else that of its crossref."
@@ -403,7 +443,8 @@ found for KEY.  Lines that have a value are left alone, except the pub-author,
 pub-editor, pub-title, pub-year and pub-pages ones when OVERWRITE is non-nil (a prefix
 argument).  A note without a type tag gets the tag of the BibTeX entry type
 (`sp-bibtex-types').  Return the lines that were changed, and \"tag\" when the
-tag was added.  A crossref'd entry without a note gets one (see
+tag was added.  A pub-title with quotes around all of it loses them, with or
+without OVERWRITE.  A crossref'd entry without a note gets one (see
 `sp-litnotes-meta-create-parent'), linked in bib-parent."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
                          (user-error "No citation key in the ROAM_REFS of this buffer"))
@@ -441,6 +482,12 @@ tag was added.  A crossref'd entry without a note gets one (see
                       ((not (equal value (sp-litnotes-meta--buffer-meta (car spec))))
                        (sp-litnotes-meta--put (car spec) value)
                        (push (car spec) changed)))))))
+        ;; A quoted pub-title that was not replaced above loses its quotes.
+        (when-let* (((not (member "pub-title" changed)))
+                    (raw (sp-litnotes-meta--buffer-meta "pub-title"))
+                    (new (sp-litnotes-meta--unquote raw)))
+          (sp-litnotes-meta--put "pub-title" new)
+          (push "pub-title" changed))
         (when (sp-litnotes-meta--ensure-type-tag entry) (push "tag" changed))
         (when (and sp-litnotes-meta-order-meta (sp-vulpea-meta-order-buffer))
           (push "order" changed))
@@ -1028,10 +1075,12 @@ the default keys (project, status, relevance, priority) the note lacks,
 :new-parents lists the crossref key when it would get a new note (see
 `sp-litnotes-meta--missing-parents'; COVERED is the table of existing notes,
 read when nil), :old holds the current value of each :replace key, :chain is a crossref chain deeper than two levels (see
-`sp-litnotes-meta--crossref-chain'; bib-parent is not planned then), and :tag
-is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
+`sp-litnotes-meta--crossref-chain'; bib-parent is not planned then), :tag
+is (add . TAG) or (mismatch FOUND . EXPECTED), or nil, and :unquote is
+\(OLD . NEW) when the pub-title has quotes around all of it and is not replaced
+anyway, else nil."
   (let* ((chain (sp-litnotes-meta--crossref-chain entry))
-         fill replace old missing tag new-parents)
+         fill replace old missing tag new-parents unquote)
     (dolist (key sp-litnotes-meta--bib-keys)
       (when-let* (((not (and chain (equal key "bib-parent"))))
                   (value (sp-litnotes-meta--preview-value key entry)))
@@ -1042,6 +1091,10 @@ is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
                (sp-litnotes-meta--differs-p key entry))
           (push (cons key value) replace)
           (push (cons key (sp-litnotes-meta--buffer-meta key)) old)))))
+    (when-let* (((not (assoc "pub-title" replace)))
+                (raw (sp-litnotes-meta--buffer-meta "pub-title"))
+                (new (sp-litnotes-meta--unquote raw)))
+      (setq unquote (cons raw new)))
     (when (and sp-litnotes-meta-create-parent (assoc "bib-parent" fill))
       (setq new-parents (sp-litnotes-meta--missing-parents
                          entry (or covered (sp-author-notes-bibtex--covered)))))
@@ -1054,6 +1107,7 @@ is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
             ((not (member expected known)) (setq tag (cons 'mismatch (cons known expected))))))
     (list :fill (nreverse fill) :replace (nreverse replace) :old (nreverse old)
           :missing (nreverse missing) :new-parents new-parents :chain chain :tag tag
+          :unquote unquote
           :order (and sp-litnotes-meta-order-meta
                       (let ((old (sp-vulpea-meta-order-block-keys)))
                         (not (sp-vulpea-meta-order-sorted-p
@@ -1094,7 +1148,14 @@ existing notes, to read once for all files."
   "Non-nil when the batch would change the note of PLAN."
   (and (eq (plist-get plan :status) 'ok)
        (or (plist-get plan :fill) (plist-get plan :replace) (plist-get plan :order)
+           (plist-get plan :unquote)
            (eq (car (plist-get plan :tag)) 'add))))
+
+(defun sp-litnotes-meta--unquote-only-p (plan)
+  "Non-nil when the only change of PLAN is removing the quotes of the pub-title."
+  (and (plist-get plan :unquote)
+       (not (or (plist-get plan :fill) (plist-get plan :replace) (plist-get plan :order)
+                (eq (car (plist-get plan :tag)) 'add)))))
 
 (defun sp-litnotes-meta--batch-plans (overwrite)
   "The plans of all notes tagged `sp-litnotes-meta-batch-tag'.
@@ -1123,6 +1184,8 @@ The .bib files are read once for all of them."
   "The report of PLANS as text.  OVERWRITE says whether a prefix argument was given."
   (let* ((ok (seq-filter (lambda (p) (eq (plist-get p :status) 'ok)) plans))
          (todo (seq-filter #'sp-litnotes-meta--actionable-p plans))
+         (listed (seq-remove #'sp-litnotes-meta--unquote-only-p todo))
+         (quoted (seq-filter (lambda (p) (plist-get p :unquote)) ok))
          (no-key (seq-filter (lambda (p) (eq (plist-get p :status) 'no-key)) plans))
          (no-entry (seq-filter (lambda (p) (eq (plist-get p :status) 'no-entry)) plans))
          (mismatch (seq-filter (lambda (p) (eq (car (plist-get p :tag)) 'mismatch)) ok))
@@ -1132,11 +1195,11 @@ The .bib files are read once for all of them."
       (insert (format "Litnote meta fill: %d notes tagged %s%s\n\n"
                       (length plans) sp-litnotes-meta-batch-tag
                       (if overwrite ", updating pub-* values that differ from the .bib" "")))
-      (insert (format "- To change: %d\n- Already complete: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n\n"
-                      (length todo) (- (length ok) (length todo))
+      (insert (format "- To change: %d\n- Already complete: %d\n- Quoted pub-title: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n\n"
+                      (length listed) (- (length ok) (length todo)) (length quoted)
                       (length no-key) (length no-entry) (length parents) (length chains)))
       (insert "* To change\n")
-      (dolist (plan todo)
+      (dolist (plan listed)
         (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)))
         (dolist (item (plist-get plan :fill))
           (insert (format "  - fill %s :: %s%s\n" (car item) (cdr item)
@@ -1146,10 +1209,16 @@ The .bib files are read once for all of them."
         (dolist (item (plist-get plan :replace))
           (insert (format "  - update %s :: %s -> %s\n" (car item)
                           (or (cdr (assoc (car item) (plist-get plan :old))) "") (cdr item))))
+        (when-let* ((q (plist-get plan :unquote)))
+          (insert (format "  - unquote pub-title :: %s -> %s\n" (car q) (cdr q))))
         (when (eq (car (plist-get plan :tag)) 'add)
           (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag)))))
         (when (plist-get plan :order)
           (insert "  - order the meta lines\n")))
+      (insert "\n* Quoted pub-title (the enclosing quotes are removed)\n")
+      (dolist (plan quoted)
+        (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan)
+                        (car (plist-get plan :unquote)) (cdr (plist-get plan :unquote)))))
       (insert "\n* Parent notes to make (each once, from the crossref)\n")
       (dolist (parent parents)
         (insert (format "- %s: %s (linked from %s)\n" (car parent)
@@ -1257,6 +1326,10 @@ nil, which leaves the line alone."
                                                            (or (cdr (assoc (car i) (plist-get plan :old))) "")
                                                            (cdr i)))
                                        (plist-get plan :replace))
+                               (and (plist-get plan :unquote)
+                                    (list (format "unquote pub-title (%s -> %s)"
+                                                  (car (plist-get plan :unquote))
+                                                  (cdr (plist-get plan :unquote)))))
                                (and (plist-get plan :order) '("order the meta lines"))
                                (and (eq (car (plist-get plan :tag)) 'add)
                                     (list (concat "add the tag " (cdr (plist-get plan :tag))))))
@@ -1555,6 +1628,138 @@ file to `fixed', `removed' or the error text."
                    (seq-count (lambda (r) (stringp (cdr r))) results)
                    (sp-batch-report-batches-note run))
           (sp-litnotes-meta--parent-show (sp-litnotes-meta--parent-plans))
+          results)))))
+
+;;;; Lint pub-title
+
+(defconst sp-litnotes-meta--title-buffer "*litnote pub-title lint*")
+
+(defvar sp-litnotes-meta--title-excluded nil
+  "The notes (files) dropped from the pub-title report with `d'.")
+
+(defun sp-litnotes-meta--title-plan (file)
+  "The quotes problem of the pub-title of the note FILE, as a plist, or nil.
+:current is the line as written, :expected the title without the quotes that
+enclose all of it.  A note without pub-title, or without such quotes, gives nil."
+  (let ((current (with-temp-buffer
+                   (insert-file-contents file)
+                   (sp-litnotes-meta--buffer-meta "pub-title"))))
+    (when-let* ((current)
+                (expected (sp-litnotes-meta--unquote current)))
+      (list :file file :current current :expected expected))))
+
+(defun sp-litnotes-meta--title-plans ()
+  "The quoted pub-titles of all notes tagged `sp-litnotes-meta-batch-tag'."
+  (delq nil (mapcar #'sp-litnotes-meta--title-plan (sp-litnotes-meta--batch-files))))
+
+(defun sp-litnotes-meta--title-item (plan)
+  "The report item of PLAN."
+  (sp-batch-report-item
+   (file-name-nondirectory (plist-get plan :file))
+   :file (plist-get plan :file)
+   :children (list (format "now :: %s" (plist-get plan :current))
+                   (format "should be :: %s" (plist-get plan :expected)))))
+
+(defun sp-litnotes-meta--title-report (plans excluded)
+  "The report text of PLANS without the dropped notes EXCLUDED."
+  (sp-batch-report-key-entries
+   (sp-batch-report-text
+    "Litnote pub-title lint"
+    (list (sp-batch-report-section
+           "The pub-title has quotes around all of it"
+           (mapcar #'sp-litnotes-meta--title-item plans)))
+    :intro (format "- A fix removes the enclosing quotes (straight or curly) and keeps the ones inside.\n- =d= drops a note for later, =u= brings it back, =A= fixes the rest (%d at a time)."
+                   (or sp-batch-report-batch-size (length plans)))
+    :excluded excluded)))
+
+(defun sp-litnotes-meta--title-show (plans)
+  "Show the report of PLANS; the notes dropped with `d' are left out."
+  (let ((excluded sp-litnotes-meta--title-excluded))
+    (sp-batch-report-open
+     sp-litnotes-meta--title-buffer
+     (sp-litnotes-meta--title-report plans excluded)
+     :refresh (lambda () (sp-litnotes-meta-title-lint-dryrun sp-litnotes-meta--title-excluded))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-meta--title-excluded excl)
+               (sp-litnotes-meta--title-show plans))
+     :apply (lambda (excl) (sp-litnotes-meta-title-lint-convert excl))
+     :excluded excluded)))
+
+;;;###autoload
+(defun sp-litnotes-meta-title-lint-dryrun (&optional excluded)
+  "List the notes whose pub-title has quotes around all of it; write nothing.
+Looks at every note tagged `sp-litnotes-meta-batch-tag', with or without a
+BibTeX entry.  EXCLUDED lists notes (files) to leave out; the report's \\`d'
+drops one, \\`u' brings it back and \\`A' runs `sp-litnotes-meta-title-lint-convert'.
+Return the plans."
+  (interactive)
+  (setq sp-litnotes-meta--title-excluded excluded)
+  (let ((plans (sp-litnotes-meta--title-plans)))
+    (sp-litnotes-meta--title-show plans)
+    (sp-batch-report-without-excluded plans (lambda (p) (plist-get p :file)) excluded)))
+
+(defun sp-litnotes-meta--title-choose (plan)
+  "Ask what to do with the pub-title of PLAN: `fix' or nil to skip."
+  (pcase (read-char-choice
+          (format "%s: pub-title %s -> %s.  [f]ix, [s]kip? "
+                  (file-name-nondirectory (plist-get plan :file))
+                  (plist-get plan :current) (plist-get plan :expected))
+          '(?f ?s))
+    (?f 'fix) (_ nil)))
+
+(defun sp-litnotes-meta--title-apply (plan stamp)
+  "Back up the note of PLAN and remove the quotes of its pub-title; return `fixed'."
+  (let* ((file (plist-get plan :file))
+         (buf (find-buffer-visiting file)))
+    (when (and buf (buffer-modified-p buf))
+      (user-error "%s has unsaved changes" (file-name-nondirectory file)))
+    (sp-litnotes-meta--backup file stamp)
+    (with-current-buffer (or buf (find-file-noselect file))
+      (sp-litnotes-meta--put "pub-title" (plist-get plan :expected))
+      (save-buffer)
+      (unless buf (kill-buffer)))
+    (when (fboundp 'vulpea-db-update-file)
+      (ignore-errors (vulpea-db-update-file file)))
+    'fixed))
+
+;;;###autoload
+(defun sp-litnotes-meta-title-lint-convert (&optional excluded)
+  "Remove the quotes around the pub-title of the notes the dry run lists.
+Asks once, then goes through the notes in batches of `sp-batch-report-batch-size'
+\(50).  Before each batch you fix it all, choose note by note (fix or skip),
+skip it or quit; what was not reached stays as it was.  Each note is copied to
+a time-stamped folder in `sp-litnotes-meta-backup-directory' first; a note with
+unsaved changes is skipped and listed.  EXCLUDED lists notes (files) to leave
+out; the report's \\`A' passes the ones dropped with \\`d'.  Return an alist of
+file to `fixed' or the error text."
+  (interactive)
+  (setq sp-litnotes-meta--title-excluded excluded)
+  (let* ((plans (sp-litnotes-meta--title-plans))
+         (todo (sp-batch-report-without-excluded plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-litnotes-meta--title-show plans)
+    (if (null todo)
+        (progn (message "No quoted pub-title to fix.") nil)
+      (when (yes-or-no-p (format "Remove the quotes of the pub-title of %d litnotes, %d at a time (backups in %s)? "
+                                 (length todo) (or sp-batch-report-batch-size (length todo))
+                                 sp-litnotes-meta-backup-directory))
+        (let* ((stamp (format-time-string "%Y%m%d-%H%M%S"))
+               results
+               (run (sp-batch-report-run-batches
+                     todo
+                     (lambda (plan _decision)
+                       (push (cons (plist-get plan :file)
+                                   (condition-case err
+                                       (sp-litnotes-meta--title-apply plan stamp)
+                                     (error (error-message-string err))))
+                             results))
+                     :label "pub-title lint"
+                     :choose #'sp-litnotes-meta--title-choose)))
+          (setq results (nreverse results))
+          (message "pub-title: %d fixed, %d failed%s"
+                   (seq-count (lambda (r) (eq (cdr r) 'fixed)) results)
+                   (seq-count (lambda (r) (stringp (cdr r))) results)
+                   (sp-batch-report-batches-note run))
+          (sp-litnotes-meta--title-show (sp-litnotes-meta--title-plans))
           results)))))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
