@@ -1127,6 +1127,10 @@ Loads =sp-vulpea-convert-keywords=, the sibling command for file-header keywords
 
 #+begin_src emacs-lisp -i
 (require 'sp-vulpea-convert-keywords)
+
+;; Ordering the meta lines by key (single note and batch)
+
+(require 'sp-vulpea-meta-order)
 #+end_src
 
 *** Grouped backlinks comment

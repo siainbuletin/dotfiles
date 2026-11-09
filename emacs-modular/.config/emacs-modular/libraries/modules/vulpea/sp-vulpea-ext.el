@@ -39,6 +39,10 @@
 
 (require 'sp-vulpea-convert-keywords)
 
+;; Ordering the meta lines by key (single note and batch)
+
+(require 'sp-vulpea-meta-order)
+
 ;; Grouping backlinks based on the property that it's representing
 
 (require 'sp-vulpea-grouped-backlinks)
