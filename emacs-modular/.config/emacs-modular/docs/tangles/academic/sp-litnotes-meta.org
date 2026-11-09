@@ -18,7 +18,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 | =pub-editor= | The same for the =editor= field |
 | =pub-title=  | The =title= field, without braces                                                              |
 | =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
-| =bib-parent= | A link to the literature note of the =crossref= entry, when the entry has a crossref           |
+| =bib-parent= | A link to the literature note of the =crossref= entry; the note is made when it does not exist  |
 | =bib-project= | A link picked in the minibuffer; the default is the thesis project                            |
 | =read-status= | Set without asking to =02-preparing= (=sp-litnotes-meta-initial-read-status=) |
 | =relevance-factor= | Asked; =01= to =05=, =01= is the most relevant (=sp-litnotes-meta-relevance-scale=) |
@@ -30,7 +30,22 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 - *Authors are matched by name.* The name is flipped to "First Last" (=sp-author-notes-flip-names=) and compared, ignoring case, with the title of every note in the Vulpea database. A note tagged =person= wins over other notes of the same title. With several =person= notes of that name you pick one. No fuzzy matching here: =M-x sp-author-notes= already finds likely duplicates later.
 - *A new author note* is written by =sp-org--write-note= (the same function =sp-author-notes= uses), with an ID and the =person= tag, and linked from the litnote. The names made during the session are remembered, because the database does not know them until it syncs, and two books by the same new author must not make two notes.
 - *Editors* go to =pub-editor= and authors to =pub-author=; both are looked up and made as author notes alike. An entry with only editors (a collected volume) gets only =pub-editor=.
-- *=bib-parent= may create the parent note.* A crossref'd entry is linked when it has a literature note (found as =sp-author-notes-bibtex= finds covered keys). If it has none, you are asked whether to create it (=sp-litnotes-meta-offer-parent=). Creating it goes through =citar-create-note=, so the parent is filled the same way, with its own authors, editors and project question. If you say no, or it still is not found, the line is left out and a message names the key.
+- *=bib-parent= makes the parent note when it is missing.*
+  - The parent is the entry named by =crossref=. It is found by its citation key (the =ROAM_REFS= key, as =sp-author-notes-bibtex= finds covered keys), never by its title.
+  - A parent that has a note is linked as it is.
+  - A parent without a note is made, without asking, by the same path as =sp-litnotes-meta-backfill-children= (see "Backfill the chapters of a book"):
+    - =sp-litnotes-meta-create-function= makes the file: =vulpea-create=, an =:ID:=, =:CREATED:=, ROAM_REFS, the =litnote= tag and the BibTeX type tag of =sp-bibtex-types=.
+    - The new note is filled from its own BibTeX entry like any other note (authors, title, year, and its own crossref).
+    - It gets a plain title (=sp-litnotes-meta-new-title=), and it is put in the Vulpea database.
+    - The child then links it in =bib-parent=.
+  - Set =sp-litnotes-meta-create-parent= (old name =sp-litnotes-meta-offer-parent=) to nil to leave =bib-parent= out when the parent has no note, as before.
+  - *A crossref chain deeper than two levels is flagged and left alone.*
+    - A normal crossref is two levels: =child -> parent=, and the parent has no crossref.
+    - =parent -> child -> grandchild= (the parent has a crossref too) is not a pattern you use, so it is treated as a data error.
+    - A loop, and an entry that crosses to itself, are chains of this kind.
+    - For such an entry nothing is made and =bib-parent= is left out, even when the parent already has a note. A message names the chain, and the dry run lists it.
+    - So a new parent never has a crossref of its own, and no recursion or depth limit is needed.
+  - The line is also left out, with a message that names the key, when the parent key has no BibTeX entry.
 - *=bib-project= is asked only when the note has none.* The picker lists the notes tagged =project=, with the thesis as default (=sp-litnotes-meta-default-project=).
 - *=relevance-factor= and =read-priority= are asked only when the note lacks them.*
   - Both use the scale =01= to =05=, where =01= is the most relevant, or the first to read.
@@ -117,10 +132,15 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
   :type 'string
   :group 'sp-litnotes-meta)
 
-(defcustom sp-litnotes-meta-offer-parent t
-  "Non-nil to offer to create the literature note of a crossref'd entry that has none."
+(defcustom sp-litnotes-meta-create-parent t
+  "Non-nil to make the literature note of a crossref'd entry that has none.
+The note is made like those of `sp-litnotes-meta-backfill-children', filled
+from BibTeX, and linked in bib-parent.  Nil leaves bib-parent out instead."
   :type 'boolean
   :group 'sp-litnotes-meta)
+
+(define-obsolete-variable-alias 'sp-litnotes-meta-offer-parent
+  'sp-litnotes-meta-create-parent "2026-11-09")
 
 (defcustom sp-litnotes-meta-initial-read-status "02-preparing"
   "The read-status a new literature note gets, without asking."
@@ -154,8 +174,9 @@ This is for `sp-litnotes-meta-fill' and the batch commands."
   "An alist of meta key to value that `sp-litnotes-meta-fill' uses instead of asking.
 A value of nil in it means: leave the line out, do not ask.")
 
-(defvar sp-litnotes-meta--depth 0
-  "How many parent notes are being made inside each other.")
+(defvar sp-litnotes-meta--made-parents nil
+  "A hash table of citation key to (ID . TITLE) for the parent notes made in this run, or nil.
+The batch binds it: its table of existing notes is read once, so it does not see them.")
 
 (defvar sp-litnotes-meta--created (make-hash-table :test #'equal)
   "Author notes made in this session: title key to (ID . TITLE).")
@@ -298,6 +319,10 @@ Signal a `user-error' when there is no .bib file."
 
 ** The parent and the project
 
+- =sp-litnotes-meta--make-parent-note= makes a missing parent and fills it; =sp-litnotes-meta--parent-value= calls it.
+- =sp-litnotes-meta--crossref-chain= finds a chain deeper than two levels (a loop or a self-reference included); =sp-litnotes-meta--parent-value= leaves such a =bib-parent= out.
+- A note that already has a file is never made again: the lookup by key comes first.
+
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--note-for-key (key)
   "The literature note of the citation KEY as (ID . TITLE), or nil."
@@ -306,21 +331,81 @@ Signal a `user-error' when there is no .bib file."
               (id (plist-get head :id)))
     (cons id (or (plist-get head :title) key))))
 
+(defun sp-litnotes-meta--crossref-chain (entry)
+  "The keys of a crossref chain below ENTRY that is deeper than two levels, or nil.
+That is (PARENT GRANDPARENT ...) when the entry the crossref of ENTRY names has a
+crossref itself.  A loop, and an entry that crosses to itself, count: the
+chain is followed until a key repeats, or has no crossref or no BibTeX entry.
+A parent that has no crossref, the normal case, gives nil."
+  (let ((ref (sp-litnotes-meta--field entry "crossref"))
+        chain)
+    (while (and ref (not (member ref chain)))
+      (push ref chain)
+      (setq ref (when-let* ((parent (sp-litnotes-meta--entry ref)))
+                  (sp-litnotes-meta--field parent "crossref"))))
+    ;; One key and no crossref after it is the normal case.  REF left over
+    ;; means a loop (it is in CHAIN already), which counts, a self-reference too.
+    (and (or (cdr chain) ref) (nreverse chain))))
+
+(defun sp-litnotes-meta--make-parent-note (ref)
+  "Make the literature note of the crossref'd key REF; return (ID . TITLE), or nil.
+The note is made by `sp-litnotes-meta-create-function' (the way the backfill
+of the chapters makes notes), filled from BibTeX, given a plain title and put
+in the Vulpea database.  Nothing is made, and a message says why, when REF
+has no BibTeX entry.  Callers have checked `sp-litnotes-meta--crossref-chain',
+so REF has no crossref of its own."
+  (cond
+   ((null (sp-litnotes-meta--entry ref))
+    (message "sp-litnotes-meta: no BibTeX entry %s, bib-parent left empty" ref)
+    nil)
+   (t
+    (condition-case err
+        (let ((file (funcall sp-litnotes-meta-create-function ref)))
+          ;; Not `citar-create-note', so its advice does not fill the note.
+          ;; The parent follows the normal rules, whatever the child was allowed.
+          (let ((sp-litnotes-meta--allow-chain nil))
+            (sp-litnotes-meta-fill ref file)
+            (sp-litnotes-meta--tidy-new-note ref file))
+          (when (fboundp 'vulpea-db-update-file)
+            (ignore-errors (vulpea-db-update-file file)))
+          (when-let* ((head (sp-author-notes--file-head file))
+                      (id (plist-get head :id)))
+            (let ((target (cons id (or (plist-get head :title) ref))))
+              (when sp-litnotes-meta--made-parents
+                (puthash ref target sp-litnotes-meta--made-parents))
+              (message "Made the parent note %s" ref)
+              target)))
+      (error (message "sp-litnotes-meta: parent %s: %s" ref (error-message-string err))
+             nil)))))
+
+(defvar sp-litnotes-meta--allow-chain nil
+  "Non-nil when a crossref chain deeper than two levels is converted anyway.
+`sp-litnotes-meta-fill-deep-chain' binds it; a parent note made then is
+filled with it off.")
+
+(defun sp-litnotes-meta--flag-chain (ref entry)
+  "Non-nil, with a message, when the crossref REF of ENTRY starts a deep chain.
+Always nil while `sp-litnotes-meta--allow-chain' is non-nil."
+  (when-let* (((not sp-litnotes-meta--allow-chain))
+              (chain (sp-litnotes-meta--crossref-chain entry)))
+    (message "sp-litnotes-meta: crossref chain %s is deeper than two levels, bib-parent left empty (%s)"
+             (string-join chain " -> ") ref)
+    t))
+
 (defun sp-litnotes-meta--parent-value (entry)
-  "The bib-parent value for ENTRY: a link to the note of its crossref, or nil."
+  "The bib-parent value for ENTRY: a link to the note of its crossref, or nil.
+A crossref without a note gets one (`sp-litnotes-meta--make-parent-note')
+unless `sp-litnotes-meta-create-parent' is nil.  A crossref chain deeper
+than two levels (parent -> child -> grandchild) is left out and flagged by
+a message, whether or not the notes exist."
   (when-let* ((ref (sp-litnotes-meta--field entry "crossref")))
-    (or (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+    (or (when-let* (((not (sp-litnotes-meta--flag-chain ref entry)))
+                    (target (or (sp-litnotes-meta--note-for-key ref)
+                                (and sp-litnotes-meta--made-parents
+                                     (gethash ref sp-litnotes-meta--made-parents))
+                                (and sp-litnotes-meta-create-parent
+                                     (sp-litnotes-meta--make-parent-note ref)))))
           (sp-litnotes-meta--link target))
-        (when (and sp-litnotes-meta-offer-parent
-                   (< sp-litnotes-meta--depth 3)
-                   (y-or-n-p (format "%s has no literature note.  Create it? " ref)))
-          (let ((sp-litnotes-meta--depth (1+ sp-litnotes-meta--depth)))
-            (citar-create-note ref)
-            ;; The advice fills it; fill it here when the advice is off.
-            (unless sp-litnotes-meta-auto
-              (ignore-errors (sp-litnotes-meta-fill ref))))
-          (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
-            (sp-litnotes-meta--link target)))
         (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
                nil))))
 
@@ -413,7 +498,8 @@ found for KEY.  Lines that have a value are left alone, except the pub-author,
 pub-editor, pub-title and pub-year ones when OVERWRITE is non-nil (a prefix
 argument).  A note without a type tag gets the tag of the BibTeX entry type
 (`sp-bibtex-types').  Return the lines that were changed, and \"tag\" when the
-tag was added."
+tag was added.  A crossref'd entry without a note gets one (see
+`sp-litnotes-meta-create-parent'), linked in bib-parent."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
                          (user-error "No citation key in the ROAM_REFS of this buffer"))
                      buffer-file-name current-prefix-arg))
@@ -454,6 +540,47 @@ tag was added."
         (when changed (save-buffer))
         (unless buf (kill-buffer))
         (nreverse changed)))))
+#+end_src
+
+** Fill a deep crossref chain anyway
+
+- =sp-litnotes-meta-fill= and the batch leave a note alone when its crossref chain is deeper than two levels (flagged in the dry run).
+- =M-x sp-litnotes-meta-fill-deep-chain= converts one such note on purpose:
+  - It works on the note you are in, by its =ROAM_REFS= key.
+  - It refuses a note whose chain is not deep; use =sp-litnotes-meta-fill= for that.
+  - It shows the chain (=ch -> b -> c=) and asks once with =yes-or-no-p=.
+  - It then fills the note like =sp-litnotes-meta-fill=, and links or makes the direct parent in =bib-parent=.
+  - The parent is filled with the normal rules (=sp-litnotes-meta--allow-chain= is off for it):
+    - a loop is cut there, as the parent's own =bib-parent= is flagged;
+    - the grandparent is made only when the parent's chain is no deeper.
+- There is no batch version: each deep chain is converted by hand.
+
+#+begin_src emacs-lisp
+(defun sp-litnotes-meta--deep-chain-p (key)
+  "The crossref chain of the BibTeX entry KEY when it is deeper than two levels, or nil."
+  (when-let* ((entry (sp-litnotes-meta--entry key)))
+    (sp-litnotes-meta--crossref-chain entry)))
+
+;;;###autoload
+(defun sp-litnotes-meta-fill-deep-chain (key &optional file)
+  "Fill the note of KEY although its crossref chain is deeper than two levels.
+`sp-litnotes-meta-fill' and the batch leave such a note's bib-parent out and
+make no parent note.  This command is the way to convert one anyway: it shows
+the chain, asks once, then fills the note of KEY (the current buffer's file
+unless FILE) like `sp-litnotes-meta-fill' and links or makes its direct parent.
+The parent is then filled with the normal rules, so a loop is cut there and the
+grandparent is made only when the parent's chain is no deeper.  Return what
+`sp-litnotes-meta-fill' returns."
+  (interactive (list (or (sp-litnotes-meta--buffer-key)
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))
+                     buffer-file-name))
+  (let ((chain (or (sp-litnotes-meta--deep-chain-p key)
+                   (user-error "%s has no crossref chain deeper than two levels; use sp-litnotes-meta-fill"
+                               key))))
+    (when (yes-or-no-p (format "%s -> %s: fill it anyway and link or make its parent? "
+                               key (string-join chain " -> ")))
+      (let ((sp-litnotes-meta--allow-chain t))
+        (sp-litnotes-meta-fill key file)))))
 #+end_src
 
 ** Read-status report
@@ -1034,6 +1161,11 @@ Every run makes a sub-folder named with the time."
 - The plan of a note is a plist: its key, a status, the lines to fill or replace, the default lines it lacks, and a type-tag action.
 - Status =no-key=: the note has no citation key in =ROAM_REFS= or =#+reference:=. It is skipped and listed.
 - Status =no-entry=: none of its keys is in the registered .bib files. It is skipped and listed.
+- =:new-parents= is the crossref key when it would get a new note, else empty:
+  - It is empty when the parent has a note, has no BibTeX entry, or the chain is deep.
+  - It is empty when =sp-litnotes-meta-create-parent= is nil.
+- =:chain= is a crossref chain deeper than two levels, as the list of keys after the note's own (=sp-litnotes-meta--crossref-chain=). =bib-parent= is not planned for it.
+  - The table of existing notes is read once for all notes (=covered=).
 - Authors are shown as plain names. The author notes are looked up or made only by the convert command.
 - With a prefix argument, a pub-* line is listed as replaced only when its text differs from BibTeX.
 - The type tag comes from =sp-bibtex-types= (#347). A note with no type tag is planned to get it; one with another type tag is only reported.
@@ -1063,14 +1195,31 @@ is for the convert step."
     ("pub-year" (sp-litnotes-meta--year entry))
     ("bib-parent" (sp-litnotes-meta--field entry "crossref"))))
 
-(defun sp-litnotes-meta--plan-buffer (entry overwrite)
+(defun sp-litnotes-meta--missing-parents (entry covered)
+  "The crossref key of ENTRY as a list when it has a BibTeX entry but no note, else nil.
+COVERED is the table of `sp-author-notes-bibtex--covered'.  A chain deeper
+than two levels gives nil: nothing is made for it."
+  (let ((ref (sp-litnotes-meta--field entry "crossref")))
+    (and ref
+         (not (sp-litnotes-meta--crossref-chain entry))
+         (not (gethash ref covered))
+         (sp-litnotes-meta--entry ref)
+         (list ref))))
+
+(defun sp-litnotes-meta--plan-buffer (entry overwrite &optional covered)
   "Plan the changes to the current buffer from ENTRY; a plist.
 :fill and :replace are alists of meta key to preview value, :missing lists
-the default keys (project, status, relevance, priority) the note lacks, and
-:tag is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
-  (let (fill replace missing tag)
+the default keys (project, status, relevance, priority) the note lacks,
+:new-parents lists the crossref key when it would get a new note (see
+`sp-litnotes-meta--missing-parents'; COVERED is the table of existing notes,
+read when nil), :chain is a crossref chain deeper than two levels (see
+`sp-litnotes-meta--crossref-chain'; bib-parent is not planned then), and :tag
+is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
+  (let* ((chain (sp-litnotes-meta--crossref-chain entry))
+         fill replace missing tag new-parents)
     (dolist (key sp-litnotes-meta--bib-keys)
-      (when-let* ((value (sp-litnotes-meta--preview-value key entry)))
+      (when-let* (((not (and chain (equal key "bib-parent"))))
+                  (value (sp-litnotes-meta--preview-value key entry)))
         (cond
          ((not (sp-litnotes-meta--has-value-p key))
           (push (cons key value) fill))
@@ -1078,6 +1227,9 @@ the default keys (project, status, relevance, priority) the note lacks, and
                (not (equal (sp-litnotes-titles--clean (or (sp-litnotes-meta--buffer-meta key) ""))
                            value)))
           (push (cons key value) replace)))))
+    (when (and sp-litnotes-meta-create-parent (assoc "bib-parent" fill))
+      (setq new-parents (sp-litnotes-meta--missing-parents
+                         entry (or covered (sp-author-notes-bibtex--covered)))))
     (dolist (key sp-litnotes-meta--default-keys)
       (unless (sp-litnotes-meta--has-value-p key) (push key missing)))
     (let* ((expected (sp-bibtex-types-entry-tag entry))
@@ -1086,7 +1238,7 @@ the default keys (project, status, relevance, priority) the note lacks, and
       (cond ((null known) (setq tag (cons 'add expected)))
             ((not (member expected known)) (setq tag (cons 'mismatch (cons known expected))))))
     (list :fill (nreverse fill) :replace (nreverse replace)
-          :missing (nreverse missing) :tag tag
+          :missing (nreverse missing) :new-parents new-parents :chain chain :tag tag
           :order (and sp-litnotes-meta-order-meta
                       (let ((old (sp-vulpea-meta-order-block-keys)))
                         (not (sp-vulpea-meta-order-sorted-p
@@ -1094,10 +1246,24 @@ the default keys (project, status, relevance, priority) the note lacks, and
                                            (lambda (key) (seq-some (lambda (k) (string-equal-ignore-case key k)) old))
                                            (mapcar #'car fill))))))))))
 
-(defun sp-litnotes-meta--batch-plan (file overwrite)
+(defun sp-litnotes-meta--planned-parents (plans)
+  "The parent notes PLANS would make, once each, as a list of (REF . REQUESTERS).
+REQUESTERS are the keys of the notes (or parents) that link REF."
+  (let (alist)
+    (dolist (plan plans)
+      (let ((from (plist-get plan :key)))
+        (dolist (ref (plist-get plan :new-parents))
+          (if-let* ((cell (assoc ref alist)))
+              (cl-pushnew from (cdr cell) :test #'equal)
+            (push (list ref from) alist))
+          (setq from ref))))
+    (nreverse alist)))
+
+(defun sp-litnotes-meta--batch-plan (file overwrite &optional covered)
   "What the batch would do to the note FILE, as a plist; nothing is written.
 :status is `ok', `no-key' (no citation key in the note) or `no-entry' (none
-of its keys is in the registered .bib files)."
+of its keys is in the registered .bib files).  COVERED is the table of
+existing notes, to read once for all files."
   (let* ((keys (plist-get (sp-litnotes-titles--parse file) :keys))
          (key (seq-find #'sp-litnotes-meta--entry keys))
          (plan (list :file file :keys keys :key key)))
@@ -1107,7 +1273,7 @@ of its keys is in the registered .bib files)."
      (t (append plan (list :status 'ok)
                 (with-temp-buffer
                   (insert-file-contents file)
-                  (sp-litnotes-meta--plan-buffer (sp-litnotes-meta--entry key) overwrite)))))))
+                  (sp-litnotes-meta--plan-buffer (sp-litnotes-meta--entry key) overwrite covered)))))))
 
 (defun sp-litnotes-meta--actionable-p (plan)
   "Non-nil when the batch would change the note of PLAN."
@@ -1121,10 +1287,11 @@ The .bib files are read once for all of them."
   (let ((sp-litnotes-meta--index nil))
     (sp-litnotes-meta-build-index)
     (let* ((files (sp-litnotes-meta--batch-files))
+           (covered (sp-author-notes-bibtex--covered))
            (progress (make-progress-reporter "Planning litnote meta lines..." 0 (length files)))
            (n 0) plans)
       (dolist (file files)
-        (push (sp-litnotes-meta--batch-plan file overwrite) plans)
+        (push (sp-litnotes-meta--batch-plan file overwrite covered) plans)
         (progress-reporter-update progress (cl-incf n)))
       (progress-reporter-done progress)
       (nreverse plans))))
@@ -1132,7 +1299,11 @@ The .bib files are read once for all of them."
 
 *** The report and the dry run
 
-- The report has: counts, the notes to change with each line, how many notes still lack each default line, the skipped notes, and type-tag mismatches.
+- The report has: counts, the notes to change with each line, the parent notes to make, how many notes still lack each default line, the skipped notes, and type-tag mismatches.
+- A =bib-parent= line whose parent is missing ends with "(new note)".
+- The section "Crossref chains deeper than two levels" flags each such note with its chain (=ch -> b -> c=). Nothing is converted for them: no =bib-parent= and no parent note.
+- The section "Parent notes to make" lists each missing parent once, with its title and the notes that link it, however many notes cross-reference it.
+- Notes dropped from the report with =d= do not count for the parents.
 - =M-x sp-litnotes-meta-fill-all-dryrun= shows it and writes nothing (name per ADR 0025).
 
 #+begin_src emacs-lisp
@@ -1150,25 +1321,41 @@ The .bib files are read once for all of them."
          (todo (seq-filter #'sp-litnotes-meta--actionable-p plans))
          (no-key (seq-filter (lambda (p) (eq (plist-get p :status) 'no-key)) plans))
          (no-entry (seq-filter (lambda (p) (eq (plist-get p :status) 'no-entry)) plans))
-         (mismatch (seq-filter (lambda (p) (eq (car (plist-get p :tag)) 'mismatch)) ok)))
+         (mismatch (seq-filter (lambda (p) (eq (car (plist-get p :tag)) 'mismatch)) ok))
+         (parents (sp-litnotes-meta--planned-parents todo))
+         (chains (seq-filter (lambda (p) (plist-get p :chain)) ok)))
     (with-temp-buffer
       (insert (format "Litnote meta fill: %d notes tagged %s%s\n\n"
                       (length plans) sp-litnotes-meta-batch-tag
                       (if overwrite ", replacing pub-* values" "")))
-      (insert (format "- To change: %d\n- Already complete: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n\n"
+      (insert (format "- To change: %d\n- Already complete: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n\n"
                       (length todo) (- (length ok) (length todo))
-                      (length no-key) (length no-entry)))
+                      (length no-key) (length no-entry) (length parents) (length chains)))
       (insert "* To change\n")
       (dolist (plan todo)
         (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)))
         (dolist (item (plist-get plan :fill))
-          (insert (format "  - fill %s :: %s\n" (car item) (cdr item))))
+          (insert (format "  - fill %s :: %s%s\n" (car item) (cdr item)
+                          (if (and (equal (car item) "bib-parent")
+                                   (member (cdr item) (plist-get plan :new-parents)))
+                              " (new note)" ""))))
         (dolist (item (plist-get plan :replace))
           (insert (format "  - replace %s :: %s\n" (car item) (cdr item))))
         (when (eq (car (plist-get plan :tag)) 'add)
           (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag)))))
         (when (plist-get plan :order)
           (insert "  - order the meta lines\n")))
+      (insert "\n* Parent notes to make (each once, from the crossref)\n")
+      (dolist (parent parents)
+        (insert (format "- %s: %s (linked from %s)\n" (car parent)
+                        (or (when-let* ((entry (sp-litnotes-meta--entry (car parent))))
+                              (sp-litnotes-meta--new-title entry))
+                            "")
+                        (string-join (reverse (cdr parent)) ", "))))
+      (insert "\n* Crossref chains deeper than two levels (flagged: left alone; convert one with M-x sp-litnotes-meta-fill-deep-chain)\n")
+      (dolist (plan chains)
+        (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)
+                        (string-join (plist-get plan :chain) " -> "))))
       (insert "\n* Left empty (asked once by the convert command, or filled by hand)\n")
       (dolist (key sp-litnotes-meta--default-keys)
         (let ((lacking (seq-filter (lambda (p) (member key (plist-get p :missing))) ok)))
@@ -1231,6 +1418,7 @@ Return the plans."
 - Per-note prompts are replaced by one prompt per line: project, read-status, relevance-factor, read-priority.
 - A prompt appears only when some note lacks that line. An empty answer leaves the line empty.
 - The answers go in =sp-litnotes-meta--preset=, so =sp-litnotes-meta-fill= asks nothing.
+- The parent notes to make count as notes that lack every default line, so the questions cover them too.
 
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--ask-defaults (plans)
@@ -1239,7 +1427,8 @@ Every key of `sp-litnotes-meta--default-keys' is in it; an empty answer gives
 nil, which leaves the line alone."
   (let ((preset nil))
     (dolist (key sp-litnotes-meta--default-keys)
-      (let* ((n (seq-count (lambda (p) (member key (plist-get p :missing))) plans))
+      (let* ((n (+ (seq-count (lambda (p) (member key (plist-get p :missing))) plans)
+                   (length (sp-litnotes-meta--planned-parents plans))))
              (value
               (when (> n 0)
                 (pcase key
@@ -1301,7 +1490,10 @@ made after #+title when missing.  Return non-nil when the buffer changed."
 - =M-x sp-litnotes-meta-fill-all-convert= makes the plan, asks once, backs up each note, and fills it.
 - Every note it changes ends with its meta lines in alphabetical order (see =sp-vulpea-meta-order=).
 - Existing values are kept. A prefix argument replaces pub-author, pub-editor, pub-title and pub-year; bib-parent is never replaced.
-- A missing parent note is not offered in the batch; bib-parent is left out.
+- A missing parent note (the =crossref= entry) is made once per run, filled from BibTeX, and linked from every note that crosses to it:
+  - =sp-litnotes-meta--made-parents= remembers it, because the table of existing notes is read once and does not see it.
+  - A parent is not backed up: it is new.
+  - The message at the end says how many parent notes were made.
 - The .bib files and the covered-keys table are read once per run.
 - One failing note (for example unsaved changes) is listed, and the run goes on.
 - Afterwards the report is shown again with what is still left.
@@ -1335,7 +1527,8 @@ once before writing, then copies each note to a time-stamped folder in
   those of the BibTeX entry.  bib-parent is never replaced.
 - Nothing is asked per note.  bib-project, read-status, relevance-factor and
   read-priority are asked once, for the notes that lack them; an empty answer
-  leaves them empty.  A missing parent note is not offered, bib-parent is left out.
+  leaves them empty.  A parent note that is missing (the crossref entry) is
+  made once, filled from BibTeX and linked, and counted in those questions.
 - A note with no citation key, or whose key is not in the .bib files, is skipped.
 - A note without a type tag gets the one of `sp-bibtex-types' (`sp-litnotes-meta-fill' does that).
 - A note with unsaved changes is skipped, and the error is listed.
@@ -1354,7 +1547,7 @@ with \\`d'.  Return an alist of file to the lines changed (or the error)."
                                  (length todo) sp-litnotes-meta-backup-directory))
         (let* ((stamp (format-time-string "%Y%m%d-%H%M%S"))
                (sp-litnotes-meta--preset (sp-litnotes-meta--ask-defaults todo))
-               (sp-litnotes-meta-offer-parent nil)
+               (sp-litnotes-meta--made-parents (make-hash-table :test #'equal))
                (sp-litnotes-meta--index nil)
                (covered (progn (sp-litnotes-meta-build-index)
                                (sp-author-notes-bibtex--covered)))
@@ -1370,9 +1563,10 @@ with \\`d'.  Return an alist of file to the lines changed (or the error)."
               (progress-reporter-update progress (cl-incf n))))
           (progress-reporter-done progress)
           (setq results (nreverse results))
-          (message "Changed %d of %d notes; %d failed"
+          (message "Changed %d of %d notes; %d failed; %d parent notes made"
                    (seq-count #'listp results) (length todo)
-                   (seq-count #'stringp (mapcar #'cdr results)))
+                   (seq-count #'stringp (mapcar #'cdr results))
+                   (hash-table-count sp-litnotes-meta--made-parents))
           (sp-litnotes-meta--show-report (sp-litnotes-meta--batch-plans overwrite) overwrite)
           results)))))
 #+end_src
