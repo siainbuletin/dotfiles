@@ -226,11 +226,14 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
   - source record UUID (from the lookup in =sp-reading-open=);
   - cited citekeys (from =sp-cite-match-bibliography=);
   - cited record UUIDs (from =sp-devonthink-index=).
-- Where the links would be written (to test in this order):
-  - The record's annotation (the Markdown note linked to the record): a generated block of =x-devonthink-item://UUID= links, one per cited work.
-    - Preferred: it is DEVONthink's own place for notes about a record, the PDF file itself is untouched, and the block can be regenerated.
-  - Or a Markdown/RTF companion record next to the PDF, with the same links.
-  - Not the PDF's own text or the indexed file: the file lives in =~/Documents/literature/= and must not be edited.
+- Where the links are written (decided, Sia 2026-11-09): on the DEVONthink record itself, as DEVONthink's own internal item links.
+  - Item links belong to DEVONthink only; they are never written to the litnote, the BibTeX file or the PDF.
+  - Preferred: DEVONthink's native item links on the source record, so they show in its graph and Info inspector with no extra file.
+  - To verify on the Mac: whether the scripting dictionary can create or edit item links on a record (not confirmed; I do not know a command for it).
+  - Fallbacks, only if scripting cannot do it, in this order:
+    - the record's annotation with a generated block of =x-devonthink-item://UUID= links;
+    - a companion Markdown record next to the PDF.
+  - The indexed PDF file in =~/Documents/literature/= is never edited.
 - Script: AppleScript or JXA called from Emacs by =osascript=; the decision logic stays in Emacs Lisp (same rule as the Linux script).
 - Safety rules (this writes into the database, so it is stricter than the read-only parts):
   - Dry run first: a preview buffer lists, per source, the links to add, with the match scores.
@@ -240,8 +243,7 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
   - Start with one record, then a small batch, before the 1,000+ records with highlights.
 - Direction: Emacs to DEVONthink only. The litnote remains the source of truth for what is cited.
 - Risks to check before building:
-  - Whether DEVONthink counts links in an annotation as item links in the graph (it may only count links in the record's own content or in a Markdown/RTF record).
-  - Whether a record holds an annotation by scripting (the annotation property and its creation).
+  - Whether item links can be created on a record by script at all; if not, whether links in an annotation count as item links in the graph.
   - Wrong matches become wrong links in the graph; the accept threshold must be strict and the preview mandatory.
   - A write per record is slow in bulk; batch the =osascript= calls.
   - This is DEVONthink-specific; on Linux there is no equivalent, and the step is skipped.
