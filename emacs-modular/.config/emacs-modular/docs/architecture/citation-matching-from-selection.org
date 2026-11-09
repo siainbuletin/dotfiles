@@ -133,6 +133,22 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 - The Linux hotkey calls the same =org-protocol= handler as the Mac one; only the script that produces the text differs.
 - Which file counts as "not in BibTeX" is decided by the same lookup (=sp-reading-open=): no citekey match by file path or content hash means it opens in Preview (Mac) or Sioyek (Linux).
 
+** Linux: a thin script, everything else in Emacs Lisp (decided, Sia 2026-11-09)
+
+- Rule: the Linux script only gets the text to Emacs; all logic lives in Emacs Lisp.
+- The script (Bash, a few lines, in the Stowed dotfiles, outside the Emacs config):
+  - Called by a Sioyek shell command (text as an argument) or by a window-manager key (text from =wl-paste= / =xclip -o=).
+  - URL-encodes the text (or writes it to a temp file when it is long) and runs =emacsclient= on an =org-protocol://sp-cite-match= URL.
+  - Nothing else: no parsing, no matching, no file lookup.
+- Python is only a fallback, if URL-encoding or the temp file turns out awkward in Bash; it should not hold any matching logic.
+- In Emacs Lisp (the same code as on the Mac):
+  - normalisation, extraction, scoring and thresholds;
+  - the lookup of the source record by file path or content hash (a file-hash function, =secure-hash=, replaces the DEVONthink lookup on Linux);
+  - the choice of reader to open a file not in BibTeX (=sp-reading-open=; a defcustom holds the command: =open -a Preview= on macOS, =sioyek= on Linux);
+  - the "Cited works" section and the litnote lookup.
+- The macOS Hammerspoon script follows the same rule: it only gets the text and calls the URL.
+- Test: the Emacs Lisp part is testable in batch with ERT without any reader; the scripts are tested by calling the URL by hand.
+
 ** Trigger: Hammerspoon hotkey (decided, Sia 2026-11-09)
 
 - Decision: use a Hammerspoon hotkey. A macOS Service is kept only as a fallback.
@@ -221,6 +237,6 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 * Open questions for Sia
 
 - (Decided: Hammerspoon hotkey, Service only as fallback.)
-- (Decided: Preview on macOS, Sioyek on Linux.)
+- (Decided: Preview on macOS, Sioyek on Linux; Linux script is a thin Bash wrapper, logic in Emacs Lisp.)
 - Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
 - Name of the end section and whether it should live in the litnote's front matter instead.
