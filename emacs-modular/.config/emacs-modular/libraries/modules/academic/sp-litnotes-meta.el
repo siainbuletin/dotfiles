@@ -307,14 +307,17 @@ Return `added' or `filled', or nil when the line already has a value."
       (car (sp-litnotes-titles--keys (match-string 1))))))
 
 ;;;###autoload
-(defun sp-litnotes-meta-fill (key &optional file)
+(defun sp-litnotes-meta-fill (key &optional file overwrite)
   "Fill the meta lines of the literature note of KEY from its BibTeX entry.
 FILE is the note; by default the current buffer's file, else the note
-found for KEY.  Lines that have a value are left alone.  Return the
-lines that were changed."
+found for KEY.  Lines that have a value are left alone, except the pub-author,
+pub-editor, pub-title and pub-year ones when OVERWRITE is non-nil (a prefix
+argument).  A note without a type tag gets the tag of the BibTeX entry type
+(`sp-bibtex-types').  Return the lines that were changed, and \"tag\" when the
+tag was added."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
                          (user-error "No citation key in the ROAM_REFS of this buffer"))
-                     buffer-file-name))
+                     buffer-file-name current-prefix-arg))
   (let* ((entry (or (sp-litnotes-meta--entry key)
                     (user-error "No BibTeX entry %s in the registered files" key)))
          (file (or file (gethash key (sp-author-notes-bibtex--covered))
@@ -334,12 +337,19 @@ lines that were changed."
                         ("read-status" . ,(lambda () sp-litnotes-meta-initial-read-status))
                         ("relevance-factor" . ,#'sp-litnotes-meta--read-relevance)
                         ("read-priority" . ,#'sp-litnotes-meta--read-priority)))
-          (unless (sp-litnotes-meta--has-value-p (car spec))
-            (when-let* ((value (if-let* ((preset (assoc (car spec) sp-litnotes-meta--preset)))
-                                   (cdr preset)
-                                 (funcall (cdr spec))))
-                        (how (sp-litnotes-meta--set (car spec) value)))
-              (push (car spec) changed))))
+          (let ((has (sp-litnotes-meta--has-value-p (car spec))))
+            (when (or (not has)
+                      (and overwrite (member (car spec) sp-litnotes-meta--overwritable)))
+              (when-let* ((value (if-let* ((preset (assoc (car spec) sp-litnotes-meta--preset)))
+                                     (cdr preset)
+                                   (funcall (cdr spec)))))
+                (cond ((not has)
+                       (when (sp-litnotes-meta--set (car spec) value)
+                         (push (car spec) changed)))
+                      ((not (equal value (sp-litnotes-meta--buffer-meta (car spec))))
+                       (sp-litnotes-meta--put (car spec) value)
+                       (push (car spec) changed)))))))
+        (when (sp-litnotes-meta--ensure-type-tag entry) (push "tag" changed))
         (when changed (save-buffer))
         (unless buf (kill-buffer))
         (nreverse changed)))))
@@ -809,6 +819,307 @@ table in the note is created or refreshed afterwards."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
                          (user-error "No citation key in the ROAM_REFS of this buffer"))))
   (sp-litnotes-meta-backfill-children key nil t))
+
+(defcustom sp-litnotes-meta-batch-tag "litnote"
+  "The tag of the notes `sp-litnotes-meta-fill-all-dryrun' and `-convert' go through."
+  :type 'string
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-backup-directory
+  (expand-file-name "litnote-meta-backups/"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "Folder where `sp-litnotes-meta-fill-all-convert' copies each note before changing it.
+Every run makes a sub-folder named with the time."
+  :type 'directory
+  :group 'sp-litnotes-meta)
+
+(defconst sp-litnotes-meta--bib-keys '("pub-author" "pub-editor" "pub-title" "pub-year" "bib-parent")
+  "The meta lines that come from the BibTeX entry.")
+
+(defconst sp-litnotes-meta--overwritable '("pub-author" "pub-editor" "pub-title" "pub-year")
+  "The meta lines a prefix argument replaces.  bib-parent is a link to a note and stays.")
+
+(defconst sp-litnotes-meta--default-keys '("bib-project" "read-status" "relevance-factor" "read-priority")
+  "The meta lines the batch never asks per note; it asks once, or leaves them.")
+
+(defconst sp-litnotes-meta--batch-buffer "*litnote meta fill*")
+
+(defun sp-litnotes-meta--batch-files ()
+  "The files of the top-level notes tagged `sp-litnotes-meta-batch-tag', sorted."
+  (let (files)
+    (dolist (note (vulpea-db-query-by-tags-some (list sp-litnotes-meta-batch-tag)))
+      (when-let* ((path (vulpea-note-path note)))
+        (when (and (eql 0 (vulpea-note-level note)) (file-exists-p path))
+          (push path files))))
+    (sort (delete-dups files) #'string<)))
+
+(defun sp-litnotes-meta--filetags ()
+  "The tags of the #+filetags line of the current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (when (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" (sp-author-notes--first-heading) t)
+        (split-string (match-string 1) "[: \t]+" t)))))
+
+(defun sp-litnotes-meta--preview-value (key entry)
+  "What the meta line KEY would get from ENTRY, as plain text, or nil.
+Authors are names here, not links; looking up or making the author notes
+is for the convert step."
+  (pcase key
+    ("pub-author" (when-let* ((names (sp-litnotes-meta--author-names entry)))
+                    (string-join names ", ")))
+    ("pub-editor" (when-let* ((names (sp-litnotes-meta--author-names entry "editor")))
+                    (string-join names ", ")))
+    ("pub-title" (sp-litnotes-meta--field entry "title"))
+    ("pub-year" (sp-litnotes-meta--year entry))
+    ("bib-parent" (sp-litnotes-meta--field entry "crossref"))))
+
+(defun sp-litnotes-meta--plan-buffer (entry overwrite)
+  "Plan the changes to the current buffer from ENTRY; a plist.
+:fill and :replace are alists of meta key to preview value, :missing lists
+the default keys (project, status, relevance, priority) the note lacks, and
+:tag is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
+  (let (fill replace missing tag)
+    (dolist (key sp-litnotes-meta--bib-keys)
+      (when-let* ((value (sp-litnotes-meta--preview-value key entry)))
+        (cond
+         ((not (sp-litnotes-meta--has-value-p key))
+          (push (cons key value) fill))
+         ((and overwrite (member key sp-litnotes-meta--overwritable)
+               (not (equal (sp-litnotes-titles--clean (or (sp-litnotes-meta--buffer-meta key) ""))
+                           value)))
+          (push (cons key value) replace)))))
+    (dolist (key sp-litnotes-meta--default-keys)
+      (unless (sp-litnotes-meta--has-value-p key) (push key missing)))
+    (let* ((expected (sp-bibtex-types-entry-tag entry))
+           (known (seq-filter (lambda (tag) (member tag (sp-bibtex-types-all-tags)))
+                              (sp-litnotes-meta--filetags))))
+      (cond ((null known) (setq tag (cons 'add expected)))
+            ((not (member expected known)) (setq tag (cons 'mismatch (cons known expected))))))
+    (list :fill (nreverse fill) :replace (nreverse replace)
+          :missing (nreverse missing) :tag tag)))
+
+(defun sp-litnotes-meta--batch-plan (file overwrite)
+  "What the batch would do to the note FILE, as a plist; nothing is written.
+:status is `ok', `no-key' (no citation key in the note) or `no-entry' (none
+of its keys is in the registered .bib files)."
+  (let* ((keys (plist-get (sp-litnotes-titles--parse file) :keys))
+         (key (seq-find #'sp-litnotes-meta--entry keys))
+         (plan (list :file file :keys keys :key key)))
+    (cond
+     ((null keys) (append plan (list :status 'no-key)))
+     ((null key) (append plan (list :status 'no-entry)))
+     (t (append plan (list :status 'ok)
+                (with-temp-buffer
+                  (insert-file-contents file)
+                  (sp-litnotes-meta--plan-buffer (sp-litnotes-meta--entry key) overwrite)))))))
+
+(defun sp-litnotes-meta--actionable-p (plan)
+  "Non-nil when the batch would change the note of PLAN."
+  (and (eq (plist-get plan :status) 'ok)
+       (or (plist-get plan :fill) (plist-get plan :replace)
+           (eq (car (plist-get plan :tag)) 'add))))
+
+(defun sp-litnotes-meta--batch-plans (overwrite)
+  "The plans of all notes tagged `sp-litnotes-meta-batch-tag'.
+The .bib files are read once for all of them."
+  (let ((sp-litnotes-meta--index nil))
+    (sp-litnotes-meta-build-index)
+    (let* ((files (sp-litnotes-meta--batch-files))
+           (progress (make-progress-reporter "Planning litnote meta lines..." 0 (length files)))
+           (n 0) plans)
+      (dolist (file files)
+        (push (sp-litnotes-meta--batch-plan file overwrite) plans)
+        (progress-reporter-update progress (cl-incf n)))
+      (progress-reporter-done progress)
+      (nreverse plans))))
+
+(defun sp-litnotes-meta--name (plan)
+  "The file name of PLAN without its folder."
+  (file-name-nondirectory (plist-get plan :file)))
+
+(defun sp-litnotes-meta--batch-report-text (plans overwrite)
+  "The report of PLANS as text.  OVERWRITE says whether a prefix argument was given."
+  (let* ((ok (seq-filter (lambda (p) (eq (plist-get p :status) 'ok)) plans))
+         (todo (seq-filter #'sp-litnotes-meta--actionable-p plans))
+         (no-key (seq-filter (lambda (p) (eq (plist-get p :status) 'no-key)) plans))
+         (no-entry (seq-filter (lambda (p) (eq (plist-get p :status) 'no-entry)) plans))
+         (mismatch (seq-filter (lambda (p) (eq (car (plist-get p :tag)) 'mismatch)) ok)))
+    (with-temp-buffer
+      (insert (format "Litnote meta fill: %d notes tagged %s%s\n\n"
+                      (length plans) sp-litnotes-meta-batch-tag
+                      (if overwrite ", replacing pub-* values" "")))
+      (insert (format "- To change: %d\n- Already complete: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n\n"
+                      (length todo) (- (length ok) (length todo))
+                      (length no-key) (length no-entry)))
+      (insert "* To change\n")
+      (dolist (plan todo)
+        (insert (format "- %s (%s)\n" (sp-litnotes-meta--name plan) (plist-get plan :key)))
+        (dolist (item (plist-get plan :fill))
+          (insert (format "  - fill %s :: %s\n" (car item) (cdr item))))
+        (dolist (item (plist-get plan :replace))
+          (insert (format "  - replace %s :: %s\n" (car item) (cdr item))))
+        (when (eq (car (plist-get plan :tag)) 'add)
+          (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag))))))
+      (insert "\n* Left empty (asked once by the convert command, or filled by hand)\n")
+      (dolist (key sp-litnotes-meta--default-keys)
+        (let ((lacking (seq-filter (lambda (p) (member key (plist-get p :missing))) ok)))
+          (insert (format "- %s: %d notes\n" key (length lacking)))))
+      (insert "\n* Skipped: no citation key\n")
+      (dolist (plan no-key) (insert (format "- %s\n" (sp-litnotes-meta--name plan))))
+      (insert "\n* Skipped: key not in the .bib files\n")
+      (dolist (plan no-entry)
+        (insert (format "- %s (%s)\n" (sp-litnotes-meta--name plan)
+                        (string-join (plist-get plan :keys) ", "))))
+      (insert "\n* Type tag differs from the BibTeX entry type (not changed)\n")
+      (dolist (plan mismatch)
+        (let ((tag (plist-get plan :tag)))
+          (insert (format "- %s: has %s, the entry type says %s\n" (sp-litnotes-meta--name plan)
+                          (string-join (cadr tag) ", ") (cddr tag)))))
+      (buffer-string))))
+
+(defun sp-litnotes-meta--show-report (plans overwrite)
+  "Show the report of PLANS in its own buffer."
+  (with-current-buffer (get-buffer-create sp-litnotes-meta--batch-buffer)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (sp-litnotes-meta--batch-report-text plans overwrite))
+      (goto-char (point-min)))
+    (special-mode)
+    (pop-to-buffer (current-buffer))))
+
+;;;###autoload
+(defun sp-litnotes-meta-fill-all-dryrun (&optional overwrite)
+  "Show what `sp-litnotes-meta-fill-all-convert' would do; write nothing.
+Every note tagged `sp-litnotes-meta-batch-tag' is checked against its BibTeX
+entry.  The report lists the lines that would be filled, the notes without a
+citation key or without a .bib entry (skipped), the default lines nobody
+filled, and notes whose type tag differs from the entry type.  With a prefix
+argument (OVERWRITE) it also lists the pub-* values that would be replaced.
+Return the plans."
+  (interactive "P")
+  (let ((plans (sp-litnotes-meta--batch-plans overwrite)))
+    (sp-litnotes-meta--show-report plans overwrite)
+    plans))
+
+(defun sp-litnotes-meta--ask-defaults (plans)
+  "Ask once for each default line some of PLANS lack; return the preset alist.
+Every key of `sp-litnotes-meta--default-keys' is in it; an empty answer gives
+nil, which leaves the line alone."
+  (let ((preset nil))
+    (dolist (key sp-litnotes-meta--default-keys)
+      (let* ((n (seq-count (lambda (p) (member key (plist-get p :missing))) plans))
+             (value
+              (when (> n 0)
+                (pcase key
+                  ("bib-project"
+                   (when (y-or-n-p (format "Give the %d notes without bib-project the same project? " n))
+                     (sp-litnotes-meta--read-project)))
+                  ("read-status"
+                   (sp-litnotes-meta--read-scale
+                    (format "read-status for the %d notes without one (empty to leave): " n)
+                    sp-litnotes-meta-read-statuses))
+                  ("relevance-factor"
+                   (sp-litnotes-meta--read-scale
+                    (format "relevance-factor for the %d notes without one (empty to leave): " n)
+                    sp-litnotes-meta-relevance-scale))
+                  ("read-priority"
+                   (sp-litnotes-meta--read-scale
+                    (format "read-priority for the %d notes without one (empty to leave): " n)
+                    sp-litnotes-meta-priority-scale))))))
+        (push (cons key value) preset)))
+    (nreverse preset)))
+
+(defun sp-litnotes-meta--ensure-type-tag (entry)
+  "Give the current note the tag of the type of ENTRY when it has no type tag.
+Type tags are those of `sp-bibtex-types-all-tags'.  A note that has one, even
+another one, is left alone.  The tag goes in the #+filetags line, which is
+made after #+title when missing.  Return non-nil when the buffer changed."
+  (let ((expected (sp-bibtex-types-entry-tag entry))
+        (tags (sp-litnotes-meta--filetags)))
+    (unless (seq-some (lambda (tag) (member tag (sp-bibtex-types-all-tags))) tags)
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (let ((case-fold-search t)
+                (limit (sp-author-notes--first-heading)))
+            (if (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" limit t)
+                (replace-match (concat ":" (string-join (append tags (list expected)) ":") ":")
+                               t t nil 1)
+              (goto-char (point-min))
+              (if (re-search-forward "^#\\+title:.*$" limit t)
+                  (progn (end-of-line) (insert "\n"))
+                (goto-char limit)
+                (unless (bolp) (insert "\n")))
+              (insert (format "#+filetags: :%s:%s:" sp-litnotes-meta-batch-tag expected))
+              (unless (eq (char-after) ?\n) (insert "\n"))))))
+      t)))
+
+(defun sp-litnotes-meta--backup (file stamp)
+  "Copy FILE to the STAMP sub-folder of `sp-litnotes-meta-backup-directory'."
+  (let ((dir (expand-file-name (concat stamp "/") sp-litnotes-meta-backup-directory)))
+    (make-directory dir t)
+    (copy-file file (expand-file-name (file-name-nondirectory file) dir) nil t)))
+
+(defun sp-litnotes-meta--apply-plan (plan stamp overwrite)
+  "Back up and fill the note of PLAN; return the lines (and \"tag\") that changed."
+  (let ((file (plist-get plan :file)))
+    (sp-litnotes-meta--backup file stamp)
+    (let ((changed (sp-litnotes-meta-fill (plist-get plan :key) file overwrite)))
+      (when (and changed (fboundp 'vulpea-db-update-file))
+        (ignore-errors (vulpea-db-update-file file)))
+      changed)))
+
+;;;###autoload
+(defun sp-litnotes-meta-fill-all-convert (&optional overwrite)
+  "Fill the meta lines of every note tagged `sp-litnotes-meta-batch-tag' from BibTeX.
+Run `sp-litnotes-meta-fill-all-dryrun' first.  This makes the same plan, asks
+once before writing, then copies each note to a time-stamped folder in
+`sp-litnotes-meta-backup-directory' and fills it like `sp-litnotes-meta-fill'.
+
+- A line that has a value is left alone; a prefix argument (OVERWRITE)
+  replaces the pub-author, pub-editor, pub-title and pub-year values with
+  those of the BibTeX entry.  bib-parent is never replaced.
+- Nothing is asked per note.  bib-project, read-status, relevance-factor and
+  read-priority are asked once, for the notes that lack them; an empty answer
+  leaves them empty.  A missing parent note is not offered, bib-parent is left out.
+- A note with no citation key, or whose key is not in the .bib files, is skipped.
+- A note without a type tag gets the one of `sp-bibtex-types' (`sp-litnotes-meta-fill' does that).
+- A note with unsaved changes is skipped, and the error is listed.
+After the run the report is shown again with what is still left.  Return an
+alist of file to the lines changed (or the error)."
+  (interactive "P")
+  (let* ((plans (sp-litnotes-meta--batch-plans overwrite))
+         (todo (seq-filter #'sp-litnotes-meta--actionable-p plans)))
+    (sp-litnotes-meta--show-report plans overwrite)
+    (if (null todo)
+        (progn (message "Nothing to change.") nil)
+      (when (yes-or-no-p (format "Change %d litnotes (backups in %s)? "
+                                 (length todo) sp-litnotes-meta-backup-directory))
+        (let* ((stamp (format-time-string "%Y%m%d-%H%M%S"))
+               (sp-litnotes-meta--preset (sp-litnotes-meta--ask-defaults todo))
+               (sp-litnotes-meta-offer-parent nil)
+               (sp-litnotes-meta--index nil)
+               (covered (progn (sp-litnotes-meta-build-index)
+                               (sp-author-notes-bibtex--covered)))
+               (progress (make-progress-reporter "Filling litnotes..." 0 (length todo)))
+               (n 0) results)
+          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered) (lambda () covered)))
+            (dolist (plan todo)
+              (push (cons (plist-get plan :file)
+                          (condition-case err
+                              (sp-litnotes-meta--apply-plan plan stamp overwrite)
+                            (error (error-message-string err))))
+                    results)
+              (progress-reporter-update progress (cl-incf n))))
+          (progress-reporter-done progress)
+          (setq results (nreverse results))
+          (message "Changed %d of %d notes; %d failed"
+                   (seq-count #'listp results) (length todo)
+                   (seq-count #'stringp (mapcar #'cdr results)))
+          (sp-litnotes-meta--show-report (sp-litnotes-meta--batch-plans overwrite) overwrite)
+          results)))))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
