@@ -326,19 +326,28 @@ a message, whether or not the notes exist."
                                   (mapcar #'car alist) nil t nil nil (cdr default))))
     (sp-litnotes-meta--link (cdr (assoc choice alist)))))
 
+(defconst sp-litnotes-meta--none "(none)"
+  "The explicit choice that leaves a scale property empty.")
+
 (defun sp-litnotes-meta--read-scale (prompt scale)
-  "Ask PROMPT for one of SCALE; return the answer, or nil when empty."
-  (let ((answer (string-trim (completing-read prompt scale nil t))))
-    (and (not (string-empty-p answer)) answer)))
+  "Ask PROMPT for one of SCALE; return the answer, or nil to leave it empty.
+\"(none)\" is offered as the first candidate and the default, because a
+required-match prompt will not accept an empty answer."
+  (let ((answer (string-trim
+                 (completing-read prompt (cons sp-litnotes-meta--none scale)
+                                  nil t nil nil sp-litnotes-meta--none))))
+    (and (not (string-empty-p answer))
+         (not (equal answer sp-litnotes-meta--none))
+         answer)))
 
 (defun sp-litnotes-meta--read-relevance ()
   "Ask for the relevance-factor."
-  (sp-litnotes-meta--read-scale "relevance-factor (01 = most relevant, empty to skip): "
+  (sp-litnotes-meta--read-scale "relevance-factor (01 = most relevant, (none) to skip): "
                                 sp-litnotes-meta-relevance-scale))
 
 (defun sp-litnotes-meta--read-priority ()
   "Ask for the read-priority."
-  (sp-litnotes-meta--read-scale "read-priority (01 = read first, empty to skip): "
+  (sp-litnotes-meta--read-scale "read-priority (01 = read first, (none) to skip): "
                                 sp-litnotes-meta-priority-scale))
 
 (defconst sp-litnotes-meta--line-re "^-[ \t]+%s[ \t]+::\\(.*\\)$")
@@ -1227,15 +1236,15 @@ nil, which leaves the line alone."
                      (sp-litnotes-meta--read-project)))
                   ("read-status"
                    (sp-litnotes-meta--read-scale
-                    (format "read-status for the %d notes without one (empty to leave): " n)
+                    (format "read-status for the %d notes without one ((none) to leave): " n)
                     sp-litnotes-meta-read-statuses))
                   ("relevance-factor"
                    (sp-litnotes-meta--read-scale
-                    (format "relevance-factor for the %d notes without one (empty to leave): " n)
+                    (format "relevance-factor for the %d notes without one ((none) to leave): " n)
                     sp-litnotes-meta-relevance-scale))
                   ("read-priority"
                    (sp-litnotes-meta--read-scale
-                    (format "read-priority for the %d notes without one (empty to leave): " n)
+                    (format "read-priority for the %d notes without one ((none) to leave): " n)
                     sp-litnotes-meta-priority-scale))))))
         (push (cons key value) preset)))
     (nreverse preset)))
@@ -1311,7 +1320,7 @@ once before writing, then copies each note to a time-stamped folder in
   by one, skip it or quit; what was not reached stays as it was, so you can
   stop after a few batches and run the command again later.
 - Nothing is asked per note.  bib-project, read-status, relevance-factor and
-  read-priority are asked once, for the notes that lack them; an empty answer
+  read-priority are asked once, for the notes that lack them; an empty or (none) answer
   leaves them empty.  A parent note that is missing (the crossref entry) is
   made once, filled from BibTeX and linked, and counted in those questions.
 - A note with no citation key, or whose key is not in the .bib files, is skipped.
