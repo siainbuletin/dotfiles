@@ -18,6 +18,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 | =pub-editor= | The same for the =editor= field |
 | =pub-title=  | The =title= field, without braces                                                              |
 | =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
+| =pub-pages=  | The =pages= field; =9--30= is written =9-30= (the page property of the book tables). A chapter's pages are not taken from the =crossref= |
 | =bib-parent= | A link to the literature note of the =crossref= entry; the note is made when it does not exist  |
 | =bib-project= | A link picked in the minibuffer; the default is the thesis project                            |
 | =read-status= | Set without asking to =02-preparing= (=sp-litnotes-meta-initial-read-status=) |
@@ -27,6 +28,12 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 ** Design choices
 
 - *Existing values stay.* A line that already has a value is never changed; an empty one is filled. So the command is safe to run again on a note you edited, and =M-x sp-litnotes-meta-fill= fills the missing lines of an old note.
+- *Pages (=pub-pages=) come from the BibTeX =pages= field.*
+  - =sp-litnotes-meta--pages= reads the field and makes any dash between the numbers a single hyphen: =9--30= and =9 – 30= both give =9-30=.
+  - Why one hyphen: the book tables sort on the first number of =pub-pages= and show the text as it is.
+  - It is not taken from the =crossref= entry: the pages of a chapter are not those of its book.
+  - It is in =sp-litnotes-meta--bib-keys=, so the single fill, =sp-litnotes-meta-fill-all-dryrun= and =-convert= all handle it.
+  - It is in =sp-litnotes-meta--overwritable=: a =pub-pages= that differs from the entry is listed as =update KEY :: old -> new= and written while =sp-litnotes-meta-update-changed= is on, like title and year.
 - *Authors are matched by name.* The name is flipped to "First Last" (=sp-author-notes-flip-names=) and compared, ignoring case, with the title of every note in the Vulpea database. A note tagged =person= wins over other notes of the same title. With several =person= notes of that name you pick one. No fuzzy matching here: =M-x sp-author-notes= already finds likely duplicates later.
 - *A new author note* is written by =sp-org--write-note= (the same function =sp-author-notes= uses), with an ID and the =person= tag, and linked from the litnote. The names made during the session are remembered, because the database does not know them until it syncs, and two books by the same new author must not make two notes.
 - *Editors* go to =pub-editor= and authors to =pub-author=; both are looked up and made as author notes alike. An entry with only editors (a collected volume) gets only =pub-editor=.
@@ -78,7 +85,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 ;;; Commentary:
 
 ;; A new literature note gets pub-author (linked to author notes, made when
-;; missing), pub-title, pub-year, bib-parent (from the crossref) and
+;; missing), pub-title, pub-year, pub-pages, bib-parent (from the crossref) and
 ;; bib-project (picked) from its BibTeX entry.  It also sets read-status
 ;; and asks for relevance-factor and read-priority; `sp-litnotes-meta-status-report'
 ;; lists all statuses and changes several at once.  See the doc
@@ -259,6 +266,12 @@ Signal a `user-error' when there is no .bib file."
         (or (sp-litnotes-meta--field parent "year")
             (when-let* ((date (sp-litnotes-meta--field parent "date")))
               (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))))))
+
+(defun sp-litnotes-meta--pages (entry)
+  "The pages of ENTRY, with every kind of dash between the numbers made a single hyphen.
+So `9--30' and `9–30' both give `9-30'.  Nil without a pages field."
+  (when-let* ((pages (sp-litnotes-meta--field entry "pages")))
+    (string-trim (replace-regexp-in-string "[ \t]*\\(?:-+\\|\u2013\\|\u2014\\)[ \t]*" "-" pages))))
 
 (defun sp-litnotes-meta--author-names (entry &optional field)
   "The names in the FIELD of ENTRY (default author), as First Last."
@@ -495,7 +508,7 @@ Return `added' or `filled', or nil when the line already has a value."
   "Fill the meta lines of the literature note of KEY from its BibTeX entry.
 FILE is the note; by default the current buffer's file, else the note
 found for KEY.  Lines that have a value are left alone, except the pub-author,
-pub-editor, pub-title and pub-year ones when OVERWRITE is non-nil (a prefix
+pub-editor, pub-title, pub-year and pub-pages ones when OVERWRITE is non-nil (a prefix
 argument).  A note without a type tag gets the tag of the BibTeX entry type
 (`sp-bibtex-types').  Return the lines that were changed, and \"tag\" when the
 tag was added.  A crossref'd entry without a note gets one (see
@@ -517,6 +530,7 @@ tag was added.  A crossref'd entry without a note gets one (see
                         ("pub-editor" . ,(lambda () (sp-litnotes-meta--authors-value entry "editor")))
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
+                        ("pub-pages" . ,(lambda () (sp-litnotes-meta--pages entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
                         ("bib-project" . ,#'sp-litnotes-meta--read-project)
                         ("read-status" . ,(lambda () sp-litnotes-meta-initial-read-status))
@@ -1149,10 +1163,10 @@ Every run makes a sub-folder named with the time."
   :type 'directory
   :group 'sp-litnotes-meta)
 
-(defconst sp-litnotes-meta--bib-keys '("pub-author" "pub-editor" "pub-title" "pub-year" "bib-parent")
+(defconst sp-litnotes-meta--bib-keys '("pub-author" "pub-editor" "pub-title" "pub-year" "pub-pages" "bib-parent")
   "The meta lines that come from the BibTeX entry.")
 
-(defconst sp-litnotes-meta--overwritable '("pub-author" "pub-editor" "pub-title" "pub-year")
+(defconst sp-litnotes-meta--overwritable '("pub-author" "pub-editor" "pub-title" "pub-year" "pub-pages")
   "The meta lines a prefix argument replaces.  bib-parent is a link to a note and stays.")
 
 (defconst sp-litnotes-meta--default-keys '("bib-project" "read-status" "relevance-factor" "read-priority")
@@ -1207,6 +1221,7 @@ is for the convert step."
                     (string-join names ", ")))
     ("pub-title" (sp-litnotes-meta--field entry "title"))
     ("pub-year" (sp-litnotes-meta--year entry))
+    ("pub-pages" (sp-litnotes-meta--pages entry))
     ("bib-parent" (sp-litnotes-meta--field entry "crossref"))))
 
 (defun sp-litnotes-meta--differs-p (key entry)
@@ -1527,7 +1542,7 @@ made after #+title when missing.  Return non-nil when the buffer changed."
 
 - =M-x sp-litnotes-meta-fill-all-convert= makes the plan, asks once, backs up each note, and fills it.
 - Every note it changes ends with its meta lines in alphabetical order (see =sp-vulpea-meta-order=).
-- Existing values are kept. A prefix argument replaces pub-author, pub-editor, pub-title and pub-year; bib-parent is never replaced.
+- Existing values are kept. A prefix argument replaces pub-author, pub-editor, pub-title, pub-year and pub-pages; bib-parent is never replaced.
 - A missing parent note (the =crossref= entry) is made once per run, filled from BibTeX, and linked from every note that crosses to it:
   - =sp-litnotes-meta--made-parents= remembers it, because the table of existing notes is read once and does not see it.
   - A parent is not backed up: it is new.
@@ -1561,7 +1576,7 @@ once before writing, then copies each note to a time-stamped folder in
 `sp-litnotes-meta-backup-directory' and fills it like `sp-litnotes-meta-fill'.
 
 - A line that has a value is left alone, except the pub-author, pub-editor,
-  pub-title and pub-year ones that differ from the BibTeX entry: they are
+  pub-title, pub-year and pub-pages ones that differ from the BibTeX entry: they are
   updated while `sp-litnotes-meta-update-changed' is non-nil (the default) or
   with a prefix argument (OVERWRITE).  bib-parent is never replaced here; see
   `sp-litnotes-meta-parent-lint-convert'.
