@@ -49,6 +49,19 @@ What was not taken:
   - the litnote status table
 - A one-line message, no report: =sp-author-notes-works-dryrun=.
 
+** Why not use =special-mode= or =vui.el=
+
+special-mode is the base major mode for read-only, throwaway buffers that a command generates, such as *Help*, *Messages* and *Occur*. It makes the buffer read-only and binds q (quit), g (revert), SPC and DEL (scroll). Most report modes in your config derive from it.
+
+Why I didn’t use vui.el: I went with Org because the job was small. 
+- It needed clickable file links, which Org gives for free (org-open-at-point, org-next-link, folding), and every report was already Org-formatted text. Moving it onto vui.el would mean rewriting each report as a component tree instead of changing a few lines.
+
+Where vui.el would be the better fit: the reports that need real interaction, for example per-row actions or buttons, live filtering, or in-place state like “drop this candidate and re-render”. 
+- Your author notes report does this by hand today with text properties and d / u / A keys. 
+- I haven’t read vui.el’s API in this config, so I can’t say how much of that it would absorb.
+
+What stays cheap: every report goes through sp-batch-report-show, so a later vui renderer would swap in behind that one function. I can try it on one report first, for example the titles report, if you want.
+
 * File header
 
 #+begin_src emacs-lisp -i
