@@ -1,8 +1,8 @@
 #+title: Matching a selected citation to a BibTeX or DEVONthink record
 #+date: 2026-11-09
-#+status: proposed
+#+status: partly implemented (macOS: matcher, Cited works section, org-protocol, DEVONthink lookup; see the module docs)
 
-This is a design, not an implementation. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
+This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match= and =sp-reading= (see their module docs); the Linux script, the DEVONthink selection/UUID return and the item-link backfill are not built. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
 
 * Goal
 
@@ -199,24 +199,36 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 
 ** The end section
 
-- A heading =* Cited works= at the end of the litnote, with a fixed property, e.g. =:CITED_WORKS:= so the code can find it and rewrite it safely.
+- A heading =* Cited works= at the end of the litnote, with the generated block between two marker comments (=# sp-cite-match:begin= and =# sp-cite-match:end=) so the code can find it and rewrite it safely. Text outside the markers is never touched.
 - Written by us, not by a =print_bibliography= block:
   - the block that #338 removed printed all entries of the global bibliography unfiltered, which was the problem;
   - this list only holds works that were matched from this source, so every line is justified.
-- One bullet per work, in bullet-point style, e.g.:
-  - =[cite:@smith2020attention]= Smith (2020) /Attention is all/ — litnote: [[id:...]]
-  - =[cite:@jones2019kernels]= Jones (2019) /Kernels/ — no litnote
-  - Unmatched entries are kept as plain text with a =TODO unmatched= marker, so none is lost silently.
-- Re-running updates the list (matches by citekey), it does not duplicate.
+- Rendered as an Org table (decided, Sia 2026-11-09), one row per work:
+  - columns: =Cite=, =Work=, =Litnote= (a link, or "no litnote"), =read-status=, =read-priority=;
+  - ordered by =read-priority= (01 first, none last), so the top of the table is what to read first;
+  - unmatched entries are kept as =TODO unmatched= rows, so none is lost silently.
+- A summary line above the table (option =sp-cite-match-summary=, on by default): "34 cited, 12 with litnotes, 3 unmatched; read-status: 02-preparing 4, 05-done 8".
+- The older bullet list stays available as =sp-cite-match-display= = =list=.
+- Re-running updates the table (matches by citekey), re-reads each litnote and its reading state, and does not duplicate.
 
 ** Showing which cited works already have litnotes
 
-- =citar-vulpea= already resolves a citekey to a note through =ROAM_REFS=; use the same lookup (one Vulpea query for all keys, not one per work).
-- Display options (both cheap):
-  - the link to the litnote on each bullet, or "no litnote";
-  - a summary line at the top: "34 cited, 12 with litnotes, 3 unmatched".
-- A command to make the missing litnotes in one go, reusing =citar-create-note=, with the autofill of =sp-litnotes-meta= (author, year, title, parent).
-- Also useful: in the litnote of the source, feed the =read-status= of the cited litnotes into the same bullet, so one sees at a glance what is still unread.
+- =citar-vulpea= already resolves a citekey to a note through =ROAM_REFS=; the same lookup is used (=citar-has-notes=, =citar-get-notes=).
+- The =Litnote= column links to the note, or says "no litnote".
+- The =read-status= and =read-priority= columns are read from the meta lines of the litnote (=sp-litnotes-meta=); a work without a litnote has empty cells.
+- A command to make the missing litnotes in one go, reusing =citar-create-note=, with the autofill of =sp-litnotes-meta= (author, year, title, parent). Not built yet.
+
+** Relevance from cross-referencing (wish, not built)
+
+- Sia wants to compute the relevance of a source from the amount of cross-referencing that happens across the sources currently being read, to decide what is more important to read at the moment.
+- Idea: every =Cited works= table is an edge list: source litnote to cited work. Counting these edges gives a score per work.
+- Candidate scores, to try on the real vault:
+  - /cited-by count/: in how many of the sources I am reading is this work cited;
+  - /weighted/: each citing source counts by its own =read-status= (a =01-current= source counts more than a =05-done= one) and =read-priority=;
+  - /unread bonus/: works that are cited often and have no litnote or a low =read-status= rise to the top, since they are what is missing.
+- Output: a ranked list of works ("read next") with the citing sources, and optionally a suggested =read-priority= written to the litnote after confirmation (never silently).
+- Data needed: all =Cited works= tables of the litnotes with =read-status= current or preparing, read in one pass (the tables are plain Org text, so no extra index is required).
+- Open points: whether to count cross-references only inside the current project or the whole vault, and how to treat works cited twice in one source.
 
 * Part 4: backfilling item links in DEVONthink
 
