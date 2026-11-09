@@ -97,7 +97,7 @@
                     ((symbol-function 'sp-litnotes-meta--read-priority) (lambda () nil)))
             (should (equal (sp-litnotes-meta-fill "doe2015chapter" file)
                            '("pub-author" "pub-title" "pub-year" "bib-parent" "bib-project"
-                             "read-status" "relevance-factor" "tag")))
+                             "read-status" "relevance-factor" "tag" "order")))
             (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
               (should (string-match-p "- pub-author :: \\[\\[id:aid\\]\\[Jane Doe\\]\\]" text))
               (should (string-match-p "- pub-title :: A Chapter" text))
@@ -107,7 +107,11 @@
               (should (string-match-p "- read-status :: 02-preparing" text))
               (should (string-match-p "- relevance-factor :: 02" text))
               (should (string-match-p "#\\+filetags: :litnote:incollection:" text))
-              (should-not (string-match-p "read-priority" text)))
+              (should-not (string-match-p "read-priority" text))
+              ;; the meta lines end in alphabetical order
+              (should (equal (with-temp-buffer (insert text) (sp-vulpea-meta-order-block-keys))
+                             '("bib-parent" "bib-project" "pub-author" "pub-title" "pub-year"
+                               "read-status" "relevance-factor"))))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
         (delete-directory dir t)))))
@@ -673,6 +677,36 @@
       ;; a prefix argument lists the differing title only
       (let ((art2 (sp-litnotes-meta-test--plan-of (sp-litnotes-meta--batch-plans t) "art.org")))
         (should (equal (plist-get art2 :replace) '(("pub-title" . "Right Title"))))))))
+
+(ert-deftest sp-litnotes-meta-batch-plan-order ()
+  "A note whose meta lines would end unordered is planned to be ordered."
+  (sp-litnotes-meta-test--with-batch
+    (let* ((plans (sp-litnotes-meta--batch-plans nil))
+           (bk (sp-litnotes-meta-test--plan-of plans "bk.org"))
+           (art (sp-litnotes-meta-test--plan-of plans "art.org")))
+      ;; bk gets pub-author, pub-title, pub-year: already alphabetical
+      (should-not (plist-get bk :order))
+      ;; art has pub-title, pub-year and gets pub-author appended
+      (should (plist-get art :order))
+      (should (string-match-p "order the meta lines"
+                              (sp-litnotes-meta--batch-report-text plans nil)))
+      (let ((sp-litnotes-meta-order-meta nil))
+        (should-not (plist-get (sp-litnotes-meta-test--plan-of
+                                (sp-litnotes-meta--batch-plans nil) "art.org")
+                               :order))))))
+
+(ert-deftest sp-litnotes-meta-batch-convert-orders-meta ()
+  (sp-litnotes-meta-test--with-batch
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) "")))
+      (let ((results (sp-litnotes-meta-fill-all-convert)))
+        (should (member "order" (cdr (assoc (expand-file-name "art.org" dir) results))))
+        (with-temp-buffer
+          (insert-file-contents (expand-file-name "art.org" dir))
+          (should (equal (sp-vulpea-meta-order-block-keys)
+                         '("pub-author" "pub-title" "pub-year")))))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
 
 (ert-deftest sp-litnotes-meta-batch-report-text ()
   (sp-litnotes-meta-test--with-batch

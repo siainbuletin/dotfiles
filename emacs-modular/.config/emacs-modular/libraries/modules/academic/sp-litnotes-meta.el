@@ -20,6 +20,7 @@
 (require 'sp-litnotes-titles)
 (require 'sp-batch-report)
 (require 'sp-bibtex-types)
+(require 'sp-vulpea-meta-order)
 
 (declare-function citar-create-note "citar")
 (declare-function vulpea-db-query "vulpea-db")
@@ -82,6 +83,12 @@ Keep this in step with the schema in `sp-vulpea-schemas'."
 (defcustom sp-litnotes-meta-priority-scale '("01" "02" "03" "04" "05")
   "The allowed values of read-priority; 01 is read first."
   :type '(repeat string)
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-order-meta t
+  "Non-nil to order the meta lines by key (`sp-vulpea-meta-order') after a fill.
+This is for `sp-litnotes-meta-fill' and the batch commands."
+  :type 'boolean
   :group 'sp-litnotes-meta)
 
 (defvar sp-litnotes-meta--preset nil
@@ -418,6 +425,8 @@ tag was added.  A crossref'd entry without a note gets one (see
                        (sp-litnotes-meta--put (car spec) value)
                        (push (car spec) changed)))))))
         (when (sp-litnotes-meta--ensure-type-tag entry) (push "tag" changed))
+        (when (and sp-litnotes-meta-order-meta (sp-vulpea-meta-order-buffer))
+          (push "order" changed))
         (when changed (save-buffer))
         (unless buf (kill-buffer))
         (nreverse changed)))))
@@ -1011,7 +1020,13 @@ is (add . TAG) or (mismatch FOUND . EXPECTED), or nil."
       (cond ((null known) (setq tag (cons 'add expected)))
             ((not (member expected known)) (setq tag (cons 'mismatch (cons known expected))))))
     (list :fill (nreverse fill) :replace (nreverse replace)
-          :missing (nreverse missing) :new-parents new-parents :chain chain :tag tag)))
+          :missing (nreverse missing) :new-parents new-parents :chain chain :tag tag
+          :order (and sp-litnotes-meta-order-meta
+                      (let ((old (sp-vulpea-meta-order-block-keys)))
+                        (not (sp-vulpea-meta-order-sorted-p
+                              (append old (seq-remove
+                                           (lambda (key) (seq-some (lambda (k) (string-equal-ignore-case key k)) old))
+                                           (mapcar #'car fill))))))))))
 
 (defun sp-litnotes-meta--planned-parents (plans)
   "The parent notes PLANS would make, once each, as a list of (REF . REQUESTERS).
@@ -1045,7 +1060,7 @@ existing notes, to read once for all files."
 (defun sp-litnotes-meta--actionable-p (plan)
   "Non-nil when the batch would change the note of PLAN."
   (and (eq (plist-get plan :status) 'ok)
-       (or (plist-get plan :fill) (plist-get plan :replace)
+       (or (plist-get plan :fill) (plist-get plan :replace) (plist-get plan :order)
            (eq (car (plist-get plan :tag)) 'add))))
 
 (defun sp-litnotes-meta--batch-plans (overwrite)
@@ -1098,7 +1113,9 @@ The .bib files are read once for all of them."
         (dolist (item (plist-get plan :replace))
           (insert (format "  - replace %s :: %s\n" (car item) (cdr item))))
         (when (eq (car (plist-get plan :tag)) 'add)
-          (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag))))))
+          (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag)))))
+        (when (plist-get plan :order)
+          (insert "  - order the meta lines\n")))
       (insert "\n* Parent notes to make (each once, from the crossref)\n")
       (dolist (parent parents)
         (insert (format "- %s: %s (linked from %s)\n" (car parent)
