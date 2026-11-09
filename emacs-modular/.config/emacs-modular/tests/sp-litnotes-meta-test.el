@@ -972,3 +972,154 @@
         (with-current-buffer sp-litnotes-meta--parent-buffer
           (should (string-match-p "Dropped from the list" (buffer-string))))
         (kill-buffer sp-litnotes-meta--parent-buffer)))))
+
+;;;; Quoted pub-title
+
+(ert-deftest sp-litnotes-meta-unquote ()
+  (should (equal (sp-litnotes-meta--unquote "\"Title\"") "Title"))
+  (should (equal (sp-litnotes-meta--unquote "“Title”") "Title"))
+  (should (equal (sp-litnotes-meta--unquote "‘Title’") "Title"))
+  (should (equal (sp-litnotes-meta--unquote "„Title“") "Title"))
+  (should (equal (sp-litnotes-meta--unquote "  \"Title\"  ") "Title"))
+  ;; inner quotes stay
+  (should (equal (sp-litnotes-meta--unquote "\"The “so-called” thing\"")
+                 "The “so-called” thing"))
+  (should (equal (sp-litnotes-meta--unquote "“The ‘so-called’ thing”")
+                 "The ‘so-called’ thing"))
+  ;; quotes around quotes all go
+  (should (equal (sp-litnotes-meta--unquote "\"“Title”\"") "Title"))
+  ;; not wrapping the whole value
+  (should-not (sp-litnotes-meta--unquote "\"A\" and \"B\""))
+  (should-not (sp-litnotes-meta--unquote "“A” and “B”"))
+  (should-not (sp-litnotes-meta--unquote "\"Title"))
+  (should-not (sp-litnotes-meta--unquote "Title\""))
+  (should-not (sp-litnotes-meta--unquote "Plain"))
+  (should-not (sp-litnotes-meta--unquote "\"\""))
+  (should-not (sp-litnotes-meta--unquote "\"")))
+
+(ert-deftest sp-litnotes-meta-bib-title-quotes-stripped ()
+  "A BibTeX title in braces or quotes never gives a quoted pub-title."
+  (sp-litnotes-meta-test--with-bib
+      "@article{a, title = {\"Quoted\"}}
+@article{b, title = {{“Curly {Title}”}}}
+@article{c, title = \"Plain\"}
+@article{d, title = {He said \"no\"}}
+@article{e, author = {\"Doe\"}}
+"
+    (should (equal (sp-litnotes-meta--field (sp-litnotes-meta--entry "a") "title") "Quoted"))
+    (should (equal (sp-litnotes-meta--field (sp-litnotes-meta--entry "b") "title") "Curly Title"))
+    (should (equal (sp-litnotes-meta--field (sp-litnotes-meta--entry "c") "title") "Plain"))
+    (should (equal (sp-litnotes-meta--field (sp-litnotes-meta--entry "d") "title") "He said \"no\""))
+    ;; other fields are not touched
+    (should (equal (sp-litnotes-meta--field (sp-litnotes-meta--entry "e") "author") "\"Doe\""))))
+
+(defun sp-litnotes-meta-test--read-file (file)
+  (with-temp-buffer (insert-file-contents file) (buffer-string)))
+
+(ert-deftest sp-litnotes-meta-batch-quoted-title-category ()
+  (sp-litnotes-meta-test--with-batch
+    (with-temp-file (expand-file-name "q.org" dir)
+      (insert ":PROPERTIES:\n:ID: q\n:ROAM_REFS: @art2020\n:END:\n#+title: x\n#+filetags: :litnote:journalarticle:\n\n- pub-author :: Jane Doe\n- pub-title :: “Right Title”\n- pub-year :: 2020\n\n"))
+    (let* ((plans (sp-litnotes-meta--batch-plans nil))
+           (q (sp-litnotes-meta-test--plan-of plans "q.org")))
+      (should (equal (plist-get q :unquote) '("“Right Title”" . "Right Title")))
+      (should (sp-litnotes-meta--actionable-p q))
+      (should (sp-litnotes-meta--unquote-only-p q))
+      (let ((text (sp-litnotes-meta--batch-report-text plans nil)))
+        (should (string-match-p "Quoted pub-title: 1" text))
+        (should (string-match-p "\\* Quoted pub-title (the enclosing quotes are removed)\n- \\[\\[file:[^]]*q\\.org\\]\\[q\\.org\\]\\]: “Right Title” -> Right Title" text))
+        ;; listed under its own heading, not as a change
+        (should-not (string-match-p "unquote pub-title ::" text))))
+    ;; convert removes the quotes; single-note fill does too, without a prefix
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) "")))
+      (let ((results (sp-litnotes-meta-fill-all-convert)))
+        (should (equal (cdr (assoc (expand-file-name "q.org" dir) results)) '("pub-title"))))
+      (should (string-match-p "- pub-title :: Right Title\n"
+                              (sp-litnotes-meta-test--read-file (expand-file-name "q.org" dir))))
+      (should (= 1 (length (directory-files (car (directory-files sp-litnotes-meta-backup-directory t "\\`[0-9]"))
+                                            nil "\\`q\\.org\\'"))))
+      (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-update-changed-keeps-quotes-out ()
+  "The changed-field update writes the BibTeX title without its quotes."
+  (sp-litnotes-meta-test--with-bib
+      "@article{qa, author = {Doe, Jane}, title = {\"New Title\"}, year = {2020}}\n"
+    (let* ((dir (make-temp-file "sp-meta-q" t))
+           (file (expand-file-name "n.org" dir))
+           (sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority")))
+           (sp-author-notes-litnotes-directory dir))
+      (unwind-protect
+          (cl-letf (((symbol-function 'sp-litnotes-meta--author-note) (lambda (name) (cons "aid" name))))
+            (with-temp-file file
+              (insert ":PROPERTIES:\n:ID: n\n:ROAM_REFS: @qa\n:END:\n#+title: x\n#+filetags: :litnote:journalarticle:\n\n- pub-title :: Old Title\n\n"))
+            (let ((plan (with-temp-buffer (insert-file-contents file)
+                                          (sp-litnotes-meta--plan-buffer (sp-litnotes-meta--entry "qa") t
+                                                                         (make-hash-table :test #'equal)))))
+              (should (equal (plist-get plan :replace) '(("pub-title" . "New Title"))))
+              (should-not (plist-get plan :unquote)))
+            (sp-litnotes-meta-fill "qa" file t)
+            (should (string-match-p "- pub-title :: New Title\n" (sp-litnotes-meta-test--read-file file)))
+            ;; plain fill, no prefix: a quoted title only loses its quotes
+            (with-temp-file file
+              (insert ":PROPERTIES:\n:ID: n\n:ROAM_REFS: @qa\n:END:\n#+title: x\n#+filetags: :litnote:journalarticle:\n\n- pub-title :: \"Old Title\"\n\n"))
+            (should (member "pub-title" (sp-litnotes-meta-fill "qa" file)))
+            (should (string-match-p "- pub-title :: Old Title\n" (sp-litnotes-meta-test--read-file file))))
+        (delete-directory dir t)))))
+
+(defmacro sp-litnotes-meta-test--with-title-lint (&rest body)
+  (declare (indent 0))
+  `(let* ((dir (make-temp-file "sp-meta-title" t))
+          (sp-litnotes-meta-backup-directory (expand-file-name "bak/" dir)))
+     (cl-flet ((note (name title)
+                 (with-temp-file (expand-file-name name dir)
+                   (insert (format ":PROPERTIES:\n:ID: %s\n:END:\n#+title: x\n#+filetags: :litnote:\n\n- pub-title :: %s\n- pub-year :: 2020\n\n" name title)))))
+       (note "a.org" "\"One\"")
+       (note "b.org" "“Two”")
+       (note "c.org" "Three")
+       (note "d.org" "\"A\" and \"B\"")
+       (note "e.org" "\"Four\""))
+     (unwind-protect
+         (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+                    (lambda () (directory-files dir t "\\.org\\'")))
+                   ((symbol-function 'pop-to-buffer) #'ignore))
+           ,@body)
+       (delete-directory dir t))))
+
+(ert-deftest sp-litnotes-meta-title-lint-plans ()
+  (sp-litnotes-meta-test--with-title-lint
+    (let ((plans (sp-litnotes-meta--title-plans)))
+      (should (equal (mapcar (lambda (p) (file-name-nondirectory (plist-get p :file))) plans)
+                     '("a.org" "b.org" "e.org")))
+      (should (equal (mapcar (lambda (p) (plist-get p :expected)) plans) '("One" "Two" "Four"))))))
+
+(ert-deftest sp-litnotes-meta-title-lint-dryrun-and-drop ()
+  (sp-litnotes-meta-test--with-title-lint
+    (let ((before (sp-litnotes-meta-test--read-file (expand-file-name "a.org" dir)))
+          (plans (sp-litnotes-meta-title-lint-dryrun (list (expand-file-name "b.org" dir)))))
+      (should (= (length plans) 2))
+      (should (equal before (sp-litnotes-meta-test--read-file (expand-file-name "a.org" dir))))
+      (should-not (file-exists-p sp-litnotes-meta-backup-directory))
+      (with-current-buffer sp-litnotes-meta--title-buffer
+        (should (string-match-p "Dropped from the list" (buffer-string)))
+        (should (string-match-p "now :: \"One\"" (buffer-string))))
+      (kill-buffer sp-litnotes-meta--title-buffer))))
+
+(ert-deftest sp-litnotes-meta-title-lint-convert-batches-and-choose ()
+  (sp-litnotes-meta-test--with-title-lint
+    (let ((sp-batch-report-batch-size 2) (batch-answers (list ?a ?c)) (char-answers (list ?s)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'sp-batch-report--ask-batch) (lambda (&rest _) (pop batch-answers)))
+                ((symbol-function 'read-char-choice) (lambda (&rest _) (pop char-answers))))
+        (let ((results (sp-litnotes-meta-title-lint-convert)))
+          ;; batch one (a, b) applied whole; batch two (e) chosen and skipped
+          (should (equal (mapcar #'cdr results) '(fixed fixed))))
+        (let ((text (lambda (n) (sp-litnotes-meta-test--read-file (expand-file-name n dir)))))
+          (should (string-match-p "- pub-title :: One\n" (funcall text "a.org")))
+          (should (string-match-p "- pub-title :: Two\n" (funcall text "b.org")))
+          (should (string-match-p "- pub-title :: \"Four\"" (funcall text "e.org")))
+          (should (string-match-p "- pub-title :: \"A\" and \"B\"" (funcall text "d.org"))))
+        (should (= 2 (length (directory-files (car (directory-files sp-litnotes-meta-backup-directory t "\\`[0-9]"))
+                                              nil "\\.org\\'"))))
+        (kill-buffer sp-litnotes-meta--title-buffer)))))
