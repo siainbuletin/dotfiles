@@ -71,11 +71,15 @@
              (number-sequence 1 n) "\n"))
 
 (defun sp-bibprocess-lint-test--convert (file answers &optional command)
-  "Run COMMAND (default `sp-bibtex-lint-fix-order') on FILE, answering the batches with ANSWERS.
-Return the sizes of the batches that were asked."
+  "Run COMMAND (default `sp-bibtex-lint-fix-order') on FILE, giving ANSWERS to what it asks.
+Batches of author names are answered with ?a, ?s or ?q; the single question of
+the order and indent fixes with ?a for yes.  Return the number of entries of
+each question that was asked."
   (let (sizes)
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch)
-               (lambda (_file batch &rest _) (push (length batch) sizes) (pop answers))))
+               (lambda (_file batch &rest _) (push (length batch) sizes) (pop answers)))
+              ((symbol-function 'sp-bibtex-lint--confirm)
+               (lambda (_file _kind count) (push count sizes) (eq ?a (pop answers)))))
       (funcall (or command #'sp-bibtex-lint-fix-order) file))
     (nreverse sizes)))
 
@@ -105,41 +109,60 @@ Return the sizes of the batches that were asked."
       (should (string-match-p "% keep me\n  year = {2020},\n  author = {John Smith}" text)))
     (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))))
 
-(ert-deftest sp-bibtex-lint-test-convert-batches ()
+(ert-deftest sp-bibtex-lint-test-order-is-not-batched ()
+  (let ((sp-bibtex-lint-batch-size 2))
+    (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 5)
+      ;; One question for all five entries, in spite of the batch size.
+      (should (equal '(5) (sp-bibprocess-lint-test--convert file '(?a))))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (dotimes (i 5)
+          (should (< (string-match (format "k%d," (1+ i)) text)
+                     (string-match (format "author =[ \t]+{John Smith%d}" (1+ i)) text)
+                     (string-match "year =[ \t]+{2020}" text (string-match (format "k%d," (1+ i)) text))))))
+      (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'")))))
+
+(ert-deftest sp-bibtex-lint-test-order-declined-writes-nothing ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (should (equal '(3) (sp-bibprocess-lint-test--convert file '(?n))))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-lint-test-authors-batches ()
   (let ((sp-bibtex-lint-batch-size 2))
     (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 5)
       ;; Apply the first batch, skip the second, apply the third.
-      (should (equal '(2 2 1) (sp-bibprocess-lint-test--convert file '(?a ?s ?a))))
+      (should (equal '(2 2 1) (sp-bibprocess-lint-test--convert file '(?a ?s ?a) #'sp-bibtex-lint-fix-authors)))
       (let ((text (sp-bibprocess-lint-test--text file)))
-        (should (string-match-p "author =[ \t]+{John Smith1}" text))
-        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{Smith1, John}" text))
+        (should (string-match-p "author =[ \t]+{Smith2, John}" text))
         (should (string-match-p "author =[ \t]+{John Smith3}" text))
         (should (string-match-p "author =[ \t]+{John Smith4}" text))
-        (should (string-match-p "author =[ \t]+{John Smith5}" text))))))
+        (should (string-match-p "author =[ \t]+{Smith5, John}" text))))))
 
 (ert-deftest sp-bibtex-lint-test-convert-default-batch-size ()
   (should (= 50 (default-value 'sp-bibtex-lint-batch-size)))
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 120)
-    (should (equal '(50 50 20) (sp-bibprocess-lint-test--convert file '(?s ?s ?s))))))
+    (should (equal '(50 50 20) (sp-bibprocess-lint-test--convert file '(?s ?s ?s) #'sp-bibtex-lint-fix-authors)))))
 
 (ert-deftest sp-bibtex-lint-test-convert-writes-nothing-unasked ()
   (let ((sp-bibtex-lint-batch-size 2))
     (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
       (let ((before (sp-bibprocess-lint-test--text file)))
         ;; Skipping, then quitting: the next batch is not even shown.
-        (should (equal '(2 1) (sp-bibprocess-lint-test--convert file '(?s ?q))))
+        (should (equal '(2 1) (sp-bibprocess-lint-test--convert file '(?s ?q) #'sp-bibtex-lint-fix-authors)))
         (should (equal before (sp-bibprocess-lint-test--text file)))
         (should-not (file-exists-p sp-bibtex-lint-backup-directory))
-        (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?q))))
+        (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?q) #'sp-bibtex-lint-fix-authors)))
         (should (equal before (sp-bibprocess-lint-test--text file)))))))
 
 (ert-deftest sp-bibtex-lint-test-convert-file-changed-on-disk ()
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 1)
-    (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch)
+    (cl-letf (((symbol-function 'sp-bibtex-lint--confirm)
                (lambda (&rest _)
                  ;; The file changes between the lint and the answer.
                  (let ((new (replace-regexp-in-string "John" "Johnny" (sp-bibprocess-lint-test--text file)))) (sleep-for 1.1) (with-temp-file file (insert new)))
-                 ?a)))
+                 t)))
       (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
     ;; Neither written nor backed up.
     (should (string-match-p "author =[ \t]+{Johnny Smith1}" (sp-bibprocess-lint-test--text file)))
