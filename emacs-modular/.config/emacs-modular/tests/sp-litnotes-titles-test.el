@@ -294,3 +294,34 @@
 
 (provide 'sp-litnotes-titles-test)
 ;; sp-litnotes-titles-test.el ends here
+
+(ert-deftest sp-litnotes-titles-split-name-surname ()
+  "The surname is found in every common BibTeX name form."
+  (dolist (case '(("Arthur, Christopher J." "Arthur")
+                  ("Christopher J. Arthur" "Arthur")
+                  ("J. Arthur" "Arthur")
+                  ("von Neumann, John" "von Neumann")
+                  ("John von Neumann" "von Neumann")
+                  ("Ludwig van der Berg" "van der Berg")
+                  ("King, Jr., Martin L." "King")
+                  ("{Smith, Jones}, Ann" "Smith, Jones")
+                  ("{World Bank}" "World Bank")
+                  ("Madonna" "Madonna")))
+    (should (equal (car (sp-litnotes-titles--split-name (car case))) (cadr case)))))
+
+(ert-deftest sp-litnotes-titles-split-name-ignores-case-fold ()
+  "Initials are never particles, whatever `case-fold-search' is."
+  (dolist (fold '(t nil))
+    (let ((case-fold-search fold))
+      (should (equal (sp-litnotes-titles--split-name "Christopher J. Arthur")
+                     '("Arthur" . "Christopher J."))))))
+
+(ert-deftest sp-litnotes-titles-bib-authors-surname ()
+  (should (equal (sp-litnotes-titles--bib-authors
+                  '(("author" . "Arthur, Christopher J. and Smith, Ann")))
+                 '(("Arthur" . "Christopher J.") ("Smith" . "Ann")))))
+
+(ert-deftest sp-litnotes-titles-format-first-name-comma ()
+  (should (equal (sp-litnotes-titles-format
+                  (list (sp-litnotes-titles--split-name "Arthur, Christopher J.")) "2022" "Capital as")
+                 "Arthur (2022) Capital as")))

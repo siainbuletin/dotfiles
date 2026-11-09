@@ -935,6 +935,15 @@ The =album= schema applies to notes tagged =album=.
 
 *** Book sections
 
+=book= applies to notes tagged =book= and only includes =base-text= (the chapters link to it with =bib-parent=; the tag is one of those of =sp-bibtex-types=).
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'book
+		      :predicate (lambda (note) (member "book" (vulpea-note-tags note)))
+		      :include 'base-text)
+#+end_src
+
+
 =booksection= applies to notes tagged =booksection=. On top of the base fields it has optional =pub-pages= and a required =bib-parent= link pointing at the note for the book, which must be tagged =book=.
 
 #+begin_src emacs-lisp -i
@@ -973,6 +982,18 @@ The =album= schema applies to notes tagged =album=.
 		      (:key "bib-parent" :type note :required t :target-tags ("collection"))
 		      (:key "pub-author" :type note :required t))
 		      )
+#+end_src
+
+=phdthesis= and =mastersthesis= apply to notes with those tags (the types of =sp-bibtex-types=). They only include =base-text=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'phdthesis
+		      :predicate (lambda (note) (member "phdthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
+
+(vulpea-schema-define 'mastersthesis
+		      :predicate (lambda (note) (member "mastersthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
 #+end_src
 
 ** Provide

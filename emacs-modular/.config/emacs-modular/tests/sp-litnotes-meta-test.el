@@ -322,7 +322,7 @@
             (let ((file (sp-litnotes-meta-create-note "doe2015chapter")))
               (should (equal file (expand-file-name "doe2015chapter.org" dir)))
               (should (equal (car args) "Doe (2014) A Chapter"))
-              (should (equal (plist-get (nth 2 args) :tags) '("litnote")))
+              (should (equal (plist-get (nth 2 args) :tags) '("litnote" "incollection")))
               (should (equal (plist-get (nth 2 args) :properties)
                              '(("ROAM_REFS" . "@doe2015chapter") ("CREATED" . "[2026-11-09 10:00]"))))))
         (delete-directory dir t)))))
@@ -398,3 +398,16 @@
 
 (provide 'sp-litnotes-meta-test)
 ;;; sp-litnotes-meta-test.el ends here
+
+(ert-deftest sp-litnotes-meta-new-title-uses-surname-before-comma ()
+  "\"Last, First M.\" gives \"Last (Year) Title\", never \"M. Last\"."
+  (sp-litnotes-meta-test--with-bib
+      "@article{arthur2022,\n  author = {Arthur, Christopher J. and van der Berg, Ann},\n  year = {2022},\n  title = {Capital as Value}\n}\n"
+    (let ((sp-litnotes-meta-new-title 'standard))
+      (should (equal (sp-litnotes-meta--new-title (sp-litnotes-meta--entry "arthur2022"))
+                     "Arthur and van der Berg (2022) Capital as Value")))))
+
+(ert-deftest sp-litnotes-meta-table-view-uses-type-mapping ()
+  (sp-litnotes-meta-test--with-bib "@mvcollection{vol2020,\n  title = {V},\n}\n@book{b2020,\n  title = {B},\n}\n"
+    (should (equal (sp-litnotes-meta--table-view "vol2020") "collection-articles"))
+    (should (equal (sp-litnotes-meta--table-view "b2020") "book-sections"))))

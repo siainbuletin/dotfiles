@@ -172,7 +172,7 @@ A book section often has no PDF of its own; its crossref entry (the book) does."
   '(("journalarticle" . "article") ("booksection" . "incollection")
     ("incollection" . "incollection") ("book" . "book") ("collection" . "collection")
     ("inreference" . "inreference") ("encyclopedia" . "inreference")
-    ("phdthesis" . "phdthesis") ("thesis" . "thesis"))
+    ("phdthesis" . "phdthesis") ("mastersthesis" . "mastersthesis") ("thesis" . "thesis"))
   "BibTeX entry type for the file tag of a litnote; any other tag gives `misc'.")
 
 (defun sp-litnotes-refs--entry-type (tags)
