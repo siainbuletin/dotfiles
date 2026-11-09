@@ -124,7 +124,7 @@
           (should (string-match-p "file: 20240101T120000--a.org -> =reuten2014value.org="
                                   (buffer-string)))
           (should (string-match-p "title: a -> Reuten (2014) Value" (buffer-string)))
-          (should (string-match-p "links to the old name in: =ref.org=" (buffer-string))))))))
+          (should (string-match-p "links to the old name in: \\[\\[file:[^]]*ref\\.org\\]\\[ref\\.org\\]\\]" (buffer-string))))))))
 
 (ert-deftest sp-litnotes-titles-apply-writes-and-is-idempotent ()
   (sp-litnotes-titles-test--with-vault
@@ -325,3 +325,26 @@
   (should (equal (sp-litnotes-titles-format
                   (list (sp-litnotes-titles--split-name "Arthur, Christopher J.")) "2022" "Capital as")
                  "Arthur (2022) Capital as")))
+
+(ert-deftest sp-litnotes-titles-report-is-a-report-buffer-with-file-links ()
+  "The dry run opens a report buffer where each note is a link to its file."
+  (sp-litnotes-titles-test--with-vault
+    (let ((file (expand-file-name "20240101T120000--a.org" dir)))
+      (sp-litnotes-titles-test--write file
+        ":PROPERTIES:" ":ID: 1" ":ROAM_REFS: @reuten2014value" ":END:" "#+title: a"
+        "- pub-author :: Reuten, Geert" "- pub-year :: 2014" "- pub-title :: Value")
+      (sp-litnotes-titles-test--write (expand-file-name "nokey.org" dir)
+        ":PROPERTIES:" ":ID: 2" ":END:" "#+title: b" "- pub-author :: Lee, Ann" "- pub-title :: T")
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-titles-dryrun))
+      (with-current-buffer "*litnote titles*"
+        (should (derived-mode-p 'sp-batch-report-mode))
+        (should buffer-read-only)
+        (should (functionp sp-batch-report-refresh-function))
+        (should (string-match-p
+                 (format "^\\*\\* \\[\\[file:%s\\]\\[20240101T120000--a\\.org\\]\\]$"
+                         (regexp-quote file))
+                 (buffer-string)))
+        ;; a failed note is listed with a link too
+        (should (string-match-p "Failed:.*\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]: "
+                                (buffer-string)))))))

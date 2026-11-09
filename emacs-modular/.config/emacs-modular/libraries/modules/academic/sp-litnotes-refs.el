@@ -12,6 +12,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -282,16 +283,16 @@ Nothing is written.  Return the job."
         (when-let* ((items (reverse (gethash (car spec) by-status))))
           (insert (format "* %s (%d)\n" (cadr spec) (length items)))
           (dolist (plan items)
-            (insert (format "- =%s=: %s -> %s\n"
-                            (file-name-nondirectory (plist-get plan :file))
+            (insert (format "- %s: %s -> %s\n"
+                            (sp-batch-report-file-link (plist-get plan :file))
                             (or (plist-get plan :keyword) (plist-get plan :roam) "")
                             (plist-get plan :refs))))
           (insert "\n")))
       (when unknown
         (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
         (dolist (item (reverse unknown))
-          (insert (format "- %s in =%s=\n" (car item)
-                          (file-name-nondirectory (plist-get (cdr item) :file)))))
+          (insert (format "- %s in %s\n" (car item)
+                          (sp-batch-report-file-link (plist-get (cdr item) :file)))))
         (insert "\n"))
       (let (dups)
         (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
@@ -299,8 +300,7 @@ Nothing is written.  Return the job."
           (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
           (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
             (insert (format "- %s: %s\n" (car dup)
-                            (mapconcat (lambda (p) (file-name-nondirectory (plist-get p :file)))
-                                       (cdr dup) ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
       (buffer-string))))
 
 ;;;###autoload
@@ -317,14 +317,7 @@ when they are read."
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."
   (let ((text (sp-litnotes-refs--report-text plans index)))
-    (with-current-buffer (get-buffer-create "*litnote refs*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")))
+    (sp-batch-report-show "*litnote refs*" text #'sp-litnotes-refs-dryrun)))
 
 ;;;; Conversion
 

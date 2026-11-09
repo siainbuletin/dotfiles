@@ -475,9 +475,9 @@
   (sp-litnotes-meta-test--with-batch
     (let ((text (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--batch-plans nil) nil)))
       (should (string-match-p "To change: 2" text))
-      (should (string-match-p "Skipped: no citation key\n- nokey.org" text))
-      (should (string-match-p "- noentry.org (missing)" text))
-      (should (string-match-p "art.org: has text, the entry type says journalarticle" text)))))
+      (should (string-match-p "Skipped: no citation key\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]" text))
+      (should (string-match-p "- \\[\\[file:[^]]*noentry\\.org\\]\\[noentry\\.org\\]\\] (missing)" text))
+      (should (string-match-p "\\[art\\.org\\]\\]: has text, the entry type says journalarticle" text)))))
 
 (ert-deftest sp-litnotes-meta-batch-dryrun-writes-nothing ()
   (sp-litnotes-meta-test--with-batch
@@ -531,3 +531,15 @@
       (insert "#+title: T\n\n")
       (should (sp-litnotes-meta--ensure-type-tag entry))
       (should (string-match-p "#\\+title: T\n#\\+filetags: :litnote:book:\n" (buffer-string))))))
+
+(ert-deftest sp-litnotes-meta-batch-report-is-a-report-buffer ()
+  (sp-litnotes-meta-test--with-batch
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-litnotes-meta-fill-all-dryrun))
+    (with-current-buffer sp-litnotes-meta--batch-buffer
+      (should (derived-mode-p 'sp-batch-report-mode))
+      (should (functionp sp-batch-report-refresh-function))
+      (should (string-match-p
+               (format "\\[\\[file:%s\\]\\[bk\\.org\\]\\]" (regexp-quote (expand-file-name "bk.org" dir)))
+               (buffer-string))))
+    (kill-buffer sp-litnotes-meta--batch-buffer)))

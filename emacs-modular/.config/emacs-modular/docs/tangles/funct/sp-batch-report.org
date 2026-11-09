@@ -1,0 +1,281 @@
+#+TITLE: sp-batch-report.el: One report buffer for the batch commands
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-batch-report.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-batch-report.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* Why this exists
+
+The batch commands write a report before they change anything (the dry runs, and the first half of every convert).
+Their reports were plain text: a file was named, but could not be visited.
+
+- *Problem*: to fix a note that a report calls out, you had to find it by hand.
+- *Fix*: every file of a report is an Org link (=[[file:...][name]]=), so =RET= visits it.
+- *Shared*: the link helper and the report buffer are here, so every command behaves the same way.
+
+** What =vulpea-doctor= offers
+
+I read =vulpea-doctor= (=vulpea.el= in the Elpaca sources) before choosing how far to reuse it.
+
+- It builds one string, with a title, sections, aligned =label  value= lines and an "Issues" list.
+- It shows the string in =*vulpea-doctor*=, in =special-mode=.
+- It has no links, no keys of its own, no refresh and no per-item actions.
+- It is a function you call, not a library: there is nothing to reuse except the layout.
+
+What was taken from it:
+
+- The look: a title, then short sections, then the items.
+- A read-only buffer you leave with =q=.
+
+What was not taken:
+
+- Its =special-mode= buffer: no link could be followed in it.
+- The buffer here is an Org buffer made read-only, so the links work and headings fold.
+
+** Which reports use it
+
+- Switched to this buffer, with a link for every file:
+  - =sp-litnotes-titles-dryrun= and the first half of =-convert=
+  - =sp-litnotes-refs-dryrun= and the first half of =-convert=
+  - =sp-litnotes-meta-fill-all-dryrun= and =-convert=
+  - =sp-notes-filing-dryrun= (it keeps =C-c C-c= for the apply)
+  - the property and keyword conversion previews
+- Already visitable (=RET= on the line), so left alone:
+  - the author notes report, the footnote lint, the tag lint, the Org normalise report, the BibTeX lint
+  - the litnote status table
+- A one-line message, no report: =sp-author-notes-works-dryrun=.
+
+* File header
+
+#+begin_src emacs-lisp -i
+;;; sp-batch-report.el --- Report buffer of the batch commands, files as links -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; The reports of the batch conversions and dry runs are Org text in a read-only
+;; buffer.  `sp-batch-report-file-link' turns a file into an Org link, so you can
+;; visit the files that have issues; `sp-batch-report-show' shows the text.
+;; See docs/tangles/funct/sp-batch-report.org.
+
+;;; Code:
+
+(require 'org)
+(require 'subr-x)
+#+end_src
+
+* Links
+
+- =sp-batch-report-file-link= returns =[[file:PATH][LABEL]]=.
+  - The label is the file name without its folder, unless one is given.
+  - The path is made absolute, so the link works from any buffer.
+  - A LINE adds =::LINE=, so the link lands on that line.
+  - Brackets in the path or label are escaped by =org-link-make-string=.
+- =sp-batch-report-file-links= joins several files with a separator (default ", ").
+- =sp-batch-report-note-link= returns =[[id:ID][TITLE]]=.
+
+#+begin_src emacs-lisp -i
+(defun sp-batch-report-file-link (file &optional label line)
+  "Return an Org link that visits FILE.
+LABEL is the text of the link; it defaults to the name of FILE without its
+folder.  LINE, when given, makes the link land on that line."
+  (let ((path (expand-file-name file)))
+    (org-link-make-string
+     (concat "file:" path (and line (format "::%d" line)))
+     (or label (file-name-nondirectory (directory-file-name path))))))
+
+(defun sp-batch-report-file-links (files &optional separator)
+  "Return the links of FILES, joined with SEPARATOR (default \", \")."
+  (mapconcat #'sp-batch-report-file-link files (or separator ", ")))
+
+(defun sp-batch-report-note-link (id title)
+  "Return an Org link to the note ID, shown as TITLE."
+  (org-link-make-string (concat "id:" id) title))
+#+end_src
+
+* The report mode
+
+- =sp-batch-report-mode= is =org-mode=, made read-only.
+- Keys in the report:
+  - =RET=: visit the link at point
+  - =n= and =p=: next and previous link
+  - =g=: make the report again, when the command gave a function for it
+  - =q=: close the window
+  - =TAB=: fold a heading (from Org)
+- =sp-batch-report-refresh-function= is the buffer-local function that =g= calls.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-batch-report-refresh-function nil
+  "The function that \\<sp-batch-report-mode-map>\\[sp-batch-report-refresh] calls to make the report again, or nil.")
+
+(defun sp-batch-report-refresh ()
+  "Make this report again."
+  (interactive)
+  (if sp-batch-report-refresh-function
+      (funcall sp-batch-report-refresh-function)
+    (user-error "This report cannot be refreshed")))
+
+(defvar sp-batch-report-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'org-open-at-point)
+    (define-key map (kbd "n") #'org-next-link)
+    (define-key map (kbd "p") #'org-previous-link)
+    (define-key map (kbd "g") #'sp-batch-report-refresh)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap of `sp-batch-report-mode'.")
+
+(define-derived-mode sp-batch-report-mode org-mode "Report"
+  "Read-only Org buffer holding the report of a batch command.
+Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the one at point,
+\\[org-next-link] and \\[org-previous-link] move between them, \\[sp-batch-report-refresh] makes the report again,
+\\[quit-window] closes it."
+  (setq buffer-read-only t))
+#+end_src
+
+* Showing a report
+
+- =sp-batch-report-show NAME TEXT &optional REFRESH MODE= replaces the content of the buffer NAME with TEXT.
+  - REFRESH is the function for =g=.
+  - MODE is a mode derived from =sp-batch-report-mode=, for a command with keys of its own.
+  - All headings are shown open, point goes to the top, the window pops up.
+  - It returns the buffer.
+
+#+begin_src emacs-lisp -i
+(defun sp-batch-report-show (name text &optional refresh mode)
+  "Show the Org TEXT in the read-only report buffer NAME and return it.
+REFRESH is the function \\`g' calls.  MODE is the major mode to use, a mode
+derived from `sp-batch-report-mode'; the default is that mode."
+  (with-current-buffer (get-buffer-create name)
+    (funcall (or mode #'sp-batch-report-mode))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert text)
+      (goto-char (point-min)))
+    (outline-show-all)
+    (setq sp-batch-report-refresh-function refresh)
+    (pop-to-buffer (current-buffer))
+    (current-buffer)))
+
+(provide 'sp-batch-report)
+;;; sp-batch-report.el ends here
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../tests/sp-batch-report-test.el
+:END:
+
+- The links are checked by reading them back with Org's own parser.
+- The buffer is checked for read-only, open headings and a working refresh key.
+
+#+begin_src emacs-lisp -i
+;;; sp-batch-report-test.el --- Tests for sp-batch-report -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'sp-batch-report)
+
+(defun sp-batch-report-test--link-at (text)
+  "The (TYPE PATH DESCRIPTION) of the first link in the Org TEXT."
+  (with-temp-buffer
+    (org-mode)
+    (insert text)
+    (goto-char (point-min))
+    (re-search-forward "\\[\\[")
+    (goto-char (match-beginning 0))
+    (let ((link (org-element-link-parser)))
+      (list (org-element-property :type link)
+            (org-element-property :path link)
+            (buffer-substring-no-properties
+             (org-element-property :contents-begin link)
+             (org-element-property :contents-end link))))))
+
+(ert-deftest sp-batch-report-file-link ()
+  (should (equal (sp-batch-report-file-link "/tmp/notes/kant2009.org")
+                 "[[file:/tmp/notes/kant2009.org][kant2009.org]]"))
+  (should (equal (sp-batch-report-file-link "/tmp/a.org" "the note")
+                 "[[file:/tmp/a.org][the note]]"))
+  (should (equal (sp-batch-report-file-link "/tmp/a.org" nil 12)
+                 "[[file:/tmp/a.org::12][a.org]]")))
+
+(ert-deftest sp-batch-report-file-link-is-absolute ()
+  (let ((default-directory "/tmp/vault/"))
+    (should (equal (sp-batch-report-file-link "note.org")
+                   "[[file:/tmp/vault/note.org][note.org]]"))))
+
+(ert-deftest sp-batch-report-file-link-brackets ()
+  "A bracket in the name does not break the link."
+  (let ((link (sp-batch-report-file-link "/tmp/a [draft].org")))
+    (should (equal (cl-subseq (sp-batch-report-test--link-at link) 0 2)
+                   '("file" "/tmp/a [draft].org")))))
+
+(ert-deftest sp-batch-report-file-links ()
+  (should (equal (sp-batch-report-file-links '("/tmp/a.org" "/tmp/b.org"))
+                 "[[file:/tmp/a.org][a.org]], [[file:/tmp/b.org][b.org]]"))
+  (should (equal (sp-batch-report-file-links '("/tmp/a.org" "/tmp/b.org") "; ")
+                 "[[file:/tmp/a.org][a.org]]; [[file:/tmp/b.org][b.org]]"))
+  (should (equal (sp-batch-report-file-links nil) "")))
+
+(ert-deftest sp-batch-report-note-link ()
+  (should (equal (sp-batch-report-note-link "abc-123" "Kant (2009) Title")
+                 "[[id:abc-123][Kant (2009) Title]]")))
+
+(ert-deftest sp-batch-report-show ()
+  (let ((buffer (save-window-excursion
+                  (sp-batch-report-show "*sp-batch-report-test*"
+                                        "#+title: T\n* One\n- [[file:/tmp/a.org][a.org]]\n"))))
+    (unwind-protect
+        (with-current-buffer buffer
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should buffer-read-only)
+          (should (= (point) (point-min)))
+          (should (string-match-p "a\\.org" (buffer-string)))
+          (should-error (sp-batch-report-refresh) :type 'user-error)
+          (goto-char (point-min))
+          (org-next-link)
+          (should (looking-at "\\[\\[file:/tmp/a.org")))
+      (kill-buffer buffer))))
+
+(ert-deftest sp-batch-report-show-refresh ()
+  "The refresh function is called by the refresh command, and survives a re-show."
+  (let* ((calls 0)
+         (refresh (lambda () (cl-incf calls)))
+         (buffer (save-window-excursion
+                   (sp-batch-report-show "*sp-batch-report-test*" "x\n" refresh))))
+    (unwind-protect
+        (with-current-buffer buffer
+          (sp-batch-report-refresh)
+          (should (= calls 1))
+          (save-window-excursion (sp-batch-report-show "*sp-batch-report-test*" "y\n" refresh))
+          (sp-batch-report-refresh)
+          (should (= calls 2))
+          (should (equal (buffer-string) "y\n")))
+      (kill-buffer buffer))))
+
+(ert-deftest sp-batch-report-show-mode ()
+  "A mode derived from the report mode can be passed."
+  (define-derived-mode sp-batch-report-test-mode sp-batch-report-mode "T")
+  (let ((buffer (save-window-excursion
+                  (sp-batch-report-show "*sp-batch-report-test*" "x\n" nil
+                                        #'sp-batch-report-test-mode))))
+    (unwind-protect
+        (with-current-buffer buffer
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (eq major-mode 'sp-batch-report-test-mode)))
+      (kill-buffer buffer))))
+
+(provide 'sp-batch-report-test)
+;;; sp-batch-report-test.el ends here
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ Added =sp-batch-report=: the report buffer that the batch conversions and dry runs share, with every file as an Org link.
+  - Used by the titles, references, meta fill-all, notes filing and conversion preview reports.
+  - Not run: the real vault.

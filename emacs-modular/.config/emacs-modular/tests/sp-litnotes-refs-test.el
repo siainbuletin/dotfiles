@@ -100,7 +100,7 @@
                  (sp-litnotes-refs--plans) (sp-litnotes-refs--bib-index (list bib)))))
       (should (string-match-p "through crossref: 1" text))
       (should (string-match-p "keys not in any registered .bib: 1" text))
-      (should (string-match-p "nowhere in =b.org=" text)))))
+      (should (string-match-p "nowhere in \\[\\[file:[^]]*b\\.org\\]\\[b\\.org\\]\\]" text)))))
 
 
 (ert-deftest sp-litnotes-refs-creates-ids-and-stubs ()

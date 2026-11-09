@@ -1284,6 +1284,7 @@ Loads Org, Vulpea and the =cl-lib= and =subr-x= helpers used for =cl-labels=, =s
 (require 'vulpea)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-batch-report)
 #+end_src
 
 *** Property blocklist
@@ -1749,17 +1750,17 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "%s: %s" (file-name-nondirectory file)
+             (format "- %s: %s" (sp-batch-report-file-link file)
                      (string-join (seq-uniq found) ", "))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
          (if report
-             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
-               (erase-buffer)
-               (insert (string-join report "\n"))
-               (goto-char (point-min))
-               (display-buffer (current-buffer)))
+             (sp-batch-report-show
+              "*vulpea property conversion preview*"
+              (concat "#+title: Property conversion: dry run\n\n"
+                      (string-join report "\n") "\n")
+              #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
            (message "Nothing would be converted -- every property found is blocklisted."))))))))
 
 #+end_src
@@ -1894,6 +1895,7 @@ Dependencies:
 (require 'seq)
 (require 'subr-x)
 (require 'sp-vulpea-convert-properties)
+(require 'sp-batch-report)
 
 (declare-function vulpea-db-query "vulpea-db")
 (declare-function vulpea-note-path "vulpea-note")
@@ -2148,23 +2150,22 @@ The preview buffer lists, per note, the lines that would be added and, when remo
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-convert-keywords--show-preview (plan)
   "Show PLAN, an alist of (SOURCE . PAIRS), in a preview buffer."
-  (with-current-buffer (get-buffer-create "*keywords to meta preview*")
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (org-mode)
-      (insert (format "Header keywords -> meta lines (%s)\n\n"
-                      (if sp-vulpea-convert-keywords-remove-original
-                          "the #+key: lines are removed"
-                        "the #+key: lines are kept")))
-      (dolist (item plan)
-        (let ((source (car item)))
-          (insert (format "* %s\n" (if (bufferp source)
-                                       (buffer-name source)
-                                     (abbreviate-file-name source)))
-                  (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
-                             (cdr item) "")))))
-    (goto-char (point-min))
-    (display-buffer (current-buffer))))
+  (sp-batch-report-show
+   "*keywords to meta preview*"
+   (with-temp-buffer
+     (insert (format "#+title: Header keywords -> meta lines (%s)\n\n"
+                     (if sp-vulpea-convert-keywords-remove-original
+                         "the #+key: lines are removed"
+                       "the #+key: lines are kept")))
+     (dolist (item plan)
+       (let ((source (car item)))
+         (insert (format "* %s\n" (if (bufferp source)
+                                      (buffer-name source)
+                                    (sp-batch-report-file-link
+                                     source (abbreviate-file-name source))))
+                 (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
+                            (cdr item) ""))))
+     (buffer-string))))
 #+end_src
 
 *** The commands
@@ -2548,3 +2549,5 @@ What each pull request changed in these modules, newest last; the one-line summa
   - No clash: =M-o n a= and =M-o n i= (=sp-insert-note=) share the =M-o n= prefix and neither uses =n=
     - the old =M-o n n= (=org-node-nodeify-entry=) belonged to the removed =org-node= module, and no module in =libraries/modules= binds it now
   - Not tested in a running Emacs. The change is one =:bind= entry.
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ The property conversion preview and the keyword conversion preview open in the shared =sp-batch-report-mode= buffer, with every note file as an Org link.

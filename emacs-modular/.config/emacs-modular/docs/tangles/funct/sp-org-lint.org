@@ -3872,6 +3872,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -4142,16 +4143,16 @@ Nothing is written.  Return the job."
         (when-let* ((items (reverse (gethash (car spec) by-status))))
           (insert (format "* %s (%d)\n" (cadr spec) (length items)))
           (dolist (plan items)
-            (insert (format "- =%s=: %s -> %s\n"
-                            (file-name-nondirectory (plist-get plan :file))
+            (insert (format "- %s: %s -> %s\n"
+                            (sp-batch-report-file-link (plist-get plan :file))
                             (or (plist-get plan :keyword) (plist-get plan :roam) "")
                             (plist-get plan :refs))))
           (insert "\n")))
       (when unknown
         (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
         (dolist (item (reverse unknown))
-          (insert (format "- %s in =%s=\n" (car item)
-                          (file-name-nondirectory (plist-get (cdr item) :file)))))
+          (insert (format "- %s in %s\n" (car item)
+                          (sp-batch-report-file-link (plist-get (cdr item) :file)))))
         (insert "\n"))
       (let (dups)
         (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
@@ -4159,8 +4160,7 @@ Nothing is written.  Return the job."
           (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
           (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
             (insert (format "- %s: %s\n" (car dup)
-                            (mapconcat (lambda (p) (file-name-nondirectory (plist-get p :file)))
-                                       (cdr dup) ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
       (buffer-string))))
 
 ;;;###autoload
@@ -4177,14 +4177,7 @@ when they are read."
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."
   (let ((text (sp-litnotes-refs--report-text plans index)))
-    (with-current-buffer (get-buffer-create "*litnote refs*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")))
+    (sp-batch-report-show "*litnote refs*" text #'sp-litnotes-refs-dryrun)))
 
 ;;;; Conversion
 
@@ -4373,6 +4366,7 @@ Sets the title of each literature note to a short reference built from =pub-auth
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -4912,7 +4906,7 @@ Return the job."
           (let ((old-name (file-name-nondirectory (plist-get plan :file)))
                 (renamed (and sp-litnotes-titles-rename-files
                               (eq (plist-get plan :name-status) 'rename))))
-            (insert (format "** =%s=\n" old-name))
+            (insert (format "** %s\n" (sp-batch-report-file-link (plist-get plan :file))))
             (when (cdr (plist-get plan :keys))
               (insert (format "- several citekeys: %s (the first names the file)\n"
                               (string-join (plist-get plan :keys) " "))))
@@ -4930,8 +4924,7 @@ Return the job."
               (insert "- file: unchanged\n"))
             (when-let* ((files (cdr (assoc old-name links))))
               (insert (format "- file: links to the old name in: %s\n"
-                              (mapconcat (lambda (f) (format "=%s=" (file-name-nondirectory f)))
-                                         files ", ")))))))
+                              (sp-batch-report-file-links files)))))))
       (dolist (item sp-litnotes-titles--reasons)
         (let ((group (cl-remove-if-not
                       (lambda (p) (or (eq (plist-get p :title-status) (car item))
@@ -4940,8 +4933,8 @@ Return the job."
           (when group
             (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
-              (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
-                              (file-name-nondirectory (plist-get plan :file))
+              (insert (format "- %s: title %s; pub-author %s; pub-title %s%s\n"
+                              (sp-batch-report-file-link (plist-get plan :file))
                               (or (plist-get plan :title) "(none)")
                               (or (plist-get plan :author) "(none)")
                               (or (plist-get plan :pub) "(none)")
@@ -4952,7 +4945,7 @@ Return the job."
                                              plans)))
         (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
         (dolist (plan missing)
-          (insert (format "- =%s=: %s\n" (file-name-nondirectory (plist-get plan :file))
+          (insert (format "- %s: %s\n" (sp-batch-report-file-link (plist-get plan :file))
                           (string-join (plist-get plan :keys) " ")))))
       (let ((by-title (make-hash-table :test 'equal)) dups)
         (dolist (plan plans)
@@ -4963,8 +4956,7 @@ Return the job."
           (insert (format "\n* Notes that would get the same title (%d titles)\n" (length dups)))
           (dolist (group dups)
             (insert (format "- %s: %s\n" (plist-get (car group) :new-title)
-                            (mapconcat (lambda (p) (format "=%s=" (file-name-nondirectory (plist-get p :file))))
-                                       group ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) group)))))))
       (buffer-string))))
 
 ;;;; Starting a run
@@ -5004,14 +4996,8 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
   (sp-litnotes-titles--scan
    (lambda (plans links)
      (let ((text (sp-litnotes-titles--report-text plans links)))
-       (with-current-buffer (get-buffer-create "*litnote titles*")
-         (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert text)
-           (org-mode)
-           (goto-char (point-min))
-           (read-only-mode 1)))
-       (pop-to-buffer "*litnote titles*"))
+       (sp-batch-report-show "*litnote titles*" text
+                             (unless callback #'sp-litnotes-titles--show-report)))
      (when callback (funcall callback plans)))))
 
 ;;;; Writing
@@ -5529,3 +5515,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - The entries are indexed once by author name now (a 40,000-entry file with 3,000 author notes takes about 7 s in total, in slices).
   - A missing =.bib= file is skipped with a message
     - none readable stops with a =user-error= naming the files.
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ The dry-run and convert reports of =sp-litnotes-refs= and =sp-litnotes-titles= list every note as an Org link (=[[file:...][name]]=), so =RET= visits it.
+    - They open in the shared =sp-batch-report-mode= buffer (see [[file:sp-batch-report.org][sp-batch-report]]), with =g= to read the notes again.
+  - Tests updated for the links; one test for the titles report buffer.

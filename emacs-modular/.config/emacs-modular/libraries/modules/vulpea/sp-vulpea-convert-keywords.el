@@ -15,6 +15,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'sp-vulpea-convert-properties)
+(require 'sp-batch-report)
 
 (declare-function vulpea-db-query "vulpea-db")
 (declare-function vulpea-note-path "vulpea-note")
@@ -213,23 +214,22 @@ save. Returns the list of (KEY . VALUE) converted."
 
 (defun sp-vulpea-convert-keywords--show-preview (plan)
   "Show PLAN, an alist of (SOURCE . PAIRS), in a preview buffer."
-  (with-current-buffer (get-buffer-create "*keywords to meta preview*")
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (org-mode)
-      (insert (format "Header keywords -> meta lines (%s)\n\n"
-                      (if sp-vulpea-convert-keywords-remove-original
-                          "the #+key: lines are removed"
-                        "the #+key: lines are kept")))
-      (dolist (item plan)
-        (let ((source (car item)))
-          (insert (format "* %s\n" (if (bufferp source)
-                                       (buffer-name source)
-                                     (abbreviate-file-name source)))
-                  (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
-                             (cdr item) "")))))
-    (goto-char (point-min))
-    (display-buffer (current-buffer))))
+  (sp-batch-report-show
+   "*keywords to meta preview*"
+   (with-temp-buffer
+     (insert (format "#+title: Header keywords -> meta lines (%s)\n\n"
+                     (if sp-vulpea-convert-keywords-remove-original
+                         "the #+key: lines are removed"
+                       "the #+key: lines are kept")))
+     (dolist (item plan)
+       (let ((source (car item)))
+         (insert (format "* %s\n" (if (bufferp source)
+                                      (buffer-name source)
+                                    (sp-batch-report-file-link
+                                     source (abbreviate-file-name source))))
+                 (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
+                            (cdr item) ""))))
+     (buffer-string))))
 
 (defun sp-vulpea-convert-keywords--note-files ()
   "Return the file names of all Vulpea notes."

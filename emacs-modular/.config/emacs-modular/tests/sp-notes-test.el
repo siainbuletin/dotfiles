@@ -285,3 +285,29 @@
 
 (provide 'sp-notes-test)
 ;;; sp-notes-test.el ends here
+
+(ert-deftest sp-notes-filing-report-links-files ()
+  "The dry-run report is a report buffer: every file to move is a link."
+  (let* ((root (file-name-as-directory (make-temp-file "sp-filing" t)))
+         (sp-notes-filing-root root)
+         (from (expand-file-name "a.org" root)))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'sp-notes-filing-check-rule-tags) #'ignore)
+                    ((symbol-function 'sp-notes-filing-plan)
+                     (lambda (&rest _)
+                       (list (list :from from :to (expand-file-name "docs/a.org" root)
+                                   :folder "docs")))))
+            (save-window-excursion (sp-notes-filing-dryrun)))
+          (with-current-buffer "*Notes filing*"
+            (should (derived-mode-p 'sp-batch-report-mode))
+            (should (eq major-mode 'sp-notes-filing-report-mode))
+            (should sp-notes-filing--current-plan)
+            (should (eq (lookup-key (current-local-map) (kbd "C-c C-c"))
+                        #'sp-notes-filing-convert))
+            (should (string-match-p
+                     (format "\\[\\[file:%s\\]\\[a\\.org\\]\\] -> docs/a\\.org"
+                             (regexp-quote from))
+                     (buffer-string)))))
+      (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
+      (delete-directory root t))))

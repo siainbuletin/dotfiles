@@ -74,6 +74,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 (require 'sp-author-notes)
 (require 'sp-author-notes-bibtex)
 (require 'sp-litnotes-titles)
+(require 'sp-batch-report)
 (require 'sp-bibtex-types)
 
 (declare-function citar-create-note "citar")
@@ -1117,6 +1118,10 @@ The .bib files are read once for all of them."
   "The file name of PLAN without its folder."
   (file-name-nondirectory (plist-get plan :file)))
 
+(defun sp-litnotes-meta--file-link (plan)
+  "An Org link that visits the file of PLAN."
+  (sp-batch-report-file-link (plist-get plan :file)))
+
 (defun sp-litnotes-meta--batch-report-text (plans overwrite)
   "The report of PLANS as text.  OVERWRITE says whether a prefix argument was given."
   (let* ((ok (seq-filter (lambda (p) (eq (plist-get p :status) 'ok)) plans))
@@ -1133,7 +1138,7 @@ The .bib files are read once for all of them."
                       (length no-key) (length no-entry)))
       (insert "* To change\n")
       (dolist (plan todo)
-        (insert (format "- %s (%s)\n" (sp-litnotes-meta--name plan) (plist-get plan :key)))
+        (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)))
         (dolist (item (plist-get plan :fill))
           (insert (format "  - fill %s :: %s\n" (car item) (cdr item))))
         (dolist (item (plist-get plan :replace))
@@ -1145,27 +1150,23 @@ The .bib files are read once for all of them."
         (let ((lacking (seq-filter (lambda (p) (member key (plist-get p :missing))) ok)))
           (insert (format "- %s: %d notes\n" key (length lacking)))))
       (insert "\n* Skipped: no citation key\n")
-      (dolist (plan no-key) (insert (format "- %s\n" (sp-litnotes-meta--name plan))))
+      (dolist (plan no-key) (insert (format "- %s\n" (sp-litnotes-meta--file-link plan))))
       (insert "\n* Skipped: key not in the .bib files\n")
       (dolist (plan no-entry)
-        (insert (format "- %s (%s)\n" (sp-litnotes-meta--name plan)
+        (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan)
                         (string-join (plist-get plan :keys) ", "))))
       (insert "\n* Type tag differs from the BibTeX entry type (not changed)\n")
       (dolist (plan mismatch)
         (let ((tag (plist-get plan :tag)))
-          (insert (format "- %s: has %s, the entry type says %s\n" (sp-litnotes-meta--name plan)
+          (insert (format "- %s: has %s, the entry type says %s\n" (sp-litnotes-meta--file-link plan)
                           (string-join (cadr tag) ", ") (cddr tag)))))
       (buffer-string))))
 
 (defun sp-litnotes-meta--show-report (plans overwrite)
   "Show the report of PLANS in its own buffer."
-  (with-current-buffer (get-buffer-create sp-litnotes-meta--batch-buffer)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (insert (sp-litnotes-meta--batch-report-text plans overwrite))
-      (goto-char (point-min)))
-    (special-mode)
-    (pop-to-buffer (current-buffer))))
+  (sp-batch-report-show sp-litnotes-meta--batch-buffer
+                        (sp-litnotes-meta--batch-report-text plans overwrite)
+                        (lambda () (sp-litnotes-meta-fill-all-dryrun overwrite))))
 
 ;;;###autoload
 (defun sp-litnotes-meta-fill-all-dryrun (&optional overwrite)
@@ -1344,3 +1345,10 @@ alist of file to the lines changed (or the error)."
 (provide 'sp-litnotes-meta)
 ;; sp-litnotes-meta.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ The =sp-litnotes-meta-fill-all-dryrun= and =-convert= report lists every note as an Org link and opens in the shared =sp-batch-report-mode= buffer (=g= runs the dry run again).
