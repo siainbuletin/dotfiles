@@ -12,6 +12,8 @@ Pipeline
 Usage
   gh-pr-pdf siainbuletin/dotfiles
   gh-pr-pdf siainbuletin/dotfiles --discussions
+  gh-pr-pdf siainbuletin/dotfiles                       # the 2nd run onwards only fetches what changed
+  gh-pr-pdf siainbuletin/dotfiles --full                # force a complete fetch
   gh-pr-pdf siainbuletin/dotfiles --skip-fetch          # re-render from existing backup/
   gh-pr-pdf siainbuletin/dotfiles --no-pdf              # org files only
   gh-pr-pdf siainbuletin/dotfiles --per-pdf 200         # several PDFs of 200 PRs each
@@ -24,6 +26,7 @@ Output (default ./<repo>-prs/)
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -31,7 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -49,17 +52,75 @@ def need(tool: str, hint: str) -> None:
 # 1. Fetch
 # --------------------------------------------------------------------------
 
-def fetch_prs(owner: str, repo: str, backup: Path, private: bool) -> None:
+STATE_NAME = ".gh-pr-pdf-state.json"
+RENDER_VERSION = 1          # bump when the org layout changes, so cached org files are rebuilt
+CHECKPOINTS = ("last_update", "reviews_last_update")   # github-backup's own -i markers
+
+
+def now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def load_state(backup: Path) -> dict:
+    try:
+        st = json.loads((backup / STATE_NAME).read_text(encoding="utf-8"))
+        return st if isinstance(st, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(backup: Path, st: dict) -> None:
+    (backup / STATE_NAME).write_text(json.dumps(st, indent=1, sort_keys=True), encoding="utf-8")
+
+
+def github_backup_help() -> str:
     need("github-backup", "Install it with: pipx install github-backup   (or: pip install github-backup)")
-    help_txt = subprocess.run(["github-backup", "-h"], capture_output=True, text=True).stdout
-    cmd = [
-        "github-backup", owner, "-R", repo, "-o", str(backup),
-        "--pulls", "--pull-comments", "--pull-commits", "--pull-details",
-    ]
+    return subprocess.run(["github-backup", "-h"], capture_output=True, text=True).stdout
+
+
+def pr_flags(help_txt: str, private: bool) -> list[str]:
+    flags = ["--pulls", "--pull-comments", "--pull-commits", "--pull-details"]
     if "--pull-reviews" in help_txt:
-        cmd.append("--pull-reviews")
+        flags.append("--pull-reviews")
     if private:
-        cmd.append("--private")
+        flags.append("--private")
+    return flags
+
+
+def decide_mode(st: dict, flags: list[str], full: bool, full_every: int) -> tuple[bool, str]:
+    """(incremental?, reason). github-backup -i trusts its own checkpoints, and its
+    docs warn that an earlier failed run can leave a hole in the data. So a full
+    fetch is forced when there is no earlier complete run, when the options differ
+    (a new flag is not backfilled), and every --full-every days."""
+    if full:
+        return False, "--full given"
+    try:
+        last_full = datetime.fromisoformat(st["last_full"])
+    except (KeyError, ValueError, TypeError):
+        return False, "no earlier complete run recorded"
+    if st.get("flags") != flags:
+        return False, "options differ from the last run"
+    age = now() - last_full
+    if full_every > 0 and age >= timedelta(days=full_every):
+        return False, f"last full fetch was {age.days} days ago (--full-every {full_every})"
+    return True, f"last full fetch {age.days} days ago, last run {st.get('last_run', '?')}"
+
+
+def reset_checkpoints(backup: Path) -> None:
+    """Delete github-backup's -i markers so that the next run starts from nothing
+    and then writes fresh ones. Only files with these exact names, inside backup/."""
+    for name in CHECKPOINTS:
+        for p in [backup / name, *backup.glob(f"repositories/*/pulls/{name}")]:
+            if p.is_file():
+                p.unlink()
+
+
+def fetch_prs(owner: str, repo: str, backup: Path, flags: list[str], help_txt: str, incremental: bool) -> None:
+    if not incremental:
+        reset_checkpoints(backup)
+    # -i is always passed: it is what makes github-backup write its checkpoints. With
+    # none present it fetches everything, with them only what changed since.
+    cmd = ["github-backup", owner, "-R", repo, "-o", str(backup), *flags, "-i"]
 
     tokfile = None
     try:
@@ -480,6 +541,9 @@ def main() -> int:
     ap.add_argument("-o", "--out", help="output directory (default: ./<repo>-prs)")
     ap.add_argument("--discussions", action="store_true", help="also fetch and render GitHub Discussions")
     ap.add_argument("--skip-fetch", action="store_true", help="reuse existing backup/ instead of calling the API")
+    ap.add_argument("--full", action="store_true", help="fetch everything again instead of only what changed")
+    ap.add_argument("--full-every", type=int, default=30, metavar="DAYS",
+                    help="also fetch everything again when the last full fetch is this old (default 30, 0 = never)")
     ap.add_argument("--no-pdf", action="store_true", help="stop after writing org files")
     ap.add_argument("--per-pdf", type=int, default=0, metavar="N", help="split into PDFs of N items each")
     ap.add_argument("--reverse", action="store_true", help="newest PR first")
@@ -495,10 +559,19 @@ def main() -> int:
     backup, orgdir = out / "backup", out / "org"
     backup.mkdir(parents=True, exist_ok=True)
 
+    state = load_state(backup)
     if not a.skip_fetch:
-        fetch_prs(owner, repo, backup, a.private)
+        help_txt = github_backup_help()
+        flags = pr_flags(help_txt, a.private)
+        incremental, why = decide_mode(state, flags, a.full, a.full_every)
+        print(f"fetching pull requests: {'incremental' if incremental else 'full'} ({why})", flush=True)
+        fetch_prs(owner, repo, backup, flags, help_txt, incremental)
+        state.update(flags=flags, last_run=now().isoformat(timespec="seconds"))
+        if not incremental:
+            state["last_full"] = state["last_run"]
+        save_state(backup, state)      # saved now, so a render crash does not lose the fetch
         if a.discussions:
-            fetch_discussions(owner, repo, backup)
+            fetch_discussions(owner, repo, backup)   # always complete: it is one query per 25 discussions
 
     prs, discs = load_prs(backup), load_discussions(backup)
     if not prs and not discs:
@@ -514,20 +587,37 @@ def main() -> int:
               + ", ".join(sorted(prs[0])), file=sys.stderr)
 
     orgdir.mkdir(parents=True, exist_ok=True)
-    for old in list(orgdir.glob("pr-*.org")) + list(orgdir.glob("discussion-*.org")):
-        old.unlink()
-
     md = Md2Org()
+    # An org file is rebuilt only when the JSON it came from changed (or the
+    # renderer did); pandoc runs several times per pull request, so this matters.
+    ver = f"{RENDER_VERSION}:{int(md.have_pandoc)}"
+    cache = state.get("rendered", {}) if state.get("render_version") == ver else {}
+    new_cache: dict[str, str] = {}
     files: list[Path] = []
+    count = {"rendered": 0, "reused": 0}
+
+    def emit(kind: str, obj: dict, render) -> None:
+        f = orgdir / f"{kind}-{obj['number']:05d}.org"
+        digest = hashlib.sha1(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+        if cache.get(f.name) == digest and f.exists():
+            count["reused"] += 1
+        else:
+            f.write_text(render(obj, owner, repo, md), encoding="utf-8")
+            count["rendered"] += 1
+        new_cache[f.name] = digest
+        files.append(f)
+
     for pr in prs:
-        f = orgdir / f"pr-{pr['number']:05d}.org"
-        f.write_text(render_pr(pr, owner, repo, md), encoding="utf-8")
-        files.append(f)
+        emit("pr", pr, render_pr)
     for d in discs:
-        f = orgdir / f"discussion-{d['number']:05d}.org"
-        f.write_text(render_discussion(d, owner, repo, md), encoding="utf-8")
-        files.append(f)
-    print(f"wrote {len(prs)} PR and {len(discs)} discussion org files to {orgdir}")
+        emit("discussion", d, render_discussion)
+    for old in list(orgdir.glob("pr-*.org")) + list(orgdir.glob("discussion-*.org")):
+        if old.name not in new_cache:      # PR or discussion no longer in the backup
+            old.unlink()
+    state.update(rendered=new_cache, render_version=ver)
+    save_state(backup, state)
+    print(f"{len(prs)} PRs and {len(discs)} discussions in {orgdir}: "
+          f"{count['rendered']} rendered, {count['reused']} unchanged")
 
     title = f"{owner}/{repo}: pull requests" + (" and discussions" if discs else "")
     (orgdir / "all.org").write_text(
