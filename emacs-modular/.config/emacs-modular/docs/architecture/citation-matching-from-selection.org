@@ -1,0 +1,173 @@
+#+title: Matching a selected citation to a BibTeX or DEVONthink record
+#+date: 2026-11-09
+#+status: proposed
+
+This is a design, not an implementation. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
+
+* Goal
+
+- Select a citation in a PDF (Highlights) or in DEVONthink: a Chicago, APA or IEEE in-text citation, or a full entry of the Bibliography section.
+- Press one hotkey; Emacs finds the matching BibTeX record (and its DEVONthink record).
+- Insert the citekey, or the list of all works cited by the source, into the end section of the litnote being written.
+- Show which cited works already have a litnote.
+- This replaces the =print_bibliography= block that #338 removed, with a section that is generated on request and is justified by the source.
+
+* Feasibility (short answer)
+
+- Feasible, and no overlay is needed. A global hotkey or a macOS Service is enough.
+- The hard part is the matching, not the plumbing. The plumbing is about 40 lines of shell/AppleScript.
+- Risks, in order:
+  - Selected text from PDFs is dirty: hyphenated line breaks, ligatures (=ﬁ=), page headers in the middle of a selection, two-column interleaving.
+  - Entries of the Bibliography section can be matched well; short in-text citations (=Smith 2017=) are ambiguous and can only give a candidate list.
+  - Own BibTeX records diverge (casing, abbreviations, missing subtitle, =and others=). Scoring must be forgiving, and a human must confirm below a threshold.
+  - Works not in BibTeX at all are normal. The result must say "no match" and offer to create a record, not guess.
+  - Highlights has no scripting dictionary that exposes the selection; the clipboard is the only interface (see below).
+
+* Part 1: matching a citation string
+
+** Pipeline
+
+- Normalise the input.
+- Extract fields (surname, year, title words).
+- Score against candidates.
+- Return a ranked list; auto-accept only if clearly ahead.
+
+** Normalisation (applies to input and to every BibTeX record)
+
+- Unicode NFKD, then drop combining marks, so accents do not matter.
+- Expand ligatures (=ﬁ=, =ﬂ=) and typographic quotes and dashes.
+- Rejoin line-end hyphenation (=socio-\ntechnical= becomes =sociotechnical=).
+- Lower case; strip punctuation; collapse whitespace.
+- Strip LaTeX from BibTeX fields (=\"u= to =u=, braces gone). =sp-author-notes-latex-to-unicode= and =sp-author-notes-fold-diacritics= already exist; reuse them.
+
+** Extraction without a parser (default)
+
+- Year: first =(19|20)\d\d[a-z]?= in the string.
+- Surnames: tokens before the year, both for =Surname, Name= and =Name Surname= formats.
+  - Accept either order by scoring the surname set, not a position.
+- Title words: the longest run after the year (APA) or inside quotes (Chicago article, IEEE).
+  - Drop stop words; keep the 4 to 6 rarest words by frequency in the whole bibliography.
+- This is cheap and good enough for entries of a Bibliography section.
+
+** Extraction with a parser (optional later)
+
+- AnyStyle (Ruby, CRF) or refextract-style tools split a full reference into author/year/title/container.
+- Pros: better on messy entries, and handles very long reference lists in one pass.
+- Cons: a Ruby/Python dependency to install and keep working; no gain for short in-text citations.
+- Decision: start without it; keep one function (=sp-cite-match--parse=) as the swap point.
+
+** Scoring (done in Emacs)
+
+- Candidates: one list, built from =citar= (BibTeX) plus the DEVONthink index (=sp-devonthink-index=, citekey to UUID).
+  - Cache the normalised fields per citekey, rebuilt when the =.bib= files change.
+- Pre-filter by year (equal, or off by one for online-first dates) and by any surname overlap; this cuts ~1,300 entries to a handful.
+- Score of a candidate (0 to 1), bulleted by weight:
+  - Surname overlap, 0.35 (Jaccard on normalised surname sets; first author counts double).
+  - Year, 0.15 (exact, 0.1 when off by one).
+  - Title similarity, 0.40 (token Jaccard, plus a trigram or Levenshtein ratio on the whole normalised title for typos).
+  - Container (journal/book title) overlap, 0.10 when present in both.
+- Thresholds (tunable defcustoms):
+  - Above 0.85 and 0.15 ahead of the second: accept.
+  - 0.55 to 0.85, or a close second: show =completing-read= with scores.
+  - Below 0.55: "no match".
+- DOI or URL in the selection short-circuits everything: exact match on the =doi= field.
+- Emacs-side is enough at this size (a few thousand records, a few ms per entry); no external index needed.
+- Offer =litdb= (semantic search) only as a fallback when the title is strongly paraphrased; it is not needed for citations.
+
+** Matching to DEVONthink
+
+- Citekey is the join (as in the DEVONthink design): BibTeX entry, PDF file name and litnote =#+reference:= share it.
+- If a selection matches a DEVONthink record but no BibTeX entry, report it as "in DEVONthink only" and offer to create an entry.
+- Do not search DEVONthink's own content search for this; matching on the file-name citekey and the fields cached above is faster and deterministic.
+
+* Part 2: getting the selection into Emacs
+
+** Why the clipboard is the interface
+
+- Highlights does not expose the selection to AppleScript or JXA. The robust path is the clipboard: a hotkey sends =Cmd+C=, reads the pasteboard and hands the text to Emacs.
+- DEVONthink does expose it: =selected text of think window= style properties, and =selection= of records, in AppleScript/JXA. The same clipboard path also works there and keeps one code path; use the scripting route only to learn the record UUID and page (for the link back).
+
+** Options for the trigger
+
+- Hammerspoon hotkey (recommended):
+  - Binds e.g. =Hyper+C=, sends =Cmd+C=, waits ~100 ms, reads =hs.pasteboard=.
+  - Then calls =emacsclient= or opens an =org-protocol:= URL.
+  - Gives the frontmost app name for free (Highlights or DEVONthink), which selects the source.
+  - One extra dependency, but Sia can keep it as a single Lua file in the dotfiles.
+- macOS Service (Automator/Shortcut "Run Shell Script" with input as stdin):
+  - Appears in the Services menu and gets a shortcut under System Settings, with no extra app.
+  - Receives the selected text directly, without the copy trick; not every app offers Services for PDF text (Highlights should, DEVONthink does).
+  - Less flexible for passing the app name and the clipboard fallback.
+- Shortcuts.app: possible, but slower to start and awkward to version-control. Not recommended.
+- Avoid any overlay or accessibility screen scraping: it is fragile and unnecessary.
+
+** Getting it into Emacs
+
+- Use =org-protocol=. It is already enabled (=sp-org-base.el=) and =sp-quick-capture= already registers a protocol handler as a pattern to copy.
+  - New handler: =org-protocol://sp-cite-match?text=URL-ENCODED&app=highlights&dt=UUID=.
+  - Long texts (a whole Bibliography page) can exceed what is comfortable in a URL; for those, write the text to a temp file and pass =?file=PATH=.
+- Alternative: =emacsclient -e '(sp-cite-match-text "...")'=.
+  - Needs shell quoting care; the hotkey script must escape the text. Prefer the protocol or the temp file.
+- The server must be running (=sp-server.el= starts it for the launchd daemon, so this holds).
+- The handler always acts on the litnote of the buffer last used for writing, or asks if there are several candidates; it never edits a buffer without showing the result first.
+
+** From DEVONthink specifically
+
+- The existing bridge (=sp-litdb= and the =x-devonthink-item:= link type) goes from Emacs to DEVONthink. The reverse direction is what is new here.
+- A small JXA or AppleScript, called by the same hotkey when DEVONthink is frontmost, returns:
+  - the selected text;
+  - the record UUID and the page (when a PDF is open).
+- The UUID identifies the /source/ being read, so Emacs can open the right litnote without asking (citekey from the file name, then =#+reference:=).
+- Everything stays inside DEVONthink's scripting interface; never touch the database package as files.
+
+* Part 3: writing the result into the litnote
+
+** Two commands
+
+- =sp-cite-match-selection=: match the selection, show the ranked list, insert =[cite:@key]= at point or into the end section.
+- =sp-cite-match-bibliography=: take a whole selected Bibliography section, split it into entries, match each, and write the list.
+  - Entry splitting: blank line, a leading number (=[12]=, =12.=), or a new line starting with a capitalised surname and a comma.
+  - Show a report buffer first: matched, uncertain and unmatched entries, with scores; nothing is written until confirmed.
+
+** The end section
+
+- A heading =* Cited works= at the end of the litnote, with a fixed property, e.g. =:CITED_WORKS:= so the code can find it and rewrite it safely.
+- Written by us, not by a =print_bibliography= block:
+  - the block that #338 removed printed all entries of the global bibliography unfiltered, which was the problem;
+  - this list only holds works that were matched from this source, so every line is justified.
+- One bullet per work, in bullet-point style, e.g.:
+  - =[cite:@smith2020attention]= Smith (2020) /Attention is all/ — litnote: [[id:...]]
+  - =[cite:@jones2019kernels]= Jones (2019) /Kernels/ — no litnote
+  - Unmatched entries are kept as plain text with a =TODO unmatched= marker, so none is lost silently.
+- Re-running updates the list (matches by citekey), it does not duplicate.
+
+** Showing which cited works already have litnotes
+
+- =citar-vulpea= already resolves a citekey to a note through =ROAM_REFS=; use the same lookup (one Vulpea query for all keys, not one per work).
+- Display options (both cheap):
+  - the link to the litnote on each bullet, or "no litnote";
+  - a summary line at the top: "34 cited, 12 with litnotes, 3 unmatched".
+- A command to make the missing litnotes in one go, reusing =citar-create-note=, with the autofill of =sp-litnotes-meta= (author, year, title, parent).
+- Also useful: in the litnote of the source, feed the =read-status= of the cited litnotes into the same bullet, so one sees at a glance what is still unread.
+
+* Alternatives considered
+
+- Overlay on top of Highlights/DEVONthink: rejected; fragile, needs accessibility permissions, adds nothing a hotkey does not.
+- Citation parser first (AnyStyle): deferred; extra dependency, little gain for the common case.
+- Match inside DEVONthink with its search/"See also": rejected for citations; non-deterministic and slow for lists.
+- Match inside =litdb= only: rejected as primary; semantic, so it confuses similar titles by different authors.
+- Keep =print_bibliography=: rejected, see #338.
+
+* Order of work
+
+- PR 1: =sp-cite-match= core: normalisation, extraction, scoring, ERT tests with real entries (Chicago, APA, IEEE, with typos).
+- PR 2: =org-protocol= handler and the Hammerspoon/Service scripts (in the dotfiles, outside the Emacs config).
+- PR 3: =Cited works= section writer and the litnote lookup.
+- PR 4 (optional): DEVONthink UUID/page return and the bibliography splitter.
+- Each PR is testable on its own; the scoring PR can be tuned on a sample of the real =.bib= files before any hotkey exists.
+
+* Open questions for Sia
+
+- Is Hammerspoon already installed, or should the Service route be the first one?
+- Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
+- Name of the end section and whether it should live in the litnote's front matter instead.
