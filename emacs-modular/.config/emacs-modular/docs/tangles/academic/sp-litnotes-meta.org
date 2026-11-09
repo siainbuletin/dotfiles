@@ -2110,3 +2110,6 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/357][#357]]
   - ✨ =sp-litnotes-meta-fill= orders the meta lines by key (=sp-vulpea-meta-order=) and lists ="order"= when it did; the batch dry run and convert plan and do the same (=sp-litnotes-meta-order-meta= turns it off).
+
+- [[https://github.com/siainbuletin/dotfiles/pull/365][#365]]
+  - ✨ A =pub-title= enclosed in quotes is its own category in the batch dry run and convert, and =sp-litnotes-meta-fill= removes the quotes; BibTeX titles are read without enclosing quotes; =sp-litnotes-meta-title-lint-dryrun= and =-convert= lint it for every litnote.
