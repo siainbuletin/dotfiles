@@ -453,45 +453,85 @@
       (should-not (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "ch1")))
       (should-not sp-litnotes-meta-test--made))))
 
-(ert-deftest sp-litnotes-meta-parent-of-itself-is-left-out ()
-  (sp-litnotes-meta-test--with-parents "@book{self, title = {S}, crossref = {self}}\n"
-    (note "self.org" ":PROPERTIES:\n:ID: id-self\n:ROAM_REFS: @self\n:END:\n#+title: S\n\n")
-    (let ((sp-litnotes-meta--making '("self")))
-      (should-not (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "self"))))
-    (should-not sp-litnotes-meta-test--made)))
-
-(ert-deftest sp-litnotes-meta-crossref-loop-makes-each-parent-once ()
-  "ch -> b -> c -> b: b and c are made once, and c's link back to b is left out."
+(ert-deftest sp-litnotes-meta-deep-chain-makes-nothing ()
+  "ch -> b -> c: bib-parent is left out and nothing is made, though neither note exists."
   (sp-litnotes-meta-test--with-parents
       "@incollection{ch, title = {Ch}, crossref = {b}}
 @book{b, title = {B}, crossref = {c}}
-@book{c, title = {C}, crossref = {b}}
+@book{c, title = {C}}
 "
     (note "ch.org" ":PROPERTIES:\n:ID: id-ch\n:ROAM_REFS: @ch\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
-    ;; The batch reads the existing notes once, so b is not found while c is made.
-    (let* ((covered (sp-author-notes-bibtex--covered))
-           (sp-litnotes-meta--made-parents (make-hash-table :test #'equal)))
-      (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered) (lambda () covered)))
-        (sp-litnotes-meta-fill "ch"))
-      (should (equal (reverse sp-litnotes-meta-test--made) '("b" "c")))
-      (should (string-match-p "- bib-parent :: \\[\\[id:id-b\\]" (sp-litnotes-meta-test--read dir "ch.org")))
-      (should (string-match-p "- bib-parent :: \\[\\[id:id-c\\]" (sp-litnotes-meta-test--read dir "b.org")))
-      (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "c.org"))))))
+    (should-not (member "bib-parent" (sp-litnotes-meta-fill "ch")))
+    (should-not sp-litnotes-meta-test--made)
+    (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "ch.org")))))
 
-(ert-deftest sp-litnotes-meta-missing-parents-chain ()
+(ert-deftest sp-litnotes-meta-deep-chain-left-out-even-when-parent-has-note ()
+  (sp-litnotes-meta-test--with-parents
+      "@incollection{ch, title = {Ch}, crossref = {b}}
+@book{b, title = {B}, crossref = {c}}
+"
+    (note "b.org" ":PROPERTIES:\n:ID: id-b\n:ROAM_REFS: @b\n:END:\n#+title: B\n\n")
+    (should-not (sp-litnotes-meta--parent-value (sp-litnotes-meta--entry "ch")))))
+
+(ert-deftest sp-litnotes-meta-crossref-chain-detection ()
   (sp-litnotes-meta-test--with-bib
       "@incollection{ch, crossref = {b}}
 @book{b, crossref = {c}}
 @book{c, crossref = {b}}
-@book{d, crossref = {nokey}}
+@book{self, crossref = {self}}
+@book{top, title = {T}}
+@incollection{ok, crossref = {top}}
+@incollection{gone, crossref = {nokey}}
+@book{nochild, title = {N}}
+"
+    (should (equal (sp-litnotes-meta--crossref-chain (sp-litnotes-meta--entry "ch")) '("b" "c")))
+    (should (equal (sp-litnotes-meta--crossref-chain (sp-litnotes-meta--entry "self")) '("self")))
+    ;; one hop, a parent with a missing entry, and no crossref are normal
+    (should-not (sp-litnotes-meta--crossref-chain (sp-litnotes-meta--entry "ok")))
+    (should-not (sp-litnotes-meta--crossref-chain (sp-litnotes-meta--entry "gone")))
+    (should-not (sp-litnotes-meta--crossref-chain (sp-litnotes-meta--entry "top")))))
+
+(ert-deftest sp-litnotes-meta-missing-parents-is-one-key ()
+  (sp-litnotes-meta-test--with-bib
+      "@incollection{ch, crossref = {b}}
+@book{b, title = {B}}
+@incollection{deep, crossref = {a}}
+@book{a, crossref = {b}}
+@incollection{gone, crossref = {nokey}}
 "
     (let ((covered (make-hash-table :test #'equal)))
-      (should (equal (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "ch") covered)
-                     '("b" "c")))
-      ;; stops at a parent that has a note, and at one without a BibTeX entry
-      (puthash "c" "c.org" covered)
       (should (equal (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "ch") covered) '("b")))
-      (should-not (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "d") covered)))))
+      (should-not (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "deep") covered))
+      (should-not (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "gone") covered))
+      (puthash "b" "b.org" covered)
+      (should-not (sp-litnotes-meta--missing-parents (sp-litnotes-meta--entry "ch") covered)))))
+
+(ert-deftest sp-litnotes-meta-batch-flags-deep-chains-and-converts-nothing-for-them ()
+  (sp-litnotes-meta-test--with-parents
+      "@incollection{ch, title = {Ch}, crossref = {b}}
+@book{b, title = {B}, crossref = {c}}
+@book{c, title = {C}}
+"
+    (note "ch.org" ":PROPERTIES:\n:ID: id-ch\n:ROAM_REFS: @ch\n:END:\n#+title: x\n#+filetags: :litnote:incollection:\n\n- pub-title :: Ch\n- pub-year :: 2000\n- read-status :: 02-preparing\n\n")
+    (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
+               (lambda () (directory-files dir t "\\`ch\\.org\\'")))
+              ((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ((symbol-function 'completing-read) (lambda (&rest _) ""))
+              ((symbol-function 'pop-to-buffer) #'ignore))
+      (let* ((plans (sp-litnotes-meta--batch-plans nil))
+             (plan (car plans))
+             (text (sp-litnotes-meta--batch-report-text plans nil)))
+        (should (equal (plist-get plan :chain) '("b" "c")))
+        (should-not (assoc "bib-parent" (plist-get plan :fill)))
+        (should-not (plist-get plan :new-parents))
+        (should (string-match-p "Crossref chains deeper than two levels: 1" text))
+        (should (string-match-p "ch\\.org\\]\\]: ch -> b -> c" text))
+        (let ((sp-litnotes-meta--preset nil))
+          (sp-litnotes-meta-fill-all-convert))))
+    (should-not sp-litnotes-meta-test--made)
+    (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "ch.org")))
+    (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
 
 (ert-deftest sp-litnotes-meta-batch-report-lists-each-parent-once ()
   (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
