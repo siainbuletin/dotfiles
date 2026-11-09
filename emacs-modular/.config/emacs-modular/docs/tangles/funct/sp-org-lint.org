@@ -4515,22 +4515,57 @@ the note has no such line before its first heading."
 
 =pub-author= is read as =Last, First=, =First Last= (the surname is the last word with lower-case particles such as =van=), =[[id:..][First Last]]= links and quoted names, separated by =;=, =and= or between links. A plain piece with more than one comma could be one author or several, so the note is flagged =ambiguous-author=. The title uses last names only: =Reuten (2014) The value form as a social form=; two authors =A and B=, three =A, B and C=, and with =sp-litnotes-titles-et-al-from= (4) authors or more the first two and =et al.= (=A, B et al.=). =sp-litnotes-titles-format-function= replaces the formatting.
 
+Surname rules (=sp-litnotes-titles--split-name=):
+
+- With a comma outside braces, the surname is the text before the first comma (=Arthur, Christopher J.= gives =Arthur=; =King, Jr., Martin= gives =King=).
+- Without a comma, the surname is the last word plus the particles before it.
+- A particle is a word that is entirely lower case (=van=, =de=); an initial such as =J.= never is, whatever =case-fold-search= is.
+- A name wholly in braces (={World Bank}=) is one surname.
+
 #+begin_src emacs-lisp -i
 ;;;; Authors and the title
 
+(defun sp-litnotes-titles--split-depth0 (text char)
+  "Split TEXT at the characters CHAR that are outside braces."
+  (let ((depth 0) (start 0) parts)
+    (dotimes (i (length text))
+      (let ((c (aref text i)))
+        (cond ((eq c ?{) (cl-incf depth))
+              ((eq c ?}) (cl-decf depth))
+              ((and (eq c char) (<= depth 0))
+               (push (substring text start i) parts)
+               (setq start (1+ i))))))
+    (nreverse (cons (substring text start) parts))))
+
+(defun sp-litnotes-titles--unbrace (text)
+  "TEXT without BibTeX braces, trimmed."
+  (string-trim (replace-regexp-in-string "[{}]" "" text)))
+
 (defun sp-litnotes-titles--split-name (name)
-  "NAME, \"Last, First\" or \"First Last\", as (LAST . FIRST).
-In the second form the surname is the last word with the lower-case particles
-before it (\"van der Berg\")."
-  (let ((name (string-trim name)))
-    (if (string-match "\\`\\([^,]+\\),[ \t]*\\(.*\\)\\'" name)
-        (cons (string-trim (match-string 1 name)) (string-trim (match-string 2 name)))
-      (let* ((words (split-string name "[ \t]+" t))
+  "NAME, \"Last, First\", \"Last, Jr., First\" or \"First Last\", as (LAST . FIRST).
+- With a comma outside braces the surname is the text before the first comma;
+  the rest (a \"Jr.\" included) is the first name part.
+- Without one the surname is the last word with the lower-case particles
+  before it (\"van der Berg\"); a word starts a particle only when it is
+  entirely lower case, so initials (\"J.\") never do.
+- A name wholly in braces (\"{World Bank}\") is one surname."
+  (let* ((name (string-trim name))
+         (commas (sp-litnotes-titles--split-depth0 name ?,)))
+    (if (cdr commas)
+        (cons (sp-litnotes-titles--unbrace (car commas))
+              (sp-litnotes-titles--unbrace
+               (string-join (mapcar #'string-trim (cdr commas)) ", ")))
+      (let* ((words (sp-litnotes-titles--split-depth0
+                     (replace-regexp-in-string "[ \t]+" " " name) ?\s))
+             (words (seq-remove #'string-empty-p words))
              (n (length words)) (i (1- n)))
-        (while (and (> i 1) (string-match-p "\\`[[:lower:]]" (nth (1- i) words)))
-          (cl-decf i))
-        (cons (string-join (nthcdr i words) " ")
-              (string-join (cl-subseq words 0 i) " "))))))
+        (let ((case-fold-search nil))
+          (while (and (> i 1)
+                      (string-match-p "\\`[[:lower:]][[:lower:]'’.-]*\\'"
+                                      (sp-litnotes-titles--unbrace (nth (1- i) words))))
+            (cl-decf i)))
+        (cons (sp-litnotes-titles--unbrace (string-join (nthcdr i words) " "))
+              (sp-litnotes-titles--unbrace (string-join (cl-subseq words 0 i) " ")))))))
 
 (defun sp-litnotes-titles--authors (raw)
   "The authors in the pub-author value RAW as a list of (LAST . FIRST), or `ambiguous'.
