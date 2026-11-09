@@ -27,10 +27,12 @@ I believe =typst= and =pandoc-cli= are in the official Arch repositories; check 
 
 Pull request text comes from other people. Raw HTML is dropped, =pandoc= runs with =--sandbox= (so an =#+INCLUDE:= line cannot read a file), and lines that start with an org directive are turned into literal text.
 
+Text that Typst reads as code is escaped too: =@key= (a reference: "label =<key>= does not exist"), =$...$= (math) and =<key>= (a label). =pandoc= does not escape these the same way in every version, so the script swaps them for placeholders before =pandoc= and turns them into Typst escapes afterwards; fenced and inline code stay as written. Dollar signs are also kept literal in Markdown bodies, since otherwise =$HOME/$PATH= turns into a math fragment. If an unescaped =@name= is still left in the Typst source, the script warns with the line numbers.
+
 * Not run
 
 Written in a container without a Mac or a Linux desktop, without Typst and without network access to GitHub's API. What was run: the org and Typst-source output on made-up JSON, including headings in bodies, empty bodies, an injected =#+INCLUDE:= and the splitting into several PDFs. Not run:
 
-- =typst compile=, so the PDF itself has not been seen.
+- =typst compile= in this container. A first run elsewhere failed on =@key= in a title and a commit message; the escaping above is the fix, checked on made-up JSON and with a scanner for leftover references, but not by compiling again.
 - =github-backup= against a real repository. The JSON key names the script reads (=comment_regular_data=, =comment_data=, =review_data=, =commit_data=) are from memory; if a pull request reports commits but no list is found, the script prints the keys it did see, and the fix is the key names in =render_pr=.
 - The Discussions fetch (=gh api graphql=). It reads up to 100 comments and 50 replies per discussion and warns when there are more.
