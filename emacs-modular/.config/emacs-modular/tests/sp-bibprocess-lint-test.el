@@ -70,13 +70,13 @@
                (format "@article{k%d,\n  year = {2020},\n  author = {John Smith%d},\n  title = {T}}\n" i i))
              (number-sequence 1 n) "\n"))
 
-(defun sp-bibprocess-lint-test--convert (file answers)
-  "Run `sp-bibtex-lint-convert' on FILE, answering the batches with ANSWERS.
+(defun sp-bibprocess-lint-test--convert (file answers &optional command)
+  "Run COMMAND (default `sp-bibtex-lint-fix-order') on FILE, answering the batches with ANSWERS.
 Return the sizes of the batches that were asked."
   (let (sizes)
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch)
                (lambda (_file batch &rest _) (push (length batch) sizes) (pop answers))))
-      (sp-bibtex-lint-convert file))
+      (funcall (or command #'sp-bibtex-lint-fix-order) file))
     (nreverse sizes)))
 
 (ert-deftest sp-bibtex-lint-test-results ()
@@ -85,10 +85,13 @@ Return the sizes of the batches that were asked."
               "@article{a2,\n  % keep me\n  year = {2020},\n  author = {John Smith},\n  title = {T}}\n\n"
               "@article{a1,\n  author = {Doe, Jane},\n  title = {Dup}}\n")
     (let (results)
-      (sp-bibtex-lint--job "t" (list file) (lambda (r) (setq results r)))
+      (sp-bibtex-lint--job "t" (list file) '(order indent authors notes) (lambda (r) (setq results r)))
       (should (= 3 (length results)))
-      ;; Only the first entry can be rewritten: the second has a comment, the third is a duplicate.
-      (should (equal '(t nil nil) (mapcar (lambda (r) (and (nth 4 r) t)) results))))))
+      ;; The second has a comment and is left alone; the third is a duplicate, and only its
+      ;; indentation can be changed.
+      (should (equal '(t nil t) (mapcar (lambda (r) (and (nth 4 r) t)) results)))
+      (should (equal '(indent order authors) (mapcar #'car (nth 4 (car results)))))
+      (should (equal '(indent) (mapcar #'car (nth 4 (nth 2 results))))))))
 
 (ert-deftest sp-bibtex-lint-test-convert-applies ()
   (sp-bibprocess-lint-test--with-bib
@@ -96,8 +99,8 @@ Return the sizes of the batches that were asked."
               "@article{a2,\n  % keep me\n  year = {2020},\n  author = {John Smith},\n  title = {T}}\n")
     (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a))))
     (let ((text (sp-bibprocess-lint-test--text file)))
-      (should (string-match-p "author = {Smith, John and Doe, Jane}" text))
-      (should (< (string-match "author = {Smith" text) (string-match "year = {2020}" text)))
+      (should (string-match-p "author =[ \t]+{John Smith and Jane Doe}" text))
+      (should (< (string-match "author =[ \t]+{John" text) (string-match "year =[ \t]+{2020}" text)))
       ;; The entry with a comment is untouched.
       (should (string-match-p "% keep me\n  year = {2020},\n  author = {John Smith}" text)))
     (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))))
@@ -108,11 +111,11 @@ Return the sizes of the batches that were asked."
       ;; Apply the first batch, skip the second, apply the third.
       (should (equal '(2 2 1) (sp-bibprocess-lint-test--convert file '(?a ?s ?a))))
       (let ((text (sp-bibprocess-lint-test--text file)))
-        (should (string-match-p "author = {Smith1, John}" text))
-        (should (string-match-p "author = {Smith2, John}" text))
-        (should (string-match-p "author = {John Smith3}" text))
-        (should (string-match-p "author = {John Smith4}" text))
-        (should (string-match-p "author = {Smith5, John}" text))))))
+        (should (string-match-p "author =[ \t]+{John Smith1}" text))
+        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{John Smith3}" text))
+        (should (string-match-p "author =[ \t]+{John Smith4}" text))
+        (should (string-match-p "author =[ \t]+{John Smith5}" text))))))
 
 (ert-deftest sp-bibtex-lint-test-convert-default-batch-size ()
   (should (= 50 (default-value 'sp-bibtex-lint-batch-size)))
@@ -137,9 +140,9 @@ Return the sizes of the batches that were asked."
                  ;; The file changes between the lint and the answer.
                  (let ((new (replace-regexp-in-string "John" "Johnny" (sp-bibprocess-lint-test--text file)))) (sleep-for 1.1) (with-temp-file file (insert new)))
                  ?a)))
-      (should-error (sp-bibtex-lint-convert file) :type 'user-error))
+      (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
     ;; Neither written nor backed up.
-    (should (string-match-p "author = {Johnny Smith1}" (sp-bibprocess-lint-test--text file)))
+    (should (string-match-p "author =[ \t]+{Johnny Smith1}" (sp-bibprocess-lint-test--text file)))
     (should-not (file-exists-p sp-bibtex-lint-backup-directory))))
 
 (ert-deftest sp-bibtex-lint-test-convert-refuses-unsaved-buffer ()
@@ -148,7 +151,7 @@ Return the sizes of the batches that were asked."
       (unwind-protect
           (progn
             (with-current-buffer buffer (insert "x"))
-            (should-error (sp-bibtex-lint-convert file) :type 'user-error))
+            (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
         (with-current-buffer buffer (set-buffer-modified-p nil))
         (kill-buffer buffer)))))
 
@@ -181,6 +184,161 @@ Return the sizes of the batches that were asked."
         (should (string-match-p (format "\\[\\[file:%s::1\\]\\[k1\\]\\]" (regexp-quote file)) (buffer-string)))
         (should (string-match-p (format "\\[\\[file:%s::6\\]\\[k2\\]\\]" (regexp-quote file)) (buffer-string))))
       (kill-buffer sp-bibtex-lint--buffer))))
+
+(ert-deftest sp-bibtex-lint-test-order-only-touches-order ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{ok,\n  author = {Smith, John},\n  title = {T}\n}\n\n"
+              "@article{bad,\n  year = {2020},\n  author = {John Smith},\n  title = {T}\n}\n")
+    ;; One entry has its fields out of order; the names are not touched by this fix.
+    (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a))))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "author =[ \t]+{John Smith}" text))
+      (should (< (string-match "author" (substring text (string-match "@article{bad" text)))
+                 (string-match "year" (substring text (string-match "@article{bad" text)))))
+      ;; The entry that was in order is exactly as it was.
+      (should (string-prefix-p "@article{ok,\n  author = {Smith, John},\n  title = {T}\n}\n" text)))))
+
+(ert-deftest sp-bibtex-lint-test-indent ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{a,\nauthor   =   {Smith, John},\n      title = {T}\n}\n\n"
+              "@article{b,\n  author =\t {Smith, Jane},\n  title =\t {T}\n}\n")
+    (let ((fixed (with-temp-buffer
+                   (delay-mode-hooks (bibtex-mode))
+                   (insert "@article{a,\nauthor   =   {Smith, John},\n      title = {T}\n}")
+                   (goto-char (point-min))
+                   (bibtex-fill-entry)
+                   (buffer-string))))
+      ;; Only the first entry differs from the bibtex-mode layout.
+      (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-indent)))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-prefix-p fixed text))
+        ;; The order and the names are as they were.
+        (should (string-match-p "author =[ \t]+{Smith, John},\n  title" text))
+        (should (string-match-p "@article{b,\n  author =\t {Smith, Jane},\n  title =\t {T}\n}" text))))))
+
+(ert-deftest sp-bibtex-lint-test-authors-form-only ()
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  year = {2020},\n  author = {John Smith},\n  title = {T}\n}\n"
+    (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-authors)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "author =[ \t]+{Smith, John}" text))
+      ;; Names are the only change: the year still comes first.
+      (should (< (string-match "year" text) (string-match "author" text))))))
+
+(defmacro sp-bibprocess-lint-test--with-notes (&rest body)
+  "Run BODY with an author note for John Smith, FILE a .bib with a typo of his name.
+NOTE is the note file; aliases are added by a stub that appends to ADDED."
+  `(sp-bibprocess-lint-test--with-bib
+       (concat "@article{a,\n  author = {Smyth, John},\n  title = {T}\n}\n\n"
+               "@article{b,\n  author = {Smyth, John and Doe, Jane},\n  title = {U}\n}\n")
+     (let* ((note (expand-file-name "smith.org" dir))
+            (added nil)
+            (sp-bibtex--people-cache
+             (cons (float-time)
+                   (sp-bibtex--make-people (list (list :title "John Smith" :file note))))))
+       (with-temp-file note (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: John Smith\n"))
+       (cl-letf (((symbol-function 'sp-bibtex-lint--add-alias)
+                  (lambda (f alias) (push (cons f alias) added))))
+         ,@body))))
+
+(ert-deftest sp-bibtex-lint-test-notes-normalise ()
+  (sp-bibprocess-lint-test--with-notes
+   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+     (sp-bibtex-lint-fix-authors file))
+   (let ((text (sp-bibprocess-lint-test--text file)))
+     (should-not (string-match-p "Smyth" text))
+     (should (string-match-p "author =[ \t]+{Smith, John}" text))
+     ;; The other name of the second entry is untouched.
+     (should (string-match-p "{Smith, John and Doe, Jane}" text)))
+   (should-not added)
+   (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))))
+
+(ert-deftest sp-bibtex-lint-test-notes-alias ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((before (sp-bibprocess-lint-test--text file)))
+     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
+       (sp-bibtex-lint-fix-authors file))
+     ;; An alias changes the note, not the .bib file, and needs no backup of it.
+     (should (equal before (sp-bibprocess-lint-test--text file)))
+     (should-not (file-exists-p sp-bibtex-lint-backup-directory))
+     (should (equal (list (cons note "Smyth, John")) (delete-dups (copy-sequence added)))))))
+
+(ert-deftest sp-bibtex-lint-test-notes-each-case ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((answers '(?n ?l)))
+     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
+               ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) (pop answers))))
+       (sp-bibtex-lint-fix-authors file)))
+   (let ((text (sp-bibprocess-lint-test--text file)))
+     ;; The first entry was normalised; the second got an alias and kept its name.
+     (should (string-match-p "@article{a,\n  author =[ \t]+{Smith, John}" text))
+     (should (string-match-p "{Smyth, John and Doe, Jane}" text)))
+   (should (= 1 (length added)))))
+
+(ert-deftest sp-bibtex-lint-test-notes-skip-and-quit-write-nothing ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((before (sp-bibprocess-lint-test--text file)))
+     (dolist (answer '(?s ?q))
+       (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) answer)))
+         (sp-bibtex-lint-fix-authors file)))
+     (should (equal before (sp-bibprocess-lint-test--text file)))
+     (should-not added)
+     (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-lint-test-notes-each-case-quit ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((before (sp-bibprocess-lint-test--text file)))
+     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
+               ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) ?q)))
+       (sp-bibtex-lint-fix-authors file))
+     (should (equal before (sp-bibprocess-lint-test--text file)))
+     (should-not added))))
+
+(ert-deftest sp-bibtex-lint-test-rename-names ()
+  (should (equal '(("author" . "{Smith, John and Doe, Jane}") ("title" . "{T}"))
+                 (sp-bibtex--rename-names
+                  '(("author" . "{Smyth, John and Doe, Jane}") ("title" . "{T}"))
+                  '(("author" "Smyth, John" "Smith, John" nil))))))
+
+(ert-deftest sp-bibtex-lint-test-people-aliases ()
+  (let* ((dir (file-name-as-directory (make-temp-file "sp-bib" t)))
+         (note (expand-file-name "smith.org" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file note
+            (insert ":PROPERTIES:\n:ID: x\n:ROAM_ALIASES: \"Smyth, John\" Jonny\n:END:\n#+title: John Smith\n"))
+          (should (equal '("Smyth, John" "Jonny") (sp-bibtex--note-aliases note)))
+          (let ((people (sp-bibtex--make-people (list (list :title "John Smith" :file note)))))
+            ;; A name that is an alias is known, so it is not suggested to be a typo.
+            (should-not (sp-bibtex--suggestion "Smyth, John" people))
+            (should (equal "Smith, John" (sp-bibtex--suggestion "Smyth, Johm" people)))
+            (should (equal note (gethash (sp-bibtex--name-key "Smith, John") (plist-get people :files))))
+            (should (equal '("Smith, John") (plist-get people :names)))))
+      (delete-directory dir t))))
+
+(ert-deftest sp-bibtex-lint-test-report-buttons ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{a,\n  year = {2020},\n  author = {John Smith},\n  title = {T}\n}\n\n"
+              "@article{b,\n  author = {Smith, Jane},\n  title = {T}\n}\n")
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (let ((text (buffer-string)))
+        (should (string-match-p (format "\\[\\[sp-bibtex-lint:order:%s\\]\\[field order (1)\\]\\]" (regexp-quote file)) text))
+        (should (string-match-p (format "\\[\\[sp-bibtex-lint:indent:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
+        (should (string-match-p (format "\\[\\[sp-bibtex-lint:authors:%s\\]\\[author names (1)\\]\\]" (regexp-quote file)) text))))
+    (kill-buffer sp-bibtex-lint--buffer)))
+
+(ert-deftest sp-bibtex-lint-test-button-runs-its-fix ()
+  (let (called)
+    (cl-letf (((symbol-function 'sp-bibtex-lint-fix-order) (lambda (f) (push (list 'order f) called)))
+              ((symbol-function 'sp-bibtex-lint-fix-indent) (lambda (f) (push (list 'indent f) called)))
+              ((symbol-function 'sp-bibtex-lint-fix-authors) (lambda (f) (push (list 'authors f) called))))
+      (dolist (kind '("order" "indent" "authors"))
+        (sp-bibtex-lint--follow (concat kind ":/tmp/a b.bib")))
+      (should (equal '((authors "/tmp/a b.bib") (indent "/tmp/a b.bib") (order "/tmp/a b.bib")) called))
+      (should-error (sp-bibtex-lint--follow "other:/tmp/a.bib") :type 'user-error))))
+
 
 (ert-deftest sp-bibtex-lint-test-capf ()
   (let ((sp-bibtex--people-cache (cons (float-time) (sp-bibtex--make-people '("John Smith" "Jane Doe")))))
