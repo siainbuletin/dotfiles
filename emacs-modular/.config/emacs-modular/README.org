@@ -315,6 +315,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 | sp-frame | Frame appearance, margins and frame helpers | [[file:docs/tangles/ui/sp-frame.org][sp-frame.org]] | [[file:libraries/modules/ui/sp-frame.el][sp-frame.el]] | — |
 | sp-icons | Nerd icons for files, dired, completion and ibuffer | [[file:docs/tangles/ui/sp-icons.org][sp-icons.org]] | [[file:libraries/modules/ui/sp-icons.el][sp-icons.el]] | — |
 | sp-posframe | Centered minibuffer in a posframe | [[file:docs/tangles/ui/sp-posframe.org][sp-posframe.org]] | [[file:libraries/modules/ui/sp-posframe.el][sp-posframe.el]] | — |
+| sp-reading-sidenotes | See-also footnotes as sidenotes in reading mode | [[file:docs/tangles/ui/sp-reading-sidenotes.org][sp-reading-sidenotes.org]] | [[file:libraries/modules/ui/sp-reading-sidenotes.el][sp-reading-sidenotes.el]] | — |
 | sp-tabs | Tab bar and tabspaces workspaces | [[file:docs/tangles/ui/sp-tabs.org][sp-tabs.org]] | [[file:libraries/modules/ui/sp-tabs.el][sp-tabs.el]] | — |
 | sp-textui | TextUI widgets and Org table widgets | [[file:docs/tangles/ui/sp-textui.org][sp-textui.org]] | [[file:libraries/modules/ui/sp-textui.el][sp-textui.el]] | — |
 | sp-theme-engine | Flavors, semantic mappings and the =sp-dark= and =sp-light= themes | [[file:docs/tangles/ui/sp-theme-engine.org][sp-theme-engine.org]] | [[file:libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]] | — |
