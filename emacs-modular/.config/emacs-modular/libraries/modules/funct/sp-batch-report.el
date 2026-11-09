@@ -13,6 +13,7 @@
 
 (require 'cl-lib)
 (require 'org)
+(require 'seq)
 (require 'subr-x)
 
 (defgroup sp-batch-report nil
@@ -169,6 +170,68 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
             "\n" body
             (and excluded
                  (sp-batch-report-dropped-section excluded found (plist-get args :key-label))))))
+
+(defcustom sp-batch-report-batch-size 50
+  "Number of entries a batch command goes through before it asks whether to go on.
+nil or 0 means no batches: everything at once."
+  :type '(choice (const :tag "All at once" nil) integer)
+  :group 'sp-batch-report)
+
+(defun sp-batch-report--ask-batch (label batch index total left)
+  "Ask what to do with BATCH, number INDEX of TOTAL; LEFT entries come after it.
+LABEL names the command.  Return ?a (apply all), ?c (choose each), ?s (skip
+this batch) or ?q (quit: leave this and the later batches alone)."
+  (read-char-choice
+   (format "%s: batch %d/%d, %d entr%s (%d after it).  [a]pply all, [c]hoose each, [s]kip, [q]uit? "
+           label index total (length batch) (if (= 1 (length batch)) "y" "ies") left)
+   '(?a ?c ?s ?q)))
+
+(defun sp-batch-report-run-batches (items fn &rest args)
+  "Call FN on each of ITEMS, a batch at a time, asking before every batch.
+FN is called with (ITEM DECISION).  When ITEMS fit in one batch nothing is
+asked, because the command asked already.  Otherwise each batch is applied
+whole (DECISION is t), chosen item by item, skipped, or ends the run with
+quit; what was not reached stays as it was, so the command can run again.
+ARGS: :label (name for the prompts), :size (default `sp-batch-report-batch-size')
+and :choose (function from an item to its DECISION, or nil to skip it; the
+default asks `y-or-n-p' with :describe, a function from an item to text).
+Return a plist: :done (items FN was called on), :skipped, :remaining (not
+reached) and :stopped (non-nil after quit)."
+  (let* ((size (or (plist-get args :size) sp-batch-report-batch-size))
+         (batches (seq-partition items (if (and (integerp size) (> size 0))
+                                           size
+                                         (max 1 (length items)))))
+         (total (length batches))
+         (label (or (plist-get args :label) "Batch"))
+         (describe (or (plist-get args :describe) (lambda (item) (format "%s" item))))
+         (choose (or (plist-get args :choose)
+                     (lambda (item) (y-or-n-p (format "%s  " (funcall describe item))))))
+         (index 0) (done 0) (skipped 0) (stopped nil))
+    (while (and batches (not stopped))
+      (let* ((batch (pop batches))
+             (choice (if (= total 1)
+                         ?a
+                       (sp-batch-report--ask-batch
+                        label batch (1+ index) total
+                        (apply #'+ (mapcar #'length batches))))))
+        (cl-incf index)
+        (pcase choice
+          (?q (setq stopped t) (push batch batches))
+          (?s (cl-incf skipped (length batch)))
+          (?a (dolist (item batch) (funcall fn item t) (cl-incf done)))
+          (?c (dolist (item batch)
+                (if-let* ((decision (funcall choose item)))
+                    (progn (funcall fn item decision) (cl-incf done))
+                  (cl-incf skipped)))))))
+    (list :done done :skipped skipped :stopped stopped
+          :remaining (apply #'+ (mapcar #'length batches)))))
+
+(defun sp-batch-report-batches-note (run)
+  "Text for the end of a message about RUN, what `sp-batch-report-run-batches' returned."
+  (concat (and (> (plist-get run :skipped) 0) (format "; %d skipped" (plist-get run :skipped)))
+          (and (> (plist-get run :remaining) 0)
+               (format "; stopped with %d not reached (run the command again for them)"
+                       (plist-get run :remaining)))))
 
 (defvar-local sp-batch-report-refresh-function nil
   "The function that \\<sp-batch-report-mode-map>\\[sp-batch-report-refresh] calls to make the report again, or nil.
