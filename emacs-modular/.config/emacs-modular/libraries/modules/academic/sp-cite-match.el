@@ -361,6 +361,15 @@ Returns (STATUS . RANKED); STATUS is `accept', `ambiguous' or `none'."
              (split-string (replace-regexp-in-string "\r" "" text)
                            "\n[ \t]*\n+" t "[ \t\n]+")))
 
+(defcustom sp-cite-match-status-function #'sp-cite-match-note-status
+  "Function from a note (as `sp-cite-match-note-function' returns it) to its reading state.
+It returns a plist (:status STRING :priority STRING), or nil."
+  :type 'function :group 'sp-cite-match)
+
+(declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-note-path "vulpea-note")
+(declare-function sp-litnotes-meta--file-meta "sp-litnotes-meta")
+
 (defun sp-cite-match-citar-note (key)
   "The litnote of KEY through citar: an ID or file name, t if it has none to link, or nil."
   (when (and (fboundp 'citar-has-notes) (funcall (citar-has-notes) key))
@@ -370,75 +379,177 @@ Returns (STATUS . RANKED); STATUS is `accept', `ambiguous' or `none'."
             (and (stringp item) (not (string-empty-p item)) item)))
         t)))
 
-(defun sp-cite-match--note-link (key)
-  "The Org text saying whether KEY has a litnote."
-  (let ((note (ignore-errors (funcall sp-cite-match-note-function key))))
-    (cond ((null note) "no litnote")
-          ((and (stringp note) (string-match-p "\\`[0-9a-fA-F]\\{8\\}-[0-9a-fA-F-]+\\'" note))
-           (format "[[id:%s][litnote]]" note))
-          ((and (stringp note) (file-exists-p note))
-           (format "[[file:%s][litnote]]" note))
-          (t "litnote"))))
+(defun sp-cite-match--note-file (note)
+  "The file of NOTE, a file name or an Org ID, or nil."
+  (cond ((not (stringp note)) nil)
+        ((file-exists-p note) note)
+        ((fboundp 'vulpea-db-get-by-id)
+         (when-let* ((found (ignore-errors (vulpea-db-get-by-id note))))
+           (vulpea-note-path found)))
+        ((fboundp 'org-id-find-id-file) (org-id-find-id-file note))))
+
+(defun sp-cite-match-note-status (note)
+  "The reading state of NOTE: (:status S :priority P), from its meta lines."
+  (when-let* ((file (sp-cite-match--note-file note))
+              ((fboundp 'sp-litnotes-meta--file-meta))
+              (meta (ignore-errors (sp-litnotes-meta--file-meta file))))
+    (let ((status (plist-get meta :read-status))
+          (priority (plist-get meta :read-priority)))
+      (list :status (unless (equal status "") status)
+            :priority (unless (equal priority "") priority)))))
+
+(defun sp-cite-match--note-link (note)
+  "The Org text saying whether the litnote NOTE exists, with a link when possible."
+  (cond ((null note) "no litnote")
+        ((and (stringp note) (string-match-p "\\`[0-9a-fA-F]\\{8\\}-[0-9a-fA-F-]+\\'" note))
+         (format "[[id:%s][litnote]]" note))
+        ((and (stringp note) (file-exists-p note))
+         (format "[[file:%s][litnote]]" note))
+        (t "litnote")))
+
+(defun sp-cite-match--info (key)
+  "The litnote and reading state of KEY as a plist (:note :status :priority)."
+  (let* ((note (ignore-errors (funcall sp-cite-match-note-function key)))
+         (state (and note (ignore-errors (funcall sp-cite-match-status-function note)))))
+    (list :note note
+          :status (plist-get state :status)
+          :priority (plist-get state :priority))))
+
+(defcustom sp-cite-match-display 'table
+  "How the Cited works section lists the works: `table' or `list'."
+  :type '(choice (const table) (const list)) :group 'sp-cite-match)
+
+(defcustom sp-cite-match-summary t
+  "Whether to write a summary line above the list of cited works."
+  :type 'boolean :group 'sp-cite-match)
 
 (defconst sp-cite-match--begin "# sp-cite-match:begin")
 (defconst sp-cite-match--end "# sp-cite-match:end")
+(defconst sp-cite-match--header "| Cite | Work | Litnote | read-status | read-priority |")
 
-(defun sp-cite-match--bullet (cand)
-  "The bullet for the candidate CAND."
-  (let ((key (plist-get cand :key)))
-    (format "- [cite:@%s] %s — %s" key (plist-get cand :label) (sp-cite-match--note-link key))))
+(defun sp-cite-match--cell (text)
+  "TEXT made safe for a table cell."
+  (string-trim (replace-regexp-in-string "|" "/" (replace-regexp-in-string "[\n]+" " " (or text "")))))
+
+(defun sp-cite-match--entry (cand)
+  "The entry plist for the candidate CAND: its row or bullet and its reading state."
+  (let* ((key (plist-get cand :key))
+         (info (sp-cite-match--info key))
+         (link (sp-cite-match--note-link (plist-get info :note)))
+         (status (plist-get info :status))
+         (priority (plist-get info :priority)))
+    (list :id key :key key :priority priority :status status
+          :has-note (and (plist-get info :note) t)
+          :label (plist-get cand :label)
+          :text (if (eq sp-cite-match-display 'table)
+                    (format "| [cite:@%s] | %s | %s | %s | %s |"
+                            key (sp-cite-match--cell (plist-get cand :label)) link
+                            (or status "") (or priority ""))
+                  (format "- [cite:@%s] %s — %s" key (plist-get cand :label) link)))))
+
+(defun sp-cite-match--line-key (line)
+  "The citekey in the row or bullet LINE, or nil."
+  (when (string-match "\\[cite:@\\([^]; |]+\\)" line)
+    (match-string 1 line)))
+
+(defun sp-cite-match--line-entry (line)
+  "The entry plist for a LINE kept from an earlier run, without a BibTeX record."
+  (let* ((key (sp-cite-match--line-key line))
+         (cells (when (string-prefix-p "|" line)
+                  (mapcar #'string-trim (split-string (string-trim line "|" "|") "|"))))
+         (text (cond ((eq sp-cite-match-display 'list) line)
+                     ((string-prefix-p "|" line) line)
+                     (key (format "| [cite:@%s] | (not in the bibliography) | | | |" key))
+                     (t (format "| TODO unmatched | %s | | | |"
+                                (sp-cite-match--cell (replace-regexp-in-string "\\`- TODO unmatched: " "" line)))))))
+    (list :id (or key line) :key key :text text
+          :priority (let ((p (nth 4 cells))) (and p (not (string-empty-p p)) p))
+          :status (let ((p (nth 3 cells))) (and p (not (string-empty-p p)) p))
+          :has-note (and key (not (string-match-p "no litnote" line))))))
+
+(defun sp-cite-match--unmatched-entry (text)
+  "The entry plist for TEXT, a citation that matched nothing."
+  (let ((clean (sp-cite-match--cell text)))
+    (list :id (concat "unmatched:" text) :key nil
+          :text (if (eq sp-cite-match-display 'table)
+                    (format "| TODO unmatched | %s | | | |" clean)
+                  (format "- TODO unmatched: %s" clean)))))
 
 (defun sp-cite-match--block-lines ()
-  "The bullet lines between the markers in the current buffer, and their bounds."
+  "The kept lines between the markers in the current buffer, and the block bounds."
   (save-excursion
     (goto-char (point-min))
     (when (re-search-forward (concat "^" (regexp-quote sp-cite-match--begin) "$") nil t)
       (let ((start (1+ (point))))
         (when (re-search-forward (concat "^" (regexp-quote sp-cite-match--end) "$") nil t)
           (let ((end (match-beginning 0)))
-            (list (seq-filter (lambda (l) (string-prefix-p "- " l))
-                              (split-string (buffer-substring-no-properties start end) "\n" t))
+            (list (seq-filter
+                   (lambda (l) (or (string-prefix-p "- " l)
+                                   (and (string-prefix-p "| " l)
+                                        (not (string-prefix-p "| Cite " l)))))
+                   (split-string (buffer-substring-no-properties start end) "\n" t))
                   start end)))))))
 
-(defun sp-cite-match--line-key (line)
-  "The citekey in the bullet LINE, or nil."
-  (when (string-match "\\[cite:@\\([^]; ]+\\)" line)
-    (match-string 1 line)))
+(defun sp-cite-match--summary (entries)
+  "The summary line for ENTRIES."
+  (let* ((cited (seq-filter (lambda (e) (plist-get e :key)) entries))
+         (with-note (seq-count (lambda (e) (plist-get e :has-note)) cited))
+         (counts nil))
+    (dolist (e cited)
+      (when (plist-get e :status)
+        (let ((cell (assoc (plist-get e :status) counts)))
+          (if cell (cl-incf (cdr cell)) (push (cons (plist-get e :status) 1) counts)))))
+    (concat (format "%d cited, %d with litnotes, %d unmatched"
+                    (length cited) with-note (- (length entries) (length cited)))
+            (when counts
+              (concat "; read-status: "
+                      (mapconcat (lambda (c) (format "%s %d" (car c) (cdr c)))
+                                 (sort counts (lambda (a b) (string< (car a) (car b)))) ", "))))))
+
+(defun sp-cite-match--sort (entries)
+  "ENTRIES ordered by read-priority (none last), then by their text."
+  (sort (copy-sequence entries)
+        (lambda (a b)
+          (let ((pa (or (plist-get a :priority) "99"))
+                (pb (or (plist-get b :priority) "99")))
+            (if (string= pa pb)
+                (string< (downcase (plist-get a :text)) (downcase (plist-get b :text)))
+              (string< pa pb))))))
+
+(defun sp-cite-match--block-text (entries)
+  "The generated block for ENTRIES, markers included."
+  (concat sp-cite-match--begin "\n"
+          (if sp-cite-match-summary (concat (sp-cite-match--summary entries) "\n") "")
+          (when (and entries (eq sp-cite-match-display 'table))
+            (concat sp-cite-match--header "\n|-\n"))
+          (mapconcat (lambda (e) (plist-get e :text)) (sp-cite-match--sort entries) "\n")
+          (if entries "\n" "")
+          sp-cite-match--end))
 
 (defun sp-cite-match-write-section (items &optional candidates)
   "Add ITEMS to the Cited works section of the current buffer.
 Each item is a candidate plist, or a string for a text that did not match.
-CANDIDATES (default all BibTeX records) are used to refresh the old bullets."
+CANDIDATES (default all BibTeX records) are used to refresh the old rows."
   (let* ((existing (car (sp-cite-match--block-lines)))
          (cands (or candidates (sp-cite-match-candidates)))
          (by-key (make-hash-table :test 'equal))
          (table (make-hash-table :test 'equal))
          (order nil))
     (dolist (c cands) (puthash (plist-get c :key) c by-key))
-    (cl-flet ((add (id line)
-                (unless (gethash id table) (push id order))
-                (puthash id line table)))
+    (cl-flet ((add (entry)
+                (let ((id (plist-get entry :id)))
+                  (unless (gethash id table) (push id order))
+                  (puthash id entry table))))
       (dolist (line existing)
         (let* ((key (sp-cite-match--line-key line))
                (cand (and key (gethash key by-key))))
-          (add (or key line) (if cand (sp-cite-match--bullet cand) line))))
+          (add (if cand (sp-cite-match--entry cand) (sp-cite-match--line-entry line)))))
       (dolist (item items)
-        (if (stringp item)
-            (add (concat "unmatched:" item)
-                 (format "- TODO unmatched: %s" (replace-regexp-in-string "[\n]+" " " item)))
-          (add (plist-get item :key) (sp-cite-match--bullet item)))))
-    (let* ((lines (sort (mapcar (lambda (id) (gethash id table)) (nreverse order))
-                        (lambda (a b) (string< (downcase a) (downcase b)))))
-           (cited (seq-count (lambda (l) (sp-cite-match--line-key l)) lines))
-           (with-note (seq-count (lambda (l) (and (sp-cite-match--line-key l)
-                                                  (not (string-suffix-p "no litnote" l))))
-                                 lines))
-           (body (concat sp-cite-match--begin "\n"
-                         (format "%d cited, %d with litnotes, %d unmatched\n"
-                                 cited with-note (- (length lines) cited))
-                         (mapconcat #'identity lines "\n")
-                         (if lines "\n" "")
-                         sp-cite-match--end))
+        (add (if (stringp item)
+                 (sp-cite-match--unmatched-entry item)
+               (sp-cite-match--entry item)))))
+    (let* ((entries (mapcar (lambda (id) (gethash id table)) (nreverse order)))
+           (body (sp-cite-match--block-text entries))
            (found (sp-cite-match--block-lines)))
       (save-excursion
         (if found
@@ -450,11 +561,14 @@ CANDIDATES (default all BibTeX records) are used to refresh the old bullets."
               (when (and (not (eobp)) (not (eq (char-after) ?\n))) (insert "\n")))
           (goto-char (point-max))
           (unless (bolp) (insert "\n"))
-          (insert (format "\n* %s\n%s\n" sp-cite-match-section-title body))))
-      (length lines))))
+          (insert (format "\n* %s\n%s\n" sp-cite-match-section-title body)))
+        (when (and (eq sp-cite-match-display 'table) (derived-mode-p 'org-mode)
+                   (re-search-backward (concat "^" (regexp-quote sp-cite-match--header)) nil t))
+          (ignore-errors (org-table-align))))
+      (length entries))))
 
 (defun sp-cite-match-refresh-section ()
-  "Re-check the litnote status of every work in the Cited works section."
+  "Re-check the litnote and reading state of every work in the Cited works section."
   (interactive)
   (unless (sp-cite-match--block-lines) (user-error "No Cited works section in this buffer"))
   (message "Cited works: %d" (sp-cite-match-write-section nil)))

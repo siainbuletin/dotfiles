@@ -141,33 +141,110 @@
     (should (equal (sp-cite-match-split-entries hyphen)
                    '("Smith, J. (2020). A sociotechnical study. Journal.")))))
 
-(ert-deftest sp-cite-match-test-section ()
+(defun sp-cite-match-test--count (regexp string)
+  "How many times REGEXP matches in STRING."
+  (with-temp-buffer (insert string) (how-many regexp (point-min) (point-max))))
+
+(defmacro sp-cite-match-test--with-notes (&rest body)
+  "Run BODY with marx having a litnote with a reading state, `cands' set."
+  `(sp-cite-match-test--with-bib
+    (let ((sp-cite-match-note-function
+           (lambda (key) (when (equal key "marx1867capital")
+                           "11111111-2222-3333-4444-555555555555")))
+          (sp-cite-match-status-function
+           (lambda (_note) (list :status "02-preparing" :priority "01"))))
+      ,@body)))
+
+(ert-deftest sp-cite-match-test-section-table ()
+  (sp-cite-match-test--with-notes
+   (with-temp-buffer
+     (org-mode)
+     (insert "#+title: A litnote\n\nSome text.\n")
+     (sp-cite-match-write-section (list (nth 1 cands) "Unknown, X. (2000). Lost.") cands)
+     (let ((s (buffer-string)))
+       (should (string-match-p "^\\* Cited works$" s))
+       (should (string-match-p "^1 cited, 1 with litnotes, 1 unmatched; read-status: 02-preparing 1$" s))
+       (should (string-match-p "| *Cite *| *Work *| *Litnote *| *read-status *| *read-priority *|" s))
+       (should (string-match-p
+                "| \\[cite:@marx1867capital\\] *| Marx (1867) Das Kapital *| \\[\\[id:11111111-2222-3333-4444-555555555555\\]\\[litnote\\]\\] *| 02-preparing *| *01 *|"
+                s))
+       (should (string-match-p "| TODO unmatched *| Unknown, X. (2000). Lost. *|" s)))
+     ;; second run: new work added, old kept, no duplicates, unmatched kept
+     (sp-cite-match-write-section (list (nth 1 cands) (car cands)) cands)
+     (let ((s (buffer-string)))
+       (should (= 1 (sp-cite-match-test--count "cite:@marx1867capital" s)))
+       (should (string-match-p "cite:@smith2020attention" s))
+       (should (string-match-p "TODO unmatched | Unknown\\|TODO unmatched *| Unknown" s))
+       (should (string-match-p "^2 cited, 1 with litnotes, 1 unmatched; read-status: 02-preparing 1$" s))
+       (should (= 1 (sp-cite-match-test--count "^\\* Cited works" s))))
+     ;; text after the block is untouched
+     (goto-char (point-max))
+     (insert "\n* Later\nkept\n")
+     (sp-cite-match-write-section (list (nth 2 cands)) cands)
+     (should (string-match-p "\\* Later\nkept" (buffer-string))))))
+
+(ert-deftest sp-cite-match-test-section-sorted-by-priority ()
   (sp-cite-match-test--with-bib
-   (let ((sp-cite-match-note-function
-          (lambda (key) (when (equal key "marx1867capital") "11111111-2222-3333-4444-555555555555"))))
+   (let ((sp-cite-match-note-function (lambda (_key) "11111111-2222-3333-4444-555555555555"))
+         (sp-cite-match-status-function
+          (lambda (_note) nil)))
+     (cl-letf (((symbol-function 'sp-cite-match--info)
+                (lambda (key)
+                  (list :note t :status "01-current"
+                        :priority (pcase key ("marx1867capital" "03") ("smith2020attention" "01")
+                                    (_ nil))))))
+       (with-temp-buffer
+         (org-mode)
+         (sp-cite-match-write-section (list (nth 1 cands) (nth 2 cands) (car cands)) cands)
+         (let* ((s (buffer-string))
+                (smith (string-match "cite:@smith2020attention" s))
+                (marx (string-match "cite:@marx1867capital" s))
+                (mueller (string-match "cite:@mueller2015sozio" s)))
+           (should (< smith marx mueller))))))))
+
+(ert-deftest sp-cite-match-test-summary-option ()
+  (sp-cite-match-test--with-notes
+   (let ((sp-cite-match-summary nil))
      (with-temp-buffer
        (org-mode)
-       (insert "#+title: A litnote\n\nSome text.\n")
-       (sp-cite-match-write-section (list (nth 1 cands) "Unknown, X. (2000). Lost.") cands)
-       (should (string-match-p "^\\* Cited works$" (buffer-string)))
-       (should (string-match-p
-                "\\[cite:@marx1867capital\\] .*\\[\\[id:11111111-2222-3333-4444-555555555555\\]\\[litnote\\]\\]"
-                (buffer-string)))
-       (should (string-match-p "TODO unmatched: Unknown, X" (buffer-string)))
-       (should (string-match-p "1 cited, 1 with litnotes, 1 unmatched" (buffer-string)))
-       ;; second run adds a work, keeps the old ones, no duplicates
-       (sp-cite-match-write-section (list (nth 1 cands) (car cands)) cands)
+       (sp-cite-match-write-section (list (nth 1 cands)) cands)
+       (should-not (string-match-p "cited, " (buffer-string)))
+       (should (string-match-p "| \\[cite:@marx1867capital\\]" (buffer-string)))))))
+
+(ert-deftest sp-cite-match-test-list-display ()
+  (sp-cite-match-test--with-notes
+   (let ((sp-cite-match-display 'list))
+     (with-temp-buffer
+       (org-mode)
+       (sp-cite-match-write-section (list (nth 1 cands) "Lost text.") cands)
        (let ((s (buffer-string)))
-         (should (= 1 (with-temp-buffer (insert s) (how-many "cite:@marx1867capital" (point-min) (point-max)))))
-         (should (string-match-p "cite:@smith2020attention" s))
-         (should (string-match-p "TODO unmatched: Unknown" s))
-         (should (string-match-p "2 cited, 1 with litnotes, 1 unmatched" s))
-         (should (= 1 (with-temp-buffer (insert s) (how-many "^\\* Cited works" (point-min) (point-max))))))
-       ;; text after the block is untouched
-       (goto-char (point-max))
-       (insert "\n* Later\nkept\n")
-       (sp-cite-match-write-section (list (nth 2 cands)) cands)
-       (should (string-match-p "\\* Later\nkept" (buffer-string)))))))
+         (should (string-match-p "^- \\[cite:@marx1867capital\\] Marx (1867) Das Kapital — \\[\\[id:" s))
+         (should (string-match-p "^- TODO unmatched: Lost text\\.$" s))
+         (should-not (string-match-p "^| " s)))))))
+
+(ert-deftest sp-cite-match-test-bullets-become-table ()
+  "An older bullet list is converted when the display is the table."
+  (sp-cite-match-test--with-notes
+   (with-temp-buffer
+     (org-mode)
+     (insert "* Cited works\n# sp-cite-match:begin\n- [cite:@marx1867capital] old — no litnote\n- TODO unmatched: lost\n# sp-cite-match:end\n")
+     (sp-cite-match-write-section nil cands)
+     (let ((s (buffer-string)))
+       (should (string-match-p "| \\[cite:@marx1867capital\\] *| Marx (1867)" s))
+       (should (string-match-p "| TODO unmatched *| lost" s))
+       (should-not (string-match-p "^- " s))))))
+
+(ert-deftest sp-cite-match-test-note-status ()
+  (let ((file (make-temp-file "litnote" nil ".org")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-litnotes-meta--file-meta)
+                   (lambda (f) (should (equal f file))
+                     (list :title "T" :read-status "05-done" :read-priority ""))))
+          (should (equal (sp-cite-match-note-status file)
+                         '(:status "05-done" :priority nil)))
+          (should-not (sp-cite-match-note-status t))
+          (should-not (sp-cite-match-note-status nil)))
+      (delete-file file))))
 
 (ert-deftest sp-cite-match-test-protocol-text ()
   (let* ((sp-cite-match-inbox (make-temp-file "inbox" t))
