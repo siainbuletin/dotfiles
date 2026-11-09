@@ -51,7 +51,7 @@ What was not taken:
   - the footnote lint
   - the tag lint
   - the Org normalise report
-  - the BibTeX lint
+- The BibTeX lint already uses it since #352, with no old view left to keep.
 - Not ported:
   - the litnote status table: it is a table to mark and change rows in, not a report
   - the keyword conversion preview: it is read before a =y-or-n-p=, so no key can be pressed in it
@@ -63,7 +63,7 @@ What was not taken:
   - Set it to =old= to get the per-module view back.
   - Both views are made from the same data, so they can be compared on the same run.
 - The old report modes are marked obsolete with =make-obsolete=: they still work and are not removed yet.
-  - =sp-author-notes-report-mode=, =sp-org-lint-fn-report-mode=, =sp-org-tag-lint-report-mode=, =sp-org-normalise-report-mode=, =sp-bibtex-lint-report-mode=
+  - =sp-author-notes-report-mode=, =sp-org-lint-fn-report-mode=, =sp-org-tag-lint-report-mode=, =sp-org-normalise-report-mode=
 - The goal is one report interface; the old views go once the new one has proved itself.
 
 ** Why not use =special-mode= or =vui.el=
@@ -582,3 +582,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =sp-batch-report=: the report buffer that the batch conversions and dry runs share, with every file as an Org link.
   - Used by the titles, references, meta fill-all, notes filing and conversion preview reports.
   - Not run: the real vault.
+- [[https://github.com/siainbuletin/dotfiles/pull/353][#353]]
+  - Moved the author notes report, the footnote lint, the tag lint and the Org normalise report onto =sp-batch-report=; their old modes are marked obsolete and stay.
+  - Added =sp-batch-report-interface= (=new= or =old=) to switch between the two views.
+  - The titles, references, meta fill-all, notes filing and property preview reports gained =d= drop, =u= restore and =A= apply.
