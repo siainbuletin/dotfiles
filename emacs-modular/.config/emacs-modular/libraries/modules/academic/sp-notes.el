@@ -23,6 +23,7 @@
 (require 'seq)
 (require 'org-id)
 (require 'sp-globals nil t)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -547,7 +548,7 @@ Return the tags that are still unregistered."
     (define-key map (kbd "q") #'quit-window)
     map))
 
-(define-derived-mode sp-notes-filing-report-mode special-mode "NotesFiling"
+(define-derived-mode sp-notes-filing-report-mode sp-batch-report-mode "NotesFiling"
   "Dry-run report of `sp-notes-filing-dryrun'.  \\[sp-notes-filing-convert] applies it.")
 
 (defun sp-notes-filing--render (plan)
@@ -555,15 +556,16 @@ Return the tags that are still unregistered."
   (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root)))
         (counts (make-hash-table :test #'equal)))
     (dolist (e plan) (cl-incf (gethash (plist-get e :folder) counts 0)))
-    (insert (format "Notes filing under %s: %d planned moves (dry run, nothing moved)\n"
+    (insert (format "#+title: Notes filing under %s: %d planned moves (dry run, nothing moved)\n"
                     sp-notes-filing-root (length plan))
             "Apply with C-c C-c (makes a backup first); g refreshes; q quits.\n\n"
-            "Per folder:\n")
-    (maphash (lambda (k v) (insert (format "  %-20s %d\n" k v))) counts)
-    (insert "\n")
+            "* Per folder\n")
+    (maphash (lambda (k v) (insert (format "- %s: %d\n" k v))) counts)
+    (insert "\n* Moves\n")
     (dolist (e plan)
-      (insert (format "%s -> %s%s%s%s\n"
-                      (file-relative-name (plist-get e :from) root)
+      (insert (format "- %s -> %s%s%s%s\n"
+                      (sp-batch-report-file-link (plist-get e :from)
+                                                 (file-relative-name (plist-get e :from) root))
                       (file-relative-name (plist-get e :to) root)
                       (if (plist-get e :fallback) "  [no matching tag]" "")
                       (if (plist-get e :strip-identifier) "  [drops #+identifier:]" "")
@@ -576,14 +578,11 @@ First offers to register the rule tags that the tag registry lacks."
   (interactive)
   (sp-notes-filing-check-rule-tags)
   (let ((plan (sp-notes-filing-plan)))
-    (with-current-buffer (get-buffer-create "*Notes filing*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (sp-notes-filing-report-mode)
-        (sp-notes-filing--render plan)
-        (setq sp-notes-filing--current-plan plan)
-        (goto-char (point-min)))
-      (pop-to-buffer (current-buffer)))))
+    (sp-batch-report-show "*Notes filing*"
+                          (with-temp-buffer (sp-notes-filing--render plan) (buffer-string))
+                          #'sp-notes-filing-dryrun #'sp-notes-filing-report-mode)
+    (with-current-buffer "*Notes filing*"
+      (setq sp-notes-filing--current-plan plan))))
 
 
 (defun sp-notes-filing-convert ()

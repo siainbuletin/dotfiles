@@ -415,6 +415,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-batch-report ;; report buffer of the batch commands (files as Org links)
                     'sp-async-work ;; long jobs in slices, with mode-line progress (author and litnote commands)
                     'sp-author-notes ;; author notes and Works tables from pub-author (preview first)
                     'sp-author-notes-bibtex ;; BibTeX works of an author with no litnote yet, offers to create it

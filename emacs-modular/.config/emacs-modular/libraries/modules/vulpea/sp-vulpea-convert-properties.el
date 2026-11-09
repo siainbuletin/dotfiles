@@ -14,6 +14,7 @@
 (require 'vulpea)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-batch-report)
 
 (defvar sia-vulpea-convert-property-blocklist
   '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
@@ -336,17 +337,17 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "%s: %s" (file-name-nondirectory file)
+             (format "- %s: %s" (sp-batch-report-file-link file)
                      (string-join (seq-uniq found) ", "))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
          (if report
-             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
-               (erase-buffer)
-               (insert (string-join report "\n"))
-               (goto-char (point-min))
-               (display-buffer (current-buffer)))
+             (sp-batch-report-show
+              "*vulpea property conversion preview*"
+              (concat "#+title: Property conversion: dry run\n\n"
+                      (string-join report "\n") "\n")
+              #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
            (message "Nothing would be converted -- every property found is blocklisted."))))))))
 
 

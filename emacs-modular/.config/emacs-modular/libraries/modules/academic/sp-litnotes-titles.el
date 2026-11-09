@@ -25,6 +25,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -511,7 +512,7 @@ Return the job."
           (let ((old-name (file-name-nondirectory (plist-get plan :file)))
                 (renamed (and sp-litnotes-titles-rename-files
                               (eq (plist-get plan :name-status) 'rename))))
-            (insert (format "** =%s=\n" old-name))
+            (insert (format "** %s\n" (sp-batch-report-file-link (plist-get plan :file))))
             (when (cdr (plist-get plan :keys))
               (insert (format "- several citekeys: %s (the first names the file)\n"
                               (string-join (plist-get plan :keys) " "))))
@@ -529,8 +530,7 @@ Return the job."
               (insert "- file: unchanged\n"))
             (when-let* ((files (cdr (assoc old-name links))))
               (insert (format "- file: links to the old name in: %s\n"
-                              (mapconcat (lambda (f) (format "=%s=" (file-name-nondirectory f)))
-                                         files ", ")))))))
+                              (sp-batch-report-file-links files)))))))
       (dolist (item sp-litnotes-titles--reasons)
         (let ((group (cl-remove-if-not
                       (lambda (p) (or (eq (plist-get p :title-status) (car item))
@@ -539,8 +539,8 @@ Return the job."
           (when group
             (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
-              (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
-                              (file-name-nondirectory (plist-get plan :file))
+              (insert (format "- %s: title %s; pub-author %s; pub-title %s%s\n"
+                              (sp-batch-report-file-link (plist-get plan :file))
                               (or (plist-get plan :title) "(none)")
                               (or (plist-get plan :author) "(none)")
                               (or (plist-get plan :pub) "(none)")
@@ -551,7 +551,7 @@ Return the job."
                                              plans)))
         (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
         (dolist (plan missing)
-          (insert (format "- =%s=: %s\n" (file-name-nondirectory (plist-get plan :file))
+          (insert (format "- %s: %s\n" (sp-batch-report-file-link (plist-get plan :file))
                           (string-join (plist-get plan :keys) " ")))))
       (let ((by-title (make-hash-table :test 'equal)) dups)
         (dolist (plan plans)
@@ -562,8 +562,7 @@ Return the job."
           (insert (format "\n* Notes that would get the same title (%d titles)\n" (length dups)))
           (dolist (group dups)
             (insert (format "- %s: %s\n" (plist-get (car group) :new-title)
-                            (mapconcat (lambda (p) (format "=%s=" (file-name-nondirectory (plist-get p :file))))
-                                       group ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) group)))))))
       (buffer-string))))
 
 ;;;; Starting a run
@@ -603,14 +602,8 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
   (sp-litnotes-titles--scan
    (lambda (plans links)
      (let ((text (sp-litnotes-titles--report-text plans links)))
-       (with-current-buffer (get-buffer-create "*litnote titles*")
-         (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert text)
-           (org-mode)
-           (goto-char (point-min))
-           (read-only-mode 1)))
-       (pop-to-buffer "*litnote titles*"))
+       (sp-batch-report-show "*litnote titles*" text
+                             (unless callback #'sp-litnotes-titles--show-report)))
      (when callback (funcall callback plans)))))
 
 ;;;; Writing
