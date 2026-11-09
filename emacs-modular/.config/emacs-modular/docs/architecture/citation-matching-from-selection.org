@@ -114,6 +114,25 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
   - Indexing a file that DEVONthink already holds under another name would create a duplicate; the content-hash check in step 1 guards this.
   - The database package is never edited as files; everything goes through DEVONthink's scripting interface.
 
+** Readers by platform (decided, Sia 2026-11-09)
+
+- macOS:
+  - Records in DEVONthink: DEVONthink's own reader.
+  - Files that are not in BibTeX (and are not imported): the native Preview.
+  - Preview has no scripting for the selection; the Hammerspoon clipboard path (above) is its only interface, and it works because the hotkey does not depend on the app.
+- Linux:
+  - Reader for the "recognition layer": Sioyek (recommended) over Okular.
+  - Why Sioyek is more scriptable:
+    - Its config can define shell commands that receive placeholders for the selected text, the file path and the page, so a keybinding in Sioyek calls Emacs directly, with no clipboard step.
+    - It can be driven from outside with command-line flags (open a file at a page, run a command in the running instance).
+    - It is configured by plain text files, so it fits Stow.
+  - Why not Okular (the fallback):
+    - It has a D-Bus interface (open a document, current page), but no call that returns the selected text; selection would go through the clipboard (=wl-paste= / =xclip=) and a window-manager key binding.
+    - Its settings are in the KDE configuration system, which is harder to version.
+  - Both are expected to match on the placeholder names and flags above; to verify against the installed version before building.
+- The Linux hotkey calls the same =org-protocol= handler as the Mac one; only the script that produces the text differs.
+- Which file counts as "not in BibTeX" is decided by the same lookup (=sp-reading-open=): no citekey match by file path or content hash means it opens in Preview (Mac) or Sioyek (Linux).
+
 ** Trigger: Hammerspoon hotkey (decided, Sia 2026-11-09)
 
 - Decision: use a Hammerspoon hotkey. A macOS Service is kept only as a fallback.
@@ -202,6 +221,6 @@ This is a design, not an implementation. Nothing here has been run on the Mac. I
 * Open questions for Sia
 
 - (Decided: Hammerspoon hotkey, Service only as fallback.)
-- Which reader for PDFs that are not in DEVONthink and that you decide not to import?
+- (Decided: Preview on macOS, Sioyek on Linux.)
 - Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
 - Name of the end section and whether it should live in the litnote's front matter instead.
