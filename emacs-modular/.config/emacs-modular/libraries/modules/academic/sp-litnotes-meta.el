@@ -253,8 +253,10 @@ so REF has no crossref of its own."
     (condition-case err
         (let ((file (funcall sp-litnotes-meta-create-function ref)))
           ;; Not `citar-create-note', so its advice does not fill the note.
-          (sp-litnotes-meta-fill ref file)
-          (sp-litnotes-meta--tidy-new-note ref file)
+          ;; The parent follows the normal rules, whatever the child was allowed.
+          (let ((sp-litnotes-meta--allow-chain nil))
+            (sp-litnotes-meta-fill ref file)
+            (sp-litnotes-meta--tidy-new-note ref file))
           (when (fboundp 'vulpea-db-update-file)
             (ignore-errors (vulpea-db-update-file file)))
           (when-let* ((head (sp-author-notes--file-head file))
@@ -267,9 +269,16 @@ so REF has no crossref of its own."
       (error (message "sp-litnotes-meta: parent %s: %s" ref (error-message-string err))
              nil)))))
 
+(defvar sp-litnotes-meta--allow-chain nil
+  "Non-nil when a crossref chain deeper than two levels is converted anyway.
+`sp-litnotes-meta-fill-deep-chain' binds it; a parent note made then is
+filled with it off.")
+
 (defun sp-litnotes-meta--flag-chain (ref entry)
-  "Non-nil, with a message, when the crossref REF of ENTRY starts a deep chain."
-  (when-let* ((chain (sp-litnotes-meta--crossref-chain entry)))
+  "Non-nil, with a message, when the crossref REF of ENTRY starts a deep chain.
+Always nil while `sp-litnotes-meta--allow-chain' is non-nil."
+  (when-let* (((not sp-litnotes-meta--allow-chain))
+              (chain (sp-litnotes-meta--crossref-chain entry)))
     (message "sp-litnotes-meta: crossref chain %s is deeper than two levels, bib-parent left empty (%s)"
              (string-join chain " -> ") ref)
     t))
@@ -412,6 +421,32 @@ tag was added.  A crossref'd entry without a note gets one (see
         (when changed (save-buffer))
         (unless buf (kill-buffer))
         (nreverse changed)))))
+
+(defun sp-litnotes-meta--deep-chain-p (key)
+  "The crossref chain of the BibTeX entry KEY when it is deeper than two levels, or nil."
+  (when-let* ((entry (sp-litnotes-meta--entry key)))
+    (sp-litnotes-meta--crossref-chain entry)))
+
+;;;###autoload
+(defun sp-litnotes-meta-fill-deep-chain (key &optional file)
+  "Fill the note of KEY although its crossref chain is deeper than two levels.
+`sp-litnotes-meta-fill' and the batch leave such a note's bib-parent out and
+make no parent note.  This command is the way to convert one anyway: it shows
+the chain, asks once, then fills the note of KEY (the current buffer's file
+unless FILE) like `sp-litnotes-meta-fill' and links or makes its direct parent.
+The parent is then filled with the normal rules, so a loop is cut there and the
+grandparent is made only when the parent's chain is no deeper.  Return what
+`sp-litnotes-meta-fill' returns."
+  (interactive (list (or (sp-litnotes-meta--buffer-key)
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))
+                     buffer-file-name))
+  (let ((chain (or (sp-litnotes-meta--deep-chain-p key)
+                   (user-error "%s has no crossref chain deeper than two levels; use sp-litnotes-meta-fill"
+                               key))))
+    (when (yes-or-no-p (format "%s -> %s: fill it anyway and link or make its parent? "
+                               key (string-join chain " -> ")))
+      (let ((sp-litnotes-meta--allow-chain t))
+        (sp-litnotes-meta-fill key file)))))
 
 ;;;; Read-status report
 
@@ -1071,7 +1106,7 @@ The .bib files are read once for all of them."
                               (sp-litnotes-meta--new-title entry))
                             "")
                         (string-join (reverse (cdr parent)) ", "))))
-      (insert "\n* Crossref chains deeper than two levels (flagged: bib-parent and parent notes are left alone)\n")
+      (insert "\n* Crossref chains deeper than two levels (flagged: left alone; convert one with M-x sp-litnotes-meta-fill-deep-chain)\n")
       (dolist (plan chains)
         (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)
                         (string-join (plist-get plan :chain) " -> "))))

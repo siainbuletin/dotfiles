@@ -533,6 +533,41 @@
     (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "ch.org")))
     (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
 
+(ert-deftest sp-litnotes-meta-fill-deep-chain-converts-on-request ()
+  "ch -> b -> c: the command links and makes b; b is filled by the normal rules and makes c."
+  (sp-litnotes-meta-test--with-parents
+      "@incollection{ch, title = {Ch}, crossref = {b}}
+@book{b, title = {B}, crossref = {c}}
+@book{c, title = {C}}
+"
+    (note "ch.org" ":PROPERTIES:\n:ID: id-ch\n:ROAM_REFS: @ch\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    ;; declining changes nothing
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
+      (should-not (sp-litnotes-meta-fill-deep-chain "ch" (expand-file-name "ch.org" dir))))
+    (should-not sp-litnotes-meta-test--made)
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+      (should (member "bib-parent" (sp-litnotes-meta-fill-deep-chain "ch" (expand-file-name "ch.org" dir)))))
+    (should (equal (reverse sp-litnotes-meta-test--made) '("b" "c")))
+    (should (string-match-p "- bib-parent :: \\[\\[id:id-b\\]" (sp-litnotes-meta-test--read dir "ch.org")))
+    (should (string-match-p "- bib-parent :: \\[\\[id:id-c\\]" (sp-litnotes-meta-test--read dir "b.org")))))
+
+(ert-deftest sp-litnotes-meta-fill-deep-chain-cuts-a-loop-at-the-parent ()
+  (sp-litnotes-meta-test--with-parents
+      "@incollection{ch, title = {Ch}, crossref = {b}}
+@book{b, title = {B}, crossref = {c}}
+@book{c, title = {C}, crossref = {b}}
+"
+    (note "ch.org" ":PROPERTIES:\n:ID: id-ch\n:ROAM_REFS: @ch\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+      (sp-litnotes-meta-fill-deep-chain "ch" (expand-file-name "ch.org" dir)))
+    (should (equal sp-litnotes-meta-test--made '("b")))
+    (should (string-match-p "- bib-parent :: \\[\\[id:id-b\\]" (sp-litnotes-meta-test--read dir "ch.org")))
+    (should-not (string-match-p "bib-parent" (sp-litnotes-meta-test--read dir "b.org")))))
+
+(ert-deftest sp-litnotes-meta-fill-deep-chain-refuses-normal-note ()
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (should-error (sp-litnotes-meta-fill-deep-chain "ch1") :type 'user-error)))
+
 (ert-deftest sp-litnotes-meta-batch-report-lists-each-parent-once ()
   (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
     (note "ch1.org" ":PROPERTIES:\n:ID: id-ch1\n:ROAM_REFS: @ch1\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
