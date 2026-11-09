@@ -16,6 +16,9 @@
 (require 'seq)
 (require 'subr-x)
 
+(declare-function sp-backup-open "sp-backup-lookup")
+(declare-function sp-backup-diff "sp-backup-lookup")
+
 (defgroup sp-batch-report nil
   "The report buffer of the batch conversions and lints."
   :group 'org)
@@ -312,6 +315,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
                "  d drop  u restore")
           (and sp-batch-report-apply-function "  A apply")
           (and sp-batch-report-refresh-function "  g refresh")
+          "  b backups  D diff backup"
           "  q quit"))
 
 (defvar sp-batch-report-mode-map
@@ -324,6 +328,8 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (define-key map (kbd "A") #'sp-batch-report-apply)
     (define-key map (kbd "C-c C-c") #'sp-batch-report-apply)
     (define-key map (kbd "g") #'sp-batch-report-refresh)
+    (define-key map (kbd "b") #'sp-backup-open)
+    (define-key map (kbd "D") #'sp-backup-diff)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap of `sp-batch-report-mode'.")
@@ -333,7 +339,8 @@ When nil, `sp-batch-report-refresh-function' is used.")
 Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the one at point,
 \\[org-next-link] and \\[org-previous-link] move between them.  \\[sp-batch-report-drop] drops the entry at point from the list,
 \\[sp-batch-report-restore] brings it back, \\[sp-batch-report-apply] applies what is left,
-\\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it."
+\\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
+\\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
   (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
 
