@@ -1051,7 +1051,7 @@ heading, when the note has none.  Return `inserted', `updated' or nil."
 (defun sp-litnotes-meta-backfill-children (key &optional children all)
   "Make the litnotes of the BibTeX entries that have KEY as their crossref.
 Interactively KEY is the citation key of the note you are in, a book or
-a collection, and you pick the entries in the minibuffer (an empty or (none) answer
+a collection, and you pick the entries in the minibuffer (an empty answer
 takes all of them).  With a prefix argument, or ALL, every entry without a
 note is taken and nothing is picked.  Each new note is made by
 `sp-litnotes-meta-create-function' (an ID, :CREATED:, the litnote tag and
