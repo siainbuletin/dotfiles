@@ -2566,7 +2566,7 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/90][#90]]
   - 🔧 Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed.
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]]
+- [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]
   - ✨ Added the reference hover for =[cite:@key]= links in =sp-citations= (tooltip and Eldoc echo area, =sp-cite-hover-display=).
 - [[https://github.com/siainbuletin/dotfiles/pull/210][#210]]
   - 🔧 Replaced =citar-denote= with =citar-vulpea= in =sp-litnotes= (=ROAM_REFS= property, =citar-vulpea-mode= on) and ✨ added =sp-litnotes-refs= (=sp-litnotes-refs-report= dry run, =sp-litnotes-refs-convert=).
@@ -2589,7 +2589,7 @@ What each pull request changed in this module, newest last; the one-line summary
     - any =citar= error gives no reference instead of a muted error, so the tooltip and the echo area text show the reference or the "not found" message.
   - Tested in Emacs 29.3 in batch with =citar= stubbed (=tests/sp-cite-hover-test.el=)
     - not run in the interactive config.
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]]
+- [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]
   - ✨ Added the attachment paths fix to the =.bib= lint (=sp-bibtex-lint-fix-files=, a button in =sp-bibtex-lint-dryrun=, an entry in =sp-bibtex-lint-convert=).
     - BibDesk =bdsk-file-N= fields become one =file= field, found by the file name in the bookmark or else by the citekey.
     - Absolute =~/Documents/literature/= paths become relative to =sp-literature-dir=.
