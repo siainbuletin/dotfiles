@@ -185,6 +185,7 @@ They go through it with =sp-batch-report-run-batches=, so you can stop after a f
   - =a=: apply the whole batch
   - =c=: choose entry by entry (the command's own question, or =y-or-n-p= with the text of =:describe=)
   - =s=: skip this batch
+  - =g=: global; apply this batch and every later one at once, nothing more is asked (dropped entries stay out, backups are still made by the command)
   - =q=: quit; this batch and the later ones are left as they were
 - Something not reached by a quit is still in the next dry run, so running the command again continues.
 - The function returns =:done=, =:skipped=, =:remaining= and =:stopped=; =sp-batch-report-batches-note= turns them into the end of a message.
@@ -355,24 +356,27 @@ nil or 0 means no batches: everything at once."
 (defun sp-batch-report--ask-batch (label batch index total left)
   "Ask what to do with BATCH, number INDEX of TOTAL; LEFT entries come after it.
 LABEL names the command.  Return ?a (apply all), ?c (choose each), ?s (skip
-this batch) or ?q (quit: leave this and the later batches alone)."
+this batch), ?g (global: apply this batch and every later one without asking
+again) or ?q (quit: leave this and the later batches alone)."
   (read-char-choice
-   (format "%s: batch %d/%d, %d entr%s (%d after it).  [a]pply all, [c]hoose each, [s]kip, [q]uit? "
+   (format "%s: batch %d/%d, %d entr%s (%d after it).  [a]pply all, [c]hoose each, [s]kip, [g]lobal (all the rest), [q]uit? "
            label index total (length batch) (if (= 1 (length batch)) "y" "ies") left)
-   '(?a ?c ?s ?q)))
+   '(?a ?c ?s ?g ?q)))
 
 (defun sp-batch-report-run-batches (items fn &rest args)
   "Call FN on each of ITEMS, a batch at a time, asking before every batch.
 FN is called with (ITEM DECISION).  When ITEMS fit in one batch nothing is
 asked, because the command asked already.  Otherwise each batch is applied
-whole (DECISION is t), chosen item by item, skipped, or ends the run with
-quit; what was not reached stays as it was, so the command can run again.
+whole (DECISION is t), chosen item by item, skipped, applied together with
+all later batches (global: DECISION is t and nothing more is asked), or ends
+the run with quit; what was not reached stays as it was, so the command can run again.
 ARGS: :label (name for the prompts), :size (default `sp-batch-report-batch-size')
 and :choose (function from an item to its DECISION, or nil to skip it; the
 default asks `y-or-n-p' with :describe, a function from an item to text).
 Return a plist: :done (items FN was called on), :skipped, :remaining (not
 reached) and :stopped (non-nil after quit)."
-  (let* ((size (or (plist-get args :size) sp-batch-report-batch-size))
+  (let* ((global nil)
+         (size (or (plist-get args :size) sp-batch-report-batch-size))
          (batches (seq-partition items (if (and (integerp size) (> size 0))
                                            size
                                          (max 1 (length items)))))
@@ -384,12 +388,15 @@ reached) and :stopped (non-nil after quit)."
          (index 0) (done 0) (skipped 0) (stopped nil))
     (while (and batches (not stopped))
       (let* ((batch (pop batches))
-             (choice (if (= total 1)
-                         ?a
+             (choice (cond
+                      (global ?a)
+                      ((= total 1) ?a)
+                      (t
                        (sp-batch-report--ask-batch
                         label batch (1+ index) total
-                        (apply #'+ (mapcar #'length batches))))))
+                        (apply #'+ (mapcar #'length batches)))))))
         (cl-incf index)
+        (when (eq choice ?g) (setq global t choice ?a))
         (pcase choice
           (?q (setq stopped t) (push batch batches))
           (?s (cl-incf skipped (length batch)))
