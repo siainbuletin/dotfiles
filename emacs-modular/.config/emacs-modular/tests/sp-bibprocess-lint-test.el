@@ -564,6 +564,207 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (should-error (sp-bibtex-lint--follow "other:/tmp/a.bib") :type 'user-error))))
 
 
+;;; Attachment paths (sp-bibtex-files)
+
+(defvar sp-bibtex-files nil)
+(defvar sp-literature-dir nil)
+
+(defun sp-bibtex-files-test--bdsk (path &optional utf16)
+  "The base64 value of a BibDesk bookmark whose relativePath is PATH."
+  (let* ((head "bplist00\xd2\x01\x02\x03\x04\\relativePathXbookmark")
+         (tail "O\x11\x04,book,\x04\x00\x00\x00\x00\x04\x10\x30")
+         (n (length path))
+         (body (cond
+                (utf16 (concat "o\x10" (string n) (encode-coding-string path 'utf-16be)))
+                ((< n 15) (concat (string (+ #x50 n)) path))
+                ((< n 256) (concat "_\x10" (string n) path))
+                (t (concat "_\x11" (string (ash n -8) (logand n 255)) path)))))
+    (base64-encode-string (concat head body tail) t)))
+
+(defun sp-bibtex-files-test--library (&rest names)
+  "A temp library with the files NAMES (relative paths); return its directory."
+  (let ((dir (file-name-as-directory (make-temp-file "sp-lib" t))))
+    (dolist (n names)
+      (make-directory (file-name-directory (expand-file-name n dir)) t)
+      (write-region "" nil (expand-file-name n dir)))
+    dir))
+
+(ert-deftest sp-bibtex-files-test-bdsk-path ()
+  (should (equal "../literature/a1990x0.pdf"
+                 (sp-bibtex-files--bdsk-path (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))))
+  (let ((long (concat "../" (make-string 300 ?a) ".pdf")))
+    (should (equal long (sp-bibtex-files--bdsk-path (sp-bibtex-files-test--bdsk long)))))
+  (should (equal "../Anna’s.pdf"
+                 (sp-bibtex-files--bdsk-path (sp-bibtex-files-test--bdsk "../Anna’s.pdf" t))))
+  (should-not (sp-bibtex-files--bdsk-path "not a bookmark")))
+
+(ert-deftest sp-bibtex-files-test-rewrite ()
+  (let* ((dir (sp-bibtex-files-test--library "inbox/mac-bibdesk/suchman2017reconstruc0.pdf"
+                                             "inbox/mac-bibdesk/a2000b0.pdf"
+                                             "inbox/mac-bibdesk/a2000b1.pdf"
+                                             "inbox/mac-bibdesk/other0.pdf"
+                                             "plain.pdf" "elsewhere/moved.pdf"))
+         (ctx (sp-bibtex-files-index dir nil))
+         (b (lambda (n) (sp-bibtex-files-test--bdsk (concat "../literature/" n)))))
+    (unwind-protect
+        (progn
+          ;; One file, last field without a comma: replaced in place.
+          (let ((r (sp-bibtex-files--rewrite
+                    (format "@book{k,\n  year = 2017,\n  bdsk-file-1  =\n    {%s}\n}\n"
+                            (funcall b "suchman2017reconstruc0.pdf"))
+                    "suchman-2017-recon-tech-soc-prac" ctx)))
+            (should (equal "@book{k,\n  year = 2017,\n  file         = {inbox/mac-bibdesk/suchman2017reconstruc0.pdf}\n}\n"
+                           (car r)))
+            (should (eq 'change (car (car (nth 1 r))))))
+          ;; Two files, trailing commas kept, the first field removed.
+          (let ((r (sp-bibtex-files--rewrite
+                    (format "@book{k,\n\tbdsk-file-1 = {%s},\n\tbdsk-file-2 = {%s},\n\tyear = 1}\n"
+                            (funcall b "a2000b0.pdf") (funcall b "a2000b1.pdf"))
+                    "zzz" ctx)))
+            (should (equal "@book{k,\n\tfile        = {inbox/mac-bibdesk/a2000b0.pdf;inbox/mac-bibdesk/a2000b1.pdf},\n\tyear = 1}\n"
+                           (car r))))
+          ;; Merged into an existing plain file field.
+          (let ((r (sp-bibtex-files--rewrite
+                    (format "@book{k,\n  file = {Z:/x/y.pdf:application/pdf},\n  bdsk-file-1 = {%s}}\n"
+                            (funcall b "other0.pdf"))
+                    "k" ctx)))
+            (should (string-match-p "file = {Z:/x/y.pdf:application/pdf;inbox/mac-bibdesk/other0.pdf}"
+                                    (car r)))
+            (should-not (string-match-p "bdsk" (car r))))
+          ;; Unresolved: untouched and reported.
+          (let* ((text (format "@book{k,\n  bdsk-file-1 = {%s}}\n" (funcall b "gone0.pdf")))
+                 (r (sp-bibtex-files--rewrite text "nokey" ctx)))
+            (should (equal text (car r)))
+            (should (eq 'problem (car (car (nth 1 r))))))
+          ;; The citekey finds the file when the bookmark's name is gone.
+          (let ((r (sp-bibtex-files--rewrite
+                    (format "@book{other,\n  bdsk-file-1 = {%s}}\n" (funcall b "renamed0.pdf"))
+                    "other" ctx)))
+            (should (string-match-p "file        = {inbox/mac-bibdesk/other0.pdf}" (car r))))
+          ;; Absolute paths become relative; a moved file is found by name.
+          (let ((r (sp-bibtex-files--rewrite
+                    "@book{k,\n  file = {~/Docuemnts/literature/plain.pdf;~/Documents/literature/moved.pdf},\n}\n"
+                    "k" ctx)))
+            (should (string-match-p "file = {plain.pdf;elsewhere/moved.pdf}," (car r)))))
+      (delete-directory dir t))))
+
+(ert-deftest sp-bibtex-files-test-flatten ()
+  (let* ((dir (sp-bibtex-files-test--library "inbox/x0.pdf" "inbox/clash.pdf" "clash.pdf"))
+         (ctx (sp-bibtex-files-index dir t))
+         (sp-bibtex-lint-backup-directory (expand-file-name "bk/" dir)))
+    (unwind-protect
+        (progn
+          (let ((r (sp-bibtex-files--rewrite
+                    (format "@a{k,\n  bdsk-file-1 = {%s}}\n" (sp-bibtex-files-test--bdsk "../x0.pdf"))
+                    "k" ctx)))
+            (should (string-match-p "file        = {x0.pdf}" (car r)))
+            (should (equal (list (cons (expand-file-name "inbox/x0.pdf" dir) (expand-file-name "x0.pdf" dir)))
+                           (nth 2 r))))
+          ;; The same name at the top and below: ambiguous, so left alone.
+          (let* ((text (format "@a{c,\n  bdsk-file-1 = {%s}}\n" (sp-bibtex-files-test--bdsk "../clash.pdf")))
+                 (r (sp-bibtex-files--rewrite text "c" ctx)))
+            (should (equal text (car r)))
+            (should (string-match-p "ambiguous" (cdr (car (nth 1 r))))))
+          (let ((moves (nth 2 (sp-bibtex-files--rewrite
+                               (format "@a{k,\n  bdsk-file-1 = {%s}}\n" (sp-bibtex-files-test--bdsk "../x0.pdf"))
+                               "k" ctx))))
+            (should (= 1 (length moves)))
+            (sp-bibtex-files--move moves))
+          (should (file-exists-p (expand-file-name "x0.pdf" dir)))
+          (should-not (file-exists-p (expand-file-name "inbox/x0.pdf" dir)))
+          (should (file-exists-p (expand-file-name "inbox/clash.pdf" dir)))
+          (should (directory-files sp-bibtex-lint-backup-directory nil "files-moves.*tsv")))
+      (delete-directory dir t))))
+
+(ert-deftest sp-bibtex-files-test-dryrun-and-fix ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/a1990x0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten nil))
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  title = {T},\n  bdsk-file-1 = {%s}\n}\n\n@book{b,\n  file = {~/Documents/literature/a1990x0.pdf},\n  title = {U}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))
+          ;; The report has a section and a button, and writes nothing.
+          (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+            (sp-bibtex-lint-dryrun file))
+          (with-current-buffer sp-bibtex-lint--buffer
+            (let ((text (buffer-string)))
+              (should (string-match-p (format "\\[\\[sp-bibtex-lint:files:%s\\]\\[attachment paths (2)\\]\\]"
+                                              (regexp-quote file))
+                                      text))
+              (should (string-match-p "bdsk-file-1 → file = {a1990x0.pdf}" text))
+              (should (string-match-p "file: ~/Documents/literature/a1990x0.pdf → a1990x0.pdf" text))))
+          (kill-buffer sp-bibtex-lint--buffer)
+          (should (string-match-p "bdsk-file-1" (sp-bibprocess-lint-test--text file)))
+          ;; The fix: one question, a backup, the rest of the entry as it was.
+          (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files)))
+          (let ((text (sp-bibprocess-lint-test--text file)))
+            (should (string-match-p "file        = {a1990x0.pdf}" text))
+            (should (string-match-p "file = {a1990x0.pdf}," text))
+            (should-not (string-match-p "bdsk\\|Documents" text))
+            (should (string-match-p "title = {T}," text)))
+          (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'")))
+      (delete-directory lib t))))
+
+(ert-deftest sp-bibtex-files-test-fix-needs-library ()
+  (let ((sp-literature-dir "/no/such/folder/"))
+    (sp-bibprocess-lint-test--with-bib "@book{a,\n  title = {T}\n}\n"
+      (should-error (sp-bibtex-lint-fix-files file) :type 'user-error))))
+
+(ert-deftest sp-bibtex-files-test-flatten-fix-moves-files ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten t))
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t)))
+            (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files))
+          (should (string-match-p "file        = {a1990x0.pdf}" (sp-bibprocess-lint-test--text file)))
+          (should (file-exists-p (expand-file-name "lit/a1990x0.pdf" lib)))
+          (should-not (file-exists-p (expand-file-name "lit/inbox/a1990x0.pdf" lib))))
+      (delete-directory lib t))))
+
+(ert-deftest sp-bibtex-files-test-flatten-through-devonthink-tool ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf" "lit/inbox/b2000y0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten t)
+         (sp-bibtex-files-devonthink-tool "/fake/devonthink-move.py")
+         calls)
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n\n@book{b2000y,\n  bdsk-file-1 = {%s}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf")
+                    (sp-bibtex-files-test--bdsk "../literature/b2000y0.pdf"))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t))
+                    ((symbol-function 'sp-bibtex-files--call-tool)
+                     (lambda (args) (push args calls) (cons 0 "ok"))))
+            (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files))
+          ;; One call for both files, and the tool, not rename-file, moved them.
+          (should (= 1 (length calls)))
+          (should (equal '("move" "--apply" "--plain-rename" "--moves")
+                         (butlast (car calls))))
+          (should (file-exists-p (expand-file-name "lit/inbox/a1990x0.pdf" lib)))
+          (should (string-match-p "file        = {a1990x0.pdf}" (sp-bibprocess-lint-test--text file))))
+      (delete-directory lib t))))
+
+(ert-deftest sp-bibtex-files-test-devonthink-tool-stop-keeps-the-bib-file ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten t)
+         (sp-bibtex-files-devonthink-tool "/fake/devonthink-move.py"))
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t))
+                    ((symbol-function 'sp-bibtex-files--call-tool) (lambda (_args) (cons 1 "it stopped"))))
+            (should-error (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files)
+                          :type 'user-error))
+          (should (string-match-p "bdsk-file-1" (sp-bibprocess-lint-test--text file))))
+      (delete-directory lib t))))
+
 (ert-deftest sp-bibtex-lint-test-capf ()
   (let ((sp-bibtex--people-cache (cons (float-time) (sp-bibtex--make-people '("John Smith" "Jane Doe")))))
     (with-temp-buffer
