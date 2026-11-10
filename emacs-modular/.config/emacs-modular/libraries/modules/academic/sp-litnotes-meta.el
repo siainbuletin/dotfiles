@@ -1769,7 +1769,39 @@ file to `fixed' or the error text."
         (sp-litnotes-meta-fill key)
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
 
-(advice-add 'citar-create-note :after #'sp-litnotes-meta--after-create)
+(defcustom sp-litnotes-meta-citar-create t
+  "Non-nil to make the notes that `citar-create-note' is asked for ourselves.
+The note is made by `sp-litnotes-meta-create-function' (an ID, :CREATED:, the
+litnote and BibTeX type tags, ROAM_REFS, the title of
+`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Nil leaves
+the note to citar (and its `citar-vulpea-note-title-template')."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta--around-create (orig-fun key &rest args)
+  "Make the note of KEY with `sp-litnotes-meta-create-function', not citar.
+ORIG-FUN is `citar-create-note', called with KEY and ARGS when
+`sp-litnotes-meta-citar-create' is nil, KEY has no BibTeX entry or already has
+a note, or the note could not be made; the note is then filled afterwards."
+  (let ((file (when (and sp-litnotes-meta-citar-create (stringp key)
+                         (sp-litnotes-meta--entry key)
+                         (not (gethash key (sp-author-notes-bibtex--covered))))
+                (condition-case err
+                    (funcall sp-litnotes-meta-create-function key)
+                  (error (message "sp-litnotes-meta: %s: %s, using citar"
+                                  key (error-message-string err))
+                         nil)))))
+    (if (not file)
+        (prog1 (apply orig-fun key args)
+          (sp-litnotes-meta--after-create key))
+      (when sp-litnotes-meta-auto
+        (condition-case err
+            (sp-litnotes-meta-fill key file)
+          (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
+      (find-file file))))
+
+(advice-remove 'citar-create-note #'sp-litnotes-meta--after-create)
+(advice-add 'citar-create-note :around #'sp-litnotes-meta--around-create)
 
 (provide 'sp-litnotes-meta)
 ;; sp-litnotes-meta.el ends here
