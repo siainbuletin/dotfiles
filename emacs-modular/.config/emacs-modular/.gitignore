@@ -10,6 +10,8 @@ url/
 var/
 emms/**
 
+org-semantic/
+
 sp-org-lint-backups/
 
 recentf.eld
