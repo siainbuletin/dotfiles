@@ -347,6 +347,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-treemacs ;; File tree on <f9>
 
                     'sp-writedesk
+                    'sp-reading-sidenotes ;; see-also footnotes as sidenotes in sp-reading-mode (needs sp-see-also)
 
                     ;;;; Modern settings
                     'sp-canvas
