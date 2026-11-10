@@ -725,3 +725,11 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
               ((symbol-function 'sp-bibtex-lint-fix-prefixes) (lambda (f) (setq ran f))))
       (sp-bibtex-lint-convert "/tmp/a.bib")
       (should (equal "/tmp/a.bib" ran)))))
+
+(ert-deftest sp-bibtex-lint-test-authors-fix-runs-prefixes-first ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@book{h,\n  author = {" sp-bibprocess-lint-test--hayek " and John Smith},\n  title = {T}\n}\n")
+    ;; One batch for the prefixes, then one for the author names.
+    (should (equal '(1 1) (sp-bibprocess-lint-test--convert file '(?a ?a) #'sp-bibtex-lint-fix-authors)))
+    (should (string-match-p "{von Hayek, Friedrich A\\. and Smith, John}"
+                            (sp-bibprocess-lint-test--text file)))))

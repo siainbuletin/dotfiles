@@ -1366,10 +1366,12 @@ normalised in the BibTeX field, or added as an alias of the note."
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-authors (file)
-  "Normalise the author and editor names of the .bib FILE, in three steps.
+  "Normalise the author and editor names of the .bib FILE, in four steps.
 FILE is the .bib file of the current buffer; with a prefix argument, or when
-the buffer is not a .bib file, it is read with completion.  Both steps go in
+the buffer is not a .bib file, it is read with completion.  All steps go in
 batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
+0. Key=value names and misplaced prefixes are fixed first, as
+   `sp-bibtex-lint-fix-prefixes' does it.
 1. Names that are not `Last, First' are rewritten, after you apply a batch.
 2. Names one typo away from an author note: for a batch you normalise the name
    in the BibTeX field to the name of the note, add the name as an alias of the
@@ -1383,20 +1385,26 @@ Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--unsaved-check file)
   (sp-bibtex-lint--job
-   "BibTeX lint" (list file) '(authors)
+   "BibTeX lint" (list file) '(prefixes)
    (lambda (results)
      (sp-bibtex-lint--review
-      file 'authors results
+      file 'prefixes results
       (lambda ()
         (sp-bibtex-lint--job
-         "BibTeX lint" (list file) '(notes)
+         "BibTeX lint" (list file) '(authors)
          (lambda (results)
-           (sp-bibtex-lint--review-notes
-            file 'notes results
+           (sp-bibtex-lint--review
+            file 'authors results
             (lambda ()
               (sp-bibtex-lint--job
-               "BibTeX lint" (list file) '(surnames)
-               (lambda (results) (sp-bibtex-lint--review-notes file 'surnames results))))))))))))
+               "BibTeX lint" (list file) '(notes)
+               (lambda (results)
+                 (sp-bibtex-lint--review-notes
+                  file 'notes results
+                  (lambda ()
+                    (sp-bibtex-lint--job
+                     "BibTeX lint" (list file) '(surnames)
+                     (lambda (results) (sp-bibtex-lint--review-notes file 'surnames results))))))))))))))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
