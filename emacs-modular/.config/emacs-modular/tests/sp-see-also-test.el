@@ -290,5 +290,53 @@
       (org-dblock-write:concept-usage '(:id "nobody"))
       (should (string-match-p "No litnote" (buffer-string))))))
 
+(defconst sp-see-also-test--definition-note
+  (sp-see-also-test--text
+   "#+title: Real litnote"
+   "#+filetags: :booksection:litnote:"
+   ""
+   "* Notes"
+   "Un obiect[fn:1] clar[fn:2] fara legatura[fn:3]."
+   "#+begin_quote"
+   "Citat[fn:4]"
+   "#+end_quote"
+   ""
+   "* Footnotes"
+   "[fn:1] Dar de ce? Vezi [[id:d-one][Renastere]] si"
+   "inca o linie cu [[id:d-two][Doi]]."
+   "[fn:2] Cu [[id:d-one][Renastere]]."
+   ""
+   "[fn:3] Fara legaturi."
+   "[fn:4] Un citat despre [[id:d-two][Doi]]."))
+
+(ert-deftest sp-see-also-parse-definition-footnotes ()
+  (with-temp-buffer
+    (insert sp-see-also-test--definition-note)
+    (let ((footnotes (sp-see-also-parse-buffer)))
+      (should (equal (mapcar (lambda (f) (plist-get f :label)) footnotes) '("1" "2" "4")))
+      (should (equal (plist-get (car footnotes) :links)
+                     '(("d-one" . "Renastere") ("d-two" . "Doi"))))
+      (should (equal (buffer-substring (plist-get (car footnotes) :beg)
+                                       (plist-get (car footnotes) :end))
+                     "[fn:1]"))
+      (should (eq (plist-get (nth 2 footnotes) :where) 'quote))
+      (should (equal (plist-get (car footnotes) :heading) "Notes"))
+      (should (string-match-p "Un obiect" (plist-get (car footnotes) :snippet))))))
+
+(ert-deftest sp-see-also-definition-without-reference ()
+  (with-temp-buffer
+    (insert "[fn:9] Orphan with [[id:o][O]].\n")
+    (let ((f (car (sp-see-also-parse-buffer))))
+      (should (= (plist-get f :beg) 1))
+      (should (equal (plist-get f :label) "9")))))
+
+(ert-deftest sp-see-also-concepts-for-definition-litnote ()
+  (sp-see-also-test--with-vault
+    (let* ((file (sp-see-also-test--write root "real.org" sp-see-also-test--definition-note))
+           (concepts (sp-see-also-concepts-for-file file)))
+      (should (equal (mapcar (lambda (c) (plist-get c :id)) concepts) '("d-two" "d-one")))
+      (should (= (plist-get (car concepts) :quotes) 1))
+      (should (= (length (sp-see-also-concept-usage "d-one")) 1)))))
+
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here
