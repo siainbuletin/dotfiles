@@ -188,6 +188,16 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   :type 'integer
   :group 'sp-bibtex)
 
+(defcustom sp-bibtex-files-flatten nil
+  "Non-nil: the attachment fix moves the files to the top of `sp-literature-dir'.
+The field then holds the bare file name.  Nil leaves the files where they are
+and writes their path relative to `sp-literature-dir'."
+  :type 'boolean
+  :group 'sp-bibtex)
+
+(defvar sp-bibtex-lint--library nil
+  "The index of `sp-literature-dir' while a lint job checks attachment paths.")
+
 (defcustom sp-bibtex-people-cache-seconds 600
   "Seconds the list of author notes is kept for name completion and the lint."
   :type 'integer
@@ -526,7 +536,8 @@ text at `bibtex-text-indentation'.  TEXT itself when it cannot be filled."
 OLD is the text of the entry, between START and END.  KINDS are `order',
 `indent', `authors' (names to `Last, First'), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
-compatible initials) and `ambiguous' (the same for several notes; reported only).  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+compatible initials), `ambiguous' (the same for several notes; reported only)
+and `files' (attachment paths, see `sp-bibtex-files--rewrite').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
@@ -537,6 +548,8 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (near (mapcar #'sp-bibtex--case-problem cases))
          (form (nth 1 names))
          (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
+         (filed (and (memq 'files kinds) sp-bibtex-lint--library
+                     (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
          (base (list :start start :end end :old old))
          rewrites)
     (when (and filled (not (equal filled old)))
@@ -558,6 +571,10 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
       (push (cons 'surnames (append base (list :desc (mapcar #'sp-bibtex--case-problem same)
                                                :cases same)))
             rewrites))
+    (when-let* ((changes (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'change)) (nth 1 filed))))
+                ((not (equal (car filed) old))))
+      (push (cons 'files (append base (list :new (car filed) :desc changes :moves (nth 2 filed))))
+            rewrites))
     (when (and (nth 3 names) (memq 'ambiguous kinds))
       (push (cons 'ambiguous
                   (append base (list :desc (mapcar (lambda (a)
@@ -567,6 +584,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
             rewrites))
     (cons (nreverse rewrites)
           (append form near (and order (list order))
+                  (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'problem)) (nth 1 filed)))
                   (and filled (not (equal filled old))
                        (list "indentation differs from bibtex-mode"))))))
 
@@ -613,13 +631,245 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
               (goto-char end))))))
     (cons (nreverse results) (>= count limit))))
 
+;;;; Attachment paths
+
+(require 'ucs-normalize)
+(defvar sp-literature-dir)
+
+(defconst sp-bibtex-files--absolute-re
+  "\\`\\(?:~\\|/Users/[^/]+\\)/Doc[[:alpha:]]*/\\.?literature/\\(.+\\)\\'"
+  "An absolute path into the literature folder; accepts typos of `Documents'.")
+
+(defconst sp-bibtex-files--bdsk-field-re
+  "^\\([ \t]*\\)bdsk-file-\\([0-9]+\\)\\([ \t]*\\)=[ \t\n\r]*{\\([^}]*\\)}\\([ \t]*,?\\)"
+  "A bdsk-file-N field: indent, N, space before =, base64 value, trailing comma.")
+
+(defconst sp-bibtex-files--file-field-re
+  "^\\([ \t]*\\)file\\([ \t]*\\)=\\([ \t]*\\){\\([^{}]*\\)}\\([ \t]*,?\\)"
+  "A plain file field: indent, space, space, value, trailing comma.")
+
+(defvar sp-bibtex-files--pending nil
+  "The moves (FROM . TO) the entry being rewritten needs.")
+
+(cl-defstruct (sp-bibtex-files--ctx (:constructor sp-bibtex-files--ctx-create))
+  "The library to resolve in: its DIR, file NAMES, STEMS and the planned MOVES."
+  dir names stems flatten
+  (moves (make-hash-table :test #'equal))
+  (dests (make-hash-table :test #'equal)))
+
+(defun sp-bibtex-files--norm (string)
+  "STRING in lower case with only letters and digits of a to z left."
+  (replace-regexp-in-string "[^a-z0-9]" "" (downcase (ucs-normalize-NFC-string string))))
+
+(defun sp-bibtex-files--stem-key (name)
+  "Key of the file NAME: without extension and BibDesk's trailing digits."
+  (sp-bibtex-files--norm
+   (replace-regexp-in-string "[0-9]+\\'" "" (file-name-sans-extension name))))
+
+(defun sp-bibtex-files-index (dir flatten)
+  "Index the files below DIR (not the hidden ones) for `sp-bibtex-files-report'."
+  (let ((ctx (sp-bibtex-files--ctx-create
+              :dir dir :flatten flatten
+              :names (make-hash-table :test #'equal)
+              :stems (make-hash-table :test #'equal))))
+    (dolist (file (directory-files-recursively
+                   dir "" nil
+                   (lambda (d) (not (string-prefix-p "." (file-name-nondirectory d))))))
+      (let ((base (file-name-nondirectory file)))
+        (unless (string-prefix-p "." base)
+          (let ((rel (file-relative-name file dir)))
+            (push rel (gethash (downcase (ucs-normalize-NFC-string base))
+                               (sp-bibtex-files--ctx-names ctx)))
+            (when (string-suffix-p ".pdf" (downcase base))
+              (push rel (gethash (sp-bibtex-files--stem-key base)
+                                 (sp-bibtex-files--ctx-stems ctx))))))))
+    ctx))
+
+(defun sp-bibtex-files--bdsk-path (value)
+  "The relative path stored in VALUE, the base64 text of a bdsk-file field.
+Nil when VALUE is not a BibDesk bookmark."
+  (ignore-errors
+    (let* ((text (replace-regexp-in-string "[^A-Za-z0-9+/=]" "" value))
+           (raw (base64-decode-string
+                 (concat text (make-string (mod (- (length text)) 4) ?=)) nil t))
+           (pos (string-match "Xbookmark" raw)))
+      (when (and pos (string-prefix-p "bplist00" raw))
+        (let* ((p (+ pos 9))
+               (marker (aref raw p))
+               (kind (ash marker -4))
+               (low (logand marker 15))
+               (len low) (start (1+ p)))
+          (when (= low 15)
+            (pcase (aref raw (1+ p))
+              (#x10 (setq len (aref raw (+ p 2)) start (+ p 3)))
+              (#x11 (setq len (+ (ash (aref raw (+ p 2)) 8) (aref raw (+ p 3)))
+                          start (+ p 4)))))
+          (pcase kind
+            (5 (decode-coding-string (substring raw start (+ start len)) 'utf-8))
+            (6 (decode-coding-string (substring raw start (+ start (* 2 len))) 'utf-16be))))))))
+
+(defun sp-bibtex-files--lookup (name ctx)
+  "The library paths of the files called like the last part of NAME."
+  (gethash (downcase (ucs-normalize-NFC-string (file-name-nondirectory name)))
+           (sp-bibtex-files--ctx-names ctx)))
+
+(defun sp-bibtex-files--target-1 (rel ctx)
+  "The path for REL as `sp-bibtex-files--target' says, without recording the move."
+  (let ((base (file-name-nondirectory rel))
+        (dir (sp-bibtex-files--ctx-dir ctx))
+        (moves (sp-bibtex-files--ctx-moves ctx))
+        (dests (sp-bibtex-files--ctx-dests ctx)))
+    (cond ((or (not (sp-bibtex-files--ctx-flatten ctx)) (not (string-match-p "/" rel))) rel)
+          ((gethash rel moves))
+          ((or (file-exists-p (expand-file-name base dir)) (gethash base dests)) rel)
+          (t (puthash base t dests) (puthash rel base moves)))))
+
+(defun sp-bibtex-files--target (rel ctx)
+  "The path to write for the library path REL; with `flatten' it plans the move."
+  (let ((target (sp-bibtex-files--target-1 rel ctx))
+        (dir (sp-bibtex-files--ctx-dir ctx)))
+    (unless (equal target rel)
+      (push (cons (expand-file-name rel dir) (expand-file-name target dir))
+            sp-bibtex-files--pending))
+    target))
+
+(defun sp-bibtex-files--resolve (value key ctx)
+  "Resolve the bdsk-file VALUE of entry KEY; return (PATH . nil) or (nil . PROBLEM)."
+  (if-let* ((old (sp-bibtex-files--bdsk-path value)))
+      (let ((found (or (sp-bibtex-files--lookup old ctx)
+                       (gethash (sp-bibtex-files--norm key) (sp-bibtex-files--ctx-stems ctx)))))
+        (cond ((null found) (cons nil (format "not found: %s" old)))
+              ((cdr found) (cons nil (format "ambiguous: %s" (string-join found ", "))))
+              (t (cons (car found) nil))))
+    (cons nil "not a BibDesk bookmark")))
+
+(defun sp-bibtex-files--relativise (value ctx)
+  "Make the absolute literature paths in the file field VALUE relative.
+Return (NEW-VALUE NOTES)."
+  (let (notes)
+    (cons (mapconcat
+           (lambda (part)
+             (let ((trimmed (string-trim part)))
+               (if (and (string-match sp-bibtex-files--absolute-re trimmed)
+                        (not (string-search ":" (match-string 1 trimmed))))
+                   (let* ((rel (match-string 1 trimmed))
+                          (new (if (file-exists-p (expand-file-name rel (sp-bibtex-files--ctx-dir ctx)))
+                                   rel
+                                 (let ((found (sp-bibtex-files--lookup rel ctx)))
+                                   (if (and found (null (cdr found)))
+                                       (sp-bibtex-files--target (car found) ctx)
+                                     (push (cons 'problem (format "file not found: %s" rel)) notes)
+                                     rel)))))
+                     (push (cons 'change (format "file: %s → %s" trimmed new)) notes)
+                     new)
+                 part)))
+           (split-string value ";") ";")
+          (list (nreverse notes)))))
+
+(defun sp-bibtex-files--rewrite (text key ctx)
+  "Rewrite the attachment fields of the entry TEXT (entry KEY).
+Return (NEW-TEXT NOTES MOVES), NOTES a list of (KIND . MESSAGE) with KIND
+`change' or `problem' and MOVES the files to move, (FROM . TO).  Entries with
+unresolved bdsk-file fields keep them."
+  (let ((new text) (notes nil) (fields nil) (start 0) (sp-bibtex-files--pending nil))
+    (save-match-data
+      (while (string-match sp-bibtex-files--bdsk-field-re text start)
+        (push (list (match-beginning 0) (match-end 0) (match-string 1 text)
+                    (match-string 2 text) (match-string 3 text) (match-string 4 text)
+                    (match-string 5 text))
+              fields)
+        (setq start (match-end 0)))
+      (setq fields (nreverse fields))
+      (when fields
+        (let* ((sorted (sort (copy-sequence fields)
+                             (lambda (a b) (< (string-to-number (nth 3 a))
+                                              (string-to-number (nth 3 b))))))
+               (existing (string-match sp-bibtex-files--file-field-re text))
+               paths problems)
+          (dolist (f sorted)
+            (let ((r (sp-bibtex-files--resolve (nth 5 f) key ctx)))
+              (if (car r)
+                  (push (car r) paths)
+                (push (format "bdsk-file-%s: %s" (nth 3 f) (cdr r)) problems))))
+          (setq paths (nreverse paths))
+          (when (and (null problems) (cl-some (lambda (p) (string-match-p "[;{}]\\|\\`[ \t]\\|[ \t]\\'" (file-name-nondirectory p))) paths))
+            (push "a file name has ; { } or edge spaces" problems))
+          (when (and (null problems) (not existing)
+                     (string-match-p "^[ \t]*file[ \t]*=" text))
+            (push "existing file field is not a plain {...}" problems))
+          (if problems
+              (dolist (p (nreverse problems)) (push (cons 'problem p) notes))
+            (let* ((targets (mapcar (lambda (p) (sp-bibtex-files--target p ctx)) paths))
+                   (value (string-join targets ";"))
+                   (last-field (car (last fields))))
+              (dolist (f (reverse fields))
+                (let ((st (nth 0 f)) (en (nth 1 f)))
+                  (if (and (eq f last-field) (not existing))
+                      (setq new (concat (substring new 0 st)
+                                        (nth 2 f) "file"
+                                        (make-string (max 1 (+ 6 (length (nth 3 f)) (length (nth 4 f)))) ?\s)
+                                        "= {" value "}" (nth 6 f)
+                                        (substring new en)))
+                    (cond ((string-prefix-p "\r\n" (substring new en)) (setq en (+ en 2)))
+                          ((string-prefix-p "\n" (substring new en)) (setq en (1+ en))))
+                    (setq new (concat (substring new 0 st) (substring new en))))))
+              (when existing
+                (when (string-match sp-bibtex-files--file-field-re new)
+                  (setq new (concat (substring new 0 (match-end 4)) ";" value
+                                    (substring new (match-end 4))))))
+              (push (cons 'change (format "%s → file = {%s}"
+                                          (mapconcat (lambda (f) (concat "bdsk-file-" (nth 3 f))) sorted ", ")
+                                          value))
+                    notes)))))
+      (when (string-match sp-bibtex-files--file-field-re new)
+        (let* ((b (match-beginning 4)) (e (match-end 4))
+               (r (sp-bibtex-files--relativise (match-string 4 new) ctx)))
+          (setq new (concat (substring new 0 b) (car r) (substring new e)))
+          (setq notes (append (reverse (cadr r)) notes)))))
+    (list new (nreverse notes) (reverse sp-bibtex-files--pending))))
+
+(defun sp-bibtex-files--library ()
+  "Index `sp-literature-dir' for the attachment fix; nil when it is not a folder."
+  (when (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
+             (file-directory-p sp-literature-dir))
+    (sp-bibtex-files-index sp-literature-dir sp-bibtex-files-flatten)))
+
+(defun sp-bibtex-files--move (moves)
+  "Move the files of MOVES, a list of (FROM . TO) absolute paths; never over a file.
+Each move is added to a .tsv, one a day, in `sp-bibtex-lint-backup-directory'."
+  (dolist (m moves)
+    (when (and (file-exists-p (car m)) (not (file-exists-p (cdr m))))
+      (rename-file (car m) (cdr m))
+      (make-directory sp-bibtex-lint-backup-directory t)
+      (write-region (format "%s\t%s\n" (car m) (cdr m)) nil
+                    (expand-file-name (format-time-string "files-moves-%Y%m%d.tsv")
+                                      sp-bibtex-lint-backup-directory)
+                    'append 'silent))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-files (file)
+  "Turn the BibDesk bdsk-file fields of the .bib FILE into file fields.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Absolute paths
+into `sp-literature-dir' become relative to it.  All entries are fixed at
+once, after one question and a backup.  With `sp-bibtex-files-flatten' the
+files are moved to the top of the library."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (unless (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
+               (file-directory-p sp-literature-dir))
+    (user-error "`sp-literature-dir' is not a folder"))
+  (when (or (not sp-bibtex-files-flatten)
+            (yes-or-no-p "`sp-bibtex-files-flatten' is on: the files are moved to the top of the library.  Go on? "))
+    (sp-bibtex-lint--fix file 'files)))
+
 (defconst sp-bibtex-lint--buffer "*BibTeX lint*")
 (defconst sp-bibtex-lint--batch-buffer "*BibTeX lint batch*")
 
 (defconst sp-bibtex-lint--kinds
   '((order . "field order") (indent . "indentation") (authors . "author names")
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
-    (ambiguous . "names that fit several author notes"))
+    (ambiguous . "names that fit several author notes")
+    (files . "attachment paths"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -652,6 +902,8 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
   (let ((people (condition-case nil (sp-bibtex-people) (error nil)))
         (seen (make-hash-table :test #'equal))
         all)
+    (setq sp-bibtex-lint--library
+          (and (memq 'files kinds) (sp-bibtex-files--library)))
     (sp-async-work-run
      name
      (list (list "reading BibTeX" (lambda () files)
@@ -672,7 +924,9 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
                          (if (cdr result)
                              (sp-async-work-push job (cons file buffer))
                            (kill-buffer buffer))))))))
-     :done (lambda (_job) (funcall done all)))))
+     :done (lambda (_job)
+             (setq sp-bibtex-lint--library nil)
+             (funcall done all)))))
 
 (defun sp-bibtex-lint--backup (file stamp)
   "Copy FILE to the STAMP sub-folder of `sp-bibtex-lint-backup-directory'."
@@ -714,6 +968,7 @@ Each position is the start of a line."
       ("order" (sp-bibtex-lint-fix-order file))
       ("indent" (sp-bibtex-lint-fix-indent file))
       ("authors" (sp-bibtex-lint-fix-authors file))
+      ("files" (sp-bibtex-lint-fix-files file))
       (other (user-error "Unknown lint button: %s" other)))))
 
 (org-link-set-parameters "sp-bibtex-lint" :follow #'sp-bibtex-lint--follow)
@@ -830,6 +1085,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count results 'order)))
       (format "  - %s\n" (sp-bibtex-lint--button "indent" file "indentation, as in bibtex-mode"
                                                  (sp-bibtex-lint--count results 'indent)))
+      (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
+                                                 (sp-bibtex-lint--count results 'files)))
       (format "  - %s\n" (sp-bibtex-lint--button
                           "authors" file "author names"
                           (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
@@ -842,6 +1099,7 @@ back; the dropped ones are listed at the end."
                     'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
                     'sp-batch-report-file file))
                  main "")
+      (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
       (and dropped
@@ -862,10 +1120,11 @@ the buffer is not a .bib file, it is read with completion.  It checks the author
 and editor names (canonical form `Last, First', and names one typo away from an
 author note, and, in sections of their own, names with the surname of one
 author note or of several), the order of the fields (`sp-bibtex-field-order'), the indentation
-\(as `bibtex-fill-entry' lays it out) and duplicate keys.  The report has a
+\(as `bibtex-fill-entry' lays it out), duplicate keys and attachment paths
+\(BibDesk bdsk-file fields, absolute literature paths).  The report has a
 button for each fix.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors notes surnames ambiguous)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors notes surnames ambiguous files)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -927,6 +1186,8 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
           (if (not (equal (plist-get rewrite :old) (buffer-substring-no-properties beg end)))
               (cl-incf stale)
             (sp-bibtex-lint--replace beg end (plist-get rewrite :new))
+            (when (eq kind 'files)
+              (sp-bibtex-files--move (plist-get rewrite :moves)))
             (cl-incf changed)))))
     (list changed stale t)))
 
@@ -1227,14 +1488,17 @@ Notes for authors are never made."
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
-  "Ask which fix to run on the .bib FILE: field order, indentation or author names.
-See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent' and
-`sp-bibtex-lint-fix-authors'."
+  "Ask which fix to run on the .bib FILE.
+The fixes are field order, indentation, author names and attachment paths.
+See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
+`sp-bibtex-lint-fix-authors' and `sp-bibtex-lint-fix-files'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (pcase (completing-read "Fix: " '("field order" "indentation" "author names") nil t)
+  (pcase (completing-read "Fix: " '("field order" "indentation" "author names" "attachment paths")
+                          nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
-    ("author names" (sp-bibtex-lint-fix-authors file))))
+    ("author names" (sp-bibtex-lint-fix-authors file))
+    ("attachment paths" (sp-bibtex-lint-fix-files file))))
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.
