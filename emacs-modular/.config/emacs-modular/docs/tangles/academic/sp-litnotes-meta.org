@@ -74,6 +74,12 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 - =M-x sp-litnotes-meta-backfill-children=: in a book or collection note, make the notes of the BibTeX entries that cross-reference it (see below).
 - =M-x sp-litnotes-meta-status-report=: list all litnotes by read-status; mark several and change their status (see below).
 - =sp-litnotes-meta-auto= (default t): fill every note made by =citar-create-note=. Set it to nil to turn that off.
+- =sp-litnotes-meta-citar-create= (default t): =citar-create-note= (also from =citar-embark= on a =[cite:]= link) makes the note itself.
+  - The note is made by =sp-litnotes-meta-create-function=, the path of the backfill, not by citar-vulpea.
+  - It is born compliant: title of =sp-litnotes-meta-new-title= (default =standard=, "Last (Year) Title"), file named by the key, ID, =:CREATED:=, tags, ROAM_REFS.
+  - It is then filled from BibTeX and visited.
+  - A key that has a note, or no BibTeX entry, goes to citar as before.
+  - Set it to nil to leave the note to citar.
 
 * sp-litnotes-meta.el
 
@@ -2087,6 +2093,9 @@ file to `fixed' or the error text."
 
 ** After a note is created
 
+- The advice on =citar-create-note= is =:around=, so one function decides who makes the note (see =sp-litnotes-meta-citar-create=).
+- When it does not make the note, citar does, and the old fill runs afterwards.
+
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
@@ -2095,7 +2104,39 @@ file to `fixed' or the error text."
         (sp-litnotes-meta-fill key)
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
 
-(advice-add 'citar-create-note :after #'sp-litnotes-meta--after-create)
+(defcustom sp-litnotes-meta-citar-create t
+  "Non-nil to make the notes that `citar-create-note' is asked for ourselves.
+The note is made by `sp-litnotes-meta-create-function' (an ID, :CREATED:, the
+litnote and BibTeX type tags, ROAM_REFS, the title of
+`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Nil leaves
+the note to citar (and its `citar-vulpea-note-title-template')."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta--around-create (orig-fun key &rest args)
+  "Make the note of KEY with `sp-litnotes-meta-create-function', not citar.
+ORIG-FUN is `citar-create-note', called with KEY and ARGS when
+`sp-litnotes-meta-citar-create' is nil, KEY has no BibTeX entry or already has
+a note, or the note could not be made; the note is then filled afterwards."
+  (let ((file (when (and sp-litnotes-meta-citar-create (stringp key)
+                         (sp-litnotes-meta--entry key)
+                         (not (gethash key (sp-author-notes-bibtex--covered))))
+                (condition-case err
+                    (funcall sp-litnotes-meta-create-function key)
+                  (error (message "sp-litnotes-meta: %s: %s, using citar"
+                                  key (error-message-string err))
+                         nil)))))
+    (if (not file)
+        (prog1 (apply orig-fun key args)
+          (sp-litnotes-meta--after-create key))
+      (when sp-litnotes-meta-auto
+        (condition-case err
+            (sp-litnotes-meta-fill key file)
+          (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
+      (find-file file))))
+
+(advice-remove 'citar-create-note #'sp-litnotes-meta--after-create)
+(advice-add 'citar-create-note :around #'sp-litnotes-meta--around-create)
 
 (provide 'sp-litnotes-meta)
 ;; sp-litnotes-meta.el ends here
