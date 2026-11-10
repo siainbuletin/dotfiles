@@ -849,6 +849,179 @@ that has a note, or none close to it, gets nil."
                    memo))))))
 #+end_src
 
+*** Name prefixes
+
+An old Zotero export wrote names with a prefix as =biblatex= key=value text, for example =family=Hayek given=Friedrich given=Friedrich, given=Friedrich A., prefix=von useprefix=false=. This part reads such names and moves misplaced prefixes (particles such as =von=, =van=, =de=). It is its own fix, =prefixes=; nothing else calls it.
+
+- What counts as a key=value name:
+  - it has one or more of the keys =family=, =given=, =prefix=, =suffix= and =useprefix=
+  - nothing but spaces comes before the first key
+  - the whole name may be wrapped in braces
+  - names are still split at =and=, so one field can hold several of them
+- How the parts are read, by =sp-bibtex--keyvalue-parts=:
+  - a value runs from its key to the next key
+  - commas, spaces and braces around a value are dropped
+  - empty values are dropped
+- How the parts become one name, by =sp-bibtex--keyvalue-name=:
+  - =family= is the last name, with =prefix= in front of it: =von Hayek=
+  - =suffix= goes in the middle, as BibTeX wants: =Last, Jr., First=
+  - =useprefix= is ignored; the prefix is always kept in the last name
+  - the result is =Last, First=, the form of the rest of the lint: =von Hayek, Friedrich A.=
+- Repeated =given= parts:
+  - equal ones are merged: five times =Friedrich= is one
+  - a shorter one that fits a longer one is dropped: =Friedrich= and =F.= fit =Friedrich A.=
+  - fitting is the one of the author notes (=sp-bibtex--initials-compatible-p=)
+  - the fullest one stays: most names, then most letters
+  - given names that do not fit (=Friedrich= and =Hans=) are never guessed: the name is reported and left as it is
+  - a name with no =family= or with two different ones is reported and left as it is
+- Misplaced prefixes, by =sp-bibtex--move-particles=, in names that already have a comma:
+  - =Hayek, Friedrich A. von= becomes =von Hayek, Friedrich A.=
+  - =Hayek von, Friedrich= becomes =von Hayek, Friedrich=
+  - =Hayek, Friedrich A., von= (the prefix as a part of its own) becomes =von Hayek, Friedrich A.=
+  - several particles move together and keep their order: =de la=
+  - a prefix that is already in front is not doubled
+  - only lower case words of =sp-bibtex-name-particles= move, and one given name always stays, so =Li, Bin= is not touched
+- Names with no comma and no key are left to the =authors= fix, which already moves the particles in front of the last name.
+
+#+begin_src emacs-lisp -i
+(defconst sp-bibtex--keyvalue-re
+  "\\(?:\\`\\|[ \t,]\\)\\(family\\|given\\|prefix\\|suffix\\|useprefix\\)="
+  "A key of the key=value name form (family=, given=, prefix=, suffix=, useprefix=).
+Group 1 is the key; the match starts at the space or comma before it.")
+
+(defun sp-bibtex--keyvalue-clean (value)
+  "The text of a key=value VALUE: no spaces, commas or outer braces around it."
+  (let ((clean (string-trim (replace-regexp-in-string "[ \t\n]+" " " value) "[ ,]+" "[ ,]+")))
+    (when-let* ((unwrapped (sp-bibtex--unwrap clean))
+                ((eq (cdr unwrapped) ?{)))
+      (setq clean (string-trim (car unwrapped))))
+    clean))
+
+(defun sp-bibtex--keyvalue-parts (name)
+  "The parts of NAME, when it is written as key=value text, as an alist (KEY . VALUE).
+The alist is in the order of the text.  Return nil when NAME is not written so."
+  (let* ((text (string-trim name))
+         (text (if (string-match-p "\\`{[ \t]*\\(?:family\\|given\\|prefix\\|suffix\\|useprefix\\)=" text)
+                   (or (car (sp-bibtex--unwrap text)) text)
+                 text))
+         (pos 0) hits parts)
+    (while (string-match sp-bibtex--keyvalue-re text pos)
+      (push (list (match-string 1 text) (match-beginning 0) (match-end 0)) hits)
+      (setq pos (match-end 0)))
+    (setq hits (nreverse hits))
+    (when (and hits (string-empty-p (string-trim (substring text 0 (nth 1 (car hits))))))
+      (while hits
+        (let* ((hit (pop hits))
+               (end (if hits (nth 1 (car hits)) (length text)))
+               (value (sp-bibtex--keyvalue-clean (substring text (nth 2 hit) end))))
+          (unless (string-empty-p value) (push (cons (car hit) value) parts))))
+      (nreverse parts))))
+
+(defun sp-bibtex--fullest-given (givens)
+  "The fullest of the GIVENS, a list of given names; nil when two do not fit each other.
+Equal ones count once.  `Friedrich' and `F.' fit `Friedrich A.', which is the
+fullest: the most names, then the most letters."
+  (let* ((all (delete-dups (copy-sequence givens)))
+         (best (car all)))
+    (dolist (given (cdr all))
+      (let ((n (length (sp-bibtex--given-units given)))
+            (m (length (sp-bibtex--given-units best))))
+        (when (or (> n m) (and (= n m) (> (length given) (length best))))
+          (setq best given))))
+    (and best
+         (seq-every-p (lambda (given) (sp-bibtex--initials-compatible-p given best)) all)
+         best)))
+
+(defun sp-bibtex--keyvalue-name (name)
+  "NAME, written as key=value text, as a plist: (:name \"Last, First\") or (:error TEXT).
+Return nil when NAME is not written as key=value text.  The prefix goes in front
+of the family name and `useprefix' is ignored."
+  (when-let* ((parts (sp-bibtex--keyvalue-parts name)))
+    (let* ((values (lambda (key)
+                     (delete-dups (mapcar #'cdr (seq-filter (lambda (p) (equal (car p) key)) parts)))))
+           (families (funcall values "family"))
+           (prefixes (funcall values "prefix"))
+           (suffixes (funcall values "suffix"))
+           (givens (funcall values "given"))
+           (given (sp-bibtex--fullest-given givens)))
+      (cond
+       ((null families) (list :error "no family= part, left as it is"))
+       ((cdr families) (list :error "several different family= parts, left as it is"))
+       ((and givens (null given)) (list :error "given= parts that do not fit each other, left as it is"))
+       (t
+        (let* ((family (car families))
+               (prefix (string-join prefixes " "))
+               (last (if (or (string-empty-p prefix)
+                             (string-prefix-p (concat prefix " ") family))
+                         family
+                       (concat prefix " " family))))
+          (list :name (string-join (delq nil (list last (and suffixes (string-join suffixes " "))
+                                                    given))
+                                   ", "))))))))
+
+(defun sp-bibtex--trailing-particles (words)
+  "Split WORDS into (REST . PARTICLES): the particles at its end, one word always left in REST."
+  (let ((rest (copy-sequence words)) particles)
+    (while (and (cdr rest) (member (car (last rest)) sp-bibtex-name-particles))
+      (push (car (last rest)) particles)
+      (setq rest (butlast rest)))
+    (cons rest particles)))
+
+(defun sp-bibtex--move-particles (name)
+  "NAME with the particles that stand after the last name moved in front of it.
+Only a NAME with a comma is changed: `Hayek, Friedrich A. von', `Hayek von,
+Friedrich' and `Hayek, Friedrich A., von' give `von Hayek, Friedrich A.'."
+  (let* ((parts (mapcar #'string-trim (sp-bibtex--split-depth0 name ",")))
+         (n (length parts)))
+    (if (not (memq n '(2 3)))
+        name
+      (let* ((last-split (sp-bibtex--trailing-particles
+                          (sp-bibtex--split-depth0 (car parts) "[ \t]+")))
+             (tail (car (last parts)))
+             (tail-words (sp-bibtex--split-depth0 tail "[ \t]+"))
+             (alone (and (= n 3) (seq-every-p (lambda (w) (member w sp-bibtex-name-particles))
+                                              tail-words)))
+             (given-split (if alone
+                              (cons nil tail-words)
+                            (sp-bibtex--trailing-particles tail-words)))
+             (moved (append (cdr given-split) (cdr last-split)))
+             (rest-last (car last-split)))
+        (if (null moved)
+            name
+          (let* ((front (if (equal (seq-take rest-last (length moved)) moved) nil moved))
+                 (new-last (string-join (append front rest-last) " "))
+                 (middle (and (= n 3) (list (nth 1 parts))))
+                 (given (and (not alone) (list (string-join (car given-split) " ")))))
+            (string-join (append (list new-last) middle given) ", ")))))))
+
+(defun sp-bibtex--lint-prefixes (fields)
+  "Check the prefixes of the author and editor names in FIELDS, an alist of name and raw value.
+Return (NEW-FIELDS PROBLEMS UNRESOLVED): FIELDS with key=value names rewritten
+and particles in front of the last name, the strings that say what changed, and
+the strings for the names that could not be read and are left as they are."
+  (let (new problems unresolved)
+    (dolist (field fields)
+      (let ((name (car field)) (value (cdr field)))
+        (when (member (downcase name) '("author" "editor"))
+          (when-let* ((unwrapped (sp-bibtex--unwrap value)))
+            (let* ((text (string-trim (replace-regexp-in-string "[ \t\n]+" " " (car unwrapped))))
+                   (fixed (mapconcat
+                           (lambda (n)
+                             (let ((kv (sp-bibtex--keyvalue-name n)))
+                               (cond ((plist-get kv :name))
+                                     ((plist-get kv :error)
+                                      (push (format "%s: %s: %s" name n (plist-get kv :error))
+                                            unresolved)
+                                      n)
+                                     (t (sp-bibtex--move-particles n)))))
+                           (sp-bibtex-split-names text) " and ")))
+              (unless (equal fixed text)
+                (push (format "%s: %s → %s" name text fixed) problems)
+                (setq value (format (if (eq (cdr unwrapped) ?\") "\"%s\"" "{%s}") fixed))))))
+        (push (cons name value) new)))
+    (list (nreverse new) (nreverse problems) (nreverse unresolved))))
+#+end_src
+
 *** Entries
 
 An entry is read with =bibtex-parse-entry= (raw values, in file order). Linting it gives the fields with canonical names in the order of =sp-bibtex-field-order= and a list of what differs. An entry that is rewritten is written as =@type{key,= with the fields aligned at the equal sign; its values keep their delimiters and text. An entry with a =%= comment line inside would lose it, so it is reported and never rewritten. The reading runs in slices of 100 entries through =sp-async-work=, like =sp-author-notes-bibtex=.
@@ -962,7 +1135,8 @@ text at `bibtex-text-indentation'.  TEXT itself when it cannot be filled."
 (defun sp-bibtex--entry-rewrites (kinds type key fields people old start end)
   "The rewrites of the entry TYPE, KEY and FIELDS that are of one of KINDS.
 OLD is the text of the entry, between START and END.  KINDS are `order',
-`indent', `authors' (names to `Last, First'), `notes' (names one typo away from
+`indent', `authors' (names to `Last, First'), `prefixes' (key=value names and
+misplaced particles), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
 compatible initials) and `ambiguous' (the same for several notes; reported only).  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
@@ -974,6 +1148,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (same (seq-filter (lambda (c) (eq (nth 4 c) 'surname)) (nth 2 names)))
          (near (mapcar #'sp-bibtex--case-problem cases))
          (form (nth 1 names))
+         (prefix (and (memq 'prefixes kinds) (sp-bibtex--lint-prefixes fields)))
          (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
          (base (list :start start :end end :old old))
          rewrites)
@@ -990,6 +1165,11 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                                               :new (sp-bibtex--fill-text
                                                     (sp-bibtex--entry-text type key (car names))))))
             rewrites))
+    (when (nth 1 prefix)
+      (push (cons 'prefixes (append base (list :desc (nth 1 prefix)
+                                               :new (sp-bibtex--fill-text
+                                                     (sp-bibtex--entry-text type key (car prefix))))))
+            rewrites))
     (when (and cases (memq 'notes kinds))
       (push (cons 'notes (append base (list :desc near :cases cases))) rewrites))
     (when (and same (memq 'surnames kinds))
@@ -1004,7 +1184,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                                                    (nth 3 names)))))
             rewrites))
     (cons (nreverse rewrites)
-          (append form near (and order (list order))
+          (append form (nth 1 prefix) (nth 2 prefix) near (and order (list order))
                   (and filled (not (equal filled old))
                        (list "indentation differs from bibtex-mode"))))))
 
@@ -1054,7 +1234,7 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
 
 *** Report and apply
 
-The lint works on one =.bib= file at a time, and it is read-only. The fixes are three separate commands, each with a button in the report.
+The lint works on one =.bib= file at a time, and it is read-only. The fixes are four separate commands, each with a button in the report.
 
 - Which file:
   - the file of the current buffer, when it is a =.bib= file
@@ -1065,7 +1245,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
   - the top of the report has one button for each fix, with the number of entries it would change
   - never changes a file
 - The buttons are links of a =sp-bibtex-lint:KIND:FILE= type, so =RET= on one runs the fix; no confirmation question comes before the batches.
-- The three fixes:
+- The four fixes:
   - =M-x sp-bibtex-lint-fix-order=:
     - whole file at once
     - puts the fields in the order of =sp-bibtex-field-order=
@@ -1075,6 +1255,12 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
     - lays out every entry the way =bibtex-mode= does it (=bibtex-fill-entry=)
     - so field names sit at =bibtex-field-indentation= and text at =bibtex-text-indentation=, with the settings of the running Emacs
     - changes only whitespace
+  - =M-x sp-bibtex-lint-fix-prefixes=, see [[*Name prefixes]]:
+    - key=value names from an old Zotero export (=family=Hayek given=Friedrich ..., prefix=von useprefix=false=) become =von Hayek, Friedrich A.=
+    - prefixes after the last name (=Hayek, Friedrich A. von=) move in front of it
+    - names it cannot read are listed in the report with the reason and left as they are
+    - goes in batches, with =a=, =g=, =s=, =d=, =u= and =q=, like the author names
+    - the report has a button for it, and =M-x sp-bibtex-lint-dryrun= lists the entries
   - =M-x sp-bibtex-lint-fix-authors=, in three steps, one after the other:
     - step 1: names that are not =Last, First= are rewritten
     - step 2: names one typo away from an author note
@@ -1097,12 +1283,12 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
     - those with as many given names as the BibTeX name are preferred, so =TW Adorno= is =Theodor W. Adorno=, not =Tamara Adorno=
     - if more than one is left (=T Adorno=), the name is ambiguous
     - an ambiguous name is listed in its own section of the report (with the candidates) and is never changed or aliased
-- =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks which of the three to run.
+- =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks which of the four to run.
 - Dropping entries for later (author fixes only), the mechanism of the other lint reports (=sp-batch-report=):
   - in the report: =d= drops the entry at point, =u= on a dropped one brings it back, =A= runs the author fixes with what is left
   - the dropped entries move to a section "Dropped from the list" at the end of the report, with their count
   - in an author batch question: =d= asks (comma separated, with completion) which entries of the batch to drop, =u= which dropped ones to bring back; the batch is shown again each time
-  - a dropped entry is left out of all three author steps, in this run and in later ones
+  - a dropped entry is left out of all three author steps and of the name prefixes fix, in this run and in later ones
   - a brought-back entry is part of the next run, not of the batch on screen
   - =M-x sp-bibtex-lint-restore-dropped= brings entries back without the report
   - where it lives: the list =sp-bibtex-lint--excluded= holds the keys =FILE::ENTRY-KEY=
@@ -1114,12 +1300,13 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
   - one yes-or-no question gives the number of entries, then everything is fixed
   - no batches and no apply/skip per batch
   - the file is copied to =sp-bibtex-lint-backup-directory= before it is written
-- Author names go in batches:
+- Name prefixes and author names go in batches:
   - batch size is =sp-bibtex-lint-batch-size= (default 50)
-  - in step 1 =a= applies a batch, =s= skips it, =q= quits; the next batch is shown only after the answer
+  - in the name prefixes and in step 1 of the author names: =a= applies a batch, =g= applies it and every later batch without asking again, =s= skips it, =d= and =u= drop and bring back entries, =q= quits; the next batch is shown only after the answer
+  - a dropped entry stays out of a global run
   - in steps 2 and 3 the choices are the ones above
   - the file is copied before the first write, then written again after each applied batch
-- For all three:
+- For all of them:
   - nothing is written without an answer
   - if the file changed on disk since the lint, nothing more is written and you are asked to run the command again
   - an entry whose text is no longer the one that was linted is left alone and counted
@@ -1132,6 +1319,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
 
 (defconst sp-bibtex-lint--kinds
   '((order . "field order") (indent . "indentation") (authors . "author names")
+    (prefixes . "name prefixes")
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes"))
   "The kinds of fix, with what the batch pages call them.")
@@ -1228,6 +1416,7 @@ Each position is the start of a line."
       ("order" (sp-bibtex-lint-fix-order file))
       ("indent" (sp-bibtex-lint-fix-indent file))
       ("authors" (sp-bibtex-lint-fix-authors file))
+      ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       (other (user-error "Unknown lint button: %s" other)))))
 
 (org-link-set-parameters "sp-bibtex-lint" :follow #'sp-bibtex-lint--follow)
@@ -1344,6 +1533,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count results 'order)))
       (format "  - %s\n" (sp-bibtex-lint--button "indent" file "indentation, as in bibtex-mode"
                                                  (sp-bibtex-lint--count results 'indent)))
+      (format "  - %s\n" (sp-bibtex-lint--button "prefixes" file "name prefixes (key=value, misplaced)"
+                                                 (sp-bibtex-lint--count shown 'prefixes)))
       (format "  - %s\n" (sp-bibtex-lint--button
                           "authors" file "author names"
                           (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
@@ -1377,9 +1568,10 @@ and editor names (canonical form `Last, First', and names one typo away from an
 author note, and, in sections of their own, names with the surname of one
 author note or of several), the order of the fields (`sp-bibtex-field-order'), the indentation
 \(as `bibtex-fill-entry' lays it out) and duplicate keys.  The report has a
-button for each fix.  Notes for authors are never made."
+button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
+prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors notes surnames ambiguous)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -1387,7 +1579,7 @@ button for each fix.  Notes for authors are never made."
 (defun sp-bibtex-lint--show-batch (file kind batch index total all)
   "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE.
 Entries dropped from the author fixes are left out."
-  (let* ((batch (if (memq kind '(authors notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
+  (let* ((batch (if (memq kind '(authors prefixes notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
          (lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
     (sp-batch-report-show
      sp-bibtex-lint--batch-buffer
@@ -1406,7 +1598,8 @@ Entries dropped from the author fixes are left out."
 (defun sp-bibtex-lint--ask-batch (file batch index total all kind)
   "Show BATCH, number INDEX of TOTAL in FILE, and ask what to do with it.
 BATCH is a list of (RESULT BEG END); ALL is the number of entries in every
-batch.  KIND is the fix.  Return ?a to apply, ?s to skip or ?q to stop.  With ?d
+batch.  KIND is the fix.  Return ?a to apply, ?g to apply this batch and all the
+later ones without asking again, ?s to skip or ?q to stop.  With ?d
 some entries are dropped from the author fixes for later, with ?u dropped ones
 are brought back; the batch is shown again each time."
   (let (choice)
@@ -1414,9 +1607,9 @@ are brought back; the batch is shown again each time."
              (sp-bibtex-lint--show-batch file kind batch index total all)
              (setq choice
                    (read-char-choice
-                    (format "Batch %d of %d (%d entries): [a]pply, [s]kip, [d]rop some for later, [u] bring back, [q]uit "
+                    (format "Batch %d of %d (%d entries): [a]pply, [g]lobal (this and all later batches), [s]kip, [d]rop some for later, [u] bring back, [q]uit "
                             index total (length (sp-bibtex-lint--undropped file batch)))
-                    '(?a ?s ?d ?u ?q)))
+                    '(?a ?g ?s ?d ?u ?q)))
              (pcase choice
                (?d (sp-bibtex-lint--drop-dialog file batch) t)
                (?u (sp-bibtex-lint--restore-dialog file) t))))
@@ -1461,17 +1654,18 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
   "Go through the entries of RESULTS with a fix of KIND for FILE, in batches.
 Batches have `sp-bibtex-lint-batch-size' entries, or with WHOLE all the entries
 are one batch.  ASK is called with (BATCH
-INDEX TOTAL ALL) and returns `skip', `quit' or an answer for APPLY-FN, which is
+INDEX TOTAL ALL) and returns `skip', `quit', `apply-all' (an answer for this and
+every later batch, which are then not asked) or an answer for APPLY-FN, which is
 called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
 FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
 is written without an answer.  THEN is called when the run was not quit."
-  (let* ((authorial (memq kind '(authors notes surnames)))
+  (let* ((authorial (memq kind '(authors prefixes notes surnames)))
          (fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
                                                (not (and authorial (sp-bibtex-lint--dropped-p file r)))))
                               results))
          (what (alist-get kind sp-bibtex-lint--kinds))
          (work (generate-new-buffer " *sp-bibtex-lint-work*"))
-         (stop nil))
+         (stop nil) (global nil))
     (if (null fixable)
         (message "BibTeX lint: no %s to fix in %s" what (file-name-nondirectory file))
       (unwind-protect
@@ -1490,7 +1684,12 @@ is written without an answer.  THEN is called when the run was not quit."
                  (index 0) (changed 0) (skipped 0) (stale 0) (backed-up nil))
             (while (and batches (not stop))
               (let* ((batch (pop batches))
-                     (answer (funcall ask batch (cl-incf index) total (length items))))
+                     (answer (progn
+                               (cl-incf index)
+                               (if global
+                                   'apply
+                                 (funcall ask batch index total (length items))))))
+                (when (eq answer 'apply-all) (setq global t answer 'apply))
                 ;; Entries dropped while the batch was asked are not touched.
                 (when authorial (setq batch (sp-bibtex-lint--undropped file batch)))
                 (pcase (if (and authorial (null batch)) 'skip answer)
@@ -1529,7 +1728,7 @@ Each batch is applied, skipped or quit; see `sp-bibtex-lint--run'."
    file kind results
    (lambda (batch index total all)
      (pcase (sp-bibtex-lint--ask-batch file batch index total all kind)
-       (?a 'apply) (?s 'skip) (_ 'quit)))
+       (?a 'apply) (?g 'apply-all) (?s 'skip) (_ 'quit)))
    (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
    then))
 
@@ -1577,6 +1776,23 @@ comment inside is left alone."
 All entries at once, after one question and a backup, as `sp-bibtex-lint-fix-order' does."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--fix file 'indent))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-prefixes (file)
+  "Normalise key=value names and misplaced prefixes in the .bib FILE.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Names written as
+`family=Hayek given=Friedrich A., prefix=von useprefix=false' (an old Zotero
+export) become `von Hayek, Friedrich A.', repeated given names are merged and
+the fullest one kept; `Hayek, Friedrich A. von' becomes `von Hayek, Friedrich A.'.
+Names that cannot be read are reported and left alone.  Batches of
+`sp-bibtex-lint-batch-size' entries, each applied (`a'), applied with all later
+ones (`g'), skipped, dropped for later or quit; FILE is copied to
+`sp-bibtex-lint-backup-directory' before the first write."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
+                       (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))
 
 ;;;; Author names
 
@@ -1741,13 +1957,14 @@ Notes for authors are never made."
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
-  "Ask which fix to run on the .bib FILE: field order, indentation or author names.
-See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent' and
-`sp-bibtex-lint-fix-authors'."
+  "Ask which fix to run on the .bib FILE: field order, indentation, name prefixes or authors.
+See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
+`sp-bibtex-lint-fix-prefixes' and `sp-bibtex-lint-fix-authors'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (pcase (completing-read "Fix: " '("field order" "indentation" "author names") nil t)
+  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names") nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
+    ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
     ("author names" (sp-bibtex-lint-fix-authors file))))
 
 #+end_src
