@@ -716,11 +716,50 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (sp-bibprocess-lint-test--with-bib
             (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n"
                     (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))
-          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t)))
             (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files))
           (should (string-match-p "file        = {a1990x0.pdf}" (sp-bibprocess-lint-test--text file)))
           (should (file-exists-p (expand-file-name "lit/a1990x0.pdf" lib)))
           (should-not (file-exists-p (expand-file-name "lit/inbox/a1990x0.pdf" lib))))
+      (delete-directory lib t))))
+
+(ert-deftest sp-bibtex-files-test-flatten-through-devonthink-tool ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf" "lit/inbox/b2000y0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten t)
+         (sp-bibtex-files-devonthink-tool "/fake/devonthink-move.py")
+         calls)
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n\n@book{b2000y,\n  bdsk-file-1 = {%s}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf")
+                    (sp-bibtex-files-test--bdsk "../literature/b2000y0.pdf"))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t))
+                    ((symbol-function 'sp-bibtex-files--call-tool)
+                     (lambda (args) (push args calls) (cons 0 "ok"))))
+            (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files))
+          ;; One call for both files, and the tool, not rename-file, moved them.
+          (should (= 1 (length calls)))
+          (should (equal '("move" "--apply" "--plain-rename" "--moves")
+                         (butlast (car calls))))
+          (should (file-exists-p (expand-file-name "lit/inbox/a1990x0.pdf" lib)))
+          (should (string-match-p "file        = {a1990x0.pdf}" (sp-bibprocess-lint-test--text file))))
+      (delete-directory lib t))))
+
+(ert-deftest sp-bibtex-files-test-devonthink-tool-stop-keeps-the-bib-file ()
+  (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf"))
+         (sp-literature-dir (expand-file-name "lit/" lib))
+         (sp-bibtex-files-flatten t)
+         (sp-bibtex-files-devonthink-tool "/fake/devonthink-move.py"))
+    (unwind-protect
+        (sp-bibprocess-lint-test--with-bib
+            (format "@book{a1990x,\n  bdsk-file-1 = {%s}\n}\n"
+                    (sp-bibtex-files-test--bdsk "../literature/a1990x0.pdf"))
+          (cl-letf (((symbol-function 'sp-bibtex-files--confirm-flatten) (lambda () t))
+                    ((symbol-function 'sp-bibtex-files--call-tool) (lambda (_args) (cons 1 "it stopped"))))
+            (should-error (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-files)
+                          :type 'user-error))
+          (should (string-match-p "bdsk-file-1" (sp-bibprocess-lint-test--text file))))
       (delete-directory lib t))))
 
 (ert-deftest sp-bibtex-lint-test-capf ()

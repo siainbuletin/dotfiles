@@ -1,0 +1,576 @@
+#+TITLE: devonthink-move.py: move indexed PDFs through DEVONthink
+#+PROPERTY: header-args:python :tangle ../../../tools/devonthink-move.py :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =tools/devonthink-move.py= and its tests, =tests/test_devonthink_move.py=. Every line of both files lives in the =python= blocks below, in order. The script blocks tangle to the tool (the =#+PROPERTY= line above); the blocks under [[*Tests][Tests]] tangle to the test file.
+
+To tangle: =C-c C-v t= in this buffer, or from =.config/emacs-modular=:
+
+#+begin_example
+emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/devonthink-move.org")'
+#+end_example
+
+This doc is not picked up by =tools/tangle-all.el= or the =tangle= CI check, which only cover =sp-*.org= docs that write into =libraries/modules/=. Tangle it yourself after editing, and run the tests.
+
+* What it is for
+
+Most PDFs in =~/Documents/literature/= are /indexed/ by DEVONthink. Moving such a file in Finder or with =mv= makes DEVONthink see a missing record and a new one. This tool moves the files with DEVONthink's own =move=, so:
+
+- the record keeps its UUID, tags, comments, custom metadata and DEVONthink annotations
+- =x-devonthink-item://= links and =#+devonthink:= keywords in the notes keep working, because they name the UUID
+- annotations written into the PDF travel with the file anyway
+
+It is the DEVONthink side of =sp-bibtex-files-flatten= (see [[file:sp-academic.org::*Attachment paths][Attachment paths]] in sp-academic), and also works on its own.
+
+* Using it
+
+Always a dry run unless =--apply= is given. DEVONthink has to be running, because even the dry run asks it which records exist.
+
+#+begin_example
+tools/devonthink-move.py move --library ~/Documents/literature --flatten inbox/mac-bibdesk   # the plan
+tools/devonthink-move.py move --library ~/Documents/literature --flatten inbox/mac-bibdesk --apply --limit 1
+tools/devonthink-move.py move --moves moves.tsv --apply
+tools/devonthink-move.py check ~/notes
+#+end_example
+
+- Run =check= before and after: it lists the UUIDs in your notes (=x-devonthink-item://=, =devonthink:= and =#+devonthink:=) that DEVONthink does not know. After a good run the list is the same as before.
+- Moves:
+  - =--flatten SUBDIR ...= moves every file below =LIBRARY/SUBDIR= to the top of =LIBRARY=; a name that is taken at the top, or twice in the run, is left out and counted
+  - =--moves FILE= takes one =FROM<TAB>TO= pair of absolute paths per line (the format of the =files-moves-*.tsv= that =sp-bibtex-files= writes)
+- What each file gets:
+  - a record with that path in DEVONthink: moved with DEVONthink's =move= into the group of the destination folder
+  - no record: left alone, or with =--plain-rename= renamed on disk (nothing in DEVONthink to break)
+  - two records with that path, or the destination exists: blocked and listed
+- =--limit N= moves at most N records. Use =--apply --limit 1= first.
+- After each move the record is read back; the run stops at the first one whose UUID or path is not the expected one, and says so. The moves done are written to =~/.local/state/devonthink-move/moves-*.json= (uuid, from, to), so a run can be undone by moving the files back.
+
+* What is untested
+
+- The tool has not been run against DEVONthink. The JXA calls =lookupRecordsWithPath=, =getRecordWithUuid= and =move= are from DEVONthink's scripting dictionary and not tried here.
+- The assumption to check with =--limit 1=: moving an indexed record into the group of another folder of the same indexed hierarchy moves the file on disk too. If it does not, the read-back fails and the run stops, with the file where it was.
+- The planning, the safety checks and the reading of notes are covered by =tests/test_devonthink_move.py=, with DEVONthink faked.
+
+* The script
+** Header and imports
+
+The shebang and the executable bit come from the =:shebang= and =:tangle-mode= header arguments of this block. =APP= is DEVONthink's scripting name (="DEVONthink 3"= for version 3).
+
+#+begin_src python :shebang "#!/usr/bin/env python3" :tangle-mode (identity #o755)
+"""Move indexed PDFs through DEVONthink, so records keep their UUID.
+
+    devonthink-move.py move [--apply] [--limit N] [--plain-rename] --moves FILE
+    devonthink-move.py move [--apply] [--limit N] [--plain-rename] --library DIR --flatten SUBDIR ...
+    devonthink-move.py check [--json] NOTES_DIR ...
+
+`move` is a dry run unless --apply is given.  A move is a pair FROM, TO of
+absolute paths: one tab separated pair per line of the --moves file, or every
+file below DIR/SUBDIR moved to the top of DIR with --flatten.  Each file is
+moved with DEVONthink's own `move`, so the record, its UUID, its tags and its
+annotations stay, and the `x-devonthink-item://` links and `#+devonthink:`
+keywords that name the UUID keep working.  After every move the record is
+asked for its UUID and path; the run stops at the first one that does not
+match.  `check` lists the UUIDs in notes that DEVONthink no longer knows.
+
+Tangled from docs/tangles/academic/devonthink-move.org; edit that file.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+APP = "DEVONthink"   # the scripting name of DEVONthink 4; "DEVONthink 3" for version 3
+STATE_DIR = Path.home() / ".local" / "state" / "devonthink-move"
+UUID = r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+UUID_RE = re.compile(r"(?:x-devonthink-item://|devonthink:|#\+devonthink:[ \t]*)(" + UUID + ")")
+#+end_src
+
+** Planning the moves
+
+Pure functions, so they are tested without DEVONthink.
+
+#+begin_src python
+def read_moves(path):
+    """Return the (FROM, TO) pairs of the tab separated file PATH."""
+    moves = []
+    for number, line in enumerate(Path(path).expanduser().read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) != 2 or not all(p.startswith("/") for p in parts):
+            raise SystemExit("devonthink-move: line %d of %s is not FROM<TAB>TO, both absolute"
+                             % (number, path))
+        moves.append(tuple(parts))
+    return moves
+
+
+def flatten_moves(library, subdirs):
+    """Return the moves of every file below LIBRARY/SUBDIR to the top of LIBRARY.
+
+    A file whose name is taken at the top, or taken by another file of the
+    run, is left out and returned in the second list."""
+    library = Path(library).expanduser()
+    moves, left, taken = [], [], set()
+    for sub in subdirs:
+        for root, dirs, files in os.walk(library / sub):
+            dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+            for name in sorted(files):
+                if name.startswith("."):
+                    continue
+                src, dst = Path(root) / name, library / name
+                if dst.exists() or name in taken:
+                    left.append(str(src))
+                else:
+                    taken.add(name)
+                    moves.append((str(src), str(dst)))
+    return moves, left
+
+
+def plan_moves(moves, found, exists=os.path.exists):
+    """Sort MOVES into what to do.  Pure, so it is tested without DEVONthink.
+
+    FOUND maps a source path to its record, {"uuid", "database", "count"}, or
+    None.  Returns a dict of lists: `move` (FROM, TO, record), `plain` (FROM, TO:
+    no record), `done` (already at TO), `missing` (no file at FROM) and
+    `blocked` (FROM, TO, why)."""
+    plan = {"move": [], "plain": [], "done": [], "missing": [], "blocked": []}
+    for src, dst in moves:
+        record = found.get(src)
+        if not exists(src):
+            plan["done" if exists(dst) else "missing"].append((src, dst))
+        elif exists(dst):
+            plan["blocked"].append((src, dst, "the destination exists"))
+        elif record is None:
+            plan["plain"].append((src, dst))
+        elif record["count"] > 1:
+            plan["blocked"].append((src, dst, "%d records have this path" % record["count"]))
+        else:
+            plan["move"].append((src, dst, record))
+    return plan
+
+
+def same_path(a, b):
+    """True when the paths A and B are the same file's, links and case aside."""
+    try:
+        return os.path.realpath(a) == os.path.realpath(b)
+    except (OSError, TypeError):
+        return False
+
+
+def moved_ok(src, dst, record, after, exists=os.path.exists):
+    """True when DEVONthink's AFTER, {"uuid", "path"}, shows the record moved."""
+    return bool(after and after.get("uuid") == record["uuid"]
+                and same_path(after.get("path"), dst)
+                and exists(dst) and not exists(src))
+
+
+def uuids_in(text):
+    """Return the DEVONthink UUIDs in the TEXT of a note, upper case, in order."""
+    out = []
+    for m in UUID_RE.finditer(text):
+        u = m.group(1).upper()
+        if u not in out:
+            out.append(u)
+    return out
+
+
+def note_uuids(dirs):
+    """Return {uuid: [note paths]} for the .org files below DIRS."""
+    out = {}
+    for d in dirs:
+        for path in sorted(Path(d).expanduser().rglob("*.org")):
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError as e:
+                print("devonthink-move: skipped %s: %s" % (path, e), file=sys.stderr)
+                continue
+            for u in uuids_in(text):
+                out.setdefault(u, []).append(str(path))
+    return out
+#+end_src
+
+** Talking to DEVONthink
+
+Three JXA calls through =osascript=; each returns JSON.
+
+#+begin_src python
+def jxa(script):
+    """Run the JavaScript for Automation SCRIPT and return its JSON result."""
+    result = subprocess.run(["osascript", "-l", "JavaScript", "-e", script],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit("devonthink-move: osascript failed: %s" % result.stderr.strip())
+    out = result.stdout.strip()
+    return json.loads(out) if out else None
+
+
+JS_HEAD = "const app = Application(%s);\n" % json.dumps(APP)
+
+
+def dt_lookup(paths):
+    """Return {path: record or None}: the record of each file path in DEVONthink."""
+    script = JS_HEAD + """
+const out = {};
+for (const p of %s) {
+  const recs = app.lookupRecordsWithPath(p);
+  out[p] = recs.length ? {uuid: recs[0].uuid(), database: recs[0].database().name(),
+                          count: recs.length} : null;
+}
+JSON.stringify(out);
+""" % json.dumps(list(paths))
+    return jxa(script) or {}
+
+
+def dt_move(uuid, folder):
+    """Move the record UUID into the group of the folder FOLDER; return its new state.
+
+    The result is {"uuid", "path"} read back from DEVONthink, {"error"} when the
+    folder has no group in the record's database, or None."""
+    script = JS_HEAD + """
+const rec = app.getRecordWithUuid(%s);
+const found = app.lookupRecordsWithPath(%s, {in: rec.database()});
+let group = null;
+for (const r of found) if (String(r.recordType()).toLowerCase().indexOf("group") >= 0) group = r;
+let result;
+if (!group) {
+  result = {error: "no group for " + %s};
+} else {
+  app.move({record: rec, to: group});
+  const after = app.getRecordWithUuid(%s);
+  result = after ? {uuid: after.uuid(), path: after.path()} : null;
+}
+JSON.stringify(result);
+""" % (json.dumps(uuid), json.dumps(folder), json.dumps(folder), json.dumps(uuid))
+    return jxa(script)
+
+
+def dt_resolve(uuids):
+    """Return {uuid: name or None}: what DEVONthink knows of each UUID."""
+    script = JS_HEAD + """
+const out = {};
+for (const u of %s) {
+  try { const r = app.getRecordWithUuid(u); out[u] = r ? r.name() : null; }
+  catch (e) { out[u] = null; }
+}
+JSON.stringify(out);
+""" % json.dumps(list(uuids))
+    return jxa(script) or {}
+#+end_src
+
+** Running and the command line
+
+#+begin_src python
+def save_manifest(entries):
+    """Write the moves done to STATE_DIR, one file a run; return its path or None."""
+    if not entries:
+        return None
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    path = STATE_DIR / time.strftime("moves-%Y%m%dT%H%M%S.json")
+    path.write_text(json.dumps(entries, indent=1, ensure_ascii=False))
+    return path
+
+
+def run_moves(plan, apply, limit=None, plain_rename=False):
+    """Do the PLAN; return a report dict.  Nothing happens without APPLY.
+
+    The run stops at the first move DEVONthink did not make as asked."""
+    report = {"applied": apply, "moved": [], "renamed": [], "stopped": None,
+              "to_move": len(plan["move"]), "plain": len(plan["plain"]),
+              "done": len(plan["done"]), "missing": [list(m) for m in plan["missing"]],
+              "blocked": [list(b) for b in plan["blocked"]]}
+    todo = plan["move"][:limit] if limit else plan["move"]
+    if apply:
+        for src, dst, record in todo:
+            after = dt_move(record["uuid"], str(Path(dst).parent))
+            if not moved_ok(src, dst, record, after):
+                report["stopped"] = {"from": src, "to": dst, "uuid": record["uuid"],
+                                     "answer": after}
+                break
+            report["moved"].append({"uuid": record["uuid"], "from": src, "to": dst})
+        if plain_rename and not report["stopped"]:
+            for src, dst in plan["plain"][:limit] if limit else plan["plain"]:
+                os.rename(src, dst)
+                report["renamed"].append({"from": src, "to": dst})
+        report["manifest"] = str(save_manifest(report["moved"] + report["renamed"]) or "")
+    return report
+
+
+def print_report(r):
+    mode = "" if r["applied"] else "  (dry run)"
+    print("through DEVONthink: %d to move, %d moved%s" % (r["to_move"], len(r["moved"]), mode))
+    print("not in DEVONthink: %d%s" % (r["plain"], "; renamed %d" % len(r["renamed"])
+                                       if r["renamed"] else "; left alone (--plain-rename moves them on disk)"
+                                       if r["plain"] else ""))
+    print("already moved: %d, missing: %d, blocked: %d" % (r["done"], len(r["missing"]), len(r["blocked"])))
+    for src, dst, why in r["blocked"][:10]:
+        print("  blocked: %s (%s)" % (src, why))
+    if r["stopped"]:
+        s = r["stopped"]
+        print("STOPPED: DEVONthink did not move %s as asked (answer: %s)" % (s["from"], s["answer"]))
+    if r.get("manifest"):
+        print("manifest: %s" % r["manifest"])
+
+
+def cmd_move(args):
+    if args.moves:
+        moves, left = read_moves(args.moves), []
+    elif args.flatten:
+        if not args.library:
+            raise SystemExit("devonthink-move: --flatten needs --library")
+        moves, left = flatten_moves(args.library, args.flatten)
+    else:
+        raise SystemExit("devonthink-move: give --moves FILE or --library DIR --flatten SUBDIR")
+    found = dt_lookup([m[0] for m in moves if os.path.exists(m[0])])
+    plan = plan_moves(moves, found)
+    report = run_moves(plan, args.apply, args.limit, args.plain_rename)
+    report["left_out"] = left
+    if args.json:
+        print(json.dumps(report))
+    else:
+        print_report(report)
+        if left:
+            print("left out, the name is taken at the top: %d" % len(left))
+    return 1 if report["stopped"] else 0
+
+
+def cmd_check(args):
+    notes = note_uuids(args.dirs)
+    known = dt_resolve(sorted(notes)) if notes else {}
+    dangling = {u: p for u, p in notes.items() if known.get(u) is None}
+    if args.json:
+        print(json.dumps({"checked": len(notes), "dangling": dangling}))
+    else:
+        print("%d UUIDs in the notes, %d that DEVONthink does not know" % (len(notes), len(dangling)))
+        for u, paths in sorted(dangling.items()):
+            print("  %s  %s" % (u, ", ".join(paths)))
+    return 1 if dangling else 0
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description="Move indexed PDFs through DEVONthink.")
+    sub = p.add_subparsers(dest="command", required=True)
+    m = sub.add_parser("move", help="move files through DEVONthink (a dry run without --apply)")
+    m.add_argument("--apply", action="store_true", help="really move")
+    m.add_argument("--limit", type=int, help="move at most this many records")
+    m.add_argument("--moves", help="file of FROM<TAB>TO absolute paths")
+    m.add_argument("--library", help="the library folder, with --flatten")
+    m.add_argument("--flatten", nargs="+", metavar="SUBDIR",
+                   help="move every file below LIBRARY/SUBDIR to the top of LIBRARY")
+    m.add_argument("--plain-rename", action="store_true",
+                   help="also rename files that DEVONthink does not index, on disk")
+    m.add_argument("--json", action="store_true")
+    c = sub.add_parser("check", help="list UUIDs in notes that DEVONthink does not know")
+    c.add_argument("dirs", nargs="+", metavar="NOTES_DIR")
+    c.add_argument("--json", action="store_true")
+    args = p.parse_args(argv)
+    return cmd_move(args) if args.command == "move" else cmd_check(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:python: :tangle ../../../tests/test_devonthink_move.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Run from =.config/emacs-modular=:
+
+#+begin_example
+python3 -m unittest tests/test_devonthink_move.py
+#+end_example
+
+** Loading the script and a fake DEVONthink
+
+#+begin_src python
+"""Tests for tools/devonthink-move.py, with DEVONthink faked.
+
+Run from emacs-modular/.config/emacs-modular:
+    python3 -m unittest tests/test_devonthink_move.py
+"""
+
+import importlib.util
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+HERE = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location(
+    "devonthink_move", HERE.parent / "tools" / "devonthink-move.py")
+dm = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dm)
+
+U1 = "11111111-2222-3333-4444-555555555555"
+U2 = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"
+
+
+class FakeDT:
+    """A DEVONthink with records {uuid: path}; a move can be made to fail."""
+
+    def __init__(self, records, honest=True):
+        self.records, self.honest = dict(records), honest
+
+    def lookup(self, paths):
+        return {p: ({"uuid": u, "database": "literature", "count": 1}
+                    if p in self.records.values() and (u := next(
+                        k for k, v in self.records.items() if v == p)) else None)
+                for p in paths}
+
+    def move(self, uuid, folder):
+        if self.honest:
+            old = self.records[uuid]
+            new = os.path.join(folder, os.path.basename(old))
+            os.rename(old, new)
+            self.records[uuid] = new
+        return {"uuid": uuid, "path": self.records[uuid]}
+
+    def resolve(self, uuids):
+        return {u: ("name" if u in self.records else None) for u in uuids}
+#+end_src
+
+** Tests
+
+#+begin_src python
+
+class Library(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.lib = Path(self.tmp.name).resolve()
+        (self.lib / "inbox").mkdir()
+        for name in ("a.pdf", "b.pdf", "c.pdf"):
+            (self.lib / "inbox" / name).write_text(name)
+        (self.lib / "b.pdf").write_text("taken at the top")
+        (self.lib / "inbox" / ".hidden").write_text("")
+        state = mock.patch.object(dm, "STATE_DIR", self.lib / "state")
+        state.start()
+        self.addCleanup(state.stop)
+        self.addCleanup(self.tmp.cleanup)
+
+    def path(self, *p):
+        return str(self.lib.joinpath(*p))
+
+
+class Planning(Library):
+    def test_flatten_moves_and_leaves_clashes(self):
+        moves, left = dm.flatten_moves(self.lib, ["inbox"])
+        self.assertEqual([(self.path("inbox", "a.pdf"), self.path("a.pdf")),
+                          (self.path("inbox", "c.pdf"), self.path("c.pdf"))], moves)
+        self.assertEqual([self.path("inbox", "b.pdf")], left)
+
+    def test_read_moves(self):
+        f = self.lib / "moves.tsv"
+        f.write_text("/a/x.pdf\t/b/x.pdf\n\n/a/y.pdf\t/b/y.pdf\n")
+        self.assertEqual([("/a/x.pdf", "/b/x.pdf"), ("/a/y.pdf", "/b/y.pdf")], dm.read_moves(f))
+        f.write_text("relative\t/b/x.pdf\n")
+        with self.assertRaises(SystemExit):
+            dm.read_moves(f)
+
+    def test_plan_sorts_each_move(self):
+        a, b, c = (self.path("inbox", n) for n in ("a.pdf", "b.pdf", "c.pdf"))
+        moves = [(a, self.path("a.pdf")), (b, self.path("b.pdf")), (c, self.path("c.pdf")),
+                 (self.path("gone.pdf"), self.path("g.pdf"))]
+        found = {a: {"uuid": U1, "database": "d", "count": 1}}
+        plan = dm.plan_moves(moves, found)
+        self.assertEqual([a], [m[0] for m in plan["move"]])
+        self.assertEqual([c], [m[0] for m in plan["plain"]])
+        self.assertEqual([b], [m[0] for m in plan["blocked"]])
+        self.assertEqual(1, len(plan["missing"]))
+
+    def test_two_records_at_one_path_block(self):
+        a = self.path("inbox", "a.pdf")
+        plan = dm.plan_moves([(a, self.path("a.pdf"))], {a: {"uuid": U1, "database": "d", "count": 2}})
+        self.assertEqual(1, len(plan["blocked"]))
+
+    def test_moved_ok_wants_the_same_uuid_and_the_file_at_the_new_path(self):
+        a, dst = self.path("inbox", "a.pdf"), self.path("a.pdf")
+        rec = {"uuid": U1}
+        self.assertFalse(dm.moved_ok(a, dst, rec, {"uuid": U1, "path": a}))       # file did not move
+        self.assertFalse(dm.moved_ok(a, dst, rec, {"uuid": U2, "path": dst}))     # another record
+        self.assertFalse(dm.moved_ok(a, dst, rec, None))
+        os.rename(a, dst)
+        self.assertTrue(dm.moved_ok(a, dst, rec, {"uuid": U1, "path": dst}))
+
+    def test_uuids_in_notes(self):
+        text = ("#+devonthink: %s\n[[x-devonthink-item://%s?page=3][p]] "
+                "[[devonthink:%s::4][q]] %s\n" % (U1, U2.lower(), U1, U2))
+        self.assertEqual([U1, U2], dm.uuids_in(text))
+
+
+class Running(Library):
+    def move(self, dt, apply=True, **kw):
+        moves, _ = dm.flatten_moves(self.lib, ["inbox"])
+        with mock.patch.object(dm, "dt_move", dt.move):
+            return dm.run_moves(dm.plan_moves(moves, dt.lookup([m[0] for m in moves])), apply, **kw)
+
+    def dt(self, honest=True):
+        return FakeDT({U1: self.path("inbox", "a.pdf")}, honest)
+
+    def test_dry_run_changes_nothing(self):
+        r = self.move(self.dt(), apply=False)
+        self.assertEqual(1, r["to_move"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
+        self.assertFalse((self.lib / "state").exists())
+
+    def test_apply_moves_through_devonthink_and_keeps_the_uuid(self):
+        dt = self.dt()
+        r = self.move(dt)
+        self.assertEqual([{"uuid": U1, "from": self.path("inbox", "a.pdf"), "to": self.path("a.pdf")}],
+                         r["moved"])
+        self.assertEqual(self.path("a.pdf"), dt.records[U1])
+        self.assertTrue((self.lib / "a.pdf").exists())
+        # c.pdf is not indexed: left alone without --plain-rename.
+        self.assertTrue((self.lib / "inbox" / "c.pdf").exists())
+        self.assertEqual(1, len(json.loads(Path(r["manifest"]).read_text())))
+
+    def test_plain_rename_moves_files_devonthink_does_not_know(self):
+        r = self.move(self.dt(), plain_rename=True)
+        self.assertEqual([self.path("c.pdf")], [e["to"] for e in r["renamed"]])
+        self.assertTrue((self.lib / "c.pdf").exists())
+
+    def test_stops_when_devonthink_did_not_move_the_file(self):
+        r = self.move(self.dt(honest=False))
+        self.assertEqual([], r["moved"])
+        self.assertEqual(self.path("inbox", "a.pdf"), r["stopped"]["from"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
+
+    def test_limit(self):
+        dt = FakeDT({U1: self.path("inbox", "a.pdf"), U2: self.path("inbox", "c.pdf")})
+        r = self.move(dt, limit=1)
+        self.assertEqual(1, len(r["moved"]))
+
+
+class Check(Library):
+    def test_lists_the_uuids_devonthink_does_not_know(self):
+        notes = self.lib / "notes"
+        notes.mkdir()
+        (notes / "a.org").write_text("#+devonthink: %s\n" % U1)
+        (notes / "b.org").write_text("[[x-devonthink-item://%s][x]]\n" % U2)
+        with mock.patch.object(dm, "dt_resolve", FakeDT({U1: "/x"}).resolve):
+            code = dm.main(["check", str(notes), "--json"])
+        self.assertEqual(1, code)
+
+    def test_nothing_dangling_is_success(self):
+        notes = self.lib / "notes"
+        notes.mkdir()
+        (notes / "a.org").write_text("#+devonthink: %s\n" % U1)
+        with mock.patch.object(dm, "dt_resolve", FakeDT({U1: "/x"}).resolve):
+            self.assertEqual(0, dm.main(["check", str(notes)]))
+
+
+if __name__ == "__main__":
+    unittest.main()
+#+end_src
+
+* Changes by pull request
+
+- [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]
+  - ✨ Added =devonthink-move.py=: moves indexed PDFs with DEVONthink's own =move= so records keep their UUID, and checks that the UUIDs in notes still resolve.
+  - Not run against DEVONthink; try =--apply --limit 1= first.

@@ -615,6 +615,14 @@ and writes their path relative to `sp-literature-dir'."
   :type 'boolean
   :group 'sp-bibtex)
 
+(defcustom sp-bibtex-files-devonthink-tool nil
+  "The `devonthink-move.py' script that moves the files, or nil to rename them.
+Used when `sp-bibtex-files-flatten' is on.  The script moves the files with
+DEVONthink's own move, so records keep their UUID; files it does not index are
+renamed on disk."
+  :type '(choice (const :tag "Rename on disk" nil) file)
+  :group 'sp-bibtex)
+
 (defvar sp-bibtex-lint--library nil
   "The index of `sp-literature-dir' while a lint job checks attachment paths.")
 
@@ -1092,6 +1100,7 @@ A fourth fix of the lint, separate from the others: =M-x sp-bibtex-lint-fix-file
   - nil: the files stay where they are, and the path is written relative to the library (=inbox/mac-bibdesk/x.pdf=)
   - non-nil: the files are moved to the top of the library and the bare name is written; a file never overwrites another, and the moves are added to a =.tsv= next to the backups
   - off by default, because DEVONthink sees a file moved outside it as a new record
+- =sp-bibtex-files-devonthink-tool= (default nil): with =sp-bibtex-files-flatten= on, the path of =tools/devonthink-move.py= ([[file:devonthink-move.org][doc]]); the files are then moved through DEVONthink, so the records keep their UUID, and a stop of the tool (the file did not move as asked) cancels the write of the =.bib= file
 
 #+begin_src emacs-lisp -i
 ;;;; Attachment paths
@@ -1297,17 +1306,54 @@ unresolved bdsk-file fields keep them."
              (file-directory-p sp-literature-dir))
     (sp-bibtex-files-index sp-literature-dir sp-bibtex-files-flatten)))
 
+(defun sp-bibtex-files--log (moves)
+  "Add the MOVES, (FROM . TO) pairs, to the .tsv of the day in the backup folder."
+  (make-directory sp-bibtex-lint-backup-directory t)
+  (write-region (mapconcat (lambda (m) (format "%s\t%s\n" (car m) (cdr m))) moves "")
+                nil
+                (expand-file-name (format-time-string "files-moves-%Y%m%d.tsv")
+                                  sp-bibtex-lint-backup-directory)
+                'append 'silent))
+
+(defun sp-bibtex-files--call-tool (args)
+  "Run `sp-bibtex-files-devonthink-tool' with ARGS; return (STATUS . OUTPUT)."
+  (with-temp-buffer
+    (let ((status (apply #'call-process "python3" nil t nil
+                         (expand-file-name sp-bibtex-files-devonthink-tool) args)))
+      (cons status (string-trim (buffer-string))))))
+
+(defun sp-bibtex-files--confirm-flatten ()
+  "Ask whether to go on, since the attached files are moved."
+  (yes-or-no-p (format "`sp-bibtex-files-flatten' is on: the files are moved to the top of the library%s.  Go on? "
+                       (if sp-bibtex-files-devonthink-tool " through DEVONthink" ""))))
+
+(defun sp-bibtex-files--move-in-devonthink (moves)
+  "Move MOVES, (FROM . TO) pairs, with `sp-bibtex-files-devonthink-tool'.
+A `user-error' with what the tool said when it stops."
+  (let ((list (make-temp-file "sp-bibtex-moves" nil ".tsv")))
+    (unwind-protect
+        (progn
+          (write-region (mapconcat (lambda (m) (format "%s\t%s\n" (car m) (cdr m))) moves "")
+                        nil list nil 'silent)
+          (let ((done (sp-bibtex-files--call-tool
+                       (list "move" "--apply" "--plain-rename" "--moves" list))))
+            (message "devonthink-move: %s" (cdr done))
+            (unless (eq (car done) 0)
+              (user-error "devonthink-move stopped: %s" (cdr done)))))
+      (delete-file list))))
+
 (defun sp-bibtex-files--move (moves)
   "Move the files of MOVES, a list of (FROM . TO) absolute paths; never over a file.
-Each move is added to a .tsv, one a day, in `sp-bibtex-lint-backup-directory'."
-  (dolist (m moves)
-    (when (and (file-exists-p (car m)) (not (file-exists-p (cdr m))))
-      (rename-file (car m) (cdr m))
-      (make-directory sp-bibtex-lint-backup-directory t)
-      (write-region (format "%s\t%s\n" (car m) (cdr m)) nil
-                    (expand-file-name (format-time-string "files-moves-%Y%m%d.tsv")
-                                      sp-bibtex-lint-backup-directory)
-                    'append 'silent))))
+With `sp-bibtex-files-devonthink-tool' DEVONthink moves them; otherwise they are
+renamed.  Each move is added to a .tsv, one a day, in
+`sp-bibtex-lint-backup-directory'."
+  (when-let* ((todo (seq-filter (lambda (m) (and (file-exists-p (car m))
+                                                 (not (file-exists-p (cdr m)))))
+                                (delete-dups (copy-sequence moves)))))
+    (if sp-bibtex-files-devonthink-tool
+        (sp-bibtex-files--move-in-devonthink todo)
+      (dolist (m todo) (rename-file (car m) (cdr m))))
+    (sp-bibtex-files--log todo)))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-files (file)
@@ -1322,7 +1368,7 @@ files are moved to the top of the library."
                (file-directory-p sp-literature-dir))
     (user-error "`sp-literature-dir' is not a folder"))
   (when (or (not sp-bibtex-files-flatten)
-            (yes-or-no-p "`sp-bibtex-files-flatten' is on: the files are moved to the top of the library.  Go on? "))
+            (sp-bibtex-files--confirm-flatten))
     (sp-bibtex-lint--fix file 'files)))
 #+end_src
 
@@ -1717,7 +1763,7 @@ are brought back; the batch is shown again each time."
   "Rewrite the entries of BATCH in the buffer WORK, for the fix KIND.
 BATCH is a list of (RESULT BEG END) with markers.  An entry whose text is no
 longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
-  (let ((changed 0) (stale 0))
+  (let ((changed 0) (stale 0) moves)
     (with-current-buffer work
       (dolist (item batch)
         (pcase-let* ((`(,r ,beg ,end) item)
@@ -1725,9 +1771,10 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
           (if (not (equal (plist-get rewrite :old) (buffer-substring-no-properties beg end)))
               (cl-incf stale)
             (sp-bibtex-lint--replace beg end (plist-get rewrite :new))
-            (when (eq kind 'files)
-              (sp-bibtex-files--move (plist-get rewrite :moves)))
+            (setq moves (append moves (plist-get rewrite :moves)))
             (cl-incf changed)))))
+    ;; The files move once for the batch, before the .bib file is written.
+    (when moves (sp-bibtex-files--move moves))
     (list changed stale t)))
 
 (defun sp-bibtex-lint--signature (file)
@@ -2595,5 +2642,6 @@ What each pull request changed in this module, newest last; the one-line summary
     - Absolute =~/Documents/literature/= paths become relative to =sp-literature-dir=.
     - Entries that cannot be resolved keep their fields and are listed.
   - =sp-bibtex-files-flatten= (off by default) also moves the files to the top of the library.
+  - =sp-bibtex-files-devonthink-tool= makes that move go through =tools/devonthink-move.py=, so DEVONthink records keep their UUID.
   - Tested in Emacs 29.3 in batch (=tests/sp-bibprocess-lint-test.el=)
     - not run on the real =.bib= files.
