@@ -613,6 +613,32 @@
       (should (string-match-p "- bib-parent :: \\[\\[id:id-bk\\]" (sp-litnotes-meta-test--read dir name))))
     (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
 
+(ert-deftest sp-litnotes-meta-citar-create-uses-sp-mechanism ()
+  "citar-create-note makes the note with `sp-litnotes-meta-create-function'."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
+    (let* ((file (make-temp-file "sp-meta-note" nil ".org"))
+           (made nil) (filled nil) (orig nil)
+           (sp-litnotes-meta-create-function (lambda (key) (push key made) file)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered)
+                     (lambda () (make-hash-table :test 'equal)))
+                    ((symbol-function 'sp-litnotes-meta-fill)
+                     (lambda (key f &rest _) (push (cons key f) filled)))
+                    ((symbol-function 'find-file) #'identity))
+            (should (equal (sp-litnotes-meta--around-create
+                            (lambda (&rest _) (setq orig t)) "reuten2014book")
+                           file))
+            (should (equal made '("reuten2014book")))
+            (should (equal filled (list (cons "reuten2014book" file))))
+            (should-not orig)
+            ;; Off: citar makes the note.
+            (let ((sp-litnotes-meta-citar-create nil)
+                  (sp-litnotes-meta-auto nil))
+              (sp-litnotes-meta--around-create (lambda (&rest _) (setq orig t)) "reuten2014book")
+              (should orig)
+              (should (= 1 (length made)))))
+        (delete-file file)))))
+
 (provide 'sp-litnotes-meta-test)
 ;;; sp-litnotes-meta-test.el ends here
 
