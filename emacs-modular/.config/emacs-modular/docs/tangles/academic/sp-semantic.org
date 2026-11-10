@@ -8,8 +8,6 @@ Literate source for =libraries/modules/academic/sp-semantic.el=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
-The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
-
 This module adds semantic (meaning-based rather than keyword-based) search over the notes in =~/notes= using the =org-semantic= package, fetched from GitHub. It sits in the academic category and complements the ordinary text search tools set up elsewhere in the config.
 
 All its commands live under the ~C-c k~ prefix, and an auto-reindex mode keeps the index up to date as notes are saved.
@@ -44,11 +42,93 @@ The header and commentary explain the motivation: the regular search commands ar
 ;;; Code:
 #+end_src
 
+* org-semantic binary install on macOS
+
+** Why the install failed with "Killed: 9"
+
+- =M-x org-semantic-binary-install= downloads the binary, copies it into place, then runs it with =--version=.
+- On macOS the kernel can kill that run with SIGKILL, which the shell prints as "Killed: 9".
+- Two things cause it here:
+  - The binary was copied over an older copy in place. The file keeps its inode, and macOS keeps the old code-signature verdict for it.
+  - The download can carry the =com.apple.quarantine= flag, or have no valid signature.
+- When a process ends on a signal, =process-file= returns a string such as ="Killed: 9"=, not a number.
+- The package then calls =zerop= on that string, which gives =Wrong type argument: number-or-marker-p, "Killed: 9"=.
+- The package is upstream (alberti42/org-semantic), so the fix lives here as advice.
+- Upstream should still be told: =org-semantic-binary-version= should not call =zerop= on the result of =process-file=.
+
+** Repair helper
+
+- =sp-semantic--repair-binary= takes the path of the binary.
+- It does nothing unless =system-type= is =darwin= and the file exists.
+- It removes the quarantine flag with =xattr -d com.apple.quarantine=. This fails harmlessly when the flag is absent.
+- It signs the binary ad hoc with =codesign --force --sign -=.
+- It compares the =codesign= result with =eq 0=, not =zerop=, so a signal result does not raise an error.
+- It returns non-nil only when signing worked.
+
+** Advice on the version check
+
+- =sp-semantic--binary-version-a= wraps =org-semantic-binary-version=.
+- If the original signals =wrong-type-argument=, the binary was killed.
+- It then repairs the binary and asks once more.
+- If it still fails it returns nil.
+- The installer reports nil as "will not report a version", which is a clear message instead of a type error.
+
+** Advice before the install
+
+- =sp-semantic--fresh-install-a= runs before =org-semantic-binary-install=.
+- It deletes the binary already in =org-semantic-install-directory=, symlink or file.
+- The new copy is then a fresh file with a fresh inode, so macOS has no stale signature verdict for it.
+
+#+begin_src emacs-lisp -i
+;;;; org-semantic binary install on macOS
+(defun sp-semantic--repair-binary (binary)
+  "Clear the quarantine flag on BINARY and sign it ad hoc.  Non-nil on success.
+Only does anything on macOS."
+  (and (eq system-type 'darwin)
+       (file-exists-p binary)
+       (progn
+         ;; Fails harmlessly when the flag is not there.
+         (call-process "xattr" nil nil nil "-d" "com.apple.quarantine" binary)
+         ;; `call-process' returns a string, not a number, when a signal
+         ;; ends the process, so compare with `eq' and not `zerop'.
+         (eq 0 (call-process "codesign" nil nil nil "--force" "--sign" "-" binary)))))
+
+(defun sp-semantic--binary-version-a (orig-fun &rest args)
+  "Around advice for `org-semantic-binary-version' (ORIG-FUN, ARGS).
+A binary killed by a signal makes the original signal
+`wrong-type-argument'.  Repair the binary and ask again once; if it
+still fails return nil, which the installer reports as a binary that
+will not say its version."
+  (condition-case nil
+      (apply orig-fun args)
+    (wrong-type-argument
+     (when (sp-semantic--repair-binary (org-semantic--binary))
+       (condition-case nil
+           (apply orig-fun args)
+         (wrong-type-argument nil))))))
+
+(defun sp-semantic--fresh-install-a (&rest _)
+  "Before `org-semantic-binary-install', delete the binary already there.
+Copying over a signed binary in place keeps its inode, and macOS then
+kills it with SIGKILL (\"Killed: 9\").  A fresh file avoids that."
+  (let ((old (expand-file-name "org-semantic" org-semantic-install-directory)))
+    (when (or (file-exists-p old) (file-symlink-p old))
+      (delete-file old))))
+
+(advice-add 'org-semantic-binary-version :around #'sp-semantic--binary-version-a)
+(advice-add 'org-semantic-binary-install :before #'sp-semantic--fresh-install-a)
+#+end_src
+
 * org-semantic
 
 ** Configuring org-semantic
 
-The package is installed under the name =org-semantic= but configured through its =org-semantic-results= feature. =org-semantic-vault-root= points the index at =~/notes=.
+The package is installed under the name =org-semantic= but configured through its =org-semantic-results= feature.
+
+- =org-semantic-vault-root= points the index at =~/notes=.
+- =org-semantic-install-directory= is =var/org-semantic/= under the Emacs directory.
+  - =var/= is git-ignored, so Stow and git never see the binary.
+  - Before, it was =org-semantic/= at the top of the config, and the 40 MB binary was committed to the dotfiles repo and symlinked by Stow.
 
 Keybindings:
 - ~C-c k s~ runs =org-semantic-find=, a semantic query across the vault.
@@ -62,18 +142,21 @@ In every results buffer =next-error-follow-minor-mode= is turned on, so moving o
 ;;;; org-semantic
 (use-package org-semantic-results
   :ensure (org-semantic :host github :repo "alberti42/org-semantic")
-  :custom 
+  :custom
   (org-semantic-vault-root (directory-file-name sp-notes-dir))
-  
+  ;; Under var/, which is git-ignored, so Stow and git never see the binary.
+  (org-semantic-install-directory
+   (expand-file-name "var/org-semantic/" user-emacs-directory))
+
   :bind (("C-c k s" . org-semantic-find)
          ("C-c k S" . org-semantic-find-in-directory)
          ("C-c k ." . org-semantic-find-at-point)
          ("C-c k R" . org-semantic-reindex))
-  
+
   ;; Follow mode, on for every results buffer.
-  :hook 
+  :hook
   (org-semantic-results-mode . next-error-follow-minor-mode)
-  
+
   ;; Reindex a vault as its notes are saved.
   :init (org-semantic-auto-reindex-mode 1)
 )
