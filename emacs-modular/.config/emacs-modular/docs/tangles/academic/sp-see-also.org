@@ -61,21 +61,27 @@ Each mention carries the place it was written.
   - =:beg=, =:end=: where the footnote is.
   - =:snippet=: about a hundred characters of text before the footnote, cleaned of Org markup.
 
+** TODO see also the ~org-todo-keywords~ and make sure to set them up properly
+
 * How it avoids visiting buffers
 
 Reading a file must not open it, load =org-mode= or run any hook.
 
 - The file is read with =insert-file-contents= into a temporary buffer in =fundamental-mode=. Nothing is shown and no hook runs.
 - The scanner does not use =org-element=. It uses regexps and a bracket counter, which cost a fraction of an Org parse.
-  - A test compares the footnote ranges it finds with the ones =org-element= finds, so the two cannot drift apart unnoticed.
+   + A test compares the footnote ranges it finds with the ones =org-element= finds, so the two cannot drift apart unnoticed.
 - A file with unsaved changes in an open buffer is read from that buffer instead, and not cached.
 - A file is read again only when its modification time or size changed.
 - The cache is kept in =sp-see-also-cache-file= between sessions (same idea as the dashboard's entry cache).
-- Vulpea is used where it helps:
-  - It lists the litnote files (the =litnote= tag).
-  - For one concept, =vulpea-db-query-links-to= says which files link to it, so only those files are looked at.
-  - It gives the titles of the concepts.
-  - It cannot say where a footnote is, so the footnote context itself cannot come from the database.
+
+** The role of ~vulpea~ in this organisation
+
+- For one concept, =vulpea-db-query-links-to= says which files link to it, so only those files are looked at.
+- It lists the litnote files (the =litnote= tag).
+- It gives the titles of the concepts.
+- *What it cannot do:* It cannot say where a footnote is, so the footnote context itself cannot come from the database.
+
+Using the sidebar widget:
 - The sidebar widget for a litnote reads that one file, from the cache. It never scans the vault.
 - The concept view uses the database first. Only when the database has no answer does it build the whole index, which is then kept for =sp-see-also-index-max-age= seconds.
 
