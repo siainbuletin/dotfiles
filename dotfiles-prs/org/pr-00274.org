@@ -1,0 +1,22 @@
+* PR #274: Reorganise into GNU Stow packages (one per tool)
+:PROPERTIES:
+:PR_NUMBER: 274
+:URL: https://github.com/siainbuletin/dotfiles/pull/274
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/274][https://github.com/siainbuletin/dotfiles/pull/274]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-03 01:10
+- Merged :: 2026-11-03 01:15
+- Branch :: =stow-layout= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/d8c641295ae84de1f744663291d809bb0c114551][d8c641295a]]
+
+** Description
+Every tracked file is moved with git mv, so history follows. yadm alternate files become the alacritty-darwin/-linux/-windows packages. Dropped: .Xauthority, yadm's config, the old blacklist .gitignore. CI workflow paths updated.
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/56d774804faf686dbe15de012039cf0287fc3d2e][56d774804f]] Reorganise into GNU Stow packages (one per tool) (Sia Piperea, 2026-11-03 00:30)
+- [[https://github.com/siainbuletin/dotfiles/commit/78c38830a3fe53f23e4abc33faa899133264c9ca][78c38830a3]] Merge branch 'main' into stow-layout (Sia Piperea, 2026-11-03 01:12)

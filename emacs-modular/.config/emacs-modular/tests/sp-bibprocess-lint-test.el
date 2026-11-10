@@ -554,10 +554,13 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (let (called)
     (cl-letf (((symbol-function 'sp-bibtex-lint-fix-order) (lambda (f) (push (list 'order f) called)))
               ((symbol-function 'sp-bibtex-lint-fix-indent) (lambda (f) (push (list 'indent f) called)))
+              ((symbol-function 'sp-bibtex-lint-fix-prefixes) (lambda (f) (push (list 'prefixes f) called)))
               ((symbol-function 'sp-bibtex-lint-fix-authors) (lambda (f) (push (list 'authors f) called))))
-      (dolist (kind '("order" "indent" "authors"))
+      (dolist (kind '("order" "indent" "authors" "prefixes"))
         (sp-bibtex-lint--follow (concat kind ":/tmp/a b.bib")))
-      (should (equal '((authors "/tmp/a b.bib") (indent "/tmp/a b.bib") (order "/tmp/a b.bib")) called))
+      (should (equal '((prefixes "/tmp/a b.bib") (authors "/tmp/a b.bib") (indent "/tmp/a b.bib")
+                       (order "/tmp/a b.bib"))
+                     called))
       (should-error (sp-bibtex-lint--follow "other:/tmp/a.bib") :type 'user-error))))
 
 
@@ -776,3 +779,158 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (provide 'sp-bibprocess-lint-test)
 ;;; sp-bibprocess-lint-test.el ends here
+
+
+;;; Name prefixes: key=value names and misplaced particles
+
+(defconst sp-bibprocess-lint-test--hayek
+  (concat "family=Hayek given=Friedrich given=Friedrich given=Friedrich given=Friedrich "
+          "given=Friedrich, given=Friedrich A., prefix=von useprefix=false")
+  "The name an old Zotero export wrote for Friedrich A. von Hayek.")
+
+(ert-deftest sp-bibtex-lint-test-keyvalue-hayek ()
+  (should (equal '(:name "von Hayek, Friedrich A.")
+                 (sp-bibtex--keyvalue-name sp-bibprocess-lint-test--hayek)))
+  ;; Wrapped in braces, in any order of the parts.
+  (should (equal '(:name "von Hayek, Friedrich A.")
+                 (sp-bibtex--keyvalue-name
+                  (concat "{" sp-bibprocess-lint-test--hayek "}"))))
+  (should (equal '(:name "von Hayek, Friedrich A.")
+                 (sp-bibtex--keyvalue-name
+                  "prefix=von, given=Friedrich, given=Friedrich A., family=Hayek"))))
+
+(ert-deftest sp-bibtex-lint-test-keyvalue-parts ()
+  (should-not (sp-bibtex--keyvalue-parts "Smith, John"))
+  (should-not (sp-bibtex--keyvalue-parts "John family=Smith"))
+  (should (equal '(("family" . "van der Berg") ("given" . "Jan"))
+                 (sp-bibtex--keyvalue-parts "family={van der Berg}, given=Jan"))))
+
+(ert-deftest sp-bibtex-lint-test-keyvalue-given-names ()
+  ;; Initials and shorter names fit the fullest.
+  (should (equal '(:name "Smith, John Michael")
+                 (sp-bibtex--keyvalue-name "family=Smith given=J. given=John given=John Michael")))
+  (should (equal "Friedrich A." (sp-bibtex--fullest-given '("F." "Friedrich A." "Friedrich"))))
+  ;; Names that do not fit are not guessed.
+  (should-not (sp-bibtex--fullest-given '("Friedrich" "Hans")))
+  (should (plist-get (sp-bibtex--keyvalue-name "family=Hayek given=Friedrich given=Hans") :error)))
+
+(ert-deftest sp-bibtex-lint-test-keyvalue-other-parts ()
+  (should (equal '(:name "Plato") (sp-bibtex--keyvalue-name "family=Plato")))
+  (should (equal '(:name "Smith, Jr., John")
+                 (sp-bibtex--keyvalue-name "family=Smith given=John suffix=Jr.")))
+  ;; The prefix is not doubled when the family name has it.
+  (should (equal '(:name "von Hayek, Friedrich")
+                 (sp-bibtex--keyvalue-name "family=von Hayek given=Friedrich prefix=von")))
+  (should (plist-get (sp-bibtex--keyvalue-name "given=Friedrich prefix=von") :error))
+  (should (plist-get (sp-bibtex--keyvalue-name "family=A family=B given=C") :error)))
+
+(ert-deftest sp-bibtex-lint-test-move-particles ()
+  (should (equal "von Hayek, Friedrich A." (sp-bibtex--move-particles "Hayek, Friedrich A. von")))
+  (should (equal "von Hayek, Friedrich" (sp-bibtex--move-particles "Hayek von, Friedrich")))
+  (should (equal "von Hayek, Friedrich A." (sp-bibtex--move-particles "Hayek, Friedrich A., von")))
+  (should (equal "de la Cruz, Juan" (sp-bibtex--move-particles "Cruz, Juan de la")))
+  (should (equal "van Gogh, Jr., Vincent" (sp-bibtex--move-particles "Gogh, Jr., Vincent van")))
+  ;; Already right, or not to be touched.
+  (should (equal "von Hayek, Friedrich" (sp-bibtex--move-particles "von Hayek, Friedrich")))
+  (should (equal "von Hayek, Friedrich" (sp-bibtex--move-particles "von Hayek, Friedrich von")))
+  (should (equal "Li, Bin" (sp-bibtex--move-particles "Li, Bin")))
+  (should (equal "Hayek, von" (sp-bibtex--move-particles "Hayek, von")))
+  (should (equal "Friedrich von Hayek" (sp-bibtex--move-particles "Friedrich von Hayek")))
+  (should (equal "{Big Corp, Inc}" (sp-bibtex--move-particles "{Big Corp, Inc}")))
+  (should (equal "others" (sp-bibtex--move-particles "others"))))
+
+(ert-deftest sp-bibtex-lint-test-lint-prefixes-fields ()
+  (let* ((fields `(("author" . ,(format "{%s and Doe, Jane and Hayek, Friedrich von}"
+                                        sp-bibprocess-lint-test--hayek))
+                   ("editor" . "{Smith, John}")
+                   ("title" . "{family=Not given=A Name}")))
+         (result (sp-bibtex--lint-prefixes fields)))
+    (should (equal "{von Hayek, Friedrich A. and Doe, Jane and von Hayek, Friedrich}"
+                   (cdr (assoc "author" (car result)))))
+    (should (equal "{Smith, John}" (cdr (assoc "editor" (car result)))))
+    (should (equal "{family=Not given=A Name}" (cdr (assoc "title" (car result)))))
+    (should (= 1 (length (nth 1 result))))
+    (should-not (nth 2 result)))
+  (let ((result (sp-bibtex--lint-prefixes
+                 '(("author" . "{family=Hayek given=A given=B and Doe, Jane}")))))
+    (should (equal "{family=Hayek given=A given=B and Doe, Jane}"
+                   (cdr (assoc "author" (car result)))))
+    (should-not (nth 1 result))
+    (should (= 1 (length (nth 2 result))))))
+
+(defconst sp-bibprocess-lint-test--prefix-bib
+  (format (concat "@book{h,\n  title = {The Constitution of Liberty},\n  author = {%s},\n  year = {1960}\n}\n\n"
+                  "@book{g,\n  title = {Plain},\n  author = {Hayek, Friedrich A. von and Doe, Jane},\n  year = {1961}\n}\n\n"
+                  "@book{ok,\n  title = {Fine},\n  author = {von Mises, Ludwig},\n  year = {1962}\n}\n\n"
+                  "@book{bad,\n  title = {Unreadable},\n  author = {family=Hayek given=Friedrich given=Hans},\n  year = {1963}\n}\n")
+          sp-bibprocess-lint-test--hayek))
+
+(ert-deftest sp-bibtex-lint-test-prefixes-dryrun-report ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--prefix-bib
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (let ((text (buffer-string)))
+        (should (string-match-p (format "\\[\\[sp-bibtex-lint:prefixes:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
+        (should (string-match-p "von Hayek, Friedrich A\\." text))
+        (should (string-match-p "given= parts that do not fit" text))
+        ;; Each entry is a link to its line in the file.
+        (should (string-match-p (format "\\[\\[file:%s::[0-9]+\\]" (regexp-quote file)) text))
+        (should-not (string-match-p "\\* ok" text))))
+    (kill-buffer sp-bibtex-lint--buffer)))
+
+(ert-deftest sp-bibtex-lint-test-prefixes-convert ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--prefix-bib
+    ;; Two entries can be fixed; the unreadable one is only reported.
+    (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-prefixes)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "author =[ \t]+{von Hayek, Friedrich A\\.}" text))
+      (should (string-match-p "author =[ \t]+{von Hayek, Friedrich A\\. and Doe, Jane}" text))
+      (should (string-match-p "author =[ \t]+{von Mises, Ludwig}" text))
+      (should-not (string-match-p "useprefix" text))
+      ;; The unreadable name is as it was.
+      (should (string-match-p "family=Hayek given=Friedrich given=Hans" text))
+      (should (string-match-p "title =[ \t]+{The Constitution of Liberty}" text)))
+    (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
+    ;; Nothing is left to fix, so nothing is asked.
+    (should (equal nil (sp-bibprocess-lint-test--convert file nil #'sp-bibtex-lint-fix-prefixes)))))
+
+(ert-deftest sp-bibtex-lint-test-prefixes-batches-and-global ()
+  (let ((sp-bibtex-lint-batch-size 2)
+        (hayek (concat "family=Hayek given=Friedrich, prefix=von")))
+    (sp-bibprocess-lint-test--with-bib
+        (mapconcat (lambda (i) (format "@book{k%d,\n  author = {%s},\n  title = {T}\n}\n" i hayek))
+                   (number-sequence 1 5) "\n")
+      ;; Skip the first batch, apply the second with `g': the third is not asked.
+      (should (equal '(2 2) (sp-bibprocess-lint-test--convert file '(?s ?g) #'sp-bibtex-lint-fix-prefixes)))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (= 2 (with-temp-buffer (insert text) (goto-char (point-min))
+                                       (how-many "family=Hayek"))))
+        (should (= 3 (with-temp-buffer (insert text) (goto-char (point-min))
+                                       (how-many "{von Hayek, Friedrich}"))))))))
+
+(ert-deftest sp-bibtex-lint-test-prefixes-dropped-stay-out ()
+  (let ((sp-bibtex-lint-batch-size 5))
+    (sp-bibprocess-lint-test--with-bib
+        (concat "@book{a,\n  author = {Hayek, Friedrich von},\n  title = {T}\n}\n\n"
+                "@book{b,\n  author = {Mises, Ludwig von},\n  title = {T}\n}\n")
+      (push (sp-bibtex-lint--entry-key file "a") sp-bibtex-lint--excluded)
+      (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-prefixes)
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "{Hayek, Friedrich von}" text))
+        (should (string-match-p "{von Mises, Ludwig}" text))))))
+
+(ert-deftest sp-bibtex-lint-test-prefixes-in-convert-menu ()
+  (let (ran)
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "name prefixes"))
+              ((symbol-function 'sp-bibtex-lint-fix-prefixes) (lambda (f) (setq ran f))))
+      (sp-bibtex-lint-convert "/tmp/a.bib")
+      (should (equal "/tmp/a.bib" ran)))))
+
+(ert-deftest sp-bibtex-lint-test-authors-fix-runs-prefixes-first ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@book{h,\n  author = {" sp-bibprocess-lint-test--hayek " and John Smith},\n  title = {T}\n}\n")
+    ;; One batch for the prefixes, then one for the author names.
+    (should (equal '(1 1) (sp-bibprocess-lint-test--convert file '(?a ?a) #'sp-bibtex-lint-fix-authors)))
+    (should (string-match-p "{von Hayek, Friedrich A\\. and Smith, John}"
+                            (sp-bibprocess-lint-test--text file)))))

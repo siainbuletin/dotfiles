@@ -1,0 +1,43 @@
+* PR #209: 📝 Design DEVONthink and Emacs integration
+:PROPERTIES:
+:PR_NUMBER: 209
+:URL: https://github.com/siainbuletin/dotfiles/pull/209
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/209][https://github.com/siainbuletin/dotfiles/pull/209]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-31 17:02
+- Merged :: 2026-11-01 14:25
+- Branch :: =209-devonthink-emacs-integration= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/72f82bc16e824b3e102e8666beb3b323f4bf7eca][72f82bc16e]]
+- Labels :: documentation, needs-further-testing
+
+** Description
+/Requested by *Sia*/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Design doc =docs/architecture/devonthink-emacs-integration.org= for a deeper DEVONthink and Emacs integration: search (DEVONthink and =litdb=), page-level links back to DEVONthink, browsing and tagging from Emacs, and a two-way link between a record and its litnote. Page-level indexing is limited to documents with annotations or a read =read-status=, to keep the =litdb= index small.
+
+Design only; no code. Nothing was run in Emacs, and the page-anchor syntax, annotation-count semantics, custom metadata field and URL handler are listed in the doc as the first things to verify.
+
+**** Test plan
+:PROPERTIES:
+:CUSTOM_ID: test-plan
+:END:
+- [ ] Read the doc and decide on the open points (record-side link location, URL handler).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (6)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/5174f7465aca3b66093ea32810f9e5246a0a4324][5174f7465a]] 📝 Design DEVONthink and Emacs integration (search, browse, tags, litnote links) (Sia Piperea, 2026-10-31 17:01)
+- [[https://github.com/siainbuletin/dotfiles/commit/2f7e17727601f8f908246643f61982dc1f2a8cfb][2f7e177276]] 📝 Changelog: DEVONthink and Emacs design (#209) (Sia Piperea, 2026-10-31 17:02)
+- [[https://github.com/siainbuletin/dotfiles/commit/0b91f561ac4090addab866f7454edf201ce97447][0b91f561ac]] 📝 Design: new tags can be created from Emacs (Sia Piperea, 2026-10-31 17:02)
+- [[https://github.com/siainbuletin/dotfiles/commit/dcf231029d109577b8106a7b27cd28910ac6dd5f][dcf231029d]] 📝 Design: DEVONthink search is the default, litdb optional (Sia Piperea, 2026-10-31 17:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/d38ab3be586e05c002236a7bc63fe8cef5e1f38d][d38ab3be58]] 📝 Design: page anchors are 0-based, annotation count matches highlights (Sia Piperea, 2026-10-31 17:53)
+- [[https://github.com/siainbuletin/dotfiles/commit/614dff8178469faafad7acf85f834dce995f8a47][614dff8178]] Merge branch 'main' into 209-devonthink-emacs-integration (Sia Piperea, 2026-11-01 14:24)
