@@ -1,0 +1,36 @@
+* PR #289: Note keys: sp-insert-note on M-o n i, new sp-find-note on M-o f
+:PROPERTIES:
+:PR_NUMBER: 289
+:URL: https://github.com/siainbuletin/dotfiles/pull/289
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/289][https://github.com/siainbuletin/dotfiles/pull/289]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-04 14:15
+- Merged :: 2026-11-04 14:23
+- Branch :: =289-insert-note-key= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/ca4e93ab3db51f25df454a5c99e8574713ad2ce7][ca4e93ab3d]]
+- Labels :: correction, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21kRXq9R8f9BL3eSYVrQpsh][project thread]]/
+
+- =sp-org-tag-groups= binds =M-o n i= to =sp-insert-note= in =org-mode-map=, next to =M-o n a= (=vulpea-buffer-alias-add=). The old =M-o n i= of the removed =org-node= module is gone.
+- New =sp-find-note=: =vulpea-find= run with the tag emoji and the coloured tag column (same wrapper as =sp-insert-note=); takes the keywords of =vulpea-find=. Bound globally to =M-o f=.
+- The =M-o f= binding of =vulpea-find= is removed from =sp-vulpea-base=, so load order cannot decide which one wins.
+- =sp-select-note= is a function other commands call, not a command, so it has no key.
+- Docs and =.el= edited together (=sp-org-tag-groups.org=, =sp-vulpea.org=).
+
+Not run in Emacs (none in the container); =sp-find-note= assumes =vulpea-find= picks its notes with =vulpea-select-from=, so the emoji and column apply through the let-bound options, as they do for =vulpea-insert=. No CHANGELOG edits.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9sdrKxJ3CH27TGGqB]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/4ab8bc05954c5f0da9bb338f9548f758d20c04f6][4ab8bc0595]] Bind sp-insert-note to M-o n i in Org buffers (Claude, 2026-11-04 14:15)
+- [[https://github.com/siainbuletin/dotfiles/commit/3957cfcd2e2238335f2ec803f6df3a9db352a47b][3957cfcd2e]] Add sp-find-note on M-o f, a vulpea-find with tag emoji and colours (Claude, 2026-11-04 14:17)
+- [[https://github.com/siainbuletin/dotfiles/commit/9118440d026aed19ad9ebe321ca4a217bfdcda4d][9118440d02]] Doc: declare vulpea-find like the .el (Claude, 2026-11-04 14:17)

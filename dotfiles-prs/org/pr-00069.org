@@ -1,0 +1,46 @@
+* PR #69: Fix startup errors: missing :ensure, sp-path in :load-path, which-key order
+:PROPERTIES:
+:PR_NUMBER: 69
+:URL: https://github.com/siainbuletin/dotfiles/pull/69
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/69][https://github.com/siainbuletin/dotfiles/pull/69]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 20:51
+- Merged :: 2026-10-23 21:03
+- Branch :: =69-fix-load-errors= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/81305907c42df4803c1bfc6847169fe6ba2731db][81305907c4]]
+- Labels :: bugfix
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Y1zBiwrAYWiD24zS6xVdwc][project thread]]/
+
+Fixes the errors seen when starting Emacs from =main=, and audits the other =use-package= forms.
+
+*Root causes*
+
+- =Cannot load goto-last-change / rainbow-mode / treemacs-nerd-icons / org-contrib / openwith=, and =ns-auto-titlebar/:init=: these forms had no =:ensure=. Elpaca's =use-package= support installs nothing by default; =elpaca-use-package-by-default= in =init.el= does not exist in current Elpaca (checked in its source). The =locate-library= guards removed in #61 used to hide this.
+- =Failed to parse package consult-snapfile ... sp-path=: =use-package= reads a list given to =:load-path= as a list of paths and evaluates each symbol as a variable. The path now goes through the constant =sp-consult-snapfile-dir=.
+- =which-key loaded before Elpaca activation=: the raw =(which-key-mode 1)= in =sp-keys= autoloaded the built-in package early. Removed; the existing =use-package which-key= enables the mode. The stray =(which-key-mode +1)= =:custom= entry is removed too.
+
+*Audit (second commit)*
+
+- All other third-party =use-package= forms without =:ensure= now have =:ensure t= (about 70). =inheritenv= used =:straight=, which this config does not use; =org-focus-hud= gets =(:host github :repo "SSD2019/org-focus-hud")=.
+- Left alone: =tramp=, =pulse=, =org= (built-in), =exwm= (module not loaded), =excali= (local checkout), =citar-org-node= (=:vc=).
+- Reordered so Elpaca does not queue a dependency first: =company= before =company-quickhelp=, =go-mode= before the Go helpers, =auctex= before =auctex-latexmk= and =company-auctex=.
+
+Module docs in =docs/tangles/= are updated and their code blocks match the =.el= files. CHANGELOG: one entry in "Startup and module load order" (after #61), and a duplicated =Fixed= entry removed.
+
+*Not tested* (no Emacs here): nothing was loaded or byte-compiled. =use-package= and Elpaca behaviour was read from their sources. I could not reach MELPA or GNU ELPA from the container, so I assumed the package names (for example =go-complete=, =dot-mode=, =pcomplete-extension=) exist there; an unknown name will show up as an Elpaca error on first start. Please start Emacs and check =*Messages*= and =M-x elpaca-log=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_012aF5fvrjTcBwiu2drDZnyx]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/513c1768bd7bf3dc4c45a4263af18635201c6017][513c1768bd]] Fix startup errors: add :ensure to bare use-package forms, sp-path in :load-path, which-key before Elpaca (Claude, 2026-10-23 20:50)
+- [[https://github.com/siainbuletin/dotfiles/commit/21d08af47d093122f6d9add3e7679e852ace8c02][21d08af47d]] Changelog entry for the startup error fixes; drop a duplicated Fixed entry (Claude, 2026-10-23 20:51)
+- [[https://github.com/siainbuletin/dotfiles/commit/b030f058c4c0db417c5559b5abd8438cc6d24a8f][b030f058c4]] Add :ensure to the remaining third-party use-package forms and order dependencies first (Claude, 2026-10-23 21:02)

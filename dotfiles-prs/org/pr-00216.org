@@ -1,0 +1,45 @@
+* PR #216: ✨ Add litdb index of highlighted DEVONthink pages and sp-litdb search
+:PROPERTIES:
+:PR_NUMBER: 216
+:URL: https://github.com/siainbuletin/dotfiles/pull/216
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/216][https://github.com/siainbuletin/dotfiles/pull/216]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-31 17:53
+- Merged :: 2026-11-01 17:38
+- Branch :: =216-litdb-devonthink-search= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/ad6e34a8af5908215b6c050d283c3fdc4d6229dd][ad6e34a8af]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia*/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- =tools/devonthink-to-litdb.py=: indexes the highlighted pages of DEVONthink PDFs in litdb (one row per highlighted page, source = the record's item address with ~?page=N~, incremental, =--dry-run= first).
+- =tools/litdb-query.py=: a search process that keeps litdb's model loaded (words, meaning, or both).
+- =sp-litdb= (=C-c k l=, index with =C-c k I=): searches it from Emacs. Hits are =key p. N= candidates of the category =sp-litdb=; Embark actions open the page in DEVONthink, insert a link or =[cite:@key p. N]=, or collect hits with their highlights into a note. Documented as the complement to =org-semantic= (what you wrote) and DEVONthink's own search (every PDF).
+
+Follows #209 (design) and #210 (=ROAM_REFS=).
+
+**** Test plan
+:PROPERTIES:
+:CUSTOM_ID: test-plan
+:END:
+- [X] 5 ERT tests in Emacs 31.1 batch (=tests/sp-litdb-test.el=).
+- [X] Indexer and search process run in the shell on one real record (8 rows; vector, fulltext and hybrid).
+- [X] Real search process driven through the Emacs code in batch.
+- [ ] Run the indexer with =--dry-run=, then for real; then =C-c k l=, =embark-collect=, and =n= in Emacs.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/2b016a5c4370e2a3f10ca2c84ff65cb555cf9b87][2b016a5c43]] ✨ Add litdb index of highlighted DEVONthink pages and sp-litdb search (Sia Piperea, 2026-10-31 17:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/82321c55bdb2fed6780171653f6f141840c9d0f1][82321c55bd]] 📝 sp-litdb doc: measured index size, relation to the consult-omni litdb source (Sia Piperea, 2026-10-31 17:57)
+- [[https://github.com/siainbuletin/dotfiles/commit/c87722217b06544079ceec32e8d99d6667218e75][c87722217b]] Merge branch 'main' into 216-litdb-devonthink-search (Sia Piperea, 2026-11-01 17:38)

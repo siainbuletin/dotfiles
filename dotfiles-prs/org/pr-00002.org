@@ -1,0 +1,73 @@
+* PR #2: Add literate Org docs for every module in emacs-modular
+:PROPERTIES:
+:PR_NUMBER: 2
+:URL: https://github.com/siainbuletin/dotfiles/pull/2
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/2][https://github.com/siainbuletin/dotfiles/pull/2]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-18 23:25
+- Merged :: 2026-10-19 19:21
+- Branch :: =claude/project-thread-an4kyf= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/416aef6e4ff1db913a7bdd7a2101a70137c578d3][416aef6e4f]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2GSdfx2LDjjW1ejiT3SruTH][project thread]]/
+
+Before: the modules in =.config/emacs-modular/libraries/modules/= existed only as =.el= files, and most had no documentation.
+
+After: =docs/tangles/= has a canonical =sp-*.org= file for each of the 127 modules. Each one holds the module's full source, in order, in =emacs-lisp= blocks, with headings and prose explaining every block. Tangling a doc (=C-c C-v t=) regenerates its module.
+
+*How*
+
+- Each file sets =#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/<category>/<module>.el :comments no :padline yes :noweb no=, so tangling rewrites the real module file. Nothing tangles unless you run it, because no file sets =auto_tangle=.
+
+- The code was copied by a script, not retyped. Blocks are split only at single blank lines, so =:padline yes= restores each original blank line. Lines starting with =*= or =#+= are comma-escaped. Blocks use =-i= and start at column 0, so indentation survives whatever =org-src-preserve-indentation= is set to.
+
+- 14 modules already had an older doc under the same name, for example =sp-faces.org=. Those older docs are renamed to =<name>-old.org= with their contents unchanged, and the new docs take the plain name.
+
+- =lem-dashboard.el= gets =sp-lem-dashboard.org=.
+
+- Third-party code under =libraries/modules/cloned/= is not included.
+
+- Five modules are empty .el files: =sp-syslinux=, =sp-instant-messenger=, =sp-mail=, =sp-music-comp= and =sp-vulpea-ext-back=. Their docs are literate skeletons with these parts:
+
+  - a file header
+  - a Configuration section to fill in
+  - a =:tangle no= Sandbox for trying settings
+  - a =provide= form
+
+  Tangling one of these writes a valid module that loads, replacing the empty file.
+
+- Commits: there is one commit per module category, then one for the =-old= renames and one for the empty-module skeletons.
+
+*Round-trip check* (Emacs 29.3 / Org 9.6, tangled into a scratch copy and compared with =cmp=)
+
+- 44 modules come back byte-for-byte identical.
+- 78 differ only by a final newline. Their =.el= files have no newline at the end, and Org always ends a tangled file with one.
+- =sp-org-archive.el= also loses two trailing spaces on its last line.
+- All five skeletons tangle to modules that load in =emacs -Q=.
+
+No =.el= file is changed by this PR. Against =main=, 127 files are added and 14 are modified; the modified ones are the canonical names that now hold the new docs.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR]]
+
+** Commits (13)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f45bd25955a959ebad40f816ea8b82bbef9e5808][f45bd25955]] Add literate docs for the academic modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/10c17fe36face6b580c47f9c33bf211672d4b5eb][10c17fe36f]] Add literate docs for the base modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f][ba2f02b69c]] Add literate docs for the env modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/445a20abb7c50260507c01130e63aa724e40e971][445a20abb7]] Add literate docs for the funct modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/a46ce722588564644876135905ef04b7b7edc5e7][a46ce72258]] Add literate docs for the media modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/b12bc723ce67e544b594384adccc2b32d3d1d02f][b12bc723ce]] Add literate docs for the prog modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/17b31b10de9314db505d823ee4ecce2891f7f4e9][17b31b10de]] Add literate docs for the text modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/0b83c56ef5036c4ced6da3072eca963388eb250f][0b83c56ef5]] Add literate docs for the tooling modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e][f2aca9c5cc]] Add literate docs for the ui modules (Claude, 2026-10-18 23:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/ce4f5afd0d1615ff810e58294b7b5566c0979d41][ce4f5afd0d]] Rename the older docs to -old and make the new module docs canonical (Claude, 2026-10-19 16:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/237543c7d3d4acef84d14f603b39c4661f29e22f][237543c7d3]] Turn the docs for the 5 empty modules into literate skeletons (Claude, 2026-10-19 16:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/de2d5e1232cdd45f19245c8743f16bb9680f20b7][de2d5e1232]] Merge main into the docs branch (Claude, 2026-10-19 18:32)
+- [[https://github.com/siainbuletin/dotfiles/commit/7aa279595d288c7e7a04399ad5186556ee8cf20b][7aa279595d]] Update the docs for the 12 modules that changed on main (Claude, 2026-10-19 18:39)

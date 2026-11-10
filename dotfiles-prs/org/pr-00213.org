@@ -1,0 +1,68 @@
+* PR #213: ⚡ Cache the dashboard's open TODOs per agenda file
+:PROPERTIES:
+:PR_NUMBER: 213
+:URL: https://github.com/siainbuletin/dotfiles/pull/213
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/213][https://github.com/siainbuletin/dotfiles/pull/213]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-31 17:33
+- Merged :: 2026-10-31 17:46
+- Branch :: =213-dashboard-entry-cache= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/60a5855fa9c0e23506d1255447416283fe241b40][60a5855fa9]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2HBvg9rAnd4CKXNEFXyzUer][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+(Replaces the closed #211: renaming its branch to carry the number closed the PR.)
+
+The dashboard read every agenda file through Org at each start and redraw. It now keeps each file's open TODOs in =sp-cache-dir= (=dashboard-entries.eld=), keyed by path + mtime + size.
+
+- Only new or changed files are read at start; deleted files are dropped; the cache is dropped when =org-todo-keywords= changes.
+- Deadline/scheduled are cached as absolute days and made relative on read, so they do not go stale overnight.
+- A changed file is read from disk in a temp buffer (no mode hooks, nothing left open): =org-map-entries= on a file name reuses an open buffer, which could put an older version in the cache. A buffer with unsaved edits is read instead and not cached.
+- The per-draw =sp-dashboard--entries-cache= and the public/private filtering in =sp-dashboard--todos= are unchanged.
+- Message: =[dashboard] read 100 agenda files: 99 cached, 1 re-read, in 0.01s=.
+- =M-x sp-dashboard-clear-entries-cache= resets it.
+
+**** Findings
+:PROPERTIES:
+:CUSTOM_ID: findings
+:END:
+*Coverage (100 agenda files from the running Emacs).* =org-map-entries= finds 362 keyword headings (339 open, 23 done). org-ql =(todo)= finds the same 339 plus 3 TODOs under a =* Archive :ARCHIVE:= heading, which the dashboard skips on purpose; with =(not (tags "ARCHIVE"))= the two match exactly. The file with its own =#+TODO: OPEN | ANSWERED= is read correctly by both. vulpea.db has only 35 todo rows (it indexes only headings with an ID), so it cannot be the source.
+
+*Engine speed.* org-ql is not meaningfully faster: cold 2.5--3.4 s against 2.5--2.9 s for =org-map-entries=, almost all of it visiting the files. Warm it was 0.02--0.04 s against 0.05--0.07 s, possibly its own cache. The cache therefore keeps =org-map-entries= (no extra package).
+
+**** Before / after (100 files, 339 entries, Emacs 31.1 batch =-Q=, so no real org-mode hooks)
+:PROPERTIES:
+:CUSTOM_ID: before--after-100-files-339-entries-emacs-311-batch--q-so-no-real-org-mode-hooks
+:END:
+| Case                               | Time         | GC                  |
+|------------------------------------+--------------+---------------------|
+| Before, cold                       | 2.5--3.1 s   | 2 GCs, 0.03--0.04 s |
+| Before, warm (buffers open)        | 0.05--0.10 s | 0--1 GC             |
+| After, first start (no cache file) | 1.21 s       | 3 GCs, 0.06 s       |
+| After, all files cached            | 0.00--0.01 s | none                |
+| After, one file changed            | 0.50 s       | 1 GC, 0.02 s        |
+
+Cache file: 98 KB.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+7 ERT tests (=tests/sp-dashboard-entries-test.el=): hit, persistence, changed file, deleted file, keyword change, relative days, archived/unsaved. Run in Emacs 31.1 batch. Not seen in the interactive dashboard; the figures above do not include the org-mode hooks of the real configuration.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/bee8754a4f5d63b50e232a7e43d13b663b99a239][bee8754a4f]] ⚡ Cache the dashboard's open TODOs per agenda file (Sia Piperea, 2026-10-31 17:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/6ef0fa140e6f53c9c65455e5e7ee0404c8159857][6ef0fa140e]] 📝 Changelog and doc entries for #211 (Sia Piperea, 2026-10-31 17:32)
+- [[https://github.com/siainbuletin/dotfiles/commit/b50e50b56640690421e2f2090bc283d917e13e96][b50e50b566]] 📝 Changelog and doc entries now point to #213 (Sia Piperea, 2026-10-31 17:33)
