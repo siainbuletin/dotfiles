@@ -2,9 +2,9 @@
 
 ;;; Commentary:
 
-;; A see-also footnote is an inline Org footnote that holds an `id:' link,
-;; `[fn::[[id:...][Concept]]]'.  This module finds them without visiting the
-;; file (a temporary buffer, no mode, no hook), keeps them in a cache keyed by
+;; A see-also footnote is an Org footnote that holds an `id:' link: inline,
+;; `[fn::[[id:...][Concept]]]', or a definition, `[fn:1] ... [[id:...][Concept]]'.
+;; This module finds them without visiting the file (a temporary buffer, no mode, no hook), keeps them in a cache keyed by
 ;; the modification time and size of each file, and ranks the concepts and the
 ;; open research questions they point at.
 ;; The two dashboards are in `sp-see-also-widget' and `org-dblock-write:concept-usage'.
@@ -240,6 +240,75 @@ Each is a plist of :beg, :end, :label and :text, in order."
             (goto-char end)))))
     (nreverse footnotes)))
 
+;; Definition footnotes (`[fn:1]' in the text, `[fn:1] ...' below) are the form
+;; that Org writes for numbered notes; the litnotes of the real vault use them.
+
+(defun sp-see-also--definition-end (text-beg)
+  "Return where the footnote definition whose text starts at TEXT-BEG ends.
+Like Org, it ends at the next definition, the next heading, two blank lines or
+the end of the buffer."
+  (save-excursion
+    (goto-char text-beg)
+    (let ((end (point-max)))
+      (when (re-search-forward
+             "\\(?:\n\\[fn:[-_[:word:]]+\\]\\|\n\\*+[ \t]\\|\n[ \t]*\n[ \t]*\n\\)" nil t)
+        (setq end (1+ (match-beginning 0))))
+      (while (and (> end text-beg) (memq (char-before end) '(?\n ?\s ?\t)))
+        (setq end (1- end)))
+      end)))
+
+(defun sp-see-also--reference-range (label avoid skip)
+  "Return (BEG . END) of the first reference `[fn:LABEL]' outside AVOID and SKIP.
+AVOID is a list of (BEG . END) ranges, those of the definitions."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t)
+          (regexp (format "\\[fn:%s\\]" (regexp-quote label)))
+          found)
+      (while (and (not found) (re-search-forward regexp nil t))
+        (let ((beg (match-beginning 0)))
+          (unless (or (sp-see-also--in-ranges-p beg avoid)
+                      (sp-see-also--in-ranges-p beg skip)
+                      (sp-see-also--commented-p beg))
+            (setq found (cons beg (match-end 0))))))
+      found)))
+
+(defun sp-see-also--definitions-raw (skip)
+  "Return the footnote definitions of the buffer outside the SKIP ranges.
+Each is a plist of :beg and :end (the first reference to it, or the definition
+itself when nothing refers to it), :def-beg, :def-end, :label and :text."
+  (let ((case-fold-search t)
+        defs result)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^\\[fn:\\([-_[:word:]]+\\)\\]" nil t)
+        (let ((beg (match-beginning 0)))
+          (unless (or (sp-see-also--in-ranges-p beg skip)
+                      (sp-see-also--commented-p beg))
+            (let* ((label (match-string-no-properties 1))
+                   (text-beg (match-end 0))
+                   (end (sp-see-also--definition-end text-beg)))
+              (push (list beg end label
+                          (string-trim (buffer-substring-no-properties text-beg end)))
+                    defs)
+              (goto-char (max end text-beg)))))))
+    (setq defs (nreverse defs))
+    (let ((avoid (mapcar (lambda (d) (cons (nth 0 d) (nth 1 d))) defs)))
+      (dolist (d defs)
+        (let ((ref (sp-see-also--reference-range (nth 2 d) avoid skip)))
+          (push (list :beg (if ref (car ref) (nth 0 d))
+                      :end (if ref (cdr ref) (nth 1 d))
+                      :def-beg (nth 0 d) :def-end (nth 1 d)
+                      :label (nth 2 d) :text (nth 3 d))
+                result))))
+    (nreverse result)))
+
+(defun sp-see-also--footnotes-all (skip)
+  "Return the inline and the definition footnotes outside SKIP, ordered by :beg."
+  (sort (append (sp-see-also--footnotes-raw skip)
+                (sp-see-also--definitions-raw skip))
+        (lambda (a b) (< (plist-get a :beg) (plist-get b :beg)))))
+
 (defun sp-see-also--links (text)
   "Return the `id:' links of TEXT as a list of (ID . DESCRIPTION)."
   (let ((start 0)
@@ -263,7 +332,9 @@ Each is a plist of :beg, :end, :label and :text, in order."
 ;;;###autoload
 (defun sp-see-also-parse-buffer (&optional buffer)
   "Return the see-also footnotes of BUFFER (default the current one), in order.
-A see-also footnote is an inline footnote with an `id:' link.  Each is a plist:
+A see-also footnote is an inline or definition footnote with an `id:' link.
+For a definition, :beg and :end are its first reference, :def-beg and :def-end
+the definition.  Each is a plist:
 :beg, :end, :label, :text, :links (a list of (ID . DESCRIPTION)), :snippet,
 :where (`quote' or `prose'), :question (keyword of the nearest question
 heading above, or nil), :open (non-nil when that question is open),
@@ -281,7 +352,7 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
                                     (when-let* ((links (sp-see-also--links
                                                         (plist-get footnote :text))))
                                       (append footnote (list :links links))))
-                                  (sp-see-also--footnotes-raw (car ranges)))))
+                                  (sp-see-also--footnotes-all (car ranges)))))
                (headings (and raw (sp-see-also--headings keywords (car ranges))))
                stack result)
           (dolist (footnote raw)
@@ -324,7 +395,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
           (push (append (list :id (car link) :desc (cdr link)) base) mentions))))
     (nreverse mentions)))
 
-(defconst sp-see-also--cache-version 1
+(defconst sp-see-also--cache-version 2
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
@@ -749,8 +820,63 @@ question.
     (goto-char pos)
     (when (fboundp 'org-reveal) (org-reveal))))
 
+;;;###autoload
+(defun sp-see-also-show (&optional file)
+  "Show the see-also concepts and open questions of FILE in a buffer.
+FILE defaults to the file of the current buffer.  This needs no sidebar."
+  (interactive)
+  (let* ((file (or file buffer-file-name (user-error "This buffer visits no file")))
+         (concepts (sp-see-also-concepts-for-file file))
+         (questions (sp-see-also-questions-for-file file)))
+    (with-current-buffer (get-buffer-create "*see-also*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "See also: %s\n\n" (file-name-nondirectory file)))
+        (if (null concepts)
+            (insert "No see-also footnotes found.\n")
+          (dolist (c concepts)
+            (insert (format "%5.1f  %s  x%d  quotes %d  questions %d\n"
+                            (plist-get c :score) (plist-get c :title)
+                            (plist-get c :count) (plist-get c :quotes)
+                            (plist-get c :questions)))))
+        (when questions
+          (insert "\nOpen questions\n")
+          (dolist (q questions)
+            (insert (format "%5.1f  %s %s  (%d)\n" (plist-get q :priority)
+                            (plist-get q :keyword) (plist-get q :title)
+                            (plist-get q :count)))))
+        (goto-char (point-min))
+        (special-mode)))
+    (pop-to-buffer "*see-also*")))
+
+;;;###autoload
+(defun sp-see-also-show-concept (id)
+  "Show the litnotes that mention concept ID in a see-also footnote.
+Interactively, ID is the :ID: of the entry at point."
+  (interactive (list (progn (require 'org) (or (org-entry-get nil "ID" t)
+                                               (read-string "Concept ID: ")))))
+  (let ((usage (sp-see-also-concept-usage id)))
+    (with-current-buffer (get-buffer-create "*see-also-concept*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Concept %s\n\n" (sp-see-also--concept-title id nil)))
+        (if (null usage)
+            (insert "No litnote mentions this concept in a see-also footnote.\n")
+          (dolist (entry usage)
+            (insert (format "%s (%d)\n" (plist-get entry :title)
+                            (length (plist-get entry :mentions))))
+            (dolist (m (plist-get entry :mentions))
+              (insert (format "   %s  %s\n" (plist-get m :where)
+                              (plist-get m :snippet))))))
+        (goto-char (point-min))
+        (special-mode)))
+    (pop-to-buffer "*see-also-concept*")))
+
 (with-eval-after-load 'vulpea-ui
-  (require 'sp-see-also-widget))
+  (condition-case err
+      (require 'sp-see-also-widget)
+    (error (message "[see-also] the sidebar widgets could not load: %s"
+                    (error-message-string err)))))
 
 (provide 'sp-see-also)
 ;;; sp-see-also.el ends here
