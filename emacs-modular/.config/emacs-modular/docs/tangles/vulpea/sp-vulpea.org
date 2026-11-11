@@ -4,7 +4,7 @@
 
 Literate source for the Vulpea modules in =libraries/modules/vulpea/=.
 
-- One file tangles eleven =.el= files, one per module, each with its own =provide=.
+- One file tangles twelve =.el= files, one per module, each with its own =provide=.
 - No module loads them as a group; =sp-org-ext= requires them.
 - Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading.
 - The =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written.
@@ -31,12 +31,13 @@ The table modules (=sp-collection-query=, a custom module of mine) are deliberat
 | [[*sp-vulpea-convert-properties.el]] | =libraries/modules/vulpea/sp-vulpea-convert-properties.el= | Convert drawer properties to meta lines |
 | [[*sp-vulpea-convert-keywords.el]] | =libraries/modules/vulpea/sp-vulpea-convert-keywords.el= | Convert file-header keywords to meta lines |
 | [[*sp-vulpea-grouped-backlinks.el]] | =libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el= | Backlinks grouped by meta property |
+| [[*sp-vulpea-grouped-backlinks-widget.el]] | =libraries/modules/vulpea/sp-vulpea-grouped-backlinks-widget.el= | Grouped backlinks as a =vulpea-ui= widget |
 | [[*sp-vulpea-org-ql.el]] | =libraries/modules/vulpea/sp-vulpea-org-ql.el= | org-ql query draft (not loaded) |
 
 Load order:
 
+- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks=, =sp-vulpea-grouped-backlinks-widget= and =sp-refile= (which holds =sp-split-leave-parents=).
 - =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query=.
-- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks= and =sp-refile= (which holds =sp-split-leave-parents=).
 - Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
 - Both are still tangled, so the files stay in step with their docs.
 
@@ -1154,6 +1155,16 @@ Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain m
 
 #+begin_src emacs-lisp -i
 (require 'sp-vulpea-grouped-backlinks)
+#+end_src
+
+*** Grouped backlinks widget
+
+Loads =sp-vulpea-grouped-backlinks-widget=, which adds the groups to the =vulpea-ui= sidebar as a widget.
+
+- It needs =vulpea-ui=, which =sp-org-ext= loads (through =sp-vulpea-ui=) before this file.
+
+#+begin_src emacs-lisp -i
+(require 'sp-vulpea-grouped-backlinks-widget)
 #+end_src
 
 *** Smarter heading split
@@ -2304,7 +2315,7 @@ note is saved, except one with unsaved changes, which is skipped."
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el
 :END:
 
-This module shows the backlinks of a Vulpea note in an Org buffer, split into groups.
+This module shows the backlinks of a Vulpea note, split into groups, in an Org buffer (=-org-detached=) or in a sidebar that follows the main note (=-sidebar=).
 
 - A link in ordinary prose goes into a Mentions group.
 - A link on a Vulpea meta line of the form =- KEY :: [[id:...]]= goes into a group named after that key.
@@ -2314,7 +2325,7 @@ Dependencies and open points:
 
 - Depends on =vulpea=, =org= and the sibling module =sp-collection-query-core= (for =sp-collec-query-select-note=).
 - Loaded from =sp-vulpea-ext=.
-- The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason. The docstrings do not actually explain it.
+- The =vulpea-ui= widget is a separate file, =sp-vulpea-grouped-backlinks-widget.el=, so this file does not need =vulpea-ui= or =vui= at load time.
 - The author flags that the shape of the link data from =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
 
 The commentary at the top of the module says:
@@ -2329,9 +2340,9 @@ contributes to a "pub-author" group when you look at Christopher
 Arthur's backlinks, distinct from any note that just mentions him
 in passing prose.
 
-NOT YET a real vulpea-ui sidebar widget -- see the top-level
-docstrings below for why, and `sp-vulpea-grouped-backlinks-classify' for
-the one point of Vulpea API I couldn't fully confirm.
+The vulpea-ui widget is in sp-vulpea-grouped-backlinks-widget.el.
+`sp-vulpea-grouped-backlinks-classify' holds the one point of Vulpea
+API I couldn't fully confirm.
 #+end_quote
 
 ** Header and dependencies
@@ -2354,9 +2365,9 @@ The file header: the first line carries the file name, a short summary and the =
 ;; Arthur's backlinks, distinct from any note that just mentions him
 ;; in passing prose.
 ;;
-;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
-;; docstrings below for why, and `sp-vulpea-grouped-backlinks-classify' for
-;; the one point of Vulpea API I couldn't fully confirm.
+;; The vulpea-ui widget is in sp-vulpea-grouped-backlinks-widget.el.
+;; `sp-vulpea-grouped-backlinks-classify' holds the one point of Vulpea
+;; API I couldn't fully confirm.
 
 ;;; Code:
 #+end_src
@@ -2369,6 +2380,22 @@ Loads =vulpea=, =org= and =sp-collection-query-core=.
 (require 'vulpea)
 (require 'org)
 (require 'sp-collection-query-core) ; for sp-collec-query-select-note
+#+end_src
+
+*** Functions from vulpea-ui
+
+The sidebar reuses three functions of =vulpea-ui=. The package is not required at load time; the sidebar command requires it when it runs.
+
+- =vulpea-ui-visit-note=: opens a note in the main window (public).
+- =vulpea-ui--get-main-window=: the window that =vulpea-ui= treats as the main one (private).
+- =vulpea-ui--get-note-from-buffer=: the note a buffer stands for, which is the file-level note (private).
+- The two private functions are what =vulpea-ui= itself uses to decide which note its sidebar shows, so the sidebar here follows the same note.
+- If a =vulpea-ui= update renames them, the sidebar stops following; the tests stub them, so they would not notice.
+
+#+begin_src emacs-lisp -i
+(declare-function vulpea-ui-visit-note "vulpea-ui")
+(declare-function vulpea-ui--get-main-window "vulpea-ui")
+(declare-function vulpea-ui--get-note-from-buffer "vulpea-ui")
 #+end_src
 
 ** Classifying backlinks
@@ -2440,6 +2467,22 @@ need adjusting."
       result)))
 #+end_src
 
+*** Sorted groups
+
+=sp-vulpea-grouped-backlinks-sorted= returns the groups of an ID in the order every view shows them.
+
+- Calls =sp-vulpea-grouped-backlinks-classify=.
+- Sorts the groups by name, so =Mentions= comes before lower-case keys such as =pub-author=.
+- Used by the Org buffer, the sidebar and (later) the widget, so they cannot disagree.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-sorted (id)
+  "Return the groups of notes linking to ID, sorted by group name.
+See `sp-vulpea-grouped-backlinks-classify' for the shape."
+  (sort (sp-vulpea-grouped-backlinks-classify id)
+        (lambda (a b) (string< (car a) (car b)))))
+#+end_src
+
 ** Displaying the result
 
 *** Grouped backlinks buffer
@@ -2459,7 +2502,7 @@ need adjusting."
 (defun sp-vulpea-grouped-backlinks-org-detached (&optional note)
   "Show backlinks to NOTE, grouped into \"Mentions\" plus one section
 per meta-property key they were found under (see
-`sp-vulpea-grouped-backlinks-classify'). Prompts for NOTE, via
+`sp-vulpea-grouped-backlinks-sorted'). Prompts for NOTE, via
 `sp-collec-query-select-note' (tag-annotated completion), if not given.
 
 Each entry is a real, clickable [[id:...][Title]] link back to
@@ -2468,7 +2511,7 @@ the note that made the reference -- opened in `org-mode' so
 conversion report."
   (interactive)
   (let* ((note (or note (sp-collec-query-select-note "Show backlinks for: ")))
-         (groups (sp-vulpea-grouped-backlinks-classify (vulpea-note-id note))))
+         (groups (sp-vulpea-grouped-backlinks-sorted (vulpea-note-id note))))
     (with-current-buffer (get-buffer-create
                            (format "*vulpea backlinks: %s*" (vulpea-note-title note)))
       (erase-buffer)
@@ -2476,7 +2519,7 @@ conversion report."
       (insert (format "* Backlinks to %s\n\n" (vulpea-note-title note)))
       (if (null groups)
           (insert "No backlinks found.\n")
-        (dolist (group (sort groups (lambda (a b) (string< (car a) (car b)))))
+        (dolist (group groups)
           (insert (format "** %s (%d)\n" (car group) (length (cdr group))))
           (dolist (n (cdr group))
             (insert (format "- %s\n"
@@ -2487,6 +2530,282 @@ conversion report."
       (display-buffer (current-buffer)))))
 #+end_src
 
+** Sidebar
+
+=sp-vulpea-grouped-backlinks-sidebar= shows the groups in a pop-up side window that follows the note in the main window.
+
+- It sits beside the =vulpea-ui= sidebar (same side, the next slot), not instead of it.
+- Moving to another note, for example through a mention, redraws it.
+- Following can be switched off, and the switch only affects this sidebar; the widget always follows.
+
+*** Settings
+
+The user options of the sidebar.
+
+- =sp-vulpea-grouped-backlinks-sidebar-follow=: non-nil (default) redraws the sidebar for the note in the main window; nil keeps the note it shows (pinned).
+- =sp-vulpea-grouped-backlinks-sidebar-side=: =left=, =right= (default), =top= or =bottom=.
+- =sp-vulpea-grouped-backlinks-sidebar-slot=: slot on that side; 1 (default) puts it next to the =vulpea-ui= sidebar, which has slot 0.
+- =sp-vulpea-grouped-backlinks-sidebar-size=: fraction of the frame (default 0.33).
+
+#+begin_src emacs-lisp -i
+(defgroup sp-vulpea-grouped-backlinks nil
+  "Vulpea backlinks grouped by meta property."
+  :group 'vulpea)
+
+(defcustom sp-vulpea-grouped-backlinks-sidebar-follow t
+  "Non-nil means the sidebar follows the note in the main window.
+Nil keeps the note it shows (pinned) until it is toggled back or the
+sidebar is reopened.  Only the sidebar reads this; the `vulpea-ui'
+widget always follows."
+  :type 'boolean
+  :group 'sp-vulpea-grouped-backlinks)
+
+(defcustom sp-vulpea-grouped-backlinks-sidebar-side 'right
+  "Side of the frame for the grouped backlinks sidebar."
+  :type '(choice (const left) (const right) (const top) (const bottom))
+  :group 'sp-vulpea-grouped-backlinks)
+
+(defcustom sp-vulpea-grouped-backlinks-sidebar-slot 1
+  "Slot of the sidebar on its side; the `vulpea-ui' sidebar uses 0."
+  :type 'integer
+  :group 'sp-vulpea-grouped-backlinks)
+
+(defcustom sp-vulpea-grouped-backlinks-sidebar-size 0.33
+  "Size of the sidebar as a fraction of the frame."
+  :type 'number
+  :group 'sp-vulpea-grouped-backlinks)
+#+end_src
+
+*** Buffer state
+
+- The buffer is called =*vulpea grouped backlinks*=.
+- =sp-vulpea-grouped-backlinks-sidebar--note= (buffer-local) is the note drawn now; the sync compares against it.
+- =sp-vulpea-grouped-backlinks-sidebar--timer= holds the pending sync (see the hooks below).
+
+#+begin_src emacs-lisp -i
+(defconst sp-vulpea-grouped-backlinks-sidebar-buffer-name
+  "*vulpea grouped backlinks*"
+  "Name of the grouped backlinks sidebar buffer.")
+
+(defvar-local sp-vulpea-grouped-backlinks-sidebar--note nil
+  "The `vulpea-note' the sidebar buffer shows.")
+
+(defvar sp-vulpea-grouped-backlinks-sidebar--timer nil
+  "Pending sync timer, or nil.")
+#+end_src
+
+*** Main note
+
+=sp-vulpea-grouped-backlinks-sidebar--main-note= returns the note of the main window, or nil.
+
+- Asks =vulpea-ui= for its main window and for the note of that window's buffer, so both sidebars agree.
+- The main window is never a side window, so the sidebar here is not mistaken for it.
+- A narrowed buffer or a non-note buffer gives nil (or the file-level note); the sidebar then keeps what it shows.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-sidebar--main-note ()
+  "Return the note shown in the main window, or nil."
+  (require 'vulpea-ui)
+  (when-let* ((win (vulpea-ui--get-main-window)))
+    (vulpea-ui--get-note-from-buffer (window-buffer win))))
+#+end_src
+
+*** Drawing
+
+=sp-vulpea-grouped-backlinks-sidebar--render= draws the groups of NOTE in the current buffer.
+
+- Two header lines: the title, and whether the sidebar follows or is pinned.
+- One line per group with its count, then one button per note.
+- A button opens the note in the main window with =vulpea-ui-visit-note=.
+- Point goes to the top, as in the =vulpea-ui= sidebar.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-sidebar--visit (button)
+  "Open the note of BUTTON in the main window."
+  (require 'vulpea-ui)
+  (vulpea-ui-visit-note (button-get button 'sp-note)))
+
+(defun sp-vulpea-grouped-backlinks-sidebar--render (note)
+  "Draw the grouped backlinks of NOTE in the current buffer."
+  (let ((inhibit-read-only t)
+        (groups (sp-vulpea-grouped-backlinks-sorted (vulpea-note-id note))))
+    (erase-buffer)
+    (setq sp-vulpea-grouped-backlinks-sidebar--note note)
+    (insert (propertize (format "Backlinks to %s" (vulpea-note-title note))
+                        'face 'bold)
+            "\n"
+            (propertize (if sp-vulpea-grouped-backlinks-sidebar-follow
+                            "following the main note (f: pin)"
+                          "pinned (f: follow)")
+                        'face 'shadow)
+            "\n\n")
+    (if (null groups)
+        (insert "No backlinks found.\n")
+      (dolist (group groups)
+        (insert (propertize (format "%s (%d)" (car group) (length (cdr group)))
+                            'face 'font-lock-keyword-face)
+                "\n")
+        (dolist (n (cdr group))
+          (insert "  ")
+          (insert-text-button
+           (or (vulpea-note-title n) "(untitled)")
+           'action #'sp-vulpea-grouped-backlinks-sidebar--visit
+           'follow-link t
+           'sp-note n)
+          (insert "\n"))
+        (insert "\n")))
+    (goto-char (point-min))))
+#+end_src
+
+*** Following
+
+The sidebar redraws when the main window shows another note.
+
+- =sp-vulpea-grouped-backlinks-sidebar--sync= compares the main note with the drawn one and redraws only if the ID differs.
+- It does nothing when following is off, when the sidebar is not visible or when there is no main note (for example a non-note buffer).
+- =sp-vulpea-grouped-backlinks-sidebar--on-window-change= is added to =window-buffer-change-functions= and =window-selection-change-functions=, the hooks =vulpea-ui= tracks its note with.
+- It only arms a zero-second timer; the work runs from the timer.
+- This is the reason =vulpea-ui= gives for doing the same: work done inside the window change functions can see a stale window layout.
+- One timer at a time, so two hooks firing for one redisplay cause one sync.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-sidebar--sync ()
+  "Redraw the sidebar if the main window shows another note."
+  (setq sp-vulpea-grouped-backlinks-sidebar--timer nil)
+  (when-let* ((buf (get-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name))
+              ((and sp-vulpea-grouped-backlinks-sidebar-follow
+                    (get-buffer-window buf t)))
+              (note (sp-vulpea-grouped-backlinks-sidebar--main-note))
+              (shown (buffer-local-value
+                      'sp-vulpea-grouped-backlinks-sidebar--note buf))
+              ((not (equal (vulpea-note-id note) (vulpea-note-id shown)))))
+    (with-current-buffer buf
+      (sp-vulpea-grouped-backlinks-sidebar--render note))))
+
+(defun sp-vulpea-grouped-backlinks-sidebar--on-window-change (&optional _frame)
+  "Arm a sync after a window or buffer change."
+  (unless (or (minibufferp) sp-vulpea-grouped-backlinks-sidebar--timer)
+    (setq sp-vulpea-grouped-backlinks-sidebar--timer
+          (run-with-timer 0 nil #'sp-vulpea-grouped-backlinks-sidebar--sync))))
+
+(defun sp-vulpea-grouped-backlinks-sidebar--add-hooks ()
+  "Track the main window while the sidebar exists."
+  (add-hook 'window-buffer-change-functions
+            #'sp-vulpea-grouped-backlinks-sidebar--on-window-change)
+  (add-hook 'window-selection-change-functions
+            #'sp-vulpea-grouped-backlinks-sidebar--on-window-change))
+
+(defun sp-vulpea-grouped-backlinks-sidebar--remove-hooks ()
+  "Stop tracking and cancel a pending sync."
+  (remove-hook 'window-buffer-change-functions
+               #'sp-vulpea-grouped-backlinks-sidebar--on-window-change)
+  (remove-hook 'window-selection-change-functions
+               #'sp-vulpea-grouped-backlinks-sidebar--on-window-change)
+  (when (timerp sp-vulpea-grouped-backlinks-sidebar--timer)
+    (cancel-timer sp-vulpea-grouped-backlinks-sidebar--timer))
+  (setq sp-vulpea-grouped-backlinks-sidebar--timer nil))
+#+end_src
+
+*** Mode
+
+=sp-vulpea-grouped-backlinks-sidebar-mode= is a =special-mode=.
+
+- Keys: =f= toggles following, =g= redraws the shown note (the backlinks changed), =q= closes the sidebar, =RET= opens the note under point.
+- Killing the buffer removes the hooks, so nothing runs once the sidebar is gone.
+
+#+begin_src emacs-lisp -i
+(defvar-keymap sp-vulpea-grouped-backlinks-sidebar-mode-map
+  :doc "Keys of the grouped backlinks sidebar."
+  :parent special-mode-map
+  "f" #'sp-vulpea-grouped-backlinks-sidebar-toggle-follow
+  "q" #'sp-vulpea-grouped-backlinks-sidebar-close
+  "RET" #'push-button)
+
+(define-derived-mode sp-vulpea-grouped-backlinks-sidebar-mode special-mode
+  "Backlinks"
+  "Major mode of the grouped backlinks sidebar."
+  (setq-local revert-buffer-function
+              (lambda (&rest _)
+                (when sp-vulpea-grouped-backlinks-sidebar--note
+                  (sp-vulpea-grouped-backlinks-sidebar--render
+                   sp-vulpea-grouped-backlinks-sidebar--note))))
+  (add-hook 'kill-buffer-hook
+            #'sp-vulpea-grouped-backlinks-sidebar--remove-hooks nil t))
+#+end_src
+
+*** Commands
+
+Three commands.
+
+- =sp-vulpea-grouped-backlinks-sidebar=: opens the sidebar for the main note, or closes it when it is open (a toggle, like =vulpea-ui-sidebar-toggle=). With no note in the main window it asks for one.
+- =sp-vulpea-grouped-backlinks-sidebar-close=: closes the window and kills the buffer.
+- =sp-vulpea-grouped-backlinks-sidebar-toggle-follow=: flips =sp-vulpea-grouped-backlinks-sidebar-follow= and redraws; when it turns following on, it catches up with the main note at once.
+- The side window is created with the slot limit lifted, so the sidebar still shows when side windows are limited, as =vulpea-ui= does.
+- No key is bound; the =sp-keys= bindings are left to a later change.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-sidebar--display (buffer)
+  "Show BUFFER in a side window and return the window."
+  (let ((window-sides-slots (list nil nil nil nil))
+        (side sp-vulpea-grouped-backlinks-sidebar-side)
+        (size sp-vulpea-grouped-backlinks-sidebar-size))
+    (display-buffer-in-side-window
+     buffer
+     `((side . ,side)
+       (slot . ,sp-vulpea-grouped-backlinks-sidebar-slot)
+       (window-width . ,(if (memq side '(left right)) size nil))
+       (window-height . ,(if (memq side '(top bottom)) size nil))
+       (window-parameters . ((no-delete-other-windows . t)))))))
+
+;;;###autoload
+(defun sp-vulpea-grouped-backlinks-sidebar-close ()
+  "Close the grouped backlinks sidebar."
+  (interactive)
+  (when-let* ((buf (get-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name)))
+    (dolist (win (get-buffer-window-list buf nil t))
+      (when (window-parameter win 'window-side)
+        (delete-window win)))
+    (kill-buffer buf)))
+
+;;;###autoload
+(defun sp-vulpea-grouped-backlinks-sidebar ()
+  "Toggle a side window with the grouped backlinks of the main note.
+The window follows the note in the main window while
+`sp-vulpea-grouped-backlinks-sidebar-follow' is non-nil.  Ask for a note
+when the main window shows none."
+  (interactive)
+  (if (get-buffer-window sp-vulpea-grouped-backlinks-sidebar-buffer-name)
+      (sp-vulpea-grouped-backlinks-sidebar-close)
+    (let ((note (or (sp-vulpea-grouped-backlinks-sidebar--main-note)
+                    (sp-collec-query-select-note "Show backlinks for: ")))
+          (buf (get-buffer-create
+                sp-vulpea-grouped-backlinks-sidebar-buffer-name)))
+      (with-current-buffer buf
+        (unless (derived-mode-p 'sp-vulpea-grouped-backlinks-sidebar-mode)
+          (sp-vulpea-grouped-backlinks-sidebar-mode))
+        (sp-vulpea-grouped-backlinks-sidebar--render note))
+      (sp-vulpea-grouped-backlinks-sidebar--add-hooks)
+      (sp-vulpea-grouped-backlinks-sidebar--display buf))))
+
+;;;###autoload
+(defun sp-vulpea-grouped-backlinks-sidebar-toggle-follow ()
+  "Toggle whether the grouped backlinks sidebar follows the main note."
+  (interactive)
+  (setq sp-vulpea-grouped-backlinks-sidebar-follow
+        (not sp-vulpea-grouped-backlinks-sidebar-follow))
+  (when-let* ((buf (get-buffer sp-vulpea-grouped-backlinks-sidebar-buffer-name)))
+    (with-current-buffer buf
+      (when sp-vulpea-grouped-backlinks-sidebar--note
+        (sp-vulpea-grouped-backlinks-sidebar--render
+         sp-vulpea-grouped-backlinks-sidebar--note)))
+    (when sp-vulpea-grouped-backlinks-sidebar-follow
+      (sp-vulpea-grouped-backlinks-sidebar--sync)))
+  (message "Grouped backlinks sidebar: %s"
+           (if sp-vulpea-grouped-backlinks-sidebar-follow
+               "following the main note"
+             "pinned")))
+#+end_src
+
 ** Provide
 
 Provides the =sp-vulpea-grouped-backlinks= feature and closes the file.
@@ -2494,6 +2813,113 @@ Provides the =sp-vulpea-grouped-backlinks= feature and closes the file.
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-grouped-backlinks)
 ;;; sp-vulpea-grouped-backlinks.el ends here
+#+end_src
+
+* sp-vulpea-grouped-backlinks-widget.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-grouped-backlinks-widget.el
+:END:
+
+This module adds the grouped backlinks to the =vulpea-ui= sidebar as a widget.
+
+- It is registered like the Link inbox widgets of =sp-tab-inbox=: a =vui= component, and a call to =vulpea-ui-register-widget=.
+- The widget shows the note =vulpea-ui= is showing (=use-vulpea-ui-note=), so it follows the main note with the rest of that sidebar.
+- The follow switch of the separate =sp-vulpea-grouped-backlinks-sidebar= does not apply to it.
+- It reuses =sp-vulpea-grouped-backlinks-sorted=, so it shows the same groups as the Org view and the sidebar.
+
+Settings of the registration:
+
+- Name: =grouped-backlinks=.
+- Order: 310, right after the standard =backlinks= widget (300).
+- Collapsed at start unless =vulpea-ui-default-widget-collapsed= says otherwise (the registration sets no =:collapsed=).
+
+** Header, requires and provide
+
+*** Header
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-grouped-backlinks-widget.el --- Grouped backlinks as a vulpea-ui widget -*- lexical-binding: t; -*-
+;; Package-Requires: ((emacs "29.1") (vulpea "2") (vulpea-ui "0") (vui "0"))
+
+;;; Commentary:
+
+;; A vulpea-ui sidebar widget with the backlinks of the current note,
+;; grouped by the meta property they were found in.  The grouping lives in
+;; `sp-vulpea-grouped-backlinks'.
+
+;;; Code:
+#+end_src
+
+*** Requires
+
+Loads =vulpea-ui= and =vui= (for the component macros) and the grouping module.
+
+#+begin_src emacs-lisp -i
+(require 'vulpea)
+(require 'vulpea-ui)
+(require 'vui)
+(require 'sp-vulpea-grouped-backlinks)
+#+end_src
+
+** Widget
+
+*** Component
+
+=sp-vulpea-grouped-backlinks-widget= renders the groups of the current note.
+
+- Does nothing when no note is shown.
+- Computes the groups in =vui-use-memo=, keyed on the note: an idle refresh reuses them, and a refresh with cache invalidation (=vulpea-ui-sidebar-refresh=) computes them again.
+- The count in the title is the number of notes over all groups, so a note listed under two groups counts twice.
+- Each group is its name and count, then one =vulpea-ui-note-link= per note, indented.
+- A note link opens the note in the main window.
+
+#+begin_src emacs-lisp -i
+(vui-defcomponent sp-vulpea-grouped-backlinks-widget ()
+  "Backlinks of the current note, grouped by meta property."
+  :render
+  (let ((note (use-vulpea-ui-note)))
+    (when note
+      (let ((groups (vui-use-memo (note)
+                      (sp-vulpea-grouped-backlinks-sorted
+                       (vulpea-note-id note)))))
+        (vui-component 'vulpea-ui-widget
+          :title "Grouped backlinks"
+          :count (apply #'+ (mapcar (lambda (g) (length (cdr g))) groups))
+          :children
+          (lambda ()
+            (if (null groups)
+                (vui-text "No backlinks")
+              (apply #'vui-vstack
+                     (mapcar
+                      (lambda (group)
+                        (vui-vstack
+                         (vui-text (format "%s (%d)" (car group)
+                                           (length (cdr group)))
+                                   :face 'font-lock-keyword-face)
+                         (apply #'vui-vstack
+                                :indent 2
+                                (mapcar (lambda (n)
+                                          (vui-component 'vulpea-ui-note-link
+                                                         :note n))
+                                        (cdr group)))))
+                      groups)))))))))
+#+end_src
+
+*** Registration
+
+Registers the widget as =grouped-backlinks= with order 310.
+
+#+begin_src emacs-lisp -i
+(vulpea-ui-register-widget 'grouped-backlinks
+  :component 'sp-vulpea-grouped-backlinks-widget
+  :order 310) ; right after backlinks (300)
+#+end_src
+
+** Provide
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vulpea-grouped-backlinks-widget)
+;;; sp-vulpea-grouped-backlinks-widget.el ends here
 #+end_src
 
 * sp-vulpea-org-ql.el
