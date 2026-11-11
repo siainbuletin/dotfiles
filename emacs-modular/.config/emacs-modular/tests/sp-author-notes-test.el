@@ -46,7 +46,7 @@
                    ((symbol-function 'require)
                     (let ((orig (symbol-function 'require)))
                       (lambda (feature &rest args)
-                        (if (memq feature '(sp-org-link-conversion sp-collection-query-tables)) t (apply orig feature args))))))
+                        (if (memq feature '(sp-org-link-conversion sp-collection-query)) t (apply orig feature args))))))
            ,@body)
        (delete-directory vault t))))
 
@@ -83,9 +83,9 @@
 (ert-deftest sp-author-notes-test-person-pass ()
   (with-temp-buffer
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: X\n\n* Bio\ntext\n")
-    (should (equal (sp-author-notes--person-pass) '(basics works table)))
+    (should (equal (sp-author-notes--person-pass t) '(basics works table edited-heading edited-table)))
     (let ((text (buffer-string)))
-      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :fold-tag \"booksection\" :fold-prop \"bib-parent\" :columns (:title :sections \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Bio\ntext\n" text))
+      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :fold-tag \"booksection\" :fold-prop \"bib-parent\" :columns (:title :collection :sections \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* Bio\ntext\n" text))
       ;; idempotent
       (should (null (sp-author-notes--person-pass)))
       (should (equal text (buffer-string))))))
@@ -93,15 +93,15 @@
 (ert-deftest sp-author-notes-test-person-pass-keeps-existing ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Basics\nmine\n** Sub\n* Works\nold text\n** Child\nc\n* Other\n")
-    (should (equal (sp-author-notes--person-pass) '(table)))
-    (should (string-match-p "\\* Works\nold text\n\n#\\+BEGIN: .*\n#\\+END:\n\n\\*\\* Child\nc\n\\* Other\n"
+    (should (equal (sp-author-notes--person-pass t) '(table edited-heading edited-table)))
+    (should (string-match-p "\\* Works\nold text\n\n#\\+BEGIN: .*\n#\\+END:\n\n\\*\\* Child\nc\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* Other\n"
                             (buffer-string)))
     (should (string-match-p "\\* Basics\nmine\n\\*\\* Sub\n" (buffer-string)))))
 
 (ert-deftest sp-author-notes-test-person-pass-existing-table-elsewhere ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Basics\n#+BEGIN: vulpea-table :parent-of \"self\" :parent-prop \"pub-author\"\n#+END:\n")
-    (should (equal (sp-author-notes--person-pass) '(works)))))
+    (should (equal (sp-author-notes--person-pass t) '(works edited-heading edited-table)))))
 
 (ert-deftest sp-author-notes-test-full-run ()
   (sp-author-notes-test--with-vault
@@ -210,9 +210,9 @@
 (ert-deftest sp-author-notes-test-moves-works-above-basics ()
   (with-temp-buffer
     (insert "#+title: X\n\n* Works\nmine\n** Sub\n* Bio\n* Basics\nb\n* After\n")
-    (should (equal (sp-author-notes--person-pass) '(moved-works table)))
+    (should (equal (sp-author-notes--person-pass t) '(moved-works table edited-heading edited-table)))
     (let ((text (buffer-string)))
-      (should (string-match-p "\\* Bio\n\n?\\* Basics\nb\n\n\\* Works\nmine\n\n#\\+BEGIN: [^\n]*\n#\\+END:\n\n\\*\\* Sub\n\n\\* After\n" text))
+      (should (string-match-p "\\* Bio\n\n?\\* Basics\nb\n\n\\* Works\nmine\n\n#\\+BEGIN: [^\n]*\n#\\+END:\n\n\\*\\* Sub\n\n\\* Edited works\n\n#\\+BEGIN: [^\n]*:parent-prop \"pub-editor\" :except-prop \"pub-author\"[^\n]*\n#\\+END:\n\n\\* After\n" text))
       (should (null (sp-author-notes--person-pass)))
       (should (equal text (buffer-string))))))
 
@@ -366,10 +366,11 @@
             (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))))))))
 
 (ert-deftest sp-author-notes-test-report-keys ()
+  "The old view: d, u and RET work on the report lines."
   (sp-author-notes-test--with-vault
     (sp-author-notes-test--write (expand-file-name "litnotes/a.org" vault)
                                  "#+title: x" "" "- pub-author :: Ann Lee" "")
-    (let ((sp-author-notes--excluded nil))
+    (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'old))
       (sp-author-notes-dryrun)
       (with-current-buffer sp-author-notes--buffer-name
         (goto-char (point-min))
@@ -466,3 +467,206 @@
       (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
         (should (string-match-p "- pub-author :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\]\n" text))
         (should (string-match-p "- pub-editor :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\], \\[\\[id:other\\]\\[Other\\]\\]" text))))))
+
+;;;; Works table of one author note
+
+(ert-deftest sp-author-notes-test-works-convert ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann" "* Basics" "bio")
+    (let ((file (expand-file-name "ann.org" vault)))
+      (with-current-buffer (find-file-noselect file)
+        (unwind-protect
+            (progn
+              ;; the dry run writes nothing and says what would be added
+              (let ((msg (sp-author-notes--works-run nil)))
+                (should (string-match-p "would add the Works heading, the table" msg)))
+              (should-not (string-match-p "BEGIN" (sp-author-notes-test--read file)))
+              ;; convert adds the lint's heading and block, fills it, backs up
+              (let ((msg (sp-author-notes--works-run t)))
+                (should (string-match-p "added the Works heading, the table" msg)))
+              (should (string-match-p
+                       "\\* Basics\nbio\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\"[^\n]*\nFILLED\n#\\+END:"
+                       (sp-author-notes-test--read file)))
+              (should (file-exists-p (expand-file-name "backups/" vault)))
+              ;; idempotent
+              (let ((text (sp-author-notes-test--read file)))
+                (should (string-match-p "headings and tables are there"
+                                        (sp-author-notes--works-run t)))
+                (should (equal text (sp-author-notes-test--read file)))))
+          (kill-buffer))))))
+
+(ert-deftest sp-author-notes-test-works-needs-author-note ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "x.org" vault)
+     ":PROPERTIES:" ":ID: x" ":END:" "#+title: X" "")
+    (with-current-buffer (find-file-noselect (expand-file-name "x.org" vault))
+      (unwind-protect
+          (should-error (sp-author-notes--works-run t) :type 'user-error)
+        (kill-buffer)))))
+
+(ert-deftest sp-author-notes-test-edited-table-only-for-editors ()
+  (with-temp-buffer
+    (insert "#+title: X\n")
+    (should (equal (sp-author-notes--person-pass) '(basics works table)))
+    (should-not (sp-author-notes--has-table-p "pub-editor")))
+  (with-temp-buffer
+    (insert "#+title: X\n")
+    (should (equal (sp-author-notes--person-pass t)
+                   '(basics works table edited-heading edited-table)))
+    (should (string-match-p ":parent-prop \"pub-editor\" :except-prop \"pub-author\""
+                            (buffer-string)))
+    (should (sp-author-notes--has-table-p "pub-editor"))
+    (should (null (sp-author-notes--person-pass t)))))
+
+(ert-deftest sp-author-notes-test-lint-edited-table-follows-pub-editor ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann")
+    (sp-author-notes-test--person vault "Bo Roe" "bo")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: a" ""
+     "- pub-author :: [[id:ann][Ann Lee]]"
+     "- pub-editro :: [[id:bo][Bo Roe]]" "")
+    (sp-author-notes--run t)
+    (should-not (string-match-p "pub-editor"
+                                (sp-author-notes-test--read (expand-file-name "ann.org" vault))))
+    (should (string-match-p "\\* Edited works"
+                            (sp-author-notes-test--read (expand-file-name "bo.org" vault))))))
+
+(ert-deftest sp-author-notes-test-batch-report-keys ()
+  "The shared view: entries are links, d drops by key, u restores, A applies the rest."
+  (sp-author-notes-test--with-vault
+    (let ((file (expand-file-name "litnotes/a.org" vault)))
+      (sp-author-notes-test--write file "#+title: x" "" "- pub-authro :: Ann Lee" "")
+      (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'new))
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+          (sp-author-notes-dryrun))
+        (with-current-buffer sp-author-notes--buffer-name
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (functionp sp-batch-report-apply-function))
+          (should (string-match-p (format "\\[\\[file:%s::3\\]\\[litnotes/a\\.org:3\\]\\]  pub-authro"
+                                          (regexp-quote file))
+                                  (buffer-string)))
+          ;; a candidate author is dropped by name
+          (goto-char (point-min))
+          (re-search-forward "^- Ann Lee")
+          (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+            (sp-batch-report-drop))
+          (should (equal sp-author-notes--excluded '("name:ann lee")))
+          (with-current-buffer sp-author-notes--buffer-name
+            (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+            (should (string-match-p "^- author ann lee" (buffer-string)))
+            (goto-char (point-min))
+            (re-search-forward "^- author ann lee")
+            (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+              (sp-batch-report-restore))
+            (should (null sp-author-notes--excluded))))))))
+
+(ert-deftest sp-author-notes-test-batch-report-lists-conversions ()
+  "The shared view shows comma lists, plain names and Denote links with the right fields."
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: a" ""
+     "- pub-author :: Ann Lee, Bo Roe, and Cy Poe" "")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/b.org" vault)
+     ":PROPERTIES:" ":ID: l2" ":END:" "#+title: b" ""
+     "- pub-author :: Ann Lee" "")
+    (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'new))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-author-notes-dryrun))
+      (with-current-buffer sp-author-notes--buffer-name
+        (let ((text (buffer-string)))
+          (should (string-match-p "as 3: Ann Lee | Bo Roe | Cy Poe" text))
+          (should (string-match-p "litnotes/a\\.org:6\\]\\]  \"Ann Lee, Bo Roe, and Cy Poe\"" text))
+          (should (string-match-p "litnotes/b\\.org:6\\]\\]  Ann Lee" text)))))))
+
+;;;; Organisations
+
+(defmacro sp-author-notes-test--fresh-orgs (&rest body)
+  "Run BODY with no remembered double-braced organisations."
+  (declare (indent 0))
+  `(let ((sp-author-notes--braced-organisations (make-hash-table :test #'equal))
+         (sp-author-notes-organisations nil))
+     ,@body))
+
+(ert-deftest sp-author-notes-test-braced-p ()
+  (should (sp-author-notes--braced-p "{{Endnotes}}"))
+  (should (sp-author-notes--braced-p "  {{Doe, Roe Press}} "))
+  (should-not (sp-author-notes--braced-p "{van Gogh}"))
+  (should-not (sp-author-notes--braced-p "{{A}} and {{B}}"))
+  (should-not (sp-author-notes--braced-p "Endnotes")))
+
+(ert-deftest sp-author-notes-test-split-outside-braces ()
+  (should (equal (sp-author-notes--split-outside-braces
+                  "{{Marx and Engels Institute}} and Ann Lee" "[ \t]+and[ \t]+")
+                 '("{{Marx and Engels Institute}}" "Ann Lee")))
+  (should (equal (sp-author-notes--split-outside-braces "a; {b; c}; d" "[ \t]*;[ \t]*")
+                 '("a" "{b; c}" "d"))))
+
+(ert-deftest sp-author-notes-test-clean-name-organisation ()
+  (sp-author-notes-test--fresh-orgs
+    ;; A person is still flipped, braces around a single word do not matter.
+    (should (equal (sp-author-notes--clean-name "Smith, John") "John Smith"))
+    ;; Double braces keep a comma in the name: it is not "Last, First".
+    (should (equal (sp-author-notes--clean-name "{{Doe, Roe Press}}") "Doe, Roe Press"))
+    (should (sp-author-notes--organisation-p "Doe, Roe Press"))
+    (should (equal (sp-author-notes--clean-name "{{Endnotes}}") "Endnotes"))
+    (should (sp-author-notes--organisation-p "Endnotes"))
+    (should-not (sp-author-notes--organisation-p "John Smith"))
+    ;; The allow-list works without braces, ignoring case and accents.
+    (let ((sp-author-notes-organisations '("Société, Générale")))
+      (should (equal (sp-author-notes--clean-name "Societe, Generale") "Societe, Generale"))
+      (should (sp-author-notes--organisation-p "SOCIÉTÉ, GÉNÉRALE")))))
+
+(ert-deftest sp-author-notes-test-parse-value-organisation ()
+  (sp-author-notes-test--fresh-orgs
+    (should (equal (sp-author-notes--parse-value "{{Endnotes}}")
+                   '((:name "Endnotes"))))
+    (should (equal (sp-author-notes--parse-value "{{Marx and Engels Institute}} and Smith, John")
+                   '((:name "Marx and Engels Institute") (:name "John Smith"))))
+    (should (equal (sp-author-notes--parse-value "{{Doe, Roe, Poe Press}}; Ann Lee")
+                   '((:name "Doe, Roe, Poe Press") (:name "Ann Lee"))))
+    (should (equal (sp-author-notes--parse-value "\"{{Endnotes}}\"")
+                   '((:name "Endnotes"))))))
+
+(ert-deftest sp-author-notes-test-organisation-note-created ()
+  (sp-author-notes-test--fresh-orgs
+    (sp-author-notes-test--with-vault
+      (sp-author-notes-test--write
+       (expand-file-name "litnotes/e.org" vault)
+       ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+       "- pub-author :: {{Doe, Roe Press}}"
+       "- pub-editor :: Smith, John" "")
+      (let ((run (sp-author-notes--run t)))
+        (should (equal (sort (mapcar #'car (sp-author-notes--run-created run)) #'string<)
+                       '("Doe, Roe Press" "John Smith")))
+        (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/e.org" vault))))
+          (should (string-match-p "pub-author :: \\[\\[id:new-[0-9]+\\]\\[Doe, Roe Press\\]\\]" text))
+          (should (string-match-p "pub-editor :: \\[\\[id:new-[0-9]+\\]\\[John Smith\\]\\]" text)))
+        ;; The organisation note has both tags, the person only one.
+        (dolist (created (sp-author-notes--run-created run))
+          (let ((text (sp-author-notes-test--read (nth 2 created))))
+            (if (equal (car created) "Doe, Roe Press")
+                (should (string-match-p "#\\+filetags: :person:institution:" text))
+              (should (string-match-p "#\\+filetags: :person:$" text)))))))))
+
+(ert-deftest sp-author-notes-test-organisation-tag-only-note-is-found ()
+  (sp-author-notes-test--fresh-orgs
+    (sp-author-notes-test--with-vault
+      (sp-author-notes-test--write
+       (expand-file-name "o1.org" vault)
+       ":PROPERTIES:" ":ID: o1" ":END:" "#+title: Endnotes" "#+filetags: :institution:" "")
+      (sp-author-notes-test--write
+       (expand-file-name "litnotes/e.org" vault)
+       ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+       "- pub-author :: {{Endnotes}}" "")
+      (let ((run (sp-author-notes--run t)))
+        (should-not (sp-author-notes--run-created run))
+        (should-not (sp-author-notes--run-tagged run))
+        (should (string-match-p "\\[\\[id:o1\\]\\[Endnotes\\]\\]"
+                                (sp-author-notes-test--read
+                                 (expand-file-name "litnotes/e.org" vault))))))))

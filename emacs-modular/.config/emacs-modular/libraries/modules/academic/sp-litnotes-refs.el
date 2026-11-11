@@ -12,6 +12,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -172,7 +173,7 @@ A book section often has no PDF of its own; its crossref entry (the book) does."
   '(("journalarticle" . "article") ("booksection" . "incollection")
     ("incollection" . "incollection") ("book" . "book") ("collection" . "collection")
     ("inreference" . "inreference") ("encyclopedia" . "inreference")
-    ("phdthesis" . "phdthesis") ("thesis" . "thesis"))
+    ("phdthesis" . "phdthesis") ("mastersthesis" . "mastersthesis") ("thesis" . "thesis"))
   "BibTeX entry type for the file tag of a litnote; any other tag gives `misc'.")
 
 (defun sp-litnotes-refs--entry-type (tags)
@@ -282,16 +283,16 @@ Nothing is written.  Return the job."
         (when-let* ((items (reverse (gethash (car spec) by-status))))
           (insert (format "* %s (%d)\n" (cadr spec) (length items)))
           (dolist (plan items)
-            (insert (format "- =%s=: %s -> %s\n"
-                            (file-name-nondirectory (plist-get plan :file))
+            (insert (format "- %s: %s -> %s\n"
+                            (sp-batch-report-file-link (plist-get plan :file))
                             (or (plist-get plan :keyword) (plist-get plan :roam) "")
                             (plist-get plan :refs))))
           (insert "\n")))
       (when unknown
         (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
         (dolist (item (reverse unknown))
-          (insert (format "- %s in =%s=\n" (car item)
-                          (file-name-nondirectory (plist-get (cdr item) :file)))))
+          (insert (format "- %s in %s\n" (car item)
+                          (sp-batch-report-file-link (plist-get (cdr item) :file)))))
         (insert "\n"))
       (let (dups)
         (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
@@ -299,32 +300,40 @@ Nothing is written.  Return the job."
           (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
           (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
             (insert (format "- %s: %s\n" (car dup)
-                            (mapconcat (lambda (p) (file-name-nondirectory (plist-get p :file)))
-                                       (cdr dup) ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
       (buffer-string))))
 
+(defvar sp-litnotes-refs--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
 ;;;###autoload
-(defun sp-litnotes-refs-dryrun ()
+(defun sp-litnotes-refs-dryrun (&optional excluded)
   "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
+when they are read.  EXCLUDED lists notes (files) to leave out; the report's
+\\`d' sets it."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
 
 
 (defun sp-litnotes-refs--show-report (plans index)
-  "Show the report for PLANS and INDEX in `*litnote refs*'."
-  (let ((text (sp-litnotes-refs--report-text plans index)))
-    (with-current-buffer (get-buffer-create "*litnote refs*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")))
+  "Show the report for PLANS and INDEX in `*litnote refs*', without the dropped notes."
+  (let* ((excluded sp-litnotes-refs--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote refs*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-refs--report-text shown index))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (lambda () (sp-litnotes-refs-dryrun sp-litnotes-refs--excluded))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-refs--excluded excl)
+               (sp-litnotes-refs--show-report plans index))
+     :apply (lambda (excl) (sp-litnotes-refs-convert excl))
+     :excluded excluded)))
 
 ;;;; Conversion
 
@@ -402,7 +411,7 @@ is left alone.  An open buffer without changes is reverted."
         'written))))
 
 ;;;###autoload
-(defun sp-litnotes-refs-convert ()
+(defun sp-litnotes-refs-convert (&optional excluded)
   "Convert the notes of the report, after showing it and asking three times.
 1. Move =#+reference:= to =ROAM_REFS= in the notes that have an ID.
 2. Create an ID (and move the reference) in the notes that have none.
@@ -413,14 +422,19 @@ follow at once, so that nothing interrupts you later.  Each question is
 asked only when there is something to do.  The notes are then written in
 slices, each copied to `sp-litnotes-refs-backup-directory' first; one with
 unsaved changes in its buffer, or changed since the report, is skipped.
-The inbox file is copied too.  Running it again changes nothing."
+The inbox file is copied too.  Running it again changes nothing.
+EXCLUDED lists notes (files) to leave out; the report's \\`A' passes the ones
+dropped with \\`d'."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan #'sp-litnotes-refs--convert-plans))
 
 (defun sp-litnotes-refs--convert-plans (plans index)
   "Show the report of PLANS and INDEX, ask the questions and write what was agreed."
   (sp-litnotes-refs--show-report plans index)
+  (setq plans (sp-batch-report-without-excluded
+               plans (lambda (p) (plist-get p :file)) sp-litnotes-refs--excluded))
   (let* ((todo (cl-remove-if-not
                 (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
                 plans))

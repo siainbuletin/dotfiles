@@ -1,0 +1,513 @@
+#+TITLE: sp-reading-sidenotes.el: See-also footnotes as sidenotes in reading mode
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-reading-sidenotes.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-reading-sidenotes.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* Why this exists
+
+In a literature note, a "see also" reminder is an inline Org footnote: =[fn::[[id:...][Concept]]]=.
+
+- *Problem*: in the middle of a sentence the reminder is long, and it breaks the flow when you read the note.
+- *Fix*: in =sp-reading-mode= the footnote shrinks to a small number in the text, and its content moves to the right margin, like a Tufte sidenote.
+- The footnote stays in the file as it was; only the display changes (overlays, no buffer change).
+
+** What it offers
+
+- =sp-reading-sidenotes-mode=: a minor mode that renders the see-also footnotes of the buffer in the margin.
+  - It turns on and off with =sp-reading-mode= (see =sp-reading-sidenotes=), and can be toggled alone with =C-c w s=.
+  - It needs =sp-reading-mode=, because it uses the margins that mode manages.
+- =sp-reading-sidenotes-export=: exports the note to Tufte HTML with =ox-tufte=, where the same footnotes are real sidenotes, and opens it.
+
+** Which footnotes count
+
+- The same ones as =sp-see-also=: inline footnotes that hold an =id:= link, =[fn::[[id:...][Concept]]]=.
+- They are found by =sp-see-also-parse-buffer= (see [[file:../academic/sp-see-also.org][sp-see-also]]); this module does not parse footnotes itself.
+- The text in the margin is the footnote text with links shown as their description, so =[[id:x][Kant]]= is shown as =Kant=.
+
+** Why it is not done with =ox-tufte= on screen
+
+- =ox-tufte= is an /export/ backend: it writes HTML and CSS, it does not draw anything in an Emacs window.
+- On screen the sidenote is drawn with the margin display of Emacs (=(margin right-margin)=), which is what =sp-reading-mode= already uses for heading marks.
+- =ox-tufte= is used for the HTML export, so the page you export looks like what you read.
+- =ox-tufte= turns /every/ inline footnote into a sidenote, not only the see-also ones.
+
+** How the notes are laid out
+
+- The note starts on the screen line of its number and continues on the next lines, wrapped to the margin width (=sp-reading-sidenote-margin=).
+- Two notes near each other do not overlap: a note that would start on a line already used moves down.
+- The layout uses =vertical-motion= in the window, so it is redone when the window changes size, the text scale changes, or the buffer is edited (after a short idle time, =sp-reading-sidenote-delay=).
+- A window too narrow for the margin (text area under =sp-reading-sidenote-min-text= columns) shows the footnotes as they are.
+
+** Sharing the footnote parser
+
+- =sp-reading-sidenotes--scan= is a thin wrapper: it calls =sp-see-also-parse-buffer= and keeps =(BEG END LABEL TEXT)= of each footnote.
+- The context the parser also returns (quote or prose, open question) is not used here yet.
+- This pull request is stacked on the one that adds =sp-see-also=.
+
+* File header
+
+#+begin_src emacs-lisp -i
+;;; sp-reading-sidenotes.el --- See-also footnotes as sidenotes in reading mode -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; In `sp-reading-mode', inline footnotes that hold an id link are shown as a
+;; small number in the text and as a sidenote in the right margin.  The footnote
+;; stays in the file.  `sp-reading-sidenotes-export' exports the note with ox-tufte.
+;; Literate source: docs/tangles/ui/sp-reading-sidenotes.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+
+(require 'sp-see-also)
+
+(defvar sp-reading-mode)
+(defvar sp-reading-mode-hook)
+(defvar sp-reading-right-margin)
+(declare-function sp-reading--refresh "sp-writedesk")
+(declare-function org-open-file "org")
+(declare-function org-tufte-export-to-html "ox-tufte")
+
+;; ox-tufte is the export backend; it is only loaded when exporting.
+(use-package ox-tufte
+  :ensure t
+  :defer t)
+#+end_src
+
+* Settings
+
+- =sp-reading-sidenotes=: whether reading mode turns the sidenotes on by itself.
+- =sp-reading-sidenote-margin=: width of the right margin in characters, wide enough for a note.
+- =sp-reading-sidenote-min-text=: below this text width the sidenotes are not drawn.
+- =sp-reading-sidenote-delay=: idle seconds before the layout is redone after an edit.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-reading-sidenotes nil
+  "See-also footnotes as sidenotes in `sp-reading-mode'."
+  :group 'sp-reading)
+
+(defcustom sp-reading-sidenotes t
+  "Non-nil turns the sidenotes on with `sp-reading-mode' in Org buffers."
+  :type 'boolean :group 'sp-reading-sidenotes)
+
+(defcustom sp-reading-sidenote-margin 30
+  "Width in characters of the right margin while the sidenotes are shown."
+  :type 'integer :group 'sp-reading-sidenotes)
+
+(defcustom sp-reading-sidenote-min-text 40
+  "Narrowest text area, in columns, that still gets sidenotes."
+  :type 'integer :group 'sp-reading-sidenotes)
+
+(defcustom sp-reading-sidenote-delay 0.4
+  "Idle seconds after an edit before the sidenotes are laid out again."
+  :type 'number :group 'sp-reading-sidenotes)
+
+(defface sp-reading-sidenote
+  '((t :inherit shadow))
+  "Face of the sidenote text in the margin."
+  :group 'sp-reading-sidenotes)
+
+(defface sp-reading-sidenote-number
+  '((t :inherit font-lock-constant-face :weight bold))
+  "Face of the number that stands for a footnote in the text."
+  :group 'sp-reading-sidenotes)
+#+end_src
+
+* Finding the footnotes
+
+- =sp-reading-sidenotes--plain= turns links into their description and squeezes the white space.
+- =sp-reading-sidenotes--scan= asks =sp-see-also-parse-buffer= for the see-also footnotes of the buffer.
+  - Each one becomes a list =(BEG END LABEL TEXT)=; =TEXT= is the plain text for the margin.
+
+#+begin_src emacs-lisp -i
+(defun sp-reading-sidenotes--plain (text)
+  "TEXT with links shown as their description and white space squeezed."
+  (string-trim
+   (replace-regexp-in-string
+    "[ \t\n]+" " "
+    (replace-regexp-in-string
+     "\\[\\[\\([^]]*\\)\\]\\(?:\\[\\([^]]*\\)\\]\\)?\\]" "\\2"
+     (replace-regexp-in-string
+      "\\[\\[\\([^]]*\\)\\]\\]" "\\1" text)))))
+
+(defun sp-reading-sidenotes--scan ()
+  "The see-also footnotes of the buffer, as a list of (BEG END LABEL TEXT).
+LABEL is nil for an anonymous footnote."
+  (mapcar (lambda (note)
+            (list (plist-get note :beg) (plist-get note :end)
+                  (plist-get note :label)
+                  (sp-reading-sidenotes--plain (plist-get note :text))))
+          (sp-see-also-parse-buffer)))
+#+end_src
+
+* Drawing the notes
+
+- Each footnote gets two kinds of overlay:
+  - one over the whole footnote that displays the superscript number and carries the full text as =help-echo=;
+  - one zero-width overlay per margin line, whose =before-string= is displayed in the right margin.
+- All overlays carry the property =sp-reading-sidenote=, which is how they are found and removed.
+- The number overlays are made first, because they change how the lines wrap, and the margin lines are placed on the screen lines that result.
+- =sp-reading-sidenotes--lines= wraps "N text" to the margin width, and cuts a word longer than the margin.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-reading-sidenotes--timer nil
+  "Idle timer that lays the sidenotes out again after an edit.")
+
+(defun sp-reading-sidenotes--clear ()
+  "Remove every sidenote overlay of the current buffer."
+  (remove-overlays (point-min) (point-max) 'sp-reading-sidenote t))
+
+(defun sp-reading-sidenotes--lines (number text)
+  "The margin lines of the note NUMBER with TEXT, wrapped to the margin."
+  (let ((width (max 8 (1- sp-reading-sidenote-margin))))
+    (mapcar
+     (lambda (line) (truncate-string-to-width line width nil nil "…"))
+     (with-temp-buffer
+       (insert (format "%d %s" number text))
+       (let ((fill-column width)
+             (sentence-end-double-space nil))
+         (fill-region (point-min) (point-max)))
+       (split-string (buffer-string) "\n" t)))))
+
+(defun sp-reading-sidenotes--margin-string (line)
+  "A string that displays LINE in the right margin."
+  (propertize " " 'display
+              (list '(margin right-margin)
+                    (propertize line 'face 'sp-reading-sidenote))))
+
+(defun sp-reading-sidenotes--overlay (pos string)
+  "A sidenote overlay at POS whose before-string is STRING."
+  (let ((ov (make-overlay pos pos nil t)))
+    (overlay-put ov 'sp-reading-sidenote t)
+    (overlay-put ov 'before-string string)
+    ov))
+
+(defun sp-reading-sidenotes--number-overlay (note number)
+  "Replace the footnote NOTE on screen by its NUMBER."
+  (let ((ov (make-overlay (nth 0 note) (nth 1 note) nil t)))
+    (overlay-put ov 'sp-reading-sidenote t)
+    (overlay-put ov 'display
+                 (propertize (number-to-string number)
+                             'face 'sp-reading-sidenote-number
+                             'display '(raise 0.3)))
+    (overlay-put ov 'help-echo (nth 3 note))
+    ov))
+
+(defun sp-reading-sidenotes--place (window notes)
+  "Put the margin lines of NOTES (a list of (BEG END LABEL TEXT)) in WINDOW."
+  (let ((last nil)
+        (number 0))
+    (save-excursion
+      (dolist (note notes)
+        (setq number (1+ number))
+        (goto-char (nth 0 note))
+        (vertical-motion 0 window)
+        (let ((pos (point)))
+          (when (and last (<= pos last))
+            (goto-char last)
+            (vertical-motion 1 window)
+            (setq pos (point)))
+          (catch 'done
+            (let ((first t))
+              (dolist (line (sp-reading-sidenotes--lines number (nth 3 note)))
+                (unless first
+                  (goto-char pos)
+                  (when (< (vertical-motion 1 window) 1) (throw 'done nil))
+                  (setq pos (point)))
+                (setq first nil
+                      last pos)
+                (sp-reading-sidenotes--overlay
+                 pos (sp-reading-sidenotes--margin-string line))))))))))
+
+(defun sp-reading-sidenotes--render ()
+  "Draw the sidenotes of the current buffer, replacing the old ones."
+  (sp-reading-sidenotes--clear)
+  (let ((window (get-buffer-window (current-buffer))))
+    (when (and window
+               (>= (window-body-width window) sp-reading-sidenote-min-text))
+      (let ((notes (sp-reading-sidenotes--scan))
+            (number 0))
+        (dolist (note notes)
+          (sp-reading-sidenotes--number-overlay note (setq number (1+ number))))
+        (sp-reading-sidenotes--place window notes)))))
+
+(defun sp-reading-sidenotes--schedule (&rest _)
+  "Lay the sidenotes out again after a short idle time."
+  (when (timerp sp-reading-sidenotes--timer)
+    (cancel-timer sp-reading-sidenotes--timer))
+  (let ((buffer (current-buffer)))
+    (setq sp-reading-sidenotes--timer
+          (run-with-idle-timer
+           sp-reading-sidenote-delay nil
+           (lambda ()
+             (when (buffer-live-p buffer)
+               (with-current-buffer buffer
+                 (setq sp-reading-sidenotes--timer nil)
+                 (when (bound-and-true-p sp-reading-sidenotes-mode)
+                   (sp-reading-sidenotes--render)))))))))
+#+end_src
+
+* The mode
+
+- Turning the mode on:
+  - needs an Org buffer in =sp-reading-mode=, otherwise it stops with a message;
+  - widens the right margin to =sp-reading-sidenote-margin=: both the buffer's =right-margin-width= and, buffer-locally, =sp-reading-right-margin=, which reading mode re-applies on every window change;
+  - draws the notes, and redraws them on window changes and edits.
+- Turning it off removes the overlays and the local margin.
+  - If reading mode is still on, the margin goes back to =sp-reading-right-margin=.
+  - If reading mode was turned off first, it has already restored the margins, so nothing is touched.
+- The frame is not resized for the wider margin: the text column gets narrower instead.
+- =sp-reading-sidenotes--follow= on =sp-reading-mode-hook= makes the mode follow reading mode.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(define-minor-mode sp-reading-sidenotes-mode
+  "Show the see-also footnotes of this Org buffer as sidenotes.
+The footnote becomes a number in the text and its content is drawn in the
+right margin.  Works inside `sp-reading-mode'."
+  :lighter nil
+  (if sp-reading-sidenotes-mode
+      (progn
+        (unless (and (derived-mode-p 'org-mode)
+                     (bound-and-true-p sp-reading-mode))
+          (setq sp-reading-sidenotes-mode nil)
+          (user-error "Sidenotes need an Org buffer in `sp-reading-mode'"))
+        (setq-local sp-reading-right-margin sp-reading-sidenote-margin
+                    right-margin-width sp-reading-sidenote-margin)
+        (add-hook 'window-configuration-change-hook
+                  #'sp-reading-sidenotes--schedule nil t)
+        (add-hook 'after-change-functions #'sp-reading-sidenotes--schedule nil t)
+        (add-hook 'text-scale-mode-hook #'sp-reading-sidenotes--schedule nil t)
+        (when (fboundp 'sp-reading--refresh) (sp-reading--refresh))
+        (sp-reading-sidenotes--schedule))
+    (remove-hook 'window-configuration-change-hook
+                 #'sp-reading-sidenotes--schedule t)
+    (remove-hook 'after-change-functions #'sp-reading-sidenotes--schedule t)
+    (remove-hook 'text-scale-mode-hook #'sp-reading-sidenotes--schedule t)
+    (when (timerp sp-reading-sidenotes--timer)
+      (cancel-timer sp-reading-sidenotes--timer)
+      (setq sp-reading-sidenotes--timer nil))
+    (sp-reading-sidenotes--clear)
+    (when (local-variable-p 'sp-reading-right-margin)
+      (kill-local-variable 'sp-reading-right-margin)
+      (when (bound-and-true-p sp-reading-mode)
+        (setq-local right-margin-width sp-reading-right-margin)
+        (when (fboundp 'sp-reading--refresh) (sp-reading--refresh))))))
+
+(defun sp-reading-sidenotes--follow ()
+  "Turn the sidenotes on and off together with `sp-reading-mode'."
+  (cond ((and (bound-and-true-p sp-reading-mode)
+              sp-reading-sidenotes
+              (derived-mode-p 'org-mode))
+         (sp-reading-sidenotes-mode 1))
+        ((and (not (bound-and-true-p sp-reading-mode))
+              sp-reading-sidenotes-mode)
+         (sp-reading-sidenotes-mode -1))))
+
+(add-hook 'sp-reading-mode-hook #'sp-reading-sidenotes--follow)
+
+(global-set-key (kbd "C-c w s") #'sp-reading-sidenotes-mode)
+#+end_src
+
+* Export with ox-tufte
+
+- =org-tufte-export-to-html= writes the Tufte HTML file next to the note; every inline footnote becomes a sidenote there.
+- =org-tufte-include-footnotes-at-bottom= is bound to nil, so the notes are only in the margin, as on screen.
+- The file is then opened with =org-open-file=.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-reading-sidenotes-export ()
+  "Export this Org buffer to Tufte HTML with `ox-tufte' and open the result."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not an Org buffer"))
+  (unless (require 'ox-tufte nil t)
+    (user-error "The package ox-tufte is not installed"))
+  (let ((org-tufte-include-footnotes-at-bottom nil))
+    (org-open-file (org-tufte-export-to-html))))
+#+end_src
+
+* Footer
+
+#+begin_src emacs-lisp -i
+(provide 'sp-reading-sidenotes)
+;;; sp-reading-sidenotes.el ends here
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-reading-sidenotes-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Run headless from the folder of =init.el=:
+
+#+begin_example
+emacs -Q --batch -L libraries/modules/ui -L libraries/modules/academic -l tests/sp-reading-sidenotes-test.el -f ert-run-tests-batch-and-exit
+#+end_example
+
+- The scanner tests use plain buffers and need no window.
+- =use-package= is stubbed: the real one would try to install =ox-tufte=.
+- The rendering tests show a buffer in the selected window of the batch frame, so =vertical-motion= works.
+- =ox-tufte= and =sp-reading-mode= are not needed: the variable is bound by the test.
+
+#+begin_src emacs-lisp -i
+;;; sp-reading-sidenotes-test.el --- Tests for sp-reading-sidenotes -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'org)
+(require 'cl-lib)
+
+(defvar sp-reading-mode)
+(defvar sp-reading-right-margin)
+
+;; The module declares its package with use-package; the test needs no packages.
+(defmacro use-package (&rest _) nil)
+(require 'sp-reading-sidenotes)
+
+(defun sp-reading-sidenotes-test--scan (text)
+  "The scan of an Org buffer with TEXT."
+  (with-temp-buffer
+    (insert text)
+    (org-mode)
+    (sp-reading-sidenotes--scan)))
+
+(ert-deftest sp-reading-sidenotes-test-scan-basic ()
+  (let ((notes (sp-reading-sidenotes-test--scan
+                "A claim[fn::[[id:k][Kant]] and [[id:h][Hume]]] holds.")))
+    (should (= (length notes) 1))
+    (should (equal (nth 3 (car notes)) "Kant and Hume"))
+    (should-not (nth 2 (car notes)))))
+
+(ert-deftest sp-reading-sidenotes-test-scan-label ()
+  (let ((notes (sp-reading-sidenotes-test--scan "x[fn:a:[[id:k][Kant]]] z")))
+    (should (equal (nth 2 (car notes)) "a"))
+    (should (equal (nth 3 (car notes)) "Kant"))))
+
+(ert-deftest sp-reading-sidenotes-test-scan-ignores-others ()
+  (should-not (sp-reading-sidenotes-test--scan
+               "Ref[fn:1] and [fn::a plain remark] and [fn::[[https://x.org][web]]].")))
+
+(ert-deftest sp-reading-sidenotes-test-scan-positions ()
+  (let* ((text "ab [fn::[[id:k][K]]] de")
+         (note (car (sp-reading-sidenotes-test--scan text))))
+    (should (equal (substring text (1- (nth 0 note)) (1- (nth 1 note)))
+                   "[fn::[[id:k][K]]]"))))
+
+(ert-deftest sp-reading-sidenotes-test-scan-two ()
+  (let ((notes (sp-reading-sidenotes-test--scan
+                "a[fn::[[id:1][One]]] b [fn::[[id:3][Three]]] c")))
+    (should (equal (mapcar (lambda (n) (nth 3 n)) notes) '("One" "Three")))))
+
+(ert-deftest sp-reading-sidenotes-test-plain ()
+  (should (equal (sp-reading-sidenotes--plain "a [[id:1][B]]  c [[https://x.org]]")
+                 "a B c https://x.org")))
+
+(ert-deftest sp-reading-sidenotes-test-lines-fit-margin ()
+  (let ((sp-reading-sidenote-margin 20))
+    (let ((lines (sp-reading-sidenotes--lines
+                  3 "a long reminder about the ground of obligation")))
+      (should (> (length lines) 1))
+      (should (string-prefix-p "3 " (car lines)))
+      (dolist (l lines) (should (<= (string-width l) 19))))))
+
+(defun sp-reading-sidenotes-test--margin-overlays ()
+  "The margin overlays of the current buffer, in buffer order."
+  (sort (cl-remove-if-not (lambda (o) (overlay-get o 'before-string))
+                          (overlays-in (point-min) (point-max)))
+        (lambda (a b) (< (overlay-start a) (overlay-start b)))))
+
+(defmacro sp-reading-sidenotes-test--in-window (text &rest body)
+  "Show an Org buffer with TEXT in the selected window and run BODY there."
+  `(let ((buffer (generate-new-buffer " *sidenote test*")))
+     (unwind-protect
+         (progn
+           (set-window-buffer (selected-window) buffer)
+           (with-current-buffer buffer
+             (insert ,text)
+             (org-mode)
+             (let ((sp-reading-sidenote-min-text 10))
+               ,@body)))
+       (kill-buffer buffer))))
+
+(ert-deftest sp-reading-sidenotes-test-render-and-clear ()
+  (sp-reading-sidenotes-test--in-window
+   "One[fn::[[id:k][Kant]]] two.\n\nThree[fn::[[id:h][Hume]]] four.\n"
+   (sp-reading-sidenotes--render)
+   (should (= (length (sp-reading-sidenotes-test--margin-overlays)) 2))
+   (should (= (length (cl-remove-if-not
+                       (lambda (o) (overlay-get o 'display))
+                       (overlays-in (point-min) (point-max))))
+              2))
+   (should (equal (buffer-string)
+                  "One[fn::[[id:k][Kant]]] two.\n\nThree[fn::[[id:h][Hume]]] four.\n"))
+   (sp-reading-sidenotes--clear)
+   (should-not (overlays-in (point-min) (point-max)))))
+
+(ert-deftest sp-reading-sidenotes-test-notes-do-not-overlap ()
+  "Two footnotes on one line put their margin lines on different lines."
+  (sp-reading-sidenotes-test--in-window
+   "A[fn::[[id:a][First one]]] b[fn::[[id:b][Second one]]] c\n"
+   (sp-reading-sidenotes--render)
+   (let ((positions (mapcar #'overlay-start
+                            (sp-reading-sidenotes-test--margin-overlays))))
+     (should (= (length positions) (length (delete-dups (copy-sequence positions))))))))
+
+(ert-deftest sp-reading-sidenotes-test-too-narrow-draws-nothing ()
+  (sp-reading-sidenotes-test--in-window
+   "A[fn::[[id:x][X]]] b\n"
+   (let ((sp-reading-sidenote-min-text 10000))
+     (sp-reading-sidenotes--render))
+   (should-not (overlays-in (point-min) (point-max)))))
+
+(ert-deftest sp-reading-sidenotes-test-mode-needs-reading-mode ()
+  (with-temp-buffer
+    (org-mode)
+    (let ((sp-reading-mode nil))
+      (should-error (sp-reading-sidenotes-mode 1) :type 'user-error)
+      (should-not sp-reading-sidenotes-mode))))
+
+(ert-deftest sp-reading-sidenotes-test-mode-sets-and-restores-margin ()
+  (sp-reading-sidenotes-test--in-window
+   "A[fn::[[id:x][X]]] b\n"
+   (let ((sp-reading-mode t)
+         (sp-reading-right-margin 6))
+     (setq-local right-margin-width 6)
+     (sp-reading-sidenotes-mode 1)
+     (should (= right-margin-width sp-reading-sidenote-margin))
+     (should (= sp-reading-right-margin sp-reading-sidenote-margin))
+     (sp-reading-sidenotes-mode -1)
+     (should (= right-margin-width 6))
+     (should (= sp-reading-right-margin 6))
+     (should-not (overlays-in (point-min) (point-max))))))
+
+(ert-deftest sp-reading-sidenotes-test-follow-reading-mode ()
+  (sp-reading-sidenotes-test--in-window
+   "A[fn::[[id:x][X]]] b\n"
+   (let ((sp-reading-mode t) (sp-reading-right-margin 6))
+     (sp-reading-sidenotes--follow)
+     (should sp-reading-sidenotes-mode)
+     (setq sp-reading-mode nil)
+     (sp-reading-sidenotes--follow)
+     (should-not sp-reading-sidenotes-mode))))
+
+(provide 'sp-reading-sidenotes-test)
+;;; sp-reading-sidenotes-test.el ends here
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- Pull request: this one (see-also footnotes as sidenotes)
+  - ✨ Added =sp-reading-sidenotes=: in =sp-reading-mode=, see-also footnotes (inline, with an id link) show as a number in the text and as a sidenote in the right margin.
+  - =sp-reading-sidenotes-export= exports the note to Tufte HTML with =ox-tufte= (installed through use-package and Elpaca).
+  - Footnotes come from =sp-see-also-parse-buffer= (stacked on the =sp-see-also= pull request).
+  - Not seen on screen: only tested in Emacs 29.3 batch, so the real look and the HTML export are untried.

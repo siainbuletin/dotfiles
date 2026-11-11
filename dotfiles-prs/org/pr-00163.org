@@ -1,0 +1,42 @@
+* PR #163: Bring back the fixed 75% width of the posframe
+:PROPERTIES:
+:PR_NUMBER: 163
+:URL: https://github.com/siainbuletin/dotfiles/pull/163
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/163][https://github.com/siainbuletin/dotfiles/pull/163]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-27 22:31
+- Merged :: 2026-10-27 23:19
+- Branch :: =163-posframe-fixed-width= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1caddc0b312e8ad6fc9de097820b04427ae26aa7][1caddc0b31]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2VvsAv9bMnVw5hmscGggixs][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+The posframe is a fixed 75% of the frame width again, for every command including =M-x=, instead of following the length of the prompt. This is the setup of #144 with no change: =sp-posframe-width-fraction= (0.75) and =sp-posframe-get-size=, which sets =:width=, =:min-width= and =:max-width= of the size from =vertico-posframe-get-size= and leaves the height to the package. It is wired in through =vertico-posframe-size-function=.
+
+Nothing else comes back with it: no prompt styling, no dotted line, no dimming, no text size reset of the posframe. This is step 3 of the rebuild plan in the doc, taken as its own pull request so a bug points at one change.
+
+Docs (=sp-posframe.org=) and CHANGELOG updated.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+Nothing was run in Emacs (none in the container). The glitch's cause was never found and this size function was active in #144 to #154. If it returns, remove the =vertico-posframe-size-function= line first.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiBs9srTW9kUiGXduSF]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f35442fc7cb557087bd5964d784da97a0e98f515][f35442fc7c]] Bring back the fixed 75% width of the posframe (Claude, 2026-10-27 22:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/aaf0d66a649965f15be3f32e04e9acd3fafd1443][aaf0d66a64]] Merge branch 'main' into 163-posframe-fixed-width (Sia Piperea, 2026-10-27 23:18)

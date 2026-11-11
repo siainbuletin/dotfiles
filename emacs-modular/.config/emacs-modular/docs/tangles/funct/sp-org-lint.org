@@ -562,6 +562,7 @@ This section tangles to =sp-org-lint-footnotes.el=, so the headless worker can l
 (require 'org)
 (require 'org-element)
 (require 'subr-x)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -1179,7 +1180,9 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready " Footnote lint: RET visit, a apply, g rescan, q quit")
+      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
+                " Footnote lint: RET visit, a apply, g rescan, q quit"))
       ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
       (_ " Footnote lint"))))
 
@@ -1195,6 +1198,28 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
 (define-derived-mode sp-org-lint-fn-report-mode special-mode "FnLint"
   "Report of the footnote lint of the vault."
   (setq-local header-line-format '(:eval (sp-org-lint-fn--header))))
+
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-org-lint-fn-report-mode 'sp-org-lint-fn-batch-mode "2026-11-09")
+(make-obsolete-variable 'sp-org-lint-fn-report-mode-map 'sp-org-lint-fn-batch-mode-map "2026-11-09")
+
+(defvar sp-org-lint-fn-batch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    map)
+  "Keymap of `sp-org-lint-fn-batch-mode'.")
+
+(define-derived-mode sp-org-lint-fn-batch-mode sp-batch-report-mode "FnLint"
+  "Report of the footnote lint of the vault, in the shared report buffer.
+\\<sp-org-lint-fn-batch-mode-map>\\[sp-org-lint-footnotes-convert] applies the moves, d drops a file from them."
+  (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
+              sp-batch-report-apply-function #'sp-org-lint-footnotes-convert
+              sp-batch-report-redraw-function #'sp-org-lint-fn--render))
+
+(defun sp-org-lint-fn--report-mode ()
+  "The report mode `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p) 'sp-org-lint-fn-batch-mode 'sp-org-lint-fn-report-mode))
 
 (defun sp-org-lint-fn-visit ()
   "Visit the file and line of the report line at point."
@@ -1212,7 +1237,88 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
       (plist-get plan :dangling) (plist-get plan :conflicts)
       (plist-get plan :error)))
 
+(defun sp-org-lint-fn--plan-item (plan)
+  "The report item of PLAN, for `sp-batch-report-text'."
+  (let ((file (plist-get plan :file)))
+    (cl-flet ((at (line text)
+                (concat (sp-batch-report-file-link file (format "line %d" line) line) ": " text)))
+      (list :text ""
+            :file file :label (abbreviate-file-name file)
+            :children
+            (append
+             (when-let* ((err (plist-get plan :error))) (list (format "error: %s" err)))
+             (mapcar (lambda (m)
+                       (at (plist-get m :line)
+                           (format "[fn:%s] %s -> %s%s"
+                                   (plist-get m :label) (plist-get m :from) (plist-get m :to)
+                                   (if (equal (plist-get m :new) (plist-get m :label))
+                                       ""
+                                     (format " (as [fn:%s])" (plist-get m :new))))))
+                     (plist-get plan :moves))
+             (mapcar (lambda (l) (format "orphan: [fn:%s] is defined and never cited" l))
+                     (plist-get plan :orphans))
+             (mapcar (lambda (l) (format "dangling: [fn:%s] is cited and never defined" l))
+                     (plist-get plan :dangling))
+             (mapcar (lambda (c) (format "left alone: [fn:%s] is %s" (car c) (cdr c)))
+                     (plist-get plan :conflicts))
+             (mapcar (lambda (title) (format "the empty \"%s\" heading would be removed" title))
+                     (plist-get plan :removed)))))))
+
+(defun sp-org-lint-fn--batch-text ()
+  "The whole report, as Org text, from the state of the run."
+  (let* ((plans (reverse (sp-org-lint-fn--get :plans)))
+         (results (reverse (sp-org-lint-fn--get :results)))
+         (shown (seq-filter #'sp-org-lint-fn--shown-p
+                            (mapcar (lambda (p)
+                                      ;; What was applied is no longer pending.
+                                      (if (seq-some (lambda (r) (and (eq (plist-get r :status) 'written)
+                                                                     (equal (plist-get r :file)
+                                                                            (plist-get p :file))))
+                                                    results)
+                                          (plist-put (plist-put (copy-sequence p) :moves nil) :removed nil)
+                                        p))
+                                    plans))))
+    (sp-batch-report-text
+     "Footnote lint"
+     (append
+      (when results
+        (list (sp-batch-report-section
+               (format "Applied (backups are in %s)"
+                       (abbreviate-file-name (or (sp-org-lint-fn--get :backup-root) "")))
+               (mapcar (lambda (r)
+                         (list :text (if (eq (plist-get r :status) 'written)
+                                         (format "written (%d move(s)); backup %s"
+                                                 (plist-get r :moves)
+                                                 (abbreviate-file-name (plist-get r :backup)))
+                                       (format "skipped (%s)" (plist-get r :reason)))
+                               :file (plist-get r :file) :label (abbreviate-file-name (plist-get r :file))
+                               :key nil))
+                       results))))
+      (list (sp-batch-report-section "Files with footnotes to look at"
+                                     (mapcar #'sp-org-lint-fn--plan-item shown))))
+     :intro (sp-org-lint-fn--summary)
+     :excluded sp-batch-report-excluded)))
+
+(defun sp-org-lint-fn--render-batch ()
+  "Draw the whole report in the shared view."
+  (let ((inhibit-read-only t)
+        (line (line-number-at-pos)))
+    (erase-buffer)
+    (insert (sp-org-lint-fn--batch-text))
+    (outline-show-all)
+    (goto-char (point-min))
+    (forward-line (1- line))))
+
 (defun sp-org-lint-fn--insert-plan (plan)
+  "Insert the report of PLAN at the end of the buffer, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (goto-char (point-max))
+          (insert (sp-batch-report--item-string (sp-org-lint-fn--plan-item plan)))))
+    (sp-org-lint-fn--insert-plan-old plan)))
+
+(defun sp-org-lint-fn--insert-plan-old (plan)
   "Insert the report of PLAN at the end of the buffer."
   (let ((file (plist-get plan :file))
         (inhibit-read-only t))
@@ -1254,7 +1360,16 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
             (seq-count (lambda (p) (plist-get p :error)) plans))))
 
 (defun sp-org-lint-fn--render ()
-  "Draw the whole report, from the state of the run."
+  "Draw the whole report, from the state of the run, in the view of this buffer."
+  (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+      (sp-org-lint-fn--render-batch)
+    (sp-org-lint-fn--render-old)))
+
+(make-obsolete 'sp-org-lint-fn--render-old 'sp-org-lint-fn--render-batch "2026-11-09")
+(make-obsolete 'sp-org-lint-fn--insert-plan-old 'sp-org-lint-fn--plan-item "2026-11-09")
+
+(defun sp-org-lint-fn--render-old ()
+  "Draw the whole report in the old view, from the state of the run."
   (let ((inhibit-read-only t)
         (plans (reverse (sp-org-lint-fn--get :plans)))
         (results (reverse (sp-org-lint-fn--get :results))))
@@ -1388,7 +1503,9 @@ EXTRA is a plist merged into the control file."
                 :buffer nil
                 :command (list (expand-file-name invocation-name
                                                  invocation-directory)
-                               "-Q" "--batch" "-l" sp-org-lint--library
+                               "-Q" "--batch"
+                               "-L" (file-name-directory sp-org-lint--library)
+                               "-l" sp-org-lint--library
                                "--eval"
                                (format "(sp-org-lint-fn--batch %S)" ctl))
                 :connection-type 'pipe
@@ -1446,14 +1563,20 @@ instead of using the vulpea database."
     (unless files (user-error "No Org files to lint"))
     (with-current-buffer buffer
       (sp-org-lint-fn--stop)
-      (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
-        (sp-org-lint-fn-report-mode))
+      (unless (eq major-mode (sp-org-lint-fn--report-mode))
+        (funcall (sp-org-lint-fn--report-mode)))
       (setq sp-org-lint-fn--run nil)
+      (when (derived-mode-p 'sp-org-lint-fn-batch-mode)
+        (setq sp-batch-report-refresh-function (lambda () (sp-org-lint-footnotes-dryrun))))
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (propertize "Footnote lint\n" 'face 'bold)
-                (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
-                        (length files))))
+        (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
+            (insert "#+title: Footnote lint\n\n"
+                    (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n* Files with footnotes to look at\n"
+                            (length files)))
+          (insert (propertize "Footnote lint\n" 'face 'bold)
+                  (format "Reading %d file(s) in a second Emacs; nothing is changed.\n\n"
+                          (length files)))))
       (sp-org-lint-fn--start 'scan files nil))
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
@@ -1466,11 +1589,14 @@ Every file is copied to `sp-org-lint-fn-backup-directory' first.  Files
 that are open with unsaved changes, or that changed since the scan,
 are skipped.  The work is done by a second Emacs."
   (interactive)
-  (unless (derived-mode-p 'sp-org-lint-fn-report-mode)
+  (unless (or (derived-mode-p 'sp-org-lint-fn-report-mode)
+              (derived-mode-p 'sp-org-lint-fn-batch-mode))
     (user-error "Run this in the footnote lint report"))
   (unless (eq (sp-org-lint-fn--get :phase) 'ready)
     (user-error "The scan has not finished"))
-  (let* ((plans (seq-filter (lambda (p) (plist-get p :changed))
+  (let* ((plans (seq-filter (lambda (p) (and (plist-get p :changed)
+                                             (not (member (plist-get p :file)
+                                                          sp-batch-report-excluded))))
                             (sp-org-lint-fn--get :plans)))
          (busy (seq-filter (lambda (p)
                              (when-let* ((b (find-buffer-visiting
@@ -1557,13 +1683,13 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 1. Reads every note in =litnotes/= (the file-level meta list only) and *fixes typos of the key*: =pub-authro=, =pub-autor= and =Pub_Author= become =pub-author=. A key two edits away is only reported.
 2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and= (as BibTeX writes them; =Ann Lee, Bo Roe, and Cy Poe= is a list with commas, see below), but not by a single comma because =Smith, John= is one name; more than one comma is a case for disambiguation, see below. Each name gets its own note.
 3. *Creates a note tagged =:person:=* for every plain name that has no note, with =sp-org--write-note= (the function behind =sp-org-create-note-and-link=; there is no function called =sp-org--create-note=), and replaces the plain name in the litnote by an ID link to it. An existing note is found by its title, ignoring case; if it is not tagged =person= it is given that tag in its =#+filetags:=.
-4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=.
+4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=. Only for a person who is linked under =pub-editor= in some litnote, it does the same after the =Works= subtree for an =Edited works= heading and a block for =pub-editor= (see below).
 5. Fills the tables from the Vulpea database, so they are not left for =C-c C-c=.
 6. Shows a report buffer with everything above, and the same list as a preview before anything is written.
 
 *Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. The preview and the write are separate jobs. The questions about ambiguous names are asked in this Emacs, in the middle of a slice. As before, a note with unsaved changes in its buffer is saved first when you apply, and the files are copied to the backup folder before they are written.
 
-The block is a query table (see [[file:sp-collection-query-tables.org][sp-collection-query-tables]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
+The block is a query table (see [[file:sp-collection-query.org][sp-collection-query]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
 
 Notes tagged =booksection= are not listed. Their =bib-parent= link points at the =book= note (the schema in =sp-vulpea.org= requires it), and =:fold-tag "booksection"= counts them in the =Sections= column of that book's row, adding the book if it has no =pub-author= of its own. The title links get the emoji of the note's tags from =sp-org-tag-groups= (the Org buffer decorates =id:= links itself), so a =filetags= column is not needed. Blocks that already exist are not changed; add =:fold-tag "booksection" :fold-prop "bib-parent"= and the =:sections= column to them by hand.
 
@@ -1584,7 +1710,23 @@ Safety:
 - In the report, =d= drops the candidate on the line from the plan and shows the preview again, =u= brings it back, =A= writes what is left. A note (a litnote, an author note, a note to tag) is dropped as a file: it is not read or changed. An author to create is dropped by name: no note is made and the name stays plain. The command asks =y= (write all), =r= (review in the report) or =q=.
 - Left alone and reported: two notes with one title, a note without an ID, and a value that mixes links with other text.
 
-What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= get a =Works= section, not every =person= note.
+*Backfilling one author note.* =sp-author-notes= goes through the whole vault; these two commands work on one author note.
+
+- =M-x sp-author-notes-works-dryrun= shows what would be added to the note in the current buffer, and writes nothing.
+- =M-x sp-author-notes-works-convert= writes it: Basics and Works headings and the block if they are missing, then fills the block.
+- The note must be tagged =person=; the commands say so otherwise.
+- The headings and the block come from the same code as the lint (=sp-author-notes--person-pass= and =sp-author-notes-works-spec=), so the table has the same columns and sorting.
+- /Works/ are the notes whose =pub-author= links to this note.
+- /Edited works/ are the notes whose =pub-editor= links to this note and whose =pub-author= does not. They are in a second table under their own heading (=sp-author-notes-edited-heading=, =sp-author-notes-edited-spec=), so a work is in one table only.
+- The second table needs the spec key =:except-prop= of the query tables: a meta key whose link to =:parent-of= leaves the note out.
+- The lint (=sp-author-notes=) adds the second heading and table only to a person who is linked under =pub-editor= in some litnote (a mistyped key counts).
+- The command adds them only when the database has a work that the person only edited; a person with none gets the =Works= table alone.
+- A table that is already in the note is kept as it is and only filled; its spec is not replaced. 
+- The dry run also says how many works each table would list, when vulpea is loaded.
+- The note is copied to =sp-author-notes-backup-directory= before it is written, and a buffer with unsaved changes is saved first.
+- No saved view of =sp-collec-query-views-defaults= is used: those list notes through =bib-parent=, not =pub-author=.
+
+What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= or =pub-editor= get a =Works= section, not every =person= note.
 
 ** Setup
 
@@ -1615,6 +1757,7 @@ What it does not do: it reads =litnotes/= only, so works that exist only as BibT
 (require 'subr-x)
 (require 'org)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -1670,6 +1813,25 @@ The `Works' tables still use `sp-author-notes-key' only."
   :type 'string
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-organisation-tag "institution"
+  "The extra tag of an author note that is made for an organisation.
+Such a note also gets `sp-author-notes-person-tag', so the Works tables
+and the BibTeX commands treat it like any other author note.  A note
+tagged only with this tag is taken for an author note too."
+  :type 'string
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-organisations nil
+  "Names of authors or editors that are organisations, not people.
+- Each is a name as it is written in the note, e.g. \"Endnotes\".
+- Compared without case or accents.
+- Such a name is never flipped from \"Last, First\" and never matched
+  loosely by last name and initial.
+- A BibTeX name in double braces, `{{Endnotes}}', is an organisation too,
+  and need not be listed."
+  :type '(repeat string)
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-flip-names t
   "Non-nil to read the plain name \"Last, First\" as \"First Last\".
 Only a name with exactly one comma is changed.  The note is looked up and
@@ -1691,11 +1853,29 @@ you wrote as \"First Last\"."
 (defcustom sp-author-notes-works-spec
   '(:parent-of "self" :parent-prop "pub-author"
     :fold-tag "booksection" :fold-prop "bib-parent"
-    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :columns (:title :collection :sections "read-status" "read-priority" "pub-year" "relevance-factor")
     :sort-by "pub-year")
   "The spec of the `collection-query-table' block put in the Works heading.
 See `sp-collec-query-spec-keys'.  :title is the note title, the citekey.
-Book sections are left out and counted in :sections on their book."
+Book sections are left out and counted in :sections on their book.
+Chapters of a collection (incollection) stay as their own rows; :collection
+shows the title of the collection they are in."
+  :type 'sexp
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-edited-heading "Edited works"
+  "The heading that holds the table of the works that the person only edited."
+  :type 'string
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-edited-spec
+  '(:parent-of "self" :parent-prop "pub-editor" :except-prop "pub-author"
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :collection :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :sort-by "pub-year")
+  "The spec of the `collection-query-table' block put in the edited works heading.
+Like `sp-author-notes-works-spec', but for `pub-editor', and a work whose
+`pub-author' also names the person is left out (it is in the Works table)."
   :type 'sexp
   :group 'sp-author-notes)
 
@@ -1953,13 +2133,65 @@ Return nil, (fix . CANONICAL) or (suspect . CANONICAL); see `sp-author-notes--ke
           "\\|[\"“]\\([^\"“”]*\\)[\"”]")
   "A link or a quoted name in a value; group 1 is an ID, 3 a Denote identifier, 4 a quoted name.")
 
+(defvar sp-author-notes--braced-organisations (make-hash-table :test #'equal)
+  "Title keys of the names that were written in double braces, like `{{Endnotes}}'.
+BibTeX reads such a name as one unit, so it is an organisation.  The
+braces are lost when the name is cleaned, so the key is remembered here.")
+
+(defun sp-author-notes--braced-p (text)
+  "Non-nil if TEXT is one name in double braces, e.g. `{{Endnotes}}'."
+  (let ((text (string-trim text)))
+    (and (string-prefix-p "{{" text)
+         (string-suffix-p "}}" text)
+         (let ((depth 0) (ok t))
+           ;; The first brace must close at the very end of TEXT.
+           (dotimes (i (1- (length text)))
+             (pcase (aref text i)
+               (?{ (cl-incf depth))
+               (?} (cl-decf depth)))
+             (when (<= depth 0) (setq ok nil)))
+           ok))))
+
+(defun sp-author-notes--split-outside-braces (text separator)
+  "Split TEXT at the regexp SEPARATOR, but not inside braces.
+The pieces are trimmed and the empty ones dropped."
+  (let ((depth 0) (start 0) (pos 0) (len (length text)) out)
+    (while (< pos len)
+      (let ((char (aref text pos)))
+        (cond ((eq char ?{) (cl-incf depth) (cl-incf pos))
+              ((eq char ?}) (setq depth (max 0 (1- depth))) (cl-incf pos))
+              ((and (= depth 0)
+                    (eq (string-match separator text pos) pos)
+                    (> (match-end 0) pos))
+               (push (substring text start pos) out)
+               (setq pos (match-end 0) start pos))
+              (t (cl-incf pos)))))
+    (push (substring text start) out)
+    (seq-remove #'string-empty-p (mapcar #'string-trim (nreverse out)))))
+
+(defun sp-author-notes--organisation-p (name)
+  "Non-nil if NAME is an organisation, not a person.
+That is so when it is in `sp-author-notes-organisations', or was seen in
+double braces."
+  (let ((key (sp-author-notes--title-key
+              (string-trim (replace-regexp-in-string "[{}\"“”]" "" (sp-author-notes-latex-to-unicode name))))))
+    (or (gethash key sp-author-notes--braced-organisations)
+        (seq-some (lambda (org) (equal key (sp-author-notes--title-key org)))
+                  sp-author-notes-organisations))))
+
 (defun sp-author-notes--clean-name (name)
-  "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for."
-  (let* ((name (string-trim (replace-regexp-in-string
+  "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for.
+An organisation (see `sp-author-notes--organisation-p') is never flipped."
+  (let* ((braced (sp-author-notes--braced-p name))
+         (name (string-trim (replace-regexp-in-string
                              "[ \t\n]+" " " (replace-regexp-in-string
                                               "[{}\"“”]" "" (sp-author-notes-latex-to-unicode name)))))
          (parts (split-string name "," t "[ \t]+")))
+    (when braced
+      (puthash (sp-author-notes--title-key name) t sp-author-notes--braced-organisations))
     (if (and sp-author-notes-flip-names
+             (not braced)
+             (not (sp-author-notes--organisation-p name))
              (= (length parts) 2)
              (string-match-p "[[:alpha:]]" (car parts))
              (string-match-p "[[:alpha:]]" (cadr parts)))
@@ -2012,6 +2244,7 @@ That is so when the last piece has no comma and an earlier one has a
 comma after two words or more: `Ann Lee, Bo Roe, and Cy Poe'.  BibTeX's
 `Lee, Ann and Roe, Bo' is not one, nor is `Lee, Ann and Bo Roe'."
   (and (cdr pieces)
+       (not (seq-some #'sp-author-notes--braced-p pieces))
        (not (string-match-p "," (car (last pieces))))
        (seq-some (lambda (piece)
                    (and (string-match-p "," piece)
@@ -2021,13 +2254,15 @@ comma after two words or more: `Ann Lee, Bo Roe, and Cy Poe'.  BibTeX's
 (defun sp-author-notes--plain-names (text)
   "The names in TEXT, which has no links or quoted names.
 A stray quote mark is dropped.  Names are separated by `;' or `and' (as
-BibTeX writes them).  Each element is a name, or (:ambiguous RAW NAMES)
+BibTeX writes them), but not inside braces: `{{Marx and Engels Institute}}'
+is one organisation.  Each element is a name, or (:ambiguous RAW NAMES)
 for a piece with more than one comma, or a list with commas that ends in
 `and', which may be one author or several: RAW is the text and NAMES the
 split proposed by `sp-author-notes--comma-proposal'."
   (let (out)
-    (dolist (semi (split-string (replace-regexp-in-string "[\"“”]" "" text) "[ \t]*;[ \t]*" t))
-      (let ((pieces (split-string semi "[ \t]+and[ \t]+" t)))
+    (dolist (semi (sp-author-notes--split-outside-braces
+                   (replace-regexp-in-string "[\"“”]" "" text) "[ \t]*;[ \t]*"))
+      (let ((pieces (sp-author-notes--split-outside-braces semi "[ \t]+and[ \t]+")))
         (if (sp-author-notes--and-list-p pieces)
             (push (list :ambiguous (string-trim semi "[ \t,]+" "[ \t,]+")
                         (mapcar #'sp-author-notes--clean-name
@@ -2037,6 +2272,8 @@ split proposed by `sp-author-notes--comma-proposal'."
           (dolist (segment pieces)
             (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
               (cond ((string-empty-p segment))
+                    ((sp-author-notes--braced-p segment)
+                     (push (sp-author-notes--clean-name segment) out))
                     ((> (length (split-string segment "," t "[ \t]+")) 2)
                      (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
                     (t (push (sp-author-notes--clean-name segment) out))))))))
@@ -2100,6 +2337,7 @@ A run holds what it found and did. It is the same code for the preview and for t
   orphan-choices ; hash: orphan ID -> chosen ID or `none'
   backed-up      ; hash: files already copied to the backup folder
   filled         ; list of files whose tables were filled
+  editors        ; hash: author key -> t for people linked under pub-editor
   litnote-count)
 
 (defvar sp-author-notes--excluded nil
@@ -2136,9 +2374,16 @@ changed, and dropped names get no note.")
   (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
     (sp-author-notes--index-file run file)))
 
+(defun sp-author-notes--person-tags-p (tags)
+  "Non-nil if TAGS has the person tag or the organisation tag."
+  (or (member sp-author-notes-person-tag tags)
+      (member sp-author-notes-organisation-tag tags)))
+
 (defun sp-author-notes--person-p (entry)
-  "Non-nil if the index ENTRY is tagged with `sp-author-notes-person-tag'."
-  (member sp-author-notes-person-tag (plist-get entry :tags)))
+  "Non-nil if the index ENTRY is tagged as an author note.
+That is the tag `sp-author-notes-person-tag' or
+`sp-author-notes-organisation-tag'."
+  (sp-author-notes--person-tags-p (plist-get entry :tags)))
 #+end_src
 
 *** Finding or creating the note of a name
@@ -2148,13 +2393,16 @@ The result for each name is remembered, so a name that occurs in fifty litnotes 
 #+begin_src emacs-lisp -i
 
 (defun sp-author-notes--create (run name)
-  "Create the author note NAME and register it in RUN.  Return its ID."
+  "Create the author note NAME and register it in RUN.  Return its ID.
+The note of an organisation gets `sp-author-notes-organisation-tag' too."
   (require 'sp-org-link-conversion)
-  (let* ((id (sp-org--write-note name (list sp-author-notes-person-tag)))
+  (let* ((tags (append (list sp-author-notes-person-tag)
+                       (and (sp-author-notes--organisation-p name)
+                            (list sp-author-notes-organisation-tag))))
+         (id (sp-org--write-note name tags))
          (file (car (org-id-find id))))
     (unless file (error "The new note %s has no file" name))
-    (let ((entry (list :file file :id id :title name
-                       :tags (list sp-author-notes-person-tag))))
+    (let ((entry (list :file file :id id :title name :tags tags)))
       (puthash id entry (sp-author-notes--run-by-id run))
       (push entry (gethash (sp-author-notes--title-key name)
                            (sp-author-notes--run-by-title run))))
@@ -2343,9 +2591,20 @@ vault has that identifier and an :ID:."
            (format "No note has the Denote identifier %s; link left as it is" identifier)))
         nil))))
 
+(defun sp-author-notes--author-key (author)
+  "The key of AUTHOR, an (ID . NAME) pair: its ID, or \"name:\" and the title key of its name."
+  (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author)))))
+
+(defun sp-author-notes--editor-p (run author)
+  "Non-nil if AUTHOR, an (ID . NAME) pair, is linked under `pub-editor' in a litnote of RUN."
+  (and (sp-author-notes--run-editors run)
+       (gethash (sp-author-notes--author-key author) (sp-author-notes--run-editors run))))
+
 (defun sp-author-notes--litnote-pass (run file)
-  "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed denoted ambiguous)
+  "Fix the key typos and link the plain authors in the buffer, a note from FILE.
+The result has :editors, the authors that are under `pub-editor' (also when
+the key is mistyped)."
+  (let (fixes suspects converted authors unparsed denoted ambiguous editors)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -2356,7 +2615,7 @@ vault has that identifier and an :ID:."
           (let ((items (sp-author-notes--parse-value value)))
             (if (eq items 'unparsed)
                 (push (cons value line) unparsed)
-              (let (parts changed)
+              (let ((before authors) parts changed)
                 (cl-flet ((do-name (name line)
                             (let ((id (sp-author-notes--resolve run name file line)))
                               (cond
@@ -2398,7 +2657,9 @@ vault has that identifier and an :ID:."
                 (when changed
                   (sp-author-notes--replace
                    (plist-get entry :value-beg) (plist-get entry :value-end)
-                   (mapconcat #'identity (nreverse parts) ", ")))))))
+                   (mapconcat #'identity (nreverse parts) ", ")))
+                (when (equal "pub-editor" (if (eq (car state) 'fix) (cdr state) key))
+                  (setq editors (append (cl-ldiff authors before) editors)))))))
         (when state
           (if (eq (car state) 'fix)
               (progn
@@ -2407,7 +2668,7 @@ vault has that identifier and an :ID:."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed :denoted denoted
+          :authors authors :editors editors :unparsed unparsed :denoted denoted
           :ambiguous ambiguous)))
 #+end_src
 
@@ -2423,9 +2684,9 @@ The buffer holds an author note. The pass adds what is missing and returns what 
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes--dblock-text ()
-  "The text of the query table block for `sp-author-notes-works-spec'."
-  (let ((spec sp-author-notes-works-spec) pairs)
+(defun sp-author-notes--dblock-text (&optional spec)
+  "The text of the query table block for SPEC, default `sp-author-notes-works-spec'."
+  (let ((spec (or spec sp-author-notes-works-spec)) pairs)
     (while spec
       (push (format "%s %S" (car spec) (cadr spec)) pairs)
       (setq spec (cddr spec)))
@@ -2471,18 +2732,21 @@ The buffer holds an author note. The pass adds what is missing and returns what 
     (insert text)
     (unless (or (eobp) (eq (char-after) ?\n)) (insert "\n"))))
 
-(defun sp-author-notes--has-table-p ()
-  "Non-nil if the buffer has a query table block for `sp-author-notes-key'."
+(defun sp-author-notes--has-table-p (&optional key)
+  "Non-nil if the buffer has a query table block for KEY, default `sp-author-notes-key'."
   (save-excursion
     (goto-char (point-min))
     (let ((case-fold-search t))
       (re-search-forward
        (format "^[ \t]*#\\+begin:[ \t]*\\(?:collection-query-table\\|vulpea-table\\)\\_>.*:parent-prop[ \t]+\"%s\""
-               (regexp-quote sp-author-notes-key))
+               (regexp-quote (or key sp-author-notes-key)))
        nil t))))
 
-(defun sp-author-notes--person-pass ()
-  "Add the Basics heading, the Works heading and the table to the buffer."
+(defun sp-author-notes--person-pass (&optional with-edited)
+  "Add the Basics and Works headings and the Works table to the buffer; return what was added.
+With WITH-EDITED, add the table of the works only edited too
+\(`sp-author-notes--edited-pass').  That is for a person that is linked
+under `pub-editor' somewhere; nobody else gets the second table."
   (let (added)
     (unless (sp-author-notes--find-heading sp-author-notes-basics-heading)
       (sp-author-notes--insert-at (sp-author-notes--first-heading)
@@ -2510,7 +2774,7 @@ The buffer holds an author note. The pass adds what is missing and returns what 
         (sp-author-notes--insert-at (sp-author-notes--body-end (car works))
                                     (sp-author-notes--dblock-text)))
       (push 'table added))
-    (nreverse added)))
+    (append (nreverse added) (and with-edited (sp-author-notes--edited-pass)))))
 #+end_src
 
 ** Files and the whole run
@@ -2574,11 +2838,12 @@ The order is fixed: litnotes first (this creates the notes of plain names), then
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes--new-note-additions ()
-  "What the person pass adds to a note that has only the title and the tag."
+(defun sp-author-notes--new-note-additions (&optional with-edited)
+  "What the person pass adds to a note that has only the title and the tag.
+WITH-EDITED is as for `sp-author-notes--person-pass'."
   (with-temp-buffer
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: x\n\n")
-    (sp-author-notes--person-pass)))
+    (sp-author-notes--person-pass with-edited)))
 
 (defun sp-author-notes--populate (run file)
   "Fill the query table blocks for `sp-author-notes-key' in FILE.
@@ -2596,7 +2861,7 @@ folder.  A failure is recorded as a problem."
                   (goto-char (point-min))
                   (while (re-search-forward
                           (format "^[ \t]*#\\+begin:[ \t]*collection-query-table\\_>.*:parent-prop[ \t]+\"%s\""
-                                  (regexp-quote sp-author-notes-key))
+                                  (regexp-opt (list sp-author-notes-key "pub-editor")))
                           nil t)
                     (beginning-of-line)
                     (org-update-dblock)
@@ -2619,8 +2884,12 @@ folder.  A failure is recorded as a problem."
               (plist-get result :denoted) (plist-get result :ambiguous)
               (plist-get result :converted) (plist-get result :unparsed))
       (push (cons file result) (sp-author-notes--run-litnotes run)))
+    (dolist (editor (plist-get result :editors))
+      (unless (sp-author-notes--run-editors run)
+        (setf (sp-author-notes--run-editors run) (make-hash-table :test #'equal)))
+      (puthash (sp-author-notes--author-key editor) t (sp-author-notes--run-editors run)))
     (dolist (author (plist-get result :authors))
-      (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
+      (let ((key (sp-author-notes--author-key author)))
         (unless (gethash key seen)
           (puthash key t seen)
           (push author (sp-author-notes--run-authors run)))))))
@@ -2629,7 +2898,8 @@ folder.  A failure is recorded as a problem."
   "Plan the note of AUTHOR, an (ID . NAME) pair, for RUN."
   (pcase-let ((`(,id . ,name) author))
     (if (null id)
-        (push (list name nil nil (sp-author-notes--new-note-additions))
+        (push (list name nil nil (sp-author-notes--new-note-additions
+                                  (sp-author-notes--editor-p run author)))
               (sp-author-notes--run-people run))
       (let ((entry (gethash id (sp-author-notes--run-by-id run))))
         (cond
@@ -2641,14 +2911,16 @@ folder.  A failure is recorded as a problem."
                    (plist-get entry :title) sp-author-notes-person-tag)))
          (t
           (when-let* ((wrapped (sp-author-notes--process-file
-                                run (plist-get entry :file) #'sp-author-notes--person-pass)))
+                                run (plist-get entry :file)
+                                (lambda () (sp-author-notes--person-pass
+                                            (sp-author-notes--editor-p run author))))))
             (push (list (plist-get entry :title) id (plist-get entry :file)
                         (car wrapped))
                   (sp-author-notes--run-people run)))))))))
 
 (defun sp-author-notes--table-items (run)
   "The author notes of RUN whose tables are to be filled; nil when that cannot be done."
-  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t)))
       (progn
         (sp-author-notes--problem
          run nil nil "Tables not filled: the query tables and vulpea are not loaded")
@@ -2738,6 +3010,11 @@ RET visits, d drops the candidate on the line from the list, u restores
 a dropped one, A writes what is left, g shows the preview again.")
 
 (defconst sp-author-notes--buffer-name "*Author notes*")
+
+;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
+;; for now, `sp-batch-report-interface' set to `old' brings it back.
+(make-obsolete 'sp-author-notes-report-mode 'sp-batch-report-mode "2026-11-09")
+(make-obsolete-variable 'sp-author-notes-report-mode-map 'sp-batch-report-mode-map "2026-11-09")
 
 (defun sp-author-notes--short (file)
   "FILE relative to the vault, for the report."
@@ -2929,8 +3206,8 @@ a dropped one, A writes what is left, g shows the preview again.")
                 "\nRET visit   g preview again\n"
               "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
 
-(defun sp-author-notes--show (run)
-  "Show the report of RUN."
+(defun sp-author-notes--show-old (run)
+  "Show the report of RUN in the old `sp-author-notes-report-mode'."
   (with-current-buffer (get-buffer-create sp-author-notes--buffer-name)
     (sp-author-notes-report-mode)
     (let ((inhibit-read-only t))
@@ -2939,6 +3216,161 @@ a dropped one, A writes what is left, g shows the preview again.")
       (goto-char (point-min)))
     (pop-to-buffer (current-buffer)))
   run)
+
+(make-obsolete 'sp-author-notes--show-old 'sp-author-notes--show-batch "2026-11-09")
+
+(defun sp-author-notes--key-label (key)
+  "The text of the dropped KEY: an author by name, a note as a link."
+  (if (string-prefix-p "name:" key)
+      (format "author %s" (substring key 5))
+    (sp-batch-report--key-label key)))
+
+(defun sp-author-notes--sections (run)
+  "The sections of the report of RUN, for `sp-batch-report-text'."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (lits (sp-author-notes--run-litnotes run))
+         (people (sp-author-notes--run-people run))
+         (item (lambda (text file line &optional key)
+                 (list :text text :file file :line line
+                       :label (and file (if line
+                                            (format "%s:%d" (sp-author-notes--short file) line)
+                                          (sp-author-notes--short file)))
+                       :key (or key file))))
+         sections)
+    (cl-flet ((add (title items &optional empty)
+                (push (sp-batch-report-section title items empty) sections)))
+      (let ((fixes (cl-loop for (file . r) in lits
+                            append (mapcar (lambda (f) (cons file f)) (plist-get r :fixes))))
+            (suspects (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (f) (cons file f)) (plist-get r :suspects)))))
+        (add (if apply "Meta key typos fixed" "Meta key typos to fix")
+             (mapcar (lambda (f)
+                       (funcall item (format "%s -> %s" (cadr f)
+                                             (or (cdr (sp-author-notes--key-state (cadr f)))
+                                                 sp-author-notes-key))
+                                (car f) (cddr f)))
+                     fixes))
+        (when suspects
+          (add "Possible typos, not changed"
+               (mapcar (lambda (f) (funcall item (format "%s" (cadr f)) (car f) (cddr f)))
+                       suspects))))
+      (add (if apply "Author notes created" "Author notes to create")
+           (mapcar (lambda (m)
+                     (funcall item (car m) (cadr m) nil
+                              (concat "name:" (sp-author-notes--title-key (car m)))))
+                   (if apply
+                       (mapcar (lambda (c) (list (nth 0 c) (nth 2 c)))
+                               (sp-author-notes--run-created run))
+                     (mapcar #'list (sp-author-notes--run-pending run)))))
+      (add (if apply "Plain names turned into links" "Plain names to turn into links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (c) (funcall item (nth 0 c) file (nth 2 c)))
+                                   (plist-get r :converted))))
+      (add "Lists of names with commas, to disambiguate"
+           (cl-loop for (file . r) in lits
+                    append (mapcar
+                            (lambda (a)
+                              (pcase-let ((`(,raw ,names ,line ,chosen) a))
+                                (append
+                                 (funcall item (format "\"%s\"" raw) file line)
+                                 (list :children
+                                       (list (format "as %d: %s" (length names)
+                                                     (string-join names " | "))
+                                             (cond (chosen "split into these authors")
+                                                   (apply "left as it is")
+                                                   (t "will ask whether to split it")))))))
+                            (plist-get r :ambiguous))))
+      (add (if apply "Denote links turned into ID links" "Denote links to turn into ID links")
+           (cl-loop for (file . r) in lits
+                    append (mapcar (lambda (d)
+                                     (funcall item (format "denote:%s -> id:%s" (nth 0 d) (nth 1 d))
+                                              file (nth 2 d)))
+                                   (plist-get r :denoted))))
+      (add (if apply "Notes tagged for authors" "Notes to tag as authors")
+           (mapcar (lambda (tg)
+                     (funcall item (format "%s  + :%s:" (nth 0 tg) sp-author-notes-person-tag)
+                              (nth 2 tg) nil))
+                   (sp-author-notes--run-tagged run)))
+      (add (if apply "Buffers saved first (they had unsaved changes)"
+             "Buffers that will be saved first (unsaved changes)")
+           (mapcar (lambda (f) (funcall item "" f nil)) (sp-author-notes--run-saved run)))
+      (add "Links to an ID that no note has"
+           (mapcar
+            (lambda (o)
+              (pcase-let ((`(,file ,line ,id ,desc ,new ,suggestion) o))
+                (funcall item
+                         (format "%s (\"%s\")  %s" id (or desc "")
+                                 (cond (new (format "-> redirected to %s"
+                                                    (plist-get (gethash new (sp-author-notes--run-by-id run))
+                                                               :title)))
+                                       (apply "left as it is")
+                                       (suggestion (format "will ask; suggestion: %s" suggestion))
+                                       (t "will ask where it should point")))
+                         file line)))
+            (sp-author-notes--run-orphans run)))
+      (let ((changed (seq-filter (lambda (p) (nth 3 p)) people))
+            (same (seq-remove (lambda (p) (nth 3 p)) people)))
+        (add (if apply "Author notes updated" "Author notes to update")
+             (mapcar (lambda (p)
+                       (funcall item (format "%s  + %s" (nth 0 p) (mapconcat #'symbol-name (nth 3 p) ", "))
+                                (nth 2 p) nil))
+                     changed))
+        (add "Author notes already complete"
+             (mapcar (lambda (p) (funcall item (nth 0 p) (nth 2 p) nil)) same))
+        (when apply
+          (add "Tables filled"
+               (list (list :text (format "%d, from the vulpea database; if the links were only just written and the database has not caught up, update a table with C-c C-c"
+                                         (length (sp-author-notes--run-filled run)))
+                           :key nil)))))
+      (let ((unparsed (cl-loop for (file . r) in lits
+                               append (mapcar (lambda (u) (cons file u)) (plist-get r :unparsed)))))
+        (add "Left alone, needs you"
+             (append
+              (mapcar (lambda (u)
+                        (funcall item (format "value mixes links and other text: %s" (cadr u))
+                                 (car u) (cddr u)))
+                      unparsed)
+              (mapcar (lambda (p) (funcall item (nth 2 p) (nth 0 p) (nth 1 p)))
+                      (sp-author-notes--run-problems run))))))
+    (nreverse sections)))
+
+(defun sp-author-notes--show-batch (run)
+  "Show the report of RUN in the shared `sp-batch-report-mode' buffer."
+  (let* ((apply (sp-author-notes--run-apply run))
+         (n (sp-author-notes--change-count run))
+         (authors (length (sp-author-notes--run-authors run)))
+         (reload (lambda (excluded)
+                   (setq sp-author-notes--excluded excluded)
+                   (sp-author-notes-refresh))))
+    (sp-batch-report-open
+     sp-author-notes--buffer-name
+     (sp-batch-report-text
+      (if apply "Author notes: DONE" "Author notes: PREVIEW, nothing has been written")
+      (sp-author-notes--sections run)
+      :excluded sp-author-notes--excluded
+      :key-label #'sp-author-notes--key-label
+      :intro (concat
+              (format "- %d literature notes read in %s\n- %d author%s\n- %d change%s"
+                      (sp-author-notes--run-litnote-count run)
+                      (abbreviate-file-name sp-author-notes-litnotes-directory)
+                      authors (if (= 1 authors) "" "s") n (if (= 1 n) "" "s"))
+              (and apply sp-author-notes-backup-directory (> n 0)
+                   (format "\n- originals copied to %s%s/"
+                           (abbreviate-file-name sp-author-notes-backup-directory)
+                           (sp-author-notes--run-stamp run)))))
+     :refresh reload
+     :excluded sp-author-notes--excluded
+     :apply (unless apply
+              (lambda (excluded)
+                (setq sp-author-notes--excluded excluded)
+                (sp-author-notes-convert))))
+    run))
+
+(defun sp-author-notes--show (run)
+  "Show the report of RUN, in the view `sp-batch-report-interface' picks."
+  (if (sp-batch-report-new-p)
+      (sp-author-notes--show-batch run)
+    (sp-author-notes--show-old run)))
 
 (defun sp-author-notes-visit ()
   "Visit the file on the report line at point."
@@ -3119,6 +3551,138 @@ deleted: they are listed, so you can merge them."
                                                           (file-name-nondirectory (plist-get e :file))))
                                       (nreverse losers) "; ")))))))))
 
+;;;; Works table of one author note
+
+(defun sp-author-notes--person-note-p ()
+  "Non-nil if the buffer has the person or the organisation tag in its #+filetags:."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (re-search-forward
+       (format "^#\\+filetags:.*:\\(?:%s\\|%s\\):"
+               (regexp-quote sp-author-notes-person-tag)
+               (regexp-quote sp-author-notes-organisation-tag))
+       nil t))))
+
+(defun sp-author-notes--works-target ()
+  "The file of the author note in the current buffer; signal a user error if it is none."
+  (unless (and buffer-file-name (derived-mode-p 'org-mode))
+    (user-error "This buffer does not visit an Org note"))
+  (unless (sp-author-notes--person-note-p)
+    (user-error "This note is not tagged %s, so it is not an author note"
+                sp-author-notes-person-tag))
+  buffer-file-name)
+
+(defun sp-author-notes--works-count (&optional spec)
+  "How many rows a Works table of the buffer would list; nil if that cannot be told.
+The notes are asked for in the Vulpea database with SPEC, default
+`sp-author-notes-works-spec', for the ID in the buffer text, so the buffer
+does not need to visit a file."
+  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
+        (ignore-errors
+          (length (sp-collec-query-query
+                   (plist-put (copy-sequence (or spec sp-author-notes-works-spec))
+                              :parent-of (match-string 1)))))))))
+
+(defun sp-author-notes--edited-pass ()
+  "Add the edited works heading and its table to the buffer; return what was added.
+The heading goes at the end of the Works subtree, as a heading of its own,
+with a block from `sp-author-notes-edited-spec'.  Call this after
+`sp-author-notes--person-pass'."
+  (let (added)
+    (unless (sp-author-notes--find-heading sp-author-notes-edited-heading)
+      (let ((works (sp-author-notes--find-heading sp-author-notes-works-heading)))
+        (sp-author-notes--insert-at
+         (sp-author-notes--subtree-end (car works) (cdr works))
+         (format "* %s\n" sp-author-notes-edited-heading)))
+      (push 'edited-heading added))
+    (unless (sp-author-notes--has-table-p "pub-editor")
+      (let ((edited (sp-author-notes--find-heading sp-author-notes-edited-heading)))
+        (sp-author-notes--insert-at (sp-author-notes--body-end (car edited))
+                                    (sp-author-notes--dblock-text sp-author-notes-edited-spec)))
+      (push 'edited-table added))
+    (nreverse added)))
+
+(defun sp-author-notes--works-pass ()
+  "Give the buffer the Works tables that `sp-author-notes' gives an author note.
+This is `sp-author-notes--person-pass', so the headings and blocks are the
+ones the lint makes (`sp-author-notes-works-spec' and, for the works that
+the person only edited, `sp-author-notes-edited-spec'), but the second table
+only when the database has a work that the person only edited.  Return
+(ADDED WORKS . EDITED): the list of what was added, and the number of works
+that each table lists."
+  (let* ((edited (sp-author-notes--works-count sp-author-notes-edited-spec))
+         (added (sp-author-notes--person-pass (and edited (> edited 0)))))
+    (cons added (cons (sp-author-notes--works-count) edited))))
+
+(defun sp-author-notes--works-summary (file added counts apply)
+  "A sentence about the author note FILE: ADDED to it, and the COUNTS of works.
+COUNTS is (WORKS . EDITED).  APPLY says whether the note was written."
+  (format "%s: %s%s"
+          (file-name-nondirectory file)
+          (if added
+              (format "%s %s" (if apply "added" "would add")
+                      (mapconcat (lambda (a)
+                                   (pcase a
+                                     ('basics "the Basics heading")
+                                     ('works "the Works heading")
+                                     ('moved-works "Works below Basics")
+                                     ('table "the table")
+                                     ('edited-heading "the Edited works heading")
+                                     ('edited-table "the edited works table")
+                                     (_ (symbol-name a))))
+                                 added ", "))
+            "headings and tables are there")
+          (if (null (car counts))
+              "; works not counted (vulpea is not loaded)"
+            (format "; %s %d work%s, %d edited only"
+                    (if apply "the table lists" "the table would list")
+                    (car counts) (if (= (car counts) 1) "" "s")
+                    (or (cdr counts) 0)))))
+
+(defun sp-author-notes--works-run (apply)
+  "Fill the Works tables of the author note in the current buffer; write it when APPLY.
+Return the message to show."
+  (let* ((file (sp-author-notes--works-target))
+         (sp-author-notes--excluded nil)
+         (run (sp-author-notes--make-run
+               :apply apply :stamp (format-time-string "%Y%m%dT%H%M%S")
+               :names (make-hash-table :test #'equal)
+               :orphan-choices (make-hash-table :test #'equal)
+               :backed-up (make-hash-table :test #'equal)))
+         (result (car (sp-author-notes--process-file
+                       run file #'sp-author-notes--works-pass))))
+    (when apply
+      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
+          (sp-author-notes--populate run file)
+        (sp-author-notes--problem
+         run file nil "Table not filled: the query tables and vulpea are not loaded")))
+    (concat (sp-author-notes--works-summary file (car result) (cdr result) apply)
+            (when-let* ((problem (car (sp-author-notes--run-problems run))))
+              (format "  Problem: %s" (nth 2 problem))))))
+
+;;;###autoload
+(defun sp-author-notes-works-dryrun ()
+  "Show what `sp-author-notes-works-convert' would do to this author note, and write nothing.
+The note is the one in the current buffer; it must be tagged `person'."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run nil)))
+
+;;;###autoload
+(defun sp-author-notes-works-convert ()
+  "Fill the Works table of the author note in this buffer with the works of the author.
+Works are the notes whose `pub-author' links to this note.  Add the Basics
+and Works headings and the `collection-query-table' block when the note lacks
+them (the same as `sp-author-notes' does, from `sp-author-notes-works-spec'),
+then fill the block.  A table that is already there is kept as it is and
+only filled.  The note is copied to `sp-author-notes-backup-directory' first,
+and a buffer with unsaved changes is saved before."
+  (interactive)
+  (message "%s" (sp-author-notes--works-run t)))
+
 ;;;###autoload
 (defun sp-author-notes ()
   "Make author notes from the `pub-author' meta key of the litnotes.
@@ -3153,7 +3717,7 @@ What each pull request changed in this module; the one-line summary is in [[file
 The =Works= table that [[*sp-author-notes.el][sp-author-notes]] puts in an author note lists the literature notes that name the author. A work that is only a BibTeX entry, with no literature note yet, is not in it. =M-x sp-author-notes-bibtex= adds that second view, the /additional/ works:
 
 1. Reads every =.bib= file of =sp-bibtex-files= (the list =sp-bibtex-register= keeps, from =sp-bibliography-dir=), keys like =smith2020attention=.
-2. Takes every =:person:= note of the vault and compares its title with the =author= field of each entry. A name matches /exactly/ when both read the same after flipping =Last, First= to =First Last=; it is a /possible/ match when the last name and the first initial agree (=J. Smith= and =John Smith=).
+2. Takes every =:person:= note of the vault and compares its title with the =author= and =editor= fields of each entry (an entry with only an =editor=, such as an edited volume, is read too). A name matches /exactly/ when both read the same after flipping =Last, First= to =First Last=; it is a /possible/ match when the last name and the first initial agree (=J. Smith= and =John Smith=).
 3. Leaves out the entries that already have a literature note: a note in =litnotes/= whose head (the property drawer and the =#+= lines) or file name holds the key, as in =REFERENCES=, =ROAM_REFS=, =#+reference:= or =@key=.
 4. Shows the rest in a report buffer, one section per author note, with the key, year, title, =.bib= file and how sure the match is.
 
@@ -3166,9 +3730,11 @@ In the report buffer:
 - =c= offers to create a literature note for the entry at point; =C= offers it for every /exact/ entry in the section at point (possible matches are only made one at a time). Both ask first.
 - =RET= visits the BibTeX entry; =o= visits the author note; =g= reads everything again.
 
-The note itself is made by =sp-author-notes-bibtex-create-function=, =citar-create-note= by default, which follows the =citar-denote= / =citar-vulpea= settings of [[file:../academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] (so the title template and the =litnotes/= folder are theirs). Because those templates do not know the author note, the new note gets a =- pub-author :: [[id:...][Name]]= line afterwards (=sp-author-notes-bibtex-link-author=), which is what puts it in the =Works= table of the author. If the match was only "possible" the line is added too, as you chose to create the note under that author.
+The note itself is made by =sp-author-notes-bibtex-create-function=, =citar-create-note= by default, which follows the =citar-denote= / =citar-vulpea= settings of [[file:../academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] (so the title template and the =litnotes/= folder are theirs). Because those templates do not know the author note, the new note gets a =- pub-author :: [[id:...][Name]]= line afterwards (=sp-author-notes-bibtex-link-author=), which is what puts it in the =Works= table of the author. When the person only edited the entry (the name is in =editor= and not in =author=), the line is =- pub-editor :: ...= instead, which puts it in the =Edited works= table. If the match was only "possible" the line is added too, as you chose to create the note under that author.
 
 The module changes nothing but that: it never edits a =.bib= file or an author note, and it writes the line into the new note only. A new note whose buffer has unsaved changes is left alone and reported in the echo area.
+
+*One author.* =M-x sp-author-notes-bibtex-author= runs the same search for the author note in the current buffer only (its title and aliases), lists the works that are not in the note first, and adds the chosen ones; see [[*One author][One author]].
 
 Not done: a BibTeX entry with several authors is listed under each author note it matches; names are compared as plain text, so spelling variants (=Müller=, =Mueller=) are not matched.
 
@@ -3244,10 +3810,12 @@ of the list that is missing is reported with `message' and skipped."
         readable))))
 
 (defun sp-author-notes-bibtex--split-authors (field)
-  "The names in the BibTeX author FIELD, flipped to First Last, braces removed."
+  "The names in the BibTeX author FIELD, flipped to First Last, braces removed.
+A name in double braces, `{{Endnotes}}', is an organisation: it is kept as
+it is, and an `and' inside it does not split it."
   (mapcar #'sp-author-notes--clean-name
-          (split-string (replace-regexp-in-string "[ \t\n]+" " " field)
-                        "[ \t]+and[ \t]+" t "[ \t]+")))
+          (sp-author-notes--split-outside-braces
+           (replace-regexp-in-string "[ \t\n]+" " " field) "[ \t]+and[ \t]+")))
 
 (defun sp-author-notes-bibtex--parse-some (file limit)
   "Parse the entries of FILE from point in the current buffer, at most LIMIT of them.
@@ -3261,19 +3829,22 @@ was reached, so that the end of the buffer may not be."
         (goto-char beg)
         (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
                     (key (cdr (assoc "=key=" entry)))
-                    (author (cdr (assoc "author" entry))))
+                    (_ (or (assoc "author" entry) (assoc "editor" entry))))
           (push (list :key key
                       :title (replace-regexp-in-string
                               "[{}]" "" (or (cdr (assoc "title" entry)) ""))
                       :year (or (cdr (assoc "year" entry)) "")
-                      :authors (sp-author-notes-bibtex--split-authors author)
+                      :authors (when-let* ((author (cdr (assoc "author" entry))))
+                                 (sp-author-notes-bibtex--split-authors author))
+                      :editors (when-let* ((editor (cdr (assoc "editor" entry))))
+                                 (sp-author-notes-bibtex--split-authors editor))
                       :file file :pos beg)
                 entries))
         (goto-char (min (point-max) (1+ beg)))))
     (cons (nreverse entries) (and limit (>= count limit)))))
 
 (defun sp-author-notes-bibtex--entries (files)
-  "The entries of the .bib FILES as plists (:key :title :year :authors :file :pos)."
+  "The entries of the .bib FILES as plists (:key :title :year :authors :editors :file :pos)."
   (let (entries)
     (dolist (file files)
       (when (file-readable-p file)
@@ -3288,14 +3859,19 @@ was reached, so that the end of the buffer may not be."
   "How the name AUTHOR matches the title PERSON: `exact', `possible' or nil."
   (let ((p (sp-author-notes--title-key (sp-author-notes--clean-name person)))
         (a (sp-author-notes--title-key author)))
-    (if (equal p a)
-        'exact
+    (cond
+     ((equal p a) 'exact)
+     ;; An organisation matches by its whole name only.
+     ((or (sp-author-notes--organisation-p person)
+          (sp-author-notes--organisation-p author))
+      nil)
+     (t
       (let ((pw (split-string p "[ .]+" t))
             (aw (split-string a "[ .]+" t)))
         (when (and (cdr pw) (cdr aw)
                    (equal (car (last pw)) (car (last aw)))
                    (eq (aref (car pw) 0) (aref (car aw) 0)))
-          'possible)))))
+          'possible))))))
 #+end_src
 
 ** Notes that exist
@@ -3305,7 +3881,7 @@ was reached, so that the end of the buffer may not be."
 (defun sp-author-notes-bibtex--person-p (head)
   "Non-nil when HEAD, from `sp-author-notes--file-head', is a :person: note."
   (and (plist-get head :title) (plist-get head :id)
-       (member sp-author-notes-person-tag (plist-get head :tags))))
+       (sp-author-notes--person-tags-p (plist-get head :tags))))
 
 (defun sp-author-notes-bibtex--people ()
   "The :person: notes of the vault, as plists from `sp-author-notes--file-head'."
@@ -3339,7 +3915,7 @@ It is the last word and the first letter of the first word, as
   (let ((words (split-string (sp-author-notes--title-key
                               (sp-author-notes--clean-name name))
                              "[ .]+" t)))
-    (when (cdr words)
+    (when (and (cdr words) (not (sp-author-notes--organisation-p name)))
       (cons (car (last words)) (aref (car words) 0)))))
 
 (defun sp-author-notes-bibtex--index-entry (index entry covered)
@@ -3352,7 +3928,7 @@ people and tens of thousands of entries."
   (let ((exact (car index)) (possible (cadr index)) (order (cddr index)))
     (puthash entry (hash-table-count order) order)
     (unless (gethash (plist-get entry :key) covered)
-      (dolist (author (plist-get entry :authors))
+      (dolist (author (append (plist-get entry :authors) (plist-get entry :editors)))
         (push entry (gethash (sp-author-notes--title-key author) exact))
         (when-let* ((key (sp-author-notes-bibtex--possible-key author)))
           (push entry (gethash key possible)))))))
@@ -3381,7 +3957,7 @@ and initial with PERSON are compared."
         (puthash entry t candidates)))
     (maphash
      (lambda (entry _)
-       (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
+       (when-let* ((conf (cl-loop for a in (append (plist-get entry :authors) (plist-get entry :editors))
                                   for m = (sp-author-notes-bibtex--match title a)
                                   when (eq m 'exact) return 'exact
                                   when m collect m into found
@@ -3464,9 +4040,19 @@ MATCHES is a list of (ENTRY . CONFIDENCE).  Only people with at least one entry 
 
 #+begin_src emacs-lisp -i
 
-(defun sp-author-notes-bibtex--add-author (file person)
-  "Add a pub-author line for the PERSON plist to the litnote FILE, if it has none.
-Return non-nil when the line was added."
+(defun sp-author-notes-bibtex--role-key (person entry)
+  "The meta key for PERSON in ENTRY: `pub-editor' if PERSON only edited it, else `pub-author'."
+  (let ((title (plist-get person :title)))
+    (if (and (null (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                            (plist-get entry :authors)))
+             (cl-some (lambda (a) (sp-author-notes-bibtex--match title a))
+                      (plist-get entry :editors)))
+        "pub-editor"
+      sp-author-notes-key)))
+
+(defun sp-author-notes-bibtex--add-author (file person &optional meta-key)
+  "Add a META-KEY line (default pub-author) for the PERSON plist to the litnote FILE.
+Nothing is added if the file has such a line.  Return non-nil when it was added."
   (let ((buf (find-buffer-visiting file)))
     (unless (and buf (buffer-modified-p buf))
       (with-current-buffer (or buf (find-file-noselect file))
@@ -3477,7 +4063,7 @@ Return non-nil when the line was added."
             (let ((limit (sp-author-notes--first-heading))
                   (case-fold-search t))
               (unless (re-search-forward
-                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote sp-author-notes-key)) limit t)
+                       (format "^-[ \t]+%s[ \t]+::" (regexp-quote (or meta-key sp-author-notes-key))) limit t)
                 (goto-char (point-min))
                 (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
                     (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
@@ -3487,7 +4073,7 @@ Return non-nil when the line was added."
                   (unless (bolp) (insert "\n"))
                   (insert "\n"))
                 (insert (format "- %s :: [[id:%s][%s]]"
-                                sp-author-notes-key (plist-get person :id)
+                                (or meta-key sp-author-notes-key) (plist-get person :id)
                                 (plist-get person :title)))
                 (unless (eq (char-after) ?\n) (insert "\n"))
                 (save-buffer)
@@ -3505,10 +4091,291 @@ Return non-nil when the line was added."
         nil)
        (t
         (when sp-author-notes-bibtex-link-author
-          (unless (sp-author-notes-bibtex--add-author file person)
-            (message "%s: unsaved changes or a pub-author line already, left alone"
+          (unless (sp-author-notes-bibtex--add-author
+                 file person (sp-author-notes-bibtex--role-key person entry))
+            (message "%s: unsaved changes or a pub-author/pub-editor line already, left alone"
                      (file-name-nondirectory file))))
         file)))))
+#+end_src
+
+** One author
+
+=M-x sp-author-notes-bibtex-author= does the same for the author note in the current buffer, so the question is "what else did this author write?" and not "who has works to add?". The pieces, in the order the command uses them:
+
+- Which person
+  - The buffer must visit an Org note tagged =person= with an =:ID:=, else a =user-error= says what is missing (=sp-author-notes--works-target=).
+  - The name forms of the person are the title and the =ROAM_ALIASES= of the note.
+  - =sp-author-notes-bibtex--note-aliases= reads the aliases from the head of the file.
+- Which entries
+  - An author name of an entry matches when it matches any name form (=sp-author-notes-bibtex--match-forms=).
+  - =exact= and =possible= are the same as in =sp-author-notes-bibtex--match=.
+  - When =sp-bibprocess= is loaded, a name also counts as =possible= when it has the surname of a form and compatible given names (=sp-bibtex--initials-compatible-p=, from the BibTeX lint). So =TW Adorno= fits =Theodor W. Adorno=.
+  - Both =author= and =editor= are read; the role of the person on the entry is =pub-author= unless the person is only in =editor=.
+- Where each entry stands
+  - =new=: no litnote has its key.
+  - =unlinked=: a litnote has its key, but no =pub-author= or =pub-editor= line of it links to this note (so the Works tables do not list it).
+  - =linked=: a litnote has the key and links to this note.
+- The report
+  - It is a =sp-batch-report= buffer, with the works that are not in the Works tables first.
+  - The sections are: no litnote (exact), no litnote (possible), litnote not linked, already in the note.
+  - The key of an item is the BibTeX key. =d= drops an item and =u= brings it back, from the results already read; =g= reads everything again.
+- Adding (=A=)
+  - Every item of the first three sections that is not dropped is added, after one question.
+  - A =new= entry gets its litnote (=sp-author-notes-bibtex--create=, as in the all-authors report).
+  - An =unlinked= entry gets the =pub-author= or =pub-editor= line in its existing litnote (=sp-author-notes-bibtex--add-author=).
+  - Possible matches are left out unless =sp-author-notes-bibtex-apply-possible= is non-nil.
+  - Afterwards the note gets its headings and tables as =sp-author-notes-works-convert= gives them (Works, and Edited works when the database has a work only edited), and the report is made again.
+  - A table is filled from the Vulpea database, so a new litnote shows in it once Vulpea has indexed it; update the block with =C-c C-c= if the count is short.
+
+#+begin_src emacs-lisp -i
+
+(defcustom sp-author-notes-bibtex-apply-possible nil
+  "Non-nil to let `A' in the one-author report add the possible matches too.
+Possible matches only agree on the surname and the initials, so by default
+only the exact ones are added."
+  :type 'boolean
+  :group 'sp-author-notes)
+
+(defconst sp-author-notes-bibtex--author-buffer-name "*Author works (this note)*")
+
+(declare-function sp-bibtex--initials-compatible-p "sp-bibprocess")
+(declare-function sp-bibtex--surname-key "sp-bibprocess")
+(declare-function sp-bibtex--name-parts "sp-bibprocess")
+(declare-function sp-batch-report-open "sp-batch-report")
+(declare-function sp-batch-report-text "sp-batch-report")
+(declare-function sp-batch-report-item "sp-batch-report")
+(declare-function sp-batch-report-section "sp-batch-report")
+(declare-function sp-batch-report-file-link "sp-batch-report")
+
+(defun sp-author-notes-bibtex--note-aliases (file)
+  "The aliases in the head of the note FILE (its ROAM_ALIASES), as a list of strings."
+  (when (and file (file-readable-p file))
+    (with-temp-buffer
+      (sp-author-notes--insert-file file 4096)
+      (let ((case-fold-search t) aliases)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\(?:#\\+\\|[ \t]*:\\)ROAM_ALIASES:?[ \t]*\\(.*\\)$" nil t)
+          (setq aliases (append aliases (ignore-errors
+                                          (split-string-and-unquote (match-string-no-properties 1))))))
+        aliases))))
+
+(defun sp-author-notes-bibtex--current-person ()
+  "The author note in the current buffer, as a plist.
+It has :file :id :title :buffer and :forms, the title and the aliases
+cleaned like BibTeX names.  Signal a `user-error' when the buffer is not an
+author note, or the note has no ID."
+  (let* ((file (sp-author-notes--works-target))
+         (head (sp-author-notes--file-head file)))
+    (unless (plist-get head :id)
+      (user-error "This author note has no :ID:"))
+    (unless (plist-get head :title)
+      (user-error "This author note has no #+title:"))
+    (append head
+            (list :buffer (current-buffer)
+                  :forms (delete-dups
+                          (mapcar #'sp-author-notes--clean-name
+                                  (cons (plist-get head :title)
+                                        (sp-author-notes-bibtex--note-aliases file))))))))
+
+(defun sp-author-notes-bibtex--last-first (name)
+  "The name NAME (First Last) as \"Last, First\", or nil when it has one word."
+  (let ((words (split-string name "[ \t]+" t)))
+    (when (cdr words)
+      (format "%s, %s" (car (last words)) (string-join (butlast words) " ")))))
+
+(defun sp-author-notes-bibtex--given-compatible-p (form author)
+  "Non-nil when AUTHOR has the surname of FORM and compatible given names.
+That needs `sp-bibprocess'; without it the answer is always nil."
+  (when (and (fboundp 'sp-bibtex--initials-compatible-p)
+             (fboundp 'sp-bibtex--surname-key)
+             (fboundp 'sp-bibtex--name-parts))
+    (let ((f (sp-author-notes-bibtex--last-first form))
+          (a (sp-author-notes-bibtex--last-first author)))
+      (and f a
+           (equal (sp-bibtex--surname-key f) (sp-bibtex--surname-key a))
+           (sp-bibtex--initials-compatible-p (cdr (sp-bibtex--name-parts a))
+                                             (cdr (sp-bibtex--name-parts f)))))))
+
+(defun sp-author-notes-bibtex--match-forms (forms author)
+  "How the name AUTHOR matches the name FORMS: `exact', `possible' or nil."
+  (let (best)
+    (dolist (form forms best)
+      (let ((m (or (sp-author-notes-bibtex--match form author)
+                   (and (not (sp-author-notes--organisation-p form))
+                        (sp-author-notes-bibtex--given-compatible-p form author)
+                        'possible))))
+        (cond ((eq m 'exact) (setq best 'exact))
+              ((and m (not best)) (setq best m)))))))
+
+(defun sp-author-notes-bibtex--best-match (forms names)
+  "The best way a name of NAMES matches the name FORMS: `exact', `possible' or nil."
+  (let (best)
+    (dolist (name names best)
+      (let ((m (sp-author-notes-bibtex--match-forms forms name)))
+        (cond ((eq m 'exact) (setq best 'exact))
+              ((and m (not best)) (setq best m)))))))
+
+(defun sp-author-notes-bibtex--entry-match (person entry)
+  "How the PERSON plist is named in ENTRY: (CONFIDENCE . META-KEY), or nil.
+META-KEY is `pub-editor' when the person is only an editor of the entry."
+  (let ((as-author (sp-author-notes-bibtex--best-match
+                    (plist-get person :forms) (plist-get entry :authors)))
+        (as-editor (sp-author-notes-bibtex--best-match
+                    (plist-get person :forms) (plist-get entry :editors))))
+    (when (or as-author as-editor)
+      (cons (if (or (eq as-author 'exact) (eq as-editor 'exact)) 'exact 'possible)
+            (if as-author sp-author-notes-key "pub-editor")))))
+
+(defun sp-author-notes-bibtex--links-p (file id)
+  "Non-nil when a person meta line in the head of the litnote FILE links to the note ID."
+  (with-temp-buffer
+    (sp-author-notes--insert-file file 4096)
+    (let ((case-fold-search t))
+      (goto-char (point-min))
+      (re-search-forward
+       (format "^-[ \t]+%s[ \t]+::.*id:%s"
+               (regexp-opt sp-author-notes-person-keys) (regexp-quote id))
+       (sp-author-notes--first-heading) t))))
+
+(defun sp-author-notes-bibtex--author-result (person entry covered)
+  "The result for ENTRY of the PERSON plist, or nil when it does not name the person.
+It is a plist with :entry :conf :role :status and :file, the litnote of the
+key.  COVERED is the table of `sp-author-notes-bibtex--covered'."
+  (when-let* ((match (sp-author-notes-bibtex--entry-match person entry)))
+    (let* ((file (gethash (plist-get entry :key) covered))
+           (status (cond ((null file) 'new)
+                         ((sp-author-notes-bibtex--links-p file (plist-get person :id)) 'linked)
+                         (t 'unlinked))))
+      (list :entry entry :conf (car match) :role (cdr match) :status status :file file))))
+
+(defun sp-author-notes-bibtex--author-job (person callback)
+  "Find the entries that name the PERSON plist in slices, and call CALLBACK with them.
+The list is of the plists of `sp-author-notes-bibtex--author-result', in the
+order of the files.  Return the job."
+  (let ((files (sp-author-notes-bibtex--files)) ; a user-error here reaches the command
+        (covered (make-hash-table :test #'equal))
+        entries result)
+    (sp-async-work-run
+     "Author works (one)"
+     (list (list "reading BibTeX" (lambda () files)
+                 (lambda (item job)
+                   (sp-author-notes-bibtex--bib-step
+                    item job (lambda (found) (dolist (e found) (push e entries))))))
+           (list "reading litnotes"
+                 (lambda () (sp-author-notes--org-files sp-author-notes-litnotes-directory))
+                 (lambda (file _job) (sp-author-notes-bibtex--cover-file covered file)))
+           (list "matching"
+                 (lambda () (nreverse entries))
+                 (lambda (entry _job)
+                   (when-let* ((found (sp-author-notes-bibtex--author-result person entry covered)))
+                     (push found result)))))
+     :done (lambda (_job) (funcall callback (nreverse result))))))
+
+(defun sp-author-notes-bibtex--author-compute (person)
+  "The entries that name the PERSON plist, found all at once."
+  (let ((sp-async-work-synchronous t) results)
+    (sp-author-notes-bibtex--author-job person (lambda (found) (setq results found)))
+    results))
+
+(defun sp-author-notes-bibtex--author-item (result)
+  "The report item of RESULT, a plist of `sp-author-notes-bibtex--author-result'."
+  (let* ((entry (plist-get result :entry))
+         (key (plist-get entry :key)))
+    (sp-batch-report-item
+     (format "(%s) %s%s%s"
+             (if (string-empty-p (plist-get entry :year)) "n.d." (plist-get entry :year))
+             (truncate-string-to-width (plist-get entry :title) 80 nil nil "…")
+             (if (equal (plist-get result :role) "pub-editor") "  [edited]" "")
+             (if (eq (plist-get result :status) 'unlinked)
+                 (format "  [litnote: %s]"
+                         (sp-batch-report-file-link (plist-get result :file)))
+               ""))
+     :file (plist-get entry :file) :line (format "/{%s,/" (regexp-quote key))
+     :label key :key key)))
+
+(defun sp-author-notes-bibtex--author-sections (results)
+  "The report sections for RESULTS: what is not in the Works tables comes first."
+  (cl-flet ((pick (status conf)
+              (mapcar #'sp-author-notes-bibtex--author-item
+                      (sort (seq-filter (lambda (r) (and (eq (plist-get r :status) status)
+                                                         (or (null conf) (eq (plist-get r :conf) conf))))
+                                        results)
+                            (lambda (a b) (string< (plist-get (plist-get a :entry) :year)
+                                                   (plist-get (plist-get b :entry) :year)))))))
+    (list (sp-batch-report-section "No litnote yet (exact name)" (pick 'new 'exact)
+                                   "every work found has a litnote")
+          (sp-batch-report-section "No litnote yet (possible: surname and initials)" (pick 'new 'possible))
+          (sp-batch-report-section "Litnote exists, not linked to this note" (pick 'unlinked nil))
+          (sp-batch-report-section "Already in this note" (pick 'linked nil)))))
+
+(defun sp-author-notes-bibtex--author-text (person results excluded)
+  "The Org text of the report of RESULTS for the PERSON plist, without the keys EXCLUDED."
+  (sp-batch-report-text
+   (format "Works of %s in BibTeX" (plist-get person :title))
+   (sp-author-notes-bibtex--author-sections results)
+   :intro (format "Names compared: %s.  A adds the works above \"Already in this note\" (possible matches only when `sp-author-notes-bibtex-apply-possible'); d drops one, u brings it back, g reads again."
+                  (string-join (plist-get person :forms) ", "))
+   :excluded excluded))
+
+(defun sp-author-notes-bibtex--author-apply (person results excluded)
+  "Add the RESULTS for the PERSON plist that are not EXCLUDED; return how many.
+New entries get a litnote, entries whose litnote is not linked get the line,
+and the author note gets its Works tables.  Ask once first."
+  (let ((todo (seq-filter
+               (lambda (r)
+                 (and (memq (plist-get r :status) '(new unlinked))
+                      (not (member (plist-get (plist-get r :entry) :key) excluded))
+                      (or (eq (plist-get r :conf) 'exact) sp-author-notes-bibtex-apply-possible)))
+               results))
+        (done 0))
+    (cond
+     ((null todo) (message "Nothing to add: no exact work is left outside the note") 0)
+     ((y-or-n-p (format "Add %d work%s to %s? " (length todo) (if (cdr todo) "s" "")
+                        (plist-get person :title)))
+      (dolist (r todo)
+        (let ((entry (plist-get r :entry)))
+          (if (eq (plist-get r :status) 'new)
+              (when (sp-author-notes-bibtex--create person entry) (cl-incf done))
+            (when (sp-author-notes-bibtex--add-author (plist-get r :file) person (plist-get r :role))
+              (cl-incf done)))))
+      (when-let* ((buffer (plist-get person :buffer))
+                  (_ (buffer-live-p buffer)))
+        (with-current-buffer buffer
+          (condition-case err
+              (message "%d added.  %s" done (sp-author-notes--works-run t))
+            (error (message "%d added; the Works tables were not updated: %s"
+                            done (error-message-string err))))))
+      done)
+     (t 0))))
+
+(defun sp-author-notes-bibtex--author-show (person results excluded)
+  "Show the report of RESULTS for the PERSON plist, without the keys EXCLUDED."
+  (sp-batch-report-open
+   sp-author-notes-bibtex--author-buffer-name
+   (sp-author-notes-bibtex--author-text person results excluded)
+   :excluded excluded
+   :redraw (lambda (excl) (sp-author-notes-bibtex--author-show person results excl))
+   :refresh (lambda (excl) (sp-author-notes-bibtex--author-run person excl))
+   :apply (lambda (excl)
+            (when (> (sp-author-notes-bibtex--author-apply person results excl) 0)
+              (sp-author-notes-bibtex--author-run person excl)))))
+
+(defun sp-author-notes-bibtex--author-run (person &optional excluded)
+  "Read the BibTeX files in slices and show the report for the PERSON plist."
+  (message "Reading BibTeX files for %s in the background..." (plist-get person :title))
+  (sp-author-notes-bibtex--author-job
+   person
+   (lambda (results) (sp-author-notes-bibtex--author-show person results excluded))))
+
+;;;###autoload
+(defun sp-author-notes-bibtex-author ()
+  "Show what the BibTeX files hold of the author of the note in this buffer.
+Works that no litnote links to this note come first, then the ones already
+in it.  In the report, `A' adds the works (a litnote for each, or the
+author line in the one that exists) and updates the Works tables of the
+note.  The all-authors report is `sp-author-notes-bibtex'."
+  (interactive)
+  (sp-author-notes-bibtex--author-run (sp-author-notes-bibtex--current-person)))
 #+end_src
 
 ** Report
@@ -3652,7 +4519,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
   - keys that no registered =.bib= file has (=sp-bibtex-files=),
   - keys used by more than one note,
   - for every key whether a PDF named after it is in =sp-literature-dir=, or only one named after its =crossref= parent (a book section whose PDF is the book). The later DEVONthink link needs this: see [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]].
-- Stub entries: a key (from any note, with or without an ID) that no registered =.bib= file has gets a stub in =sp-litnotes-refs-inbox-bib= (default =master.bib= in =sp-bibliography-dir=), which is the inbox of the bibliography. The entry type comes from the file tag of the note (=journalarticle= is =article=, =booksection= is =incollection=, =book=, =collection=, =inreference=, =phdthesis=; anything else =misc=); the title is =pub-title= or, if that is missing or equals the key, the note title; =author=, =year= and =pages= come from =pub-author=, =pub-year= and =pub-pages=, with links reduced to their text; =file= is added only when =KEY.pdf= exists in =sp-literature-dir=; a =note= field says which litnote the stub came from, and =DATE_ADDED= is the time. A key used by several notes gets one stub. The old keys of Denote-era notes (such as =kant2009ideea=) have no entry, so each gets a stub under that old key; renaming them to the new scheme is a separate job.
+- Stub entries: a key (from any note, with or without an ID) that no registered =.bib= file has gets a stub in =sp-litnotes-refs-inbox-bib= (default =master.bib= in =sp-bibliography-dir=), which is the inbox of the bibliography. The entry type comes from the file tag of the note (=journalarticle= is =article=, =booksection= is =incollection=, =book=, =collection=, =inreference=, =phdthesis=, =mastersthesis=; anything else =misc=); the title is =pub-title= or, if that is missing or equals the key, the note title; =author=, =year= and =pages= come from =pub-author=, =pub-year= and =pub-pages=, with links reduced to their text; =file= is added only when =KEY.pdf= exists in =sp-literature-dir=; a =note= field says which litnote the stub came from, and =DATE_ADDED= is the time. A key used by several notes gets one stub. The old keys of Denote-era notes (such as =kant2009ideea=) have no entry, so each gets a stub under that old key; renaming them to the new scheme is a separate job.
 - BibTeX files are read with a small scanner (entry key and =crossref= field only), not a full parser.
 - The =#+reference:= keyword is deleted from converted notes, so the Denote-based commands no longer find the key. The backup folder has the old files.
 
@@ -3671,6 +4538,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -3831,7 +4699,7 @@ A book section often has no PDF of its own; its crossref entry (the book) does."
   '(("journalarticle" . "article") ("booksection" . "incollection")
     ("incollection" . "incollection") ("book" . "book") ("collection" . "collection")
     ("inreference" . "inreference") ("encyclopedia" . "inreference")
-    ("phdthesis" . "phdthesis") ("thesis" . "thesis"))
+    ("phdthesis" . "phdthesis") ("mastersthesis" . "mastersthesis") ("thesis" . "thesis"))
   "BibTeX entry type for the file tag of a litnote; any other tag gives `misc'.")
 
 (defun sp-litnotes-refs--entry-type (tags)
@@ -3941,16 +4809,16 @@ Nothing is written.  Return the job."
         (when-let* ((items (reverse (gethash (car spec) by-status))))
           (insert (format "* %s (%d)\n" (cadr spec) (length items)))
           (dolist (plan items)
-            (insert (format "- =%s=: %s -> %s\n"
-                            (file-name-nondirectory (plist-get plan :file))
+            (insert (format "- %s: %s -> %s\n"
+                            (sp-batch-report-file-link (plist-get plan :file))
                             (or (plist-get plan :keyword) (plist-get plan :roam) "")
                             (plist-get plan :refs))))
           (insert "\n")))
       (when unknown
         (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
         (dolist (item (reverse unknown))
-          (insert (format "- %s in =%s=\n" (car item)
-                          (file-name-nondirectory (plist-get (cdr item) :file)))))
+          (insert (format "- %s in %s\n" (car item)
+                          (sp-batch-report-file-link (plist-get (cdr item) :file)))))
         (insert "\n"))
       (let (dups)
         (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
@@ -3958,32 +4826,40 @@ Nothing is written.  Return the job."
           (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
           (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
             (insert (format "- %s: %s\n" (car dup)
-                            (mapconcat (lambda (p) (file-name-nondirectory (plist-get p :file)))
-                                       (cdr dup) ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
       (buffer-string))))
 
+(defvar sp-litnotes-refs--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
 ;;;###autoload
-(defun sp-litnotes-refs-dryrun ()
+(defun sp-litnotes-refs-dryrun (&optional excluded)
   "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
+when they are read.  EXCLUDED lists notes (files) to leave out; the report's
+\\`d' sets it."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
 
 
 (defun sp-litnotes-refs--show-report (plans index)
-  "Show the report for PLANS and INDEX in `*litnote refs*'."
-  (let ((text (sp-litnotes-refs--report-text plans index)))
-    (with-current-buffer (get-buffer-create "*litnote refs*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")))
+  "Show the report for PLANS and INDEX in `*litnote refs*', without the dropped notes."
+  (let* ((excluded sp-litnotes-refs--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote refs*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-refs--report-text shown index))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (lambda () (sp-litnotes-refs-dryrun sp-litnotes-refs--excluded))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-refs--excluded excl)
+               (sp-litnotes-refs--show-report plans index))
+     :apply (lambda (excl) (sp-litnotes-refs-convert excl))
+     :excluded excluded)))
 
 ;;;; Conversion
 
@@ -4061,7 +4937,7 @@ is left alone.  An open buffer without changes is reverted."
         'written))))
 
 ;;;###autoload
-(defun sp-litnotes-refs-convert ()
+(defun sp-litnotes-refs-convert (&optional excluded)
   "Convert the notes of the report, after showing it and asking three times.
 1. Move =#+reference:= to =ROAM_REFS= in the notes that have an ID.
 2. Create an ID (and move the reference) in the notes that have none.
@@ -4072,14 +4948,19 @@ follow at once, so that nothing interrupts you later.  Each question is
 asked only when there is something to do.  The notes are then written in
 slices, each copied to `sp-litnotes-refs-backup-directory' first; one with
 unsaved changes in its buffer, or changed since the report, is skipped.
-The inbox file is copied too.  Running it again changes nothing."
+The inbox file is copied too.  Running it again changes nothing.
+EXCLUDED lists notes (files) to leave out; the report's \\`A' passes the ones
+dropped with \\`d'."
   (interactive)
+  (setq sp-litnotes-refs--excluded excluded)
   (message "Reading the litnotes in the background...")
   (sp-litnotes-refs--scan #'sp-litnotes-refs--convert-plans))
 
 (defun sp-litnotes-refs--convert-plans (plans index)
   "Show the report of PLANS and INDEX, ask the questions and write what was agreed."
   (sp-litnotes-refs--show-report plans index)
+  (setq plans (sp-batch-report-without-excluded
+               plans (lambda (p) (plist-get p :file)) sp-litnotes-refs--excluded))
   (let* ((todo (cl-remove-if-not
                 (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
                 plans))
@@ -4135,6 +5016,11 @@ Sets the title of each literature note to a short reference built from =pub-auth
 
 - =M-x sp-litnotes-titles-dryrun= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
 - =M-x sp-litnotes-titles-convert= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
+- With a prefix argument both commands also read the authors, year and title from the BibTeX entry of each note's citation key (see /From BibTeX/ below):
+  - =C-u M-x sp-litnotes-titles-dryrun=: the entry fills what the note lacks (=missing=).
+  - =C-u C-u M-x sp-litnotes-titles-dryrun=: the entry wins over the meta lines (=always=).
+  - =sp-litnotes-titles-bibtex= sets the mode without a prefix argument.
+  - The dry run shows the proposed titles and which values came from BibTeX; nothing is written until =convert= is confirmed.
 - Failed and left alone: notes without an =:ID:= drawer; without =pub-title=, without =pub-author= or with an ambiguous one, without =pub-year= (the title); with no citation key, a key whose file exists, or a key two notes share (the rename only).
 
 ** Header and options
@@ -4157,16 +5043,27 @@ Sets the title of each literature note to a short reference built from =pub-auth
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
 ;; converted the note yet.
+;;
+;; With a prefix argument (or `sp-litnotes-titles-bibtex') both commands take
+;; the authors, the year and the title from the BibTeX entry of the key
+;; instead of, or where the note lacks, the meta lines.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
+(defvar sp-litnotes-meta--index)
 
+(declare-function sp-litnotes-meta--index-file "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--field "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--year "sp-litnotes-meta")
+(declare-function sp-author-notes-bibtex--files "sp-author-notes-bibtex")
+(declare-function sp-author-notes-latex-to-unicode "sp-author-notes")
 (declare-function vulpea-db-update-file "vulpea-db")
 (declare-function vulpea-db--forget-file "vulpea-db")
 (declare-function org-id-add-location "org-id")
@@ -4206,6 +5103,19 @@ Those links are reported, not changed; =id:= links keep working."
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
 string."
   :type 'function)
+
+(defcustom sp-litnotes-titles-bibtex nil
+  "Where the commands take the authors, the year and the title from.
+nil means only the meta lines of the note.  `missing' takes them from the
+BibTeX entry of the citation key where the note lacks them.  `always' takes
+every one the entry has, whatever the note says.  A prefix argument to
+`sp-litnotes-titles-dryrun' or `-convert' overrides this for that run."
+  :type '(choice (const :tag "Meta lines only" nil)
+                 (const :tag "BibTeX for what the note lacks" missing)
+                 (const :tag "BibTeX wins" always)))
+
+(defvar sp-litnotes-titles--bibtex-mode nil
+  "The BibTeX mode (nil, `missing' or `always') of the running command.")
 #+end_src
 
 ** Reading a note
@@ -4286,22 +5196,57 @@ the note has no such line before its first heading."
 
 =pub-author= is read as =Last, First=, =First Last= (the surname is the last word with lower-case particles such as =van=), =[[id:..][First Last]]= links and quoted names, separated by =;=, =and= or between links. A plain piece with more than one comma could be one author or several, so the note is flagged =ambiguous-author=. The title uses last names only: =Reuten (2014) The value form as a social form=; two authors =A and B=, three =A, B and C=, and with =sp-litnotes-titles-et-al-from= (4) authors or more the first two and =et al.= (=A, B et al.=). =sp-litnotes-titles-format-function= replaces the formatting.
 
+Surname rules (=sp-litnotes-titles--split-name=):
+
+- With a comma outside braces, the surname is the text before the first comma (=Arthur, Christopher J.= gives =Arthur=; =King, Jr., Martin= gives =King=).
+- Without a comma, the surname is the last word plus the particles before it.
+- A particle is a word that is entirely lower case (=van=, =de=); an initial such as =J.= never is, whatever =case-fold-search= is.
+- A name wholly in braces (={World Bank}=) is one surname.
+
 #+begin_src emacs-lisp -i
 ;;;; Authors and the title
 
+(defun sp-litnotes-titles--split-depth0 (text char)
+  "Split TEXT at the characters CHAR that are outside braces."
+  (let ((depth 0) (start 0) parts)
+    (dotimes (i (length text))
+      (let ((c (aref text i)))
+        (cond ((eq c ?{) (cl-incf depth))
+              ((eq c ?}) (cl-decf depth))
+              ((and (eq c char) (<= depth 0))
+               (push (substring text start i) parts)
+               (setq start (1+ i))))))
+    (nreverse (cons (substring text start) parts))))
+
+(defun sp-litnotes-titles--unbrace (text)
+  "TEXT without BibTeX braces, trimmed."
+  (string-trim (replace-regexp-in-string "[{}]" "" text)))
+
 (defun sp-litnotes-titles--split-name (name)
-  "NAME, \"Last, First\" or \"First Last\", as (LAST . FIRST).
-In the second form the surname is the last word with the lower-case particles
-before it (\"van der Berg\")."
-  (let ((name (string-trim name)))
-    (if (string-match "\\`\\([^,]+\\),[ \t]*\\(.*\\)\\'" name)
-        (cons (string-trim (match-string 1 name)) (string-trim (match-string 2 name)))
-      (let* ((words (split-string name "[ \t]+" t))
+  "NAME, \"Last, First\", \"Last, Jr., First\" or \"First Last\", as (LAST . FIRST).
+- With a comma outside braces the surname is the text before the first comma;
+  the rest (a \"Jr.\" included) is the first name part.
+- Without one the surname is the last word with the lower-case particles
+  before it (\"van der Berg\"); a word starts a particle only when it is
+  entirely lower case, so initials (\"J.\") never do.
+- A name wholly in braces (\"{World Bank}\") is one surname."
+  (let* ((name (string-trim name))
+         (commas (sp-litnotes-titles--split-depth0 name ?,)))
+    (if (cdr commas)
+        (cons (sp-litnotes-titles--unbrace (car commas))
+              (sp-litnotes-titles--unbrace
+               (string-join (mapcar #'string-trim (cdr commas)) ", ")))
+      (let* ((words (sp-litnotes-titles--split-depth0
+                     (replace-regexp-in-string "[ \t]+" " " name) ?\s))
+             (words (seq-remove #'string-empty-p words))
              (n (length words)) (i (1- n)))
-        (while (and (> i 1) (string-match-p "\\`[[:lower:]]" (nth (1- i) words)))
-          (cl-decf i))
-        (cons (string-join (nthcdr i words) " ")
-              (string-join (cl-subseq words 0 i) " "))))))
+        (let ((case-fold-search nil))
+          (while (and (> i 1)
+                      (string-match-p "\\`[[:lower:]][[:lower:]'’.-]*\\'"
+                                      (sp-litnotes-titles--unbrace (nth (1- i) words))))
+            (cl-decf i)))
+        (cons (sp-litnotes-titles--unbrace (string-join (nthcdr i words) " "))
+              (sp-litnotes-titles--unbrace (string-join (cl-subseq words 0 i) " ")))))))
 
 (defun sp-litnotes-titles--authors (raw)
   "The authors in the pub-author value RAW as a list of (LAST . FIRST), or `ambiguous'.
@@ -4343,9 +5288,90 @@ Two authors are \"A and B\", three \"A, B and C\"; with
     (format "%s (%s) %s" authors year title)))
 #+end_src
 
+** From BibTeX
+
+The commands can fill in what the meta lines lack from the BibTeX entry of the note's citation key.
+
+- Modes (=sp-litnotes-titles-bibtex=, or the prefix argument: =C-u= is =missing=, =C-u C-u= is =always=):
+  - nil: only the meta lines.
+  - =missing=: the entry fills a missing or empty =pub-year= and =pub-title=, and a missing or ambiguous =pub-author=.
+  - =always=: whatever the entry has replaces the meta lines.
+- The entry is found by the first of the note's citation keys that is in the registered =.bib= files (=sp-author-notes-bibtex--files=). The key must match exactly.
+- The files are read once per run into an index (=sp-litnotes-meta--index=, from [[file:../academic/sp-litnotes-meta.org][sp-litnotes-meta]]), in the first slice of the job.
+- The reading is that of =sp-litnotes-meta= (braces removed, accents written as Unicode, year from =date= or the =crossref=).
+- Authors come from the =author= field only (never =editor=), split at =and=:
+  - =Last, First= and =First Last= are both read.
+  - A name wholly in braces (={World Bank}=) is one name.
+  - A trailing =and others= is dropped.
+  - Only last names reach the title, so no accent-insensitive matching is needed here.
+- The meta lines of the note are not changed; use =M-x sp-litnotes-meta-fill= for that.
+- Values typed in when =convert= asks about a failed note win over the entry.
+- The report says which values came from BibTeX, and lists the notes whose key has no entry.
+
+#+begin_src emacs-lisp -i
+;;;; From BibTeX
+
+(defun sp-litnotes-titles--bib-entry (keys)
+  "The first BibTeX entry among the citation KEYS in the index, as (KEY . ENTRY), or nil."
+  (when (hash-table-p sp-litnotes-meta--index)
+    (cl-some (lambda (key)
+               (when-let* ((entry (gethash key sp-litnotes-meta--index)))
+                 (cons key entry)))
+             keys)))
+
+(defun sp-litnotes-titles--bib-authors (entry)
+  "The names in the author field of ENTRY as a list of (LAST . FIRST), or nil."
+  (when-let* ((raw (cdr (assoc-string "author" entry t))))
+    (let ((text (replace-regexp-in-string
+                 "[ \t\n]+" " " (sp-author-notes-latex-to-unicode raw))))
+      (delq nil
+            (mapcar (lambda (name)
+                      (let ((name (string-trim name)))
+                        (cond ((or (string-empty-p name) (string= name "others")) nil)
+                              ((string-match "\\`{\\([^{}]*\\)}\\'" name)
+                               (cons (match-string 1 name) ""))
+                              (t (sp-litnotes-titles--split-name
+                                  (replace-regexp-in-string "[{}]" "" name))))))
+                    (split-string text "[ \t]+and[ \t]+" t))))))
+
+(defun sp-litnotes-titles--blank-p (value)
+  "Non-nil when VALUE is nil or only white space."
+  (or (null value) (string-empty-p (string-trim value))))
+
+(defun sp-litnotes-titles--with-bibtex (parsed)
+  "PARSED, from `sp-litnotes-titles--parse', with the values of its BibTeX entry.
+Does nothing when `sp-litnotes-titles--bibtex-mode' is nil.  Adds :bib (`found'
+or `no-entry'; nil without a citation key) and :inferred, the fields taken from
+the entry (:author, :year, :pub); :bib-authors holds the author names."
+  (let ((mode sp-litnotes-titles--bibtex-mode))
+    (if (or (null mode) (null (plist-get parsed :keys)))
+        parsed
+      (let ((hit (sp-litnotes-titles--bib-entry (plist-get parsed :keys))))
+        (if (null hit)
+            (plist-put parsed :bib (and (hash-table-p sp-litnotes-meta--index) 'no-entry))
+          (let* ((entry (cdr hit))
+                 (always (eq mode 'always))
+                 (own (and (plist-get parsed :author)
+                           (sp-litnotes-titles--authors (plist-get parsed :author))))
+                 (bib-authors (sp-litnotes-titles--bib-authors entry))
+                 (year (sp-litnotes-meta--year entry))
+                 (title (sp-litnotes-meta--field entry "title"))
+                 inferred)
+            (when (and bib-authors (or always (not (consp own))))
+              (setq parsed (plist-put parsed :bib-authors bib-authors))
+              (push :author inferred))
+            (when (and year (or always (sp-litnotes-titles--blank-p (plist-get parsed :year))))
+              (setq parsed (plist-put parsed :year year))
+              (push :year inferred))
+            (when (and title (or always (sp-litnotes-titles--blank-p (plist-get parsed :pub))))
+              (setq parsed (plist-put parsed :pub title))
+              (push :pub inferred))
+            (plist-put (plist-put parsed :bib 'found) :inferred (nreverse inferred))))))))
+#+end_src
+
 ** Planning
 
-Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =no-year=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). A missing year is a failure, not =n.d.=. The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped. Values typed in by the user (next section) replace what the note has, for the title only.
+Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =no-year=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). A missing year is a failure, not =n.d.=. The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped. Values typed in by the user (next section) replace what the note has, for the title only. When the BibTeX mode is on (previous section), the authors, year and title of the entry are used where the mode says so.
 
 #+begin_src emacs-lisp -i
 ;;;; Planning
@@ -4359,7 +5385,8 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
 =.org=; :keys has all of them."
   (let* ((pub (plist-get parsed :pub))
          (raw (plist-get parsed :author))
-         (authors (and raw (sp-litnotes-titles--authors raw)))
+         (authors (or (plist-get parsed :bib-authors)
+                      (and raw (sp-litnotes-titles--authors raw))))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
          (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
@@ -4411,10 +5438,13 @@ DIRECTORY is the folder of the notes; names are compared without case."
 :pub, :author and :year that replaces what the note has.")
 
 (defun sp-litnotes-titles--parse-with-overrides (file)
-  "`sp-litnotes-titles--parse' of FILE, with the values typed in for it."
-  (let ((parsed (sp-litnotes-titles--parse file)))
+  "`sp-litnotes-titles--parse' of FILE, with its BibTeX values and the values typed in for it."
+  (let ((parsed (sp-litnotes-titles--with-bibtex (sp-litnotes-titles--parse file))))
     (cl-loop for (key value) on (gethash file sp-litnotes-titles--overrides) by #'cddr
-             do (setq parsed (plist-put parsed key value)))
+             do (setq parsed (plist-put parsed key value))
+             (when (eq key :author)
+               (setq parsed (plist-put (plist-put parsed :bib-authors nil) :inferred
+                                       (remq :author (plist-get parsed :inferred))))))
     parsed))
 
 (defun sp-litnotes-titles--plans (&optional directory)
@@ -4485,7 +5515,16 @@ Return the job."
          plans old (found (list nil)))
     (sp-async-work-run
      "Litnote titles"
-     (list (list "reading notes"
+     (list (list "reading BibTeX"
+                 (lambda ()
+                   (when (and sp-litnotes-titles--bibtex-mode
+                              (not (hash-table-p sp-litnotes-meta--index)))
+                     (require 'sp-litnotes-meta)
+                     (setq sp-litnotes-meta--index (make-hash-table :test #'equal))
+                     (sp-author-notes-bibtex--files)))
+                 (lambda (file _job)
+                   (sp-litnotes-meta--index-file file sp-litnotes-meta--index)))
+           (list "reading notes"
                  (lambda () (directory-files dir t "\\`[^.#].*\\.org\\'"))
                  (lambda (file _job)
                    (push (sp-litnotes-titles--plan
@@ -4542,6 +5581,11 @@ Return the job."
                       (cl-count-if (lambda (p) (memq (plist-get p :title-status)
                                                      sp-litnotes-titles--promptable))
                                    plans)))
+      (when sp-litnotes-titles--bibtex-mode
+        (insert (format "- BibTeX (%s): %d notes took a value from their entry; %d citekeys have no entry\n"
+                        sp-litnotes-titles--bibtex-mode
+                        (cl-count-if (lambda (p) (plist-get p :inferred)) plans)
+                        (cl-count 'no-entry plans :key (lambda (p) (plist-get p :bib))))))
       (insert (format "- notes written by apply: %d\n\n" (length changing)))
       (when changing
         (insert (format "* Would change (%d)\n" (length changing)))
@@ -4549,7 +5593,7 @@ Return the job."
           (let ((old-name (file-name-nondirectory (plist-get plan :file)))
                 (renamed (and sp-litnotes-titles-rename-files
                               (eq (plist-get plan :name-status) 'rename))))
-            (insert (format "** =%s=\n" old-name))
+            (insert (format "** %s\n" (sp-batch-report-file-link (plist-get plan :file))))
             (when (cdr (plist-get plan :keys))
               (insert (format "- several citekeys: %s (the first names the file)\n"
                               (string-join (plist-get plan :keys) " "))))
@@ -4557,13 +5601,17 @@ Return the job."
                 (insert (format "- title: %s -> %s\n"
                                 (or (plist-get plan :title) "(none)") (plist-get plan :new-title)))
               (insert "- title: unchanged\n"))
+            (when-let* ((inferred (plist-get plan :inferred)))
+              (insert (format "- from BibTeX: %s\n"
+                              (mapconcat (lambda (f) (pcase f (:author "authors") (:year "year")
+                                                       (:pub "title")))
+                                         inferred ", "))))
             (if renamed
                 (insert (format "- file: %s -> =%s=\n" old-name (plist-get plan :new-name)))
               (insert "- file: unchanged\n"))
             (when-let* ((files (cdr (assoc old-name links))))
               (insert (format "- file: links to the old name in: %s\n"
-                              (mapconcat (lambda (f) (format "=%s=" (file-name-nondirectory f)))
-                                         files ", ")))))))
+                              (sp-batch-report-file-links files)))))))
       (dolist (item sp-litnotes-titles--reasons)
         (let ((group (cl-remove-if-not
                       (lambda (p) (or (eq (plist-get p :title-status) (car item))
@@ -4572,14 +5620,20 @@ Return the job."
           (when group
             (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
-              (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
-                              (file-name-nondirectory (plist-get plan :file))
+              (insert (format "- %s: title %s; pub-author %s; pub-title %s%s\n"
+                              (sp-batch-report-file-link (plist-get plan :file))
                               (or (plist-get plan :title) "(none)")
                               (or (plist-get plan :author) "(none)")
                               (or (plist-get plan :pub) "(none)")
                               (if (plist-get plan :new-name)
                                   (format "; would be =%s=" (plist-get plan :new-name))
                                 "")))))))
+      (when-let* ((missing (cl-remove-if-not (lambda (p) (eq (plist-get p :bib) 'no-entry))
+                                             plans)))
+        (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
+        (dolist (plan missing)
+          (insert (format "- %s: %s\n" (sp-batch-report-file-link (plist-get plan :file))
+                          (string-join (plist-get plan :keys) " ")))))
       (let ((by-title (make-hash-table :test 'equal)) dups)
         (dolist (plan plans)
           (when-let* ((title (plist-get plan :new-title)))
@@ -4589,36 +5643,69 @@ Return the job."
           (insert (format "\n* Notes that would get the same title (%d titles)\n" (length dups)))
           (dolist (group dups)
             (insert (format "- %s: %s\n" (plist-get (car group) :new-title)
-                            (mapconcat (lambda (p) (format "=%s=" (file-name-nondirectory (plist-get p :file))))
-                                       group ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) group)))))))
       (buffer-string))))
 
+;;;; Starting a run
+
+(defun sp-litnotes-titles--bibtex-from-prefix (arg)
+  "The BibTeX mode for the prefix argument ARG: nil, `missing' or `always'."
+  (cond ((null arg) sp-litnotes-titles-bibtex)
+        ((>= (prefix-numeric-value arg) 16) 'always)
+        (t 'missing)))
+
+(defun sp-litnotes-titles--start (bibtex)
+  "Forget what an earlier run typed or read, and set the BibTeX mode to BIBTEX.
+Signal a `user-error' at once when the mode is on and there is no .bib file."
+  (clrhash sp-litnotes-titles--overrides)
+  (setq sp-litnotes-titles--bibtex-mode bibtex)
+  (setq sp-litnotes-meta--index nil)
+  (when bibtex
+    (require 'sp-author-notes-bibtex)
+    (sp-author-notes-bibtex--files)))
+
 ;;;###autoload
-(defun sp-litnotes-titles-dryrun ()
+(defun sp-litnotes-titles-dryrun (&optional bibtex excluded)
   "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+when they are read.  BibTeX, from the prefix argument (\\[universal-argument] is
+`missing', twice is `always'), takes the authors, year and title from the BibTeX
+entry of each key instead of `sp-litnotes-titles-bibtex'; see there.
+EXCLUDED lists notes (files) to leave out; the report's \\`d' sets it."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
+  (sp-litnotes-titles--start bibtex)
   (sp-litnotes-titles--show-report))
 
+
+(defvar sp-litnotes-titles--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
+(defun sp-litnotes-titles--display (plans links &optional callback)
+  "Show the report of PLANS and LINKS, without the dropped notes.
+Call CALLBACK with the plans that are left.  Return them."
+  (let* ((excluded sp-litnotes-titles--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote titles*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-titles--report-text shown links))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (unless callback (lambda () (sp-litnotes-titles--show-report)))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-titles--excluded excl)
+               (sp-litnotes-titles--display plans links))
+     :apply (lambda (excl) (sp-litnotes-titles-convert sp-litnotes-titles--bibtex-mode excl))
+     :excluded excluded)
+    (when callback (funcall callback shown))
+    shown))
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
 Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-titles--scan
-   (lambda (plans links)
-     (let ((text (sp-litnotes-titles--report-text plans links)))
-       (with-current-buffer (get-buffer-create "*litnote titles*")
-         (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert text)
-           (org-mode)
-           (goto-char (point-min))
-           (read-only-mode 1)))
-       (pop-to-buffer "*litnote titles*"))
-     (when callback (funcall callback plans)))))
+   (lambda (plans links) (sp-litnotes-titles--display plans links callback))))
 
 ;;;; Writing
 
@@ -4791,7 +5878,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-convert ()
+(defun sp-litnotes-titles-convert (&optional bibtex excluded)
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -4803,9 +5890,12 @@ since the report, is skipped.  The Vulpea database is updated after each
 change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
 links to old names are listed in the report but not changed.  Running it
 again changes nothing.  Only when `sp-async-work-synchronous' is set does
-this return the results, a plist per note."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+this return the results, a plist per note.  BibTeX is as in
+`sp-litnotes-titles-dryrun'.  EXCLUDED lists notes (files) to leave out;
+the report's \\`A' passes the ones dropped with \\`d'."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
+  (sp-litnotes-titles--start bibtex)
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
@@ -5052,6 +6142,35 @@ Test fixtures:
       (delete-directory dir t)
       (delete-directory backups t))))
 
+(ert-deftest sp-org-lint-footnote-batch-view ()
+  "The shared view: files and lines are links, d drops a file from the apply."
+  (let ((plan (list :file "/tmp/vault/a.org" :changed t :sha "s"
+                    :moves (list (list :label "a" :from "Footnotes" :to "Alpha" :new "a" :line 7))
+                    :orphans '("z"))))
+    (with-temp-buffer
+      (sp-org-lint-fn-batch-mode)
+      (should (derived-mode-p 'sp-batch-report-mode))
+      (setq sp-org-lint-fn--run (list :plans (list plan) :phase 'ready :scanned 1))
+      (sp-org-lint-fn--render)
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org\\]\\[/tmp/vault/a\\.org\\]\\]" (buffer-string)))
+      (should (string-match-p "\\[\\[file:/tmp/vault/a\\.org::7\\]\\[line 7\\]\\]: \\[fn:a\\] Footnotes -> Alpha"
+                              (buffer-string)))
+      (should (string-match-p "orphan: \\[fn:z\\]" (buffer-string)))
+      (goto-char (point-min))
+      (re-search-forward "orphan: ")
+      (sp-batch-report-drop)
+      (should (equal sp-batch-report-excluded '("/tmp/vault/a.org")))
+      (should (string-match-p "Files with footnotes to look at (0)" (buffer-string)))
+      (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))
+      ;; everything dropped: nothing to apply
+      (should-error (sp-org-lint-footnotes-convert) :type 'user-error)
+      (goto-char (point-min))
+      (re-search-forward "Dropped from the list")
+      (re-search-forward "a\\.org")
+      (sp-batch-report-restore)
+      (should (null sp-batch-report-excluded))
+      (should (string-match-p "Files with footnotes to look at (1)" (buffer-string))))))
+
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here
 #+end_src
@@ -5134,3 +6253,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - The entries are indexed once by author name now (a 40,000-entry file with 3,000 author notes takes about 7 s in total, in slices).
   - A missing =.bib= file is skipped with a message
     - none readable stops with a =user-error= naming the files.
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ The dry-run and convert reports of =sp-litnotes-refs= and =sp-litnotes-titles= list every note as an Org link (=[[file:...][name]]=), so =RET= visits it.
+    - They open in the shared =sp-batch-report-mode= buffer (see [[file:sp-batch-report.org][sp-batch-report]]), with =g= to read the notes again.
+  - Tests updated for the links; one test for the titles report buffer.

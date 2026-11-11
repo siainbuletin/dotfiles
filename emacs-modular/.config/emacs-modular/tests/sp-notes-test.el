@@ -285,3 +285,55 @@
 
 (provide 'sp-notes-test)
 ;;; sp-notes-test.el ends here
+
+(ert-deftest sp-notes-filing-report-links-files ()
+  "The dry-run report is a report buffer: every file to move is a link."
+  (let* ((root (file-name-as-directory (make-temp-file "sp-filing" t)))
+         (sp-notes-filing-root root)
+         (from (expand-file-name "a.org" root)))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'sp-notes-filing-check-rule-tags) #'ignore)
+                    ((symbol-function 'sp-notes-filing-plan)
+                     (lambda (&rest _)
+                       (list (list :from from :to (expand-file-name "docs/a.org" root)
+                                   :folder "docs")))))
+            (save-window-excursion (sp-notes-filing-dryrun)))
+          (with-current-buffer "*Notes filing*"
+            (should (derived-mode-p 'sp-batch-report-mode))
+            (should (eq major-mode 'sp-notes-filing-report-mode))
+            (should sp-notes-filing--current-plan)
+            (should (eq (key-binding (kbd "C-c C-c")) #'sp-batch-report-apply))
+            (should (string-match-p
+                     (format "\\[\\[file:%s\\]\\[a\\.org\\]\\] -> docs/a\\.org"
+                             (regexp-quote from))
+                     (buffer-string)))))
+      (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
+      (delete-directory root t))))
+
+(ert-deftest sp-notes-filing-report-drop ()
+  "Dropping a file from the report keeps it out of the plan that is applied."
+  (let* ((root (file-name-as-directory (make-temp-file "sp-filing" t)))
+         (sp-notes-filing-root root)
+         (a (expand-file-name "a.org" root))
+         (b (expand-file-name "b.org" root)))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'sp-notes-filing-check-rule-tags) #'ignore)
+                    ((symbol-function 'sp-notes-filing-plan)
+                     (lambda (&rest _)
+                       (list (list :from a :to (expand-file-name "docs/a.org" root) :folder "docs")
+                             (list :from b :to (expand-file-name "docs/b.org" root) :folder "docs"))))
+                    ((symbol-function 'pop-to-buffer) #'ignore))
+            (sp-notes-filing-dryrun)
+            (with-current-buffer "*Notes filing*"
+              (goto-char (point-min))
+              (re-search-forward "^- \\[\\[file:[^]]*b\\.org")
+              (sp-batch-report-drop)
+              (should (equal sp-batch-report-excluded (list b)))
+              (should (equal (mapcar (lambda (e) (plist-get e :from))
+                                     sp-notes-filing--current-plan)
+                             (list a)))
+              (should (string-match-p "Dropped from the list" (buffer-string))))))
+      (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
+      (delete-directory root t))))

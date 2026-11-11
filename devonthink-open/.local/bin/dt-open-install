@@ -1,0 +1,70 @@
+#!/bin/bash
+# dt-open-install: build "DT Open PDF.app" and make it the default PDF viewer,
+# so that Finder and Alfred open PDFs through it. The app does the DEVONthink
+# lookup itself. macOS only: packages.tsv lists devonthink-open as darwin.
+#
+#   dt-open-install              build, register, set as default for PDFs
+#   dt-open-install --uninstall  put the previous default back, remove the app
+#
+# Setting the default needs duti (brew install duti). Without it the script
+# builds the app and tells you to do it in Finder (Get Info > Open with >
+# DT Open PDF > Change All...).
+set -eu
+
+[ "$(uname)" = Darwin ] || { echo "macOS only." >&2; exit 1; }
+
+app="$HOME/Applications/DT Open PDF.app"
+id=dev.siainbuletin.dt-open-pdf
+src="${XDG_DATA_HOME:-$HOME/.local/share}/dt-open/open-handler.applescript"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/dt-open"
+lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+pb=/usr/libexec/PlistBuddy
+if [ "${1:-}" = --uninstall ]; then
+  if command -v duti >/dev/null && [ -r "$state/previous-handler" ]; then
+    duti -s "$(cat "$state/previous-handler")" com.adobe.pdf all
+    echo "Default PDF viewer restored to $(cat "$state/previous-handler")."
+  else
+    echo "Pick the PDF viewer again in Finder (Get Info > Open with > Change All...)."
+  fi
+  [ -d "$app" ] && { "$lsregister" -u "$app"; rm -rf "$app"; }
+  exit 0
+fi
+[ -r "$src" ] || { echo "Missing $src: run stow devonthink-open first." >&2; exit 1; }
+# osacompile needs DEVONthink's scripting dictionary to compile the lookup.
+/usr/bin/osascript -e 'path to application id "DNtp"' >/dev/null 2>&1 ||
+  { echo "DEVONthink is not installed (the applet is compiled against its dictionary)." >&2; exit 1; }
+
+# Remember the current default (third line of "duti -x pdf" is the bundle id),
+# unless it is already ours.
+if command -v duti >/dev/null; then
+  mkdir -p "$state"
+  current=$(duti -x pdf | sed -n 3p)
+  [ -n "$current" ] && [ "$current" != "$id" ] && printf '%s\n' "$current" > "$state/previous-handler"
+fi
+mkdir -p "$HOME/Applications"
+rm -rf "$app"
+/usr/bin/osacompile -o "$app" "$src"
+plist="$app/Contents/Info.plist"
+set_key() { "$pb" -c "Set :$1 $3" "$plist" 2>/dev/null || "$pb" -c "Add :$1 $2 $3" "$plist"; }
+set_key CFBundleIdentifier string "$id"
+set_key LSUIElement bool true   # no Dock icon while it runs
+set_key NSAppleEventsUsageDescription string "DT Open PDF asks DEVONthink whether a PDF is one of its indexed files."
+"$pb" -c "Delete :CFBundleDocumentTypes" "$plist" 2>/dev/null || true
+"$pb" -c "Add :CFBundleDocumentTypes array" \
+      -c "Add :CFBundleDocumentTypes:0 dict" \
+      -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string PDF Document" \
+      -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Viewer" \
+      -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Alternate" \
+      -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array" \
+      -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.adobe.pdf" "$plist"
+# Editing Info.plist breaks the applet's signature; sign it again (ad hoc).
+/usr/bin/codesign --force --deep --sign - "$app"
+"$lsregister" -f "$app"
+if command -v duti >/dev/null; then
+  duti -s "$id" com.adobe.pdf all
+  echo "Built $app and made it the default for PDFs."
+else
+  echo "Built $app."
+  echo "Make it the default: select a PDF in Finder, Cmd-I, Open with: DT Open PDF, Change All..."
+fi
+echo "The first PDF you open asks for permission to control DEVONthink: allow it."

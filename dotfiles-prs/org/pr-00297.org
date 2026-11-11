@@ -1,0 +1,42 @@
+* PR #297: Record and remove the Command+f / Command+b word-motion bindings
+:PROPERTIES:
+:PR_NUMBER: 297
+:URL: https://github.com/siainbuletin/dotfiles/pull/297
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/297][https://github.com/siainbuletin/dotfiles/pull/297]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-06 00:50
+- Merged :: 2026-11-06 11:34
+- Branch :: =claude/project-thread-h4z20b= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/730e1f3b7c22255016739693c1daeed22b7d61de][730e1f3b7c]]
+- Labels :: bugfix
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2LjaDJAcqvwjN3vnf8zS33u][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- Bindings =s-f= (=forward-word=) and =s-b= (=backward-word=) were first added in commit [[https://github.com/siainbuletin/dotfiles/commit/e53672da955959216b9260d7db6baee6f2956f66][e53672d]], then removed again in this PR.
+- Why removed: =s-b= clashes with bold in Org (=sp-org-base=) and Markdown (=sp-md=). The real problem is that =M-b= (Option+b) does nothing in Sia's Emacs, even though =ns-alternate-modifier= is =meta=. The cause is not found yet.
+- =sp-text-manipulation.org= records the attempt, the reason and the commit link. The tangled =.el= is back to its previous content.
+- No CHANGELOG edit, per the nightly-tidy rule. For the nightly run: the Command word-motion bindings were tried (e53672d) and dropped.
+
+**** Testing
+:PROPERTIES:
+:CUSTOM_ID: testing
+:END:
+Untested: Emacs does not run in the cloud container.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCG7WRQHXBfHi427t3]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/e53672da955959216b9260d7db6baee6f2956f66][e53672da95]] Bind Command+f and Command+b to forward-word and backward-word (Claude, 2026-11-06 00:50)
+- [[https://github.com/siainbuletin/dotfiles/commit/24df8c42d3b6dd44a408eaff4a6973b3d649ae49][24df8c42d3]] Remove the Command+f and Command+b word-motion bindings (Claude, 2026-11-06 01:19)

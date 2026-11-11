@@ -19,7 +19,7 @@
 
 (require 'vulpea)
 (require 'org)
-(require 'sp-collection-query-tables-core) ; for sp-collec-query-select-note
+(require 'sp-collection-query-core) ; for sp-collec-query-select-note
 
 (declare-function vulpea-ui-visit-note "vulpea-ui")
 (declare-function vulpea-ui--get-main-window "vulpea-ui")

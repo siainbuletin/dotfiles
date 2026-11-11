@@ -1,0 +1,17 @@
+# Read by DT Open PDF.app: one NAME=value per line, # starts a comment line
+# (not after a value); quotes around a value are optional.
+# App that opens PDFs which are not in a DEVONthink database, e.g. Highlights.
+# Left out, it is the PDF viewer that was the default before dt-open-install
+# ran, or Preview if none was recorded.
+# DT_OPEN_FALLBACK=Highlights
+
+# 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
+# the PDF in the fallback app instead (never starts DEVONthink).
+DT_OPEN_LAUNCH=1
+
+# window: the PDF opens in its own DEVONthink window. reveal: it is shown in
+# the main window, in its database.
+DT_OPEN_MODE=window
+
+# 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
+DT_OPEN_DEBUG=1

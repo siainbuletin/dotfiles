@@ -1,0 +1,285 @@
+#+title: Matching a selected citation to a BibTeX or DEVONthink record
+#+date: 2026-11-09
+#+status: partly implemented (macOS: matcher, Cited works section, org-protocol, DEVONthink lookup; see the module docs)
+
+This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match= and =sp-reading= (see their module docs); the Linux script, the DEVONthink selection/UUID return and the item-link backfill are not built. Nothing here has been run on the Mac. It builds on [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
+
+* Goal
+
+- Select a citation in a PDF in DEVONthink's own reader (Highlights is dropped for records already in DEVONthink): a Chicago, APA or IEEE in-text citation, or a full entry of the Bibliography section.
+- Press one hotkey; Emacs finds the matching BibTeX record (and its DEVONthink record).
+- Insert the citekey, or the list of all works cited by the source, into the end section of the litnote being written.
+- Show which cited works already have a litnote.
+- This replaces the =print_bibliography= block that #338 removed, with a section that is generated on request and is justified by the source.
+
+* Feasibility (short answer)
+
+- Feasible, and no overlay is needed. A global hotkey or a macOS Service is enough.
+- The hard part is the matching, not the plumbing. The plumbing is about 40 lines of shell/AppleScript.
+- Risks, in order:
+  - Selected text from PDFs is dirty: hyphenated line breaks, ligatures (=ﬁ=), page headers in the middle of a selection, two-column interleaving.
+  - Entries of the Bibliography section can be matched well; short in-text citations (=Smith 2017=) are ambiguous and can only give a candidate list.
+  - Own BibTeX records diverge (casing, abbreviations, missing subtitle, =and others=). Scoring must be forgiving, and a human must confirm below a threshold.
+  - Works not in BibTeX at all are normal. The result must say "no match" and offer to create a record, not guess.
+  - The selection property of DEVONthink's PDF reader has not been tested; the clipboard is the fallback (see below).
+
+* Part 1: matching a citation string
+
+** Pipeline
+
+- Normalise the input.
+- Extract fields (surname, year, title words).
+- Score against candidates.
+- Return a ranked list; auto-accept only if clearly ahead.
+
+** Normalisation (applies to input and to every BibTeX record)
+
+- Unicode NFKD, then drop combining marks, so accents do not matter.
+- Expand ligatures (=ﬁ=, =ﬂ=) and typographic quotes and dashes.
+- Rejoin line-end hyphenation (=socio-\ntechnical= becomes =sociotechnical=).
+- Lower case; strip punctuation; collapse whitespace.
+- Strip LaTeX from BibTeX fields (=\"u= to =u=, braces gone). =sp-author-notes-latex-to-unicode= and =sp-author-notes-fold-diacritics= already exist; reuse them.
+
+** Extraction without a parser (default)
+
+- Year: first =(19|20)\d\d[a-z]?= in the string.
+- Surnames: tokens before the year, both for =Surname, Name= and =Name Surname= formats.
+  - Accept either order by scoring the surname set, not a position.
+- Title words: the longest run after the year (APA) or inside quotes (Chicago article, IEEE).
+  - Drop stop words; keep the 4 to 6 rarest words by frequency in the whole bibliography.
+- This is cheap and good enough for entries of a Bibliography section.
+
+** Extraction with a parser (optional later)
+
+- AnyStyle (Ruby, CRF) or refextract-style tools split a full reference into author/year/title/container.
+- Pros: better on messy entries, and handles very long reference lists in one pass.
+- Cons: a Ruby/Python dependency to install and keep working; no gain for short in-text citations.
+- Decision: start without it; keep one function (=sp-cite-match--parse=) as the swap point.
+
+** Scoring (done in Emacs)
+
+- Candidates: one list, built from =citar= (BibTeX) plus the DEVONthink index (=sp-devonthink-index=, citekey to UUID).
+  - Cache the normalised fields per citekey, rebuilt when the =.bib= files change.
+- Pre-filter by year (equal, or off by one for online-first dates) and by any surname overlap; this cuts ~1,300 entries to a handful.
+- Score of a candidate (0 to 1), bulleted by weight:
+  - Surname overlap, 0.35 (Jaccard on normalised surname sets; first author counts double).
+  - Year, 0.15 (exact, 0.1 when off by one).
+  - Title similarity, 0.40 (token Jaccard, plus a trigram or Levenshtein ratio on the whole normalised title for typos).
+  - Container (journal/book title) overlap, 0.10 when present in both.
+- Thresholds (tunable defcustoms):
+  - Above 0.85 and 0.15 ahead of the second: accept.
+  - 0.55 to 0.85, or a close second: show =completing-read= with scores.
+  - Below 0.55: "no match".
+- DOI or URL in the selection short-circuits everything: exact match on the =doi= field.
+- Emacs-side is enough at this size (a few thousand records, a few ms per entry); no external index needed.
+- Offer =litdb= (semantic search) only as a fallback when the title is strongly paraphrased; it is not needed for citations.
+
+** Matching to DEVONthink
+
+- Citekey is the join (as in the DEVONthink design): BibTeX entry, PDF file name and litnote =#+reference:= share it.
+- If a selection matches a DEVONthink record but no BibTeX entry, report it as "in DEVONthink only" and offer to create an entry.
+- Do not search DEVONthink's own content search for this; matching on the file-name citekey and the fields cached above is faster and deterministic.
+
+* Part 2: getting the selection into Emacs
+
+** Reading happens in DEVONthink (Highlights is dropped)
+
+- Decision (Sia, 2026-11-09): read every record that is already in DEVONthink with its own PDF reader; stop using Highlights for those.
+- Consequence: DEVONthink is the one source app, so the selection comes from DEVONthink only.
+  - Its scripting interface exposes the selected record(s) (UUID, name, path) and, in a PDF window, the selected text. The exact property for the selected text is to be verified on the Mac.
+  - Fallback if that property fails: the clipboard (hotkey sends =Cmd+C=, reads the pasteboard).
+- Documents not yet in DEVONthink (new downloads, files outside the database) still need some reader. See the next section for how to choose and import.
+
+** In DEVONthink or not: choosing per document
+
+- One Emacs command, =sp-reading-open=, takes a citekey (from the litnote, a =citar= pick or a point on =[cite:@key]=) and decides:
+  - Step 1, is the record in DEVONthink?
+    - First look in the cache =sp-devonthink-index= (citekey to UUID, from the DEVONthink design); no AppleScript call needed.
+    - If the cache has no hit, ask DEVONthink directly with =osascript=, in this order:
+      - =lookup records with path= (the PDF is an /indexed/ file under =~/Documents/literature/=);
+      - =lookup records with content hash= (survives renames and moves; to be verified in the dictionary);
+      - search by name =KEY.pdf= as the last resort.
+  - Step 2a, found: open it at the right page with =x-devonthink-item://UUID?page=N= (the link type =sp-litdb= already follows).
+  - Step 2b, not found but the PDF exists (BibTeX =file= field):
+    - Ask: "Import into DEVONthink?" with the choices /index in place/, /import (copy)/, /open in the system PDF app/.
+    - Default is /index in place/, so the file stays in =~/Documents/literature/= (the same layout as the existing records, and what =citar= and the BibTeX =file= field expect).
+    - Done with =index path ... to group= (not =import=, which copies the file into the database package).
+    - Then set the name to =KEY.pdf= if it differs, add the new UUID to the cache, and open the record.
+  - Step 2c, no PDF at all: offer =sp-fetch-academic= (DOI download), then go back to 2b.
+- Choosing which documents to import is a rule, not a manual job:
+  - =sp-reading-import-policy= (defcustom): =ask= (default), =always= (any cited-work PDF with a litnote) or =never=.
+  - A batch command, =sp-reading-import-missing=, lists every BibTeX entry with a PDF but no DEVONthink record, so a backlog can be indexed in one go after a preview buffer; nothing is imported before confirmation.
+- Risks:
+  - A scripting call per lookup is slow if repeated for a list; always use the cache and refresh it with one call that lists names and UUIDs.
+  - Indexing a file that DEVONthink already holds under another name would create a duplicate; the content-hash check in step 1 guards this.
+  - The database package is never edited as files; everything goes through DEVONthink's scripting interface.
+
+** Readers by platform (decided, Sia 2026-11-09)
+
+- macOS:
+  - Records in DEVONthink: DEVONthink's own reader.
+  - Files that are not in BibTeX (and are not imported): the native Preview.
+  - Preview has no scripting for the selection; the Hammerspoon clipboard path (above) is its only interface, and it works because the hotkey does not depend on the app.
+- Linux:
+  - Reader for the "recognition layer": Sioyek (recommended) over Okular.
+  - Why Sioyek is more scriptable:
+    - Its config can define shell commands that receive placeholders for the selected text, the file path and the page, so a keybinding in Sioyek calls Emacs directly, with no clipboard step.
+    - It can be driven from outside with command-line flags (open a file at a page, run a command in the running instance).
+    - It is configured by plain text files, so it fits Stow.
+  - Why not Okular (the fallback):
+    - It has a D-Bus interface (open a document, current page), but no call that returns the selected text; selection would go through the clipboard (=wl-paste= / =xclip=) and a window-manager key binding.
+    - Its settings are in the KDE configuration system, which is harder to version.
+  - Both are expected to match on the placeholder names and flags above; to verify against the installed version before building.
+- The Linux hotkey calls the same =org-protocol= handler as the Mac one; only the script that produces the text differs.
+- Which file counts as "not in BibTeX" is decided by the same lookup (=sp-reading-open=): no citekey match by file path or content hash means it opens in Preview (Mac) or Sioyek (Linux).
+
+** Linux: a thin script, everything else in Emacs Lisp (decided, Sia 2026-11-09)
+
+- Rule: the Linux script only gets the text to Emacs; all logic lives in Emacs Lisp.
+- The script (Bash, a few lines, in the Stowed dotfiles, outside the Emacs config):
+  - Called by a Sioyek shell command (text as an argument) or by a window-manager key (text from =wl-paste= / =xclip -o=).
+  - URL-encodes the text (or writes it to a temp file when it is long) and runs =emacsclient= on an =org-protocol://sp-cite-match= URL.
+  - Nothing else: no parsing, no matching, no file lookup.
+- Python is only a fallback, if URL-encoding or the temp file turns out awkward in Bash; it should not hold any matching logic.
+- In Emacs Lisp (the same code as on the Mac):
+  - normalisation, extraction, scoring and thresholds;
+  - the lookup of the source record by file path or content hash (a file-hash function, =secure-hash=, replaces the DEVONthink lookup on Linux);
+  - the choice of reader to open a file not in BibTeX (=sp-reading-open=; a defcustom holds the command: =open -a Preview= on macOS, =sioyek= on Linux);
+  - the "Cited works" section and the litnote lookup.
+- The macOS Hammerspoon script follows the same rule: it only gets the text and calls the URL.
+- Test: the Emacs Lisp part is testable in batch with ERT without any reader; the scripts are tested by calling the URL by hand.
+
+** Trigger: Hammerspoon hotkey (decided, Sia 2026-11-09)
+
+- Decision: use a Hammerspoon hotkey. A macOS Service is kept only as a fallback.
+- Why Hammerspoon:
+  - It works in any app. A Service only appears when the app's text view offers it; this is untested for readers other than DEVONthink.
+  - It knows the frontmost app, so the DEVONthink step (record UUID and page) runs only in DEVONthink. A Service gets the text and nothing else.
+  - It can show feedback, for example a notification "no match" or "3 candidates".
+  - The setup is one Lua file in the dotfiles (Stowed, like the existing =hammerspoon/= layer), instead of a workflow stored in =~/Library/Services=.
+  - Hammerspoon is already installed and configured on the Mac for the AeroSpace layer, so there is no new dependency.
+- What a Service would do better (accepted trade-offs):
+  - No extra app to keep running.
+  - It receives the selected text directly, so the clipboard is not touched; the hotkey should save and restore the pasteboard.
+  - The shortcut is assigned in System Settings.
+- Hotkey rules:
+  - Must not use Caps/Super/Option chords, Cmd+Space or Ctrl+Space (see the key scheme in =sp-keys.org=).
+  - Sends =Cmd+C=, waits ~100 ms, reads =hs.pasteboard=, restores the old pasteboard, then calls Emacs.
+  - Calls an =org-protocol:= URL (next section), not =emacsclient -e=, to avoid quoting problems.
+- Shortcuts.app: possible, but slower to start and awkward to version-control. Not recommended.
+- Avoid any overlay or accessibility screen scraping: it is fragile and unnecessary.
+
+** Getting it into Emacs
+
+- Use =org-protocol=. It is already enabled (=sp-org-base.el=) and =sp-quick-capture= already registers a protocol handler as a pattern to copy.
+  - New handler: =org-protocol://sp-cite-match?text=URL-ENCODED&app=highlights&dt=UUID=.
+  - Long texts (a whole Bibliography page) can exceed what is comfortable in a URL; for those, write the text to a temp file and pass =?file=PATH=.
+- Alternative: =emacsclient -e '(sp-cite-match-text "...")'=.
+  - Needs shell quoting care; the hotkey script must escape the text. Prefer the protocol or the temp file.
+- The server must be running (=sp-server.el= starts it for the launchd daemon, so this holds).
+- The handler always acts on the litnote of the buffer last used for writing, or asks if there are several candidates; it never edits a buffer without showing the result first.
+
+** From DEVONthink specifically
+
+- The existing bridge (=sp-litdb= and the =x-devonthink-item:= link type) goes from Emacs to DEVONthink. The reverse direction is what is new here.
+- A small JXA or AppleScript, called by the same hotkey when DEVONthink is frontmost, returns:
+  - the selected text;
+  - the record UUID and the page (when a PDF is open).
+- The UUID identifies the /source/ being read, so Emacs can open the right litnote without asking (citekey from the file name, then =#+reference:=).
+- Everything stays inside DEVONthink's scripting interface; never touch the database package as files.
+
+* Part 3: writing the result into the litnote
+
+** Two commands
+
+- =sp-cite-match-selection=: match the selection, show the ranked list, insert =[cite:@key]= at point or into the end section.
+- =sp-cite-match-bibliography=: take a whole selected Bibliography section, split it into entries, match each, and write the list.
+  - Entry splitting: blank line, a leading number (=[12]=, =12.=), or a new line starting with a capitalised surname and a comma.
+  - Show a report buffer first: matched, uncertain and unmatched entries, with scores; nothing is written until confirmed.
+
+** The end section
+
+- A heading =* Cited works= at the end of the litnote, with the generated block between two marker comments (=# sp-cite-match:begin= and =# sp-cite-match:end=) so the code can find it and rewrite it safely. Text outside the markers is never touched.
+- Written by us, not by a =print_bibliography= block:
+  - the block that #338 removed printed all entries of the global bibliography unfiltered, which was the problem;
+  - this list only holds works that were matched from this source, so every line is justified.
+- Rendered as an Org table (decided, Sia 2026-11-09), one row per work:
+  - columns: =Cite=, =Work=, =Litnote= (a link, or "no litnote"), =read-status=, =read-priority=;
+  - ordered by =read-priority= (01 first, none last), so the top of the table is what to read first;
+  - unmatched entries are kept as =TODO unmatched= rows, so none is lost silently.
+- A summary line above the table (option =sp-cite-match-summary=, on by default): "34 cited, 12 with litnotes, 3 unmatched; read-status: 02-preparing 4, 05-done 8".
+- The older bullet list stays available as =sp-cite-match-display= = =list=.
+- Re-running updates the table (matches by citekey), re-reads each litnote and its reading state, and does not duplicate.
+
+** Showing which cited works already have litnotes
+
+- =citar-vulpea= already resolves a citekey to a note through =ROAM_REFS=; the same lookup is used (=citar-has-notes=, =citar-get-notes=).
+- The =Litnote= column links to the note, or says "no litnote".
+- The =read-status= and =read-priority= columns are read from the meta lines of the litnote (=sp-litnotes-meta=); a work without a litnote has empty cells.
+- A command to make the missing litnotes in one go, reusing =citar-create-note=, with the autofill of =sp-litnotes-meta= (author, year, title, parent). Not built yet.
+
+** Relevance from cross-referencing (wish, not built)
+
+- Sia wants to compute the relevance of a source from the amount of cross-referencing that happens across the sources currently being read, to decide what is more important to read at the moment.
+- Idea: every =Cited works= table is an edge list: source litnote to cited work. Counting these edges gives a score per work.
+- Candidate scores, to try on the real vault:
+  - /cited-by count/: in how many of the sources I am reading is this work cited;
+  - /weighted/: each citing source counts by its own =read-status= (a =01-current= source counts more than a =05-done= one) and =read-priority=;
+  - /unread bonus/: works that are cited often and have no litnote or a low =read-status= rise to the top, since they are what is missing.
+- Output: a ranked list of works ("read next") with the citing sources, and optionally a suggested =read-priority= written to the litnote after confirmation (never silently).
+- Data needed: all =Cited works= tables of the litnotes with =read-status= current or preparing, read in one pass (the tables are plain Org text, so no extra index is required).
+- Open points: whether to count cross-references only inside the current project or the whole vault, and how to treat works cited twice in one source.
+
+* Part 4: backfilling item links in DEVONthink
+
+- Goal: the works a source cites become DEVONthink item links, so they show in its graph and Info inspector.
+- Feasible with a script, but the exact mechanism is not verified (see the risks). Nothing was tried on the Mac.
+- Data needed is already produced by this design:
+  - source record UUID (from the lookup in =sp-reading-open=);
+  - cited citekeys (from =sp-cite-match-bibliography=);
+  - cited record UUIDs (from =sp-devonthink-index=).
+- Where the links are written (decided, Sia 2026-11-09): on the DEVONthink record itself, as DEVONthink's own internal item links.
+  - Item links belong to DEVONthink only; they are never written to the litnote, the BibTeX file or the PDF.
+  - Preferred: DEVONthink's native item links on the source record, so they show in its graph and Info inspector with no extra file.
+  - To verify on the Mac: whether the scripting dictionary can create or edit item links on a record (not confirmed; I do not know a command for it).
+  - Fallbacks, only if scripting cannot do it, in this order:
+    - the record's annotation with a generated block of =x-devonthink-item://UUID= links;
+    - a companion Markdown record next to the PDF.
+  - The indexed PDF file in =~/Documents/literature/= is never edited.
+- Script: AppleScript or JXA called from Emacs by =osascript=; the decision logic stays in Emacs Lisp (same rule as the Linux script).
+- Safety rules (this writes into the database, so it is stricter than the read-only parts):
+  - Dry run first: a preview buffer lists, per source, the links to add, with the match scores.
+  - Only auto-write matches above the accept threshold; uncertain and unmatched ones are listed, never linked.
+  - Idempotent: the generated block sits between markers (e.g. =<!-- sp-cites:begin -->= and =<!-- sp-cites:end -->=) and is replaced on re-run; text outside the markers is never touched.
+  - Never edit the database package as files; everything goes through the scripting interface.
+  - Start with one record, then a small batch, before the 1,000+ records with highlights.
+- Direction: Emacs to DEVONthink only. The litnote remains the source of truth for what is cited.
+- Risks to check before building:
+  - Whether item links can be created on a record by script at all; if not, whether links in an annotation count as item links in the graph.
+  - Wrong matches become wrong links in the graph; the accept threshold must be strict and the preview mandatory.
+  - A write per record is slow in bulk; batch the =osascript= calls.
+  - This is DEVONthink-specific; on Linux there is no equivalent, and the step is skipped.
+
+* Alternatives considered
+
+- Overlay on top of DEVONthink: rejected; fragile, needs accessibility permissions, adds nothing a hotkey does not.
+- Citation parser first (AnyStyle): deferred; extra dependency, little gain for the common case.
+- Match inside DEVONthink with its search/"See also": rejected for citations; non-deterministic and slow for lists.
+- Match inside =litdb= only: rejected as primary; semantic, so it confuses similar titles by different authors.
+- Keep =print_bibliography=: rejected, see #338.
+
+* Order of work
+
+- PR 1: =sp-cite-match= core: normalisation, extraction, scoring, ERT tests with real entries (Chicago, APA, IEEE, with typos).
+- PR 2: =org-protocol= handler and the Hammerspoon/Service scripts (in the dotfiles, outside the Emacs config).
+- PR 3: =Cited works= section writer and the litnote lookup.
+- PR 5 (optional): the DEVONthink item-link backfill, after a manual test of where DEVONthink picks up the links.
+- PR 4 (optional): DEVONthink UUID/page return and the bibliography splitter.
+- Each PR is testable on its own; the scoring PR can be tuned on a sample of the real =.bib= files before any hotkey exists.
+
+* Open questions for Sia
+
+- (Decided: Hammerspoon hotkey, Service only as fallback.)
+- (Decided: Preview on macOS, Sioyek on Linux; Linux script is a thin Bash wrapper, logic in Emacs Lisp.)
+- Should an accepted match also set the cited work's =read-status= or a "cited by" relation (see the relationship-annotator layer)?
+- Name of the end section and whether it should live in the litnote's front matter instead.

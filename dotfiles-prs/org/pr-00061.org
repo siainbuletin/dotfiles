@@ -1,0 +1,51 @@
+* PR #61: Remove conditional-loading guards (sp-load-extras, locate-library)
+:PROPERTIES:
+:PR_NUMBER: 61
+:URL: https://github.com/siainbuletin/dotfiles/pull/61
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/61][https://github.com/siainbuletin/dotfiles/pull/61]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 12:55
+- Merged :: 2026-10-23 13:29
+- Branch :: =remove-sp-load-extras= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/abea9c5174aef1ecb3cc64ed3af3735e7ced267d][abea9c5174]]
+- Labels :: correction, will-have-replacement
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2RiZDVd8Fb6BcQM4DoVrfQ5][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Removes the conditional-loading guards from the module =.el= files and their docs:
+
+- =sp-load-extras= is removed from every =when=/=:when=/=:if= condition, and the =defcustom= and the =--no-extras= command-line switch are removed from =early-init.el=.
+- The =(locate-library "x")= checks in =use-package= =:when=/=:if= keys are removed as well. Other conditions stay: =ui/sp-faces= keeps =:when (image-type-available-p 'svg)= and =ui/sp-frame= keeps =:when (eq system-type 'darwin)=.
+- =sp-evil= no longer wraps its forms in =(when sp-load-extras …)=: the body is unwrapped and dedented, and its commentary is updated.
+- Commented-out guards and the doc prose that described them ("when extras are enabled and the package is installed") are adjusted.
+
+Left in place: two =(when (locate-library "nerd-icons") (require 'nerd-icons))= forms (=sp-splash=, =lem-dashboard=). They guard a =require=, not a package declaration; say if they should go too.
+
+**** Checks
+:PROPERTIES:
+:CUSTOM_ID: checks
+:END:
+The =.el= files equal what the docs tangle to (apart from the known empty skeleton modules and the =sp-splash=/=sp-vcontrol=/=sp-org-archive= files that already differed), and =check-parens= passes on every changed =.el= file, =early-init.el= included.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01ACbiw1tHxZUgAEj5duertR]]
+
+** Commits (7)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/13069ed9832e2f1762b1ecf204782a29803969e8][13069ed983]] Remove sp-load-extras guards from modules and docs (Claude, 2026-10-23 12:55)
+- [[https://github.com/siainbuletin/dotfiles/commit/3fd6ca7ea31a1272896cc564e0d2a1c59c088c54][3fd6ca7ea3]] CHANGELOG: add PR number (Claude, 2026-10-23 12:55)
+- [[https://github.com/siainbuletin/dotfiles/commit/ab42e5e57f138f6c1fbcc11903bd732fd0de7351][ab42e5e57f]] Merge remote-tracking branch 'origin/claude/project-thread-z7zjnj' into remove-sp-load-extras (Claude, 2026-10-23 12:58)
+- [[https://github.com/siainbuletin/dotfiles/commit/c5419366a7f07b49d373f935d3ff4fefbbff63e0][c5419366a7]] sp-evil doc: drop sp-load-extras from the quoted commentary (Claude, 2026-10-23 12:58)
+- [[https://github.com/siainbuletin/dotfiles/commit/511e07f5803fa5bfc4aef2f7eb074649cfcc5706][511e07f580]] Drop locate-library checks from use-package guards (Claude, 2026-10-23 13:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/50e840389e0b3b690903650fed994ef85b4312b7][50e840389e]] Merge remote-tracking branch 'origin/main' into remove-sp-load-extras (Claude, 2026-10-23 13:29)
+- [[https://github.com/siainbuletin/dotfiles/commit/75650561463bac93ec2ee47d5b847f55927bd6bf][7565056146]] Remove the sp-load-extras defcustom and --no-extras switch from early-init.el (Claude, 2026-10-23 13:29)

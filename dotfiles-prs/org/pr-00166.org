@@ -1,0 +1,47 @@
+* PR #166: Fix help: links failing on taxy's shortdoc group
+:PROPERTIES:
+:PR_NUMBER: 166
+:URL: https://github.com/siainbuletin/dotfiles/pull/166
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/166][https://github.com/siainbuletin/dotfiles/pull/166]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-27 23:33
+- Merged :: 2026-10-28 08:39
+- Branch :: =166-help-link-follow= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/04cf4bb1424d55eb713953a47306256710bc7c18][04cf4bb142]]
+- Labels :: bugfix
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2GJKDpNGp4ZJfeMjMdUzpoQ][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+After #155, clicking a =help:= link raised =Wrong type argument: stringp, nil=.
+
+Cause, from the backtrace: =describe-function= mentions the shortdoc groups of a function, which loads =shortdoc=. =taxy= has registered its group with a nil section name, so =shortdoc-add-function= fails as soon as =shortdoc= loads. =C-h f= on the same function fails the same way, so it is not specific to the links.
+
+- =sp-help=: advice on =shortdoc-add-function= turns a nil section into an empty string. Remove it once =taxy= is fixed.
+- =sp-org-id-link=: =help:= also gets its own follow function (=sp-org-link-follow-help=) that opens faces, which the completer offers and Org's follow function rejects.
+- Docs and CHANGELOG updated.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+Nothing was run in Emacs (none in the container). The advice is based on the backtrace you sent.
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNiAJc2Qd7A97uwG84ky][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiAJc2Qd7A97uwG84ky]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/bccc1f535753cb2a99d19383a3c927468b13f9b5][bccc1f5357]] Give help: links their own follow function (Claude, 2026-10-27 23:33)
+- [[https://github.com/siainbuletin/dotfiles/commit/dc1e2ae2d594bec511a10a8e54fd724bf61abee3][dc1e2ae2d5]] Merge branch 'main' into 166-help-link-follow (Sia Piperea, 2026-10-27 23:35)
+- [[https://github.com/siainbuletin/dotfiles/commit/4ee928cba64778b1d711d49faf8a78eae063be43][4ee928cba6]] Work around taxy's nil shortdoc section breaking help (Claude, 2026-10-27 23:37)
+- [[https://github.com/siainbuletin/dotfiles/commit/d1684c67a0f6266ae71ee16bfb8f582dce1affb1][d1684c67a0]] Merge remote-tracking branch 'origin/166-help-link-follow' into 166-help-link-follow (Claude, 2026-10-27 23:37)

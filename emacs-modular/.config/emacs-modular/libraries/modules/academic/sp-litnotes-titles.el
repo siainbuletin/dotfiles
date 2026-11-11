@@ -15,16 +15,27 @@
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
 ;; converted the note yet.
+;;
+;; With a prefix argument (or `sp-litnotes-titles-bibtex') both commands take
+;; the authors, the year and the title from the BibTeX entry of the key
+;; instead of, or where the note lacks, the meta lines.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
+(defvar sp-litnotes-meta--index)
 
+(declare-function sp-litnotes-meta--index-file "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--field "sp-litnotes-meta")
+(declare-function sp-litnotes-meta--year "sp-litnotes-meta")
+(declare-function sp-author-notes-bibtex--files "sp-author-notes-bibtex")
+(declare-function sp-author-notes-latex-to-unicode "sp-author-notes")
 (declare-function vulpea-db-update-file "vulpea-db")
 (declare-function vulpea-db--forget-file "vulpea-db")
 (declare-function org-id-add-location "org-id")
@@ -64,6 +75,19 @@ Those links are reported, not changed; =id:= links keep working."
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
 string."
   :type 'function)
+
+(defcustom sp-litnotes-titles-bibtex nil
+  "Where the commands take the authors, the year and the title from.
+nil means only the meta lines of the note.  `missing' takes them from the
+BibTeX entry of the citation key where the note lacks them.  `always' takes
+every one the entry has, whatever the note says.  A prefix argument to
+`sp-litnotes-titles-dryrun' or `-convert' overrides this for that run."
+  :type '(choice (const :tag "Meta lines only" nil)
+                 (const :tag "BibTeX for what the note lacks" missing)
+                 (const :tag "BibTeX wins" always)))
+
+(defvar sp-litnotes-titles--bibtex-mode nil
+  "The BibTeX mode (nil, `missing' or `always') of the running command.")
 
 ;;;; Reading a note
 
@@ -135,19 +159,47 @@ the note has no such line before its first heading."
 
 ;;;; Authors and the title
 
+(defun sp-litnotes-titles--split-depth0 (text char)
+  "Split TEXT at the characters CHAR that are outside braces."
+  (let ((depth 0) (start 0) parts)
+    (dotimes (i (length text))
+      (let ((c (aref text i)))
+        (cond ((eq c ?{) (cl-incf depth))
+              ((eq c ?}) (cl-decf depth))
+              ((and (eq c char) (<= depth 0))
+               (push (substring text start i) parts)
+               (setq start (1+ i))))))
+    (nreverse (cons (substring text start) parts))))
+
+(defun sp-litnotes-titles--unbrace (text)
+  "TEXT without BibTeX braces, trimmed."
+  (string-trim (replace-regexp-in-string "[{}]" "" text)))
+
 (defun sp-litnotes-titles--split-name (name)
-  "NAME, \"Last, First\" or \"First Last\", as (LAST . FIRST).
-In the second form the surname is the last word with the lower-case particles
-before it (\"van der Berg\")."
-  (let ((name (string-trim name)))
-    (if (string-match "\\`\\([^,]+\\),[ \t]*\\(.*\\)\\'" name)
-        (cons (string-trim (match-string 1 name)) (string-trim (match-string 2 name)))
-      (let* ((words (split-string name "[ \t]+" t))
+  "NAME, \"Last, First\", \"Last, Jr., First\" or \"First Last\", as (LAST . FIRST).
+- With a comma outside braces the surname is the text before the first comma;
+  the rest (a \"Jr.\" included) is the first name part.
+- Without one the surname is the last word with the lower-case particles
+  before it (\"van der Berg\"); a word starts a particle only when it is
+  entirely lower case, so initials (\"J.\") never do.
+- A name wholly in braces (\"{World Bank}\") is one surname."
+  (let* ((name (string-trim name))
+         (commas (sp-litnotes-titles--split-depth0 name ?,)))
+    (if (cdr commas)
+        (cons (sp-litnotes-titles--unbrace (car commas))
+              (sp-litnotes-titles--unbrace
+               (string-join (mapcar #'string-trim (cdr commas)) ", ")))
+      (let* ((words (sp-litnotes-titles--split-depth0
+                     (replace-regexp-in-string "[ \t]+" " " name) ?\s))
+             (words (seq-remove #'string-empty-p words))
              (n (length words)) (i (1- n)))
-        (while (and (> i 1) (string-match-p "\\`[[:lower:]]" (nth (1- i) words)))
-          (cl-decf i))
-        (cons (string-join (nthcdr i words) " ")
-              (string-join (cl-subseq words 0 i) " "))))))
+        (let ((case-fold-search nil))
+          (while (and (> i 1)
+                      (string-match-p "\\`[[:lower:]][[:lower:]'’.-]*\\'"
+                                      (sp-litnotes-titles--unbrace (nth (1- i) words))))
+            (cl-decf i)))
+        (cons (sp-litnotes-titles--unbrace (string-join (nthcdr i words) " "))
+              (sp-litnotes-titles--unbrace (string-join (cl-subseq words 0 i) " ")))))))
 
 (defun sp-litnotes-titles--authors (raw)
   "The authors in the pub-author value RAW as a list of (LAST . FIRST), or `ambiguous'.
@@ -188,6 +240,65 @@ Two authors are \"A and B\", three \"A, B and C\"; with
                                    (car (last last)))))))
     (format "%s (%s) %s" authors year title)))
 
+;;;; From BibTeX
+
+(defun sp-litnotes-titles--bib-entry (keys)
+  "The first BibTeX entry among the citation KEYS in the index, as (KEY . ENTRY), or nil."
+  (when (hash-table-p sp-litnotes-meta--index)
+    (cl-some (lambda (key)
+               (when-let* ((entry (gethash key sp-litnotes-meta--index)))
+                 (cons key entry)))
+             keys)))
+
+(defun sp-litnotes-titles--bib-authors (entry)
+  "The names in the author field of ENTRY as a list of (LAST . FIRST), or nil."
+  (when-let* ((raw (cdr (assoc-string "author" entry t))))
+    (let ((text (replace-regexp-in-string
+                 "[ \t\n]+" " " (sp-author-notes-latex-to-unicode raw))))
+      (delq nil
+            (mapcar (lambda (name)
+                      (let ((name (string-trim name)))
+                        (cond ((or (string-empty-p name) (string= name "others")) nil)
+                              ((string-match "\\`{\\([^{}]*\\)}\\'" name)
+                               (cons (match-string 1 name) ""))
+                              (t (sp-litnotes-titles--split-name
+                                  (replace-regexp-in-string "[{}]" "" name))))))
+                    (split-string text "[ \t]+and[ \t]+" t))))))
+
+(defun sp-litnotes-titles--blank-p (value)
+  "Non-nil when VALUE is nil or only white space."
+  (or (null value) (string-empty-p (string-trim value))))
+
+(defun sp-litnotes-titles--with-bibtex (parsed)
+  "PARSED, from `sp-litnotes-titles--parse', with the values of its BibTeX entry.
+Does nothing when `sp-litnotes-titles--bibtex-mode' is nil.  Adds :bib (`found'
+or `no-entry'; nil without a citation key) and :inferred, the fields taken from
+the entry (:author, :year, :pub); :bib-authors holds the author names."
+  (let ((mode sp-litnotes-titles--bibtex-mode))
+    (if (or (null mode) (null (plist-get parsed :keys)))
+        parsed
+      (let ((hit (sp-litnotes-titles--bib-entry (plist-get parsed :keys))))
+        (if (null hit)
+            (plist-put parsed :bib (and (hash-table-p sp-litnotes-meta--index) 'no-entry))
+          (let* ((entry (cdr hit))
+                 (always (eq mode 'always))
+                 (own (and (plist-get parsed :author)
+                           (sp-litnotes-titles--authors (plist-get parsed :author))))
+                 (bib-authors (sp-litnotes-titles--bib-authors entry))
+                 (year (sp-litnotes-meta--year entry))
+                 (title (sp-litnotes-meta--field entry "title"))
+                 inferred)
+            (when (and bib-authors (or always (not (consp own))))
+              (setq parsed (plist-put parsed :bib-authors bib-authors))
+              (push :author inferred))
+            (when (and year (or always (sp-litnotes-titles--blank-p (plist-get parsed :year))))
+              (setq parsed (plist-put parsed :year year))
+              (push :year inferred))
+            (when (and title (or always (sp-litnotes-titles--blank-p (plist-get parsed :pub))))
+              (setq parsed (plist-put parsed :pub title))
+              (push :pub inferred))
+            (plist-put (plist-put parsed :bib 'found) :inferred (nreverse inferred))))))))
+
 ;;;; Planning
 
 (defun sp-litnotes-titles--plan (parsed)
@@ -199,7 +310,8 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
 =.org=; :keys has all of them."
   (let* ((pub (plist-get parsed :pub))
          (raw (plist-get parsed :author))
-         (authors (and raw (sp-litnotes-titles--authors raw)))
+         (authors (or (plist-get parsed :bib-authors)
+                      (and raw (sp-litnotes-titles--authors raw))))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
          (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
@@ -251,10 +363,13 @@ DIRECTORY is the folder of the notes; names are compared without case."
 :pub, :author and :year that replaces what the note has.")
 
 (defun sp-litnotes-titles--parse-with-overrides (file)
-  "`sp-litnotes-titles--parse' of FILE, with the values typed in for it."
-  (let ((parsed (sp-litnotes-titles--parse file)))
+  "`sp-litnotes-titles--parse' of FILE, with its BibTeX values and the values typed in for it."
+  (let ((parsed (sp-litnotes-titles--with-bibtex (sp-litnotes-titles--parse file))))
     (cl-loop for (key value) on (gethash file sp-litnotes-titles--overrides) by #'cddr
-             do (setq parsed (plist-put parsed key value)))
+             do (setq parsed (plist-put parsed key value))
+             (when (eq key :author)
+               (setq parsed (plist-put (plist-put parsed :bib-authors nil) :inferred
+                                       (remq :author (plist-get parsed :inferred))))))
     parsed))
 
 (defun sp-litnotes-titles--plans (&optional directory)
@@ -319,7 +434,16 @@ Return the job."
          plans old (found (list nil)))
     (sp-async-work-run
      "Litnote titles"
-     (list (list "reading notes"
+     (list (list "reading BibTeX"
+                 (lambda ()
+                   (when (and sp-litnotes-titles--bibtex-mode
+                              (not (hash-table-p sp-litnotes-meta--index)))
+                     (require 'sp-litnotes-meta)
+                     (setq sp-litnotes-meta--index (make-hash-table :test #'equal))
+                     (sp-author-notes-bibtex--files)))
+                 (lambda (file _job)
+                   (sp-litnotes-meta--index-file file sp-litnotes-meta--index)))
+           (list "reading notes"
                  (lambda () (directory-files dir t "\\`[^.#].*\\.org\\'"))
                  (lambda (file _job)
                    (push (sp-litnotes-titles--plan
@@ -376,6 +500,11 @@ Return the job."
                       (cl-count-if (lambda (p) (memq (plist-get p :title-status)
                                                      sp-litnotes-titles--promptable))
                                    plans)))
+      (when sp-litnotes-titles--bibtex-mode
+        (insert (format "- BibTeX (%s): %d notes took a value from their entry; %d citekeys have no entry\n"
+                        sp-litnotes-titles--bibtex-mode
+                        (cl-count-if (lambda (p) (plist-get p :inferred)) plans)
+                        (cl-count 'no-entry plans :key (lambda (p) (plist-get p :bib))))))
       (insert (format "- notes written by apply: %d\n\n" (length changing)))
       (when changing
         (insert (format "* Would change (%d)\n" (length changing)))
@@ -383,7 +512,7 @@ Return the job."
           (let ((old-name (file-name-nondirectory (plist-get plan :file)))
                 (renamed (and sp-litnotes-titles-rename-files
                               (eq (plist-get plan :name-status) 'rename))))
-            (insert (format "** =%s=\n" old-name))
+            (insert (format "** %s\n" (sp-batch-report-file-link (plist-get plan :file))))
             (when (cdr (plist-get plan :keys))
               (insert (format "- several citekeys: %s (the first names the file)\n"
                               (string-join (plist-get plan :keys) " "))))
@@ -391,13 +520,17 @@ Return the job."
                 (insert (format "- title: %s -> %s\n"
                                 (or (plist-get plan :title) "(none)") (plist-get plan :new-title)))
               (insert "- title: unchanged\n"))
+            (when-let* ((inferred (plist-get plan :inferred)))
+              (insert (format "- from BibTeX: %s\n"
+                              (mapconcat (lambda (f) (pcase f (:author "authors") (:year "year")
+                                                       (:pub "title")))
+                                         inferred ", "))))
             (if renamed
                 (insert (format "- file: %s -> =%s=\n" old-name (plist-get plan :new-name)))
               (insert "- file: unchanged\n"))
             (when-let* ((files (cdr (assoc old-name links))))
               (insert (format "- file: links to the old name in: %s\n"
-                              (mapconcat (lambda (f) (format "=%s=" (file-name-nondirectory f)))
-                                         files ", ")))))))
+                              (sp-batch-report-file-links files)))))))
       (dolist (item sp-litnotes-titles--reasons)
         (let ((group (cl-remove-if-not
                       (lambda (p) (or (eq (plist-get p :title-status) (car item))
@@ -406,14 +539,20 @@ Return the job."
           (when group
             (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
-              (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
-                              (file-name-nondirectory (plist-get plan :file))
+              (insert (format "- %s: title %s; pub-author %s; pub-title %s%s\n"
+                              (sp-batch-report-file-link (plist-get plan :file))
                               (or (plist-get plan :title) "(none)")
                               (or (plist-get plan :author) "(none)")
                               (or (plist-get plan :pub) "(none)")
                               (if (plist-get plan :new-name)
                                   (format "; would be =%s=" (plist-get plan :new-name))
                                 "")))))))
+      (when-let* ((missing (cl-remove-if-not (lambda (p) (eq (plist-get p :bib) 'no-entry))
+                                             plans)))
+        (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
+        (dolist (plan missing)
+          (insert (format "- %s: %s\n" (sp-batch-report-file-link (plist-get plan :file))
+                          (string-join (plist-get plan :keys) " ")))))
       (let ((by-title (make-hash-table :test 'equal)) dups)
         (dolist (plan plans)
           (when-let* ((title (plist-get plan :new-title)))
@@ -423,36 +562,69 @@ Return the job."
           (insert (format "\n* Notes that would get the same title (%d titles)\n" (length dups)))
           (dolist (group dups)
             (insert (format "- %s: %s\n" (plist-get (car group) :new-title)
-                            (mapconcat (lambda (p) (format "=%s=" (file-name-nondirectory (plist-get p :file))))
-                                       group ", "))))))
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) group)))))))
       (buffer-string))))
 
+;;;; Starting a run
+
+(defun sp-litnotes-titles--bibtex-from-prefix (arg)
+  "The BibTeX mode for the prefix argument ARG: nil, `missing' or `always'."
+  (cond ((null arg) sp-litnotes-titles-bibtex)
+        ((>= (prefix-numeric-value arg) 16) 'always)
+        (t 'missing)))
+
+(defun sp-litnotes-titles--start (bibtex)
+  "Forget what an earlier run typed or read, and set the BibTeX mode to BIBTEX.
+Signal a `user-error' at once when the mode is on and there is no .bib file."
+  (clrhash sp-litnotes-titles--overrides)
+  (setq sp-litnotes-titles--bibtex-mode bibtex)
+  (setq sp-litnotes-meta--index nil)
+  (when bibtex
+    (require 'sp-author-notes-bibtex)
+    (sp-author-notes-bibtex--files)))
+
 ;;;###autoload
-(defun sp-litnotes-titles-dryrun ()
+(defun sp-litnotes-titles-dryrun (&optional bibtex excluded)
   "Show what `sp-litnotes-titles-convert' would do.  Writes nothing.
 The notes are read in slices, so Emacs stays usable; the report opens
-when they are read."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+when they are read.  BibTeX, from the prefix argument (\\[universal-argument] is
+`missing', twice is `always'), takes the authors, year and title from the BibTeX
+entry of each key instead of `sp-litnotes-titles-bibtex'; see there.
+EXCLUDED lists notes (files) to leave out; the report's \\`d' sets it."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
+  (sp-litnotes-titles--start bibtex)
   (sp-litnotes-titles--show-report))
 
+
+(defvar sp-litnotes-titles--excluded nil
+  "The notes (files) dropped from the report with `d'; the commands leave them out.")
+
+(defun sp-litnotes-titles--display (plans links &optional callback)
+  "Show the report of PLANS and LINKS, without the dropped notes.
+Call CALLBACK with the plans that are left.  Return them."
+  (let* ((excluded sp-litnotes-titles--excluded)
+         (shown (sp-batch-report-without-excluded
+                 plans (lambda (p) (plist-get p :file)) excluded)))
+    (sp-batch-report-open
+     "*litnote titles*"
+     (concat (sp-batch-report-key-entries (sp-litnotes-titles--report-text shown links))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     :refresh (unless callback (lambda () (sp-litnotes-titles--show-report)))
+     :redraw (lambda (excl)
+               (setq sp-litnotes-titles--excluded excl)
+               (sp-litnotes-titles--display plans links))
+     :apply (lambda (excl) (sp-litnotes-titles-convert sp-litnotes-titles--bibtex-mode excl))
+     :excluded excluded)
+    (when callback (funcall callback shown))
+    shown))
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
 Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
   (message "Reading the litnotes in the background...")
   (sp-litnotes-titles--scan
-   (lambda (plans links)
-     (let ((text (sp-litnotes-titles--report-text plans links)))
-       (with-current-buffer (get-buffer-create "*litnote titles*")
-         (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert text)
-           (org-mode)
-           (goto-char (point-min))
-           (read-only-mode 1)))
-       (pop-to-buffer "*litnote titles*"))
-     (when callback (funcall callback plans)))))
+   (lambda (plans links) (sp-litnotes-titles--display plans links callback))))
 
 ;;;; Writing
 
@@ -619,7 +791,7 @@ changed."
       (sp-litnotes-titles--confirm-and-write plans))))
 
 ;;;###autoload
-(defun sp-litnotes-titles-convert ()
+(defun sp-litnotes-titles-convert (&optional bibtex excluded)
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
 The notes are read in slices, so Emacs stays usable, and the report opens.
 When notes failed for a missing title, author or year, you are offered to
@@ -631,9 +803,12 @@ since the report, is skipped.  The Vulpea database is updated after each
 change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
 links to old names are listed in the report but not changed.  Running it
 again changes nothing.  Only when `sp-async-work-synchronous' is set does
-this return the results, a plist per note."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
+this return the results, a plist per note.  BibTeX is as in
+`sp-litnotes-titles-dryrun'.  EXCLUDED lists notes (files) to leave out;
+the report's \\`A' passes the ones dropped with \\`d'."
+  (interactive (list (sp-litnotes-titles--bibtex-from-prefix current-prefix-arg)))
+  (setq sp-litnotes-titles--excluded excluded)
+  (sp-litnotes-titles--start bibtex)
   (setq sp-litnotes-titles--last-results nil)
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)

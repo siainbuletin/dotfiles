@@ -1,0 +1,63 @@
+* PR #354: BibTeX lint: separate fixes for order, indentation and author names, with surname matches
+:PROPERTIES:
+:PR_NUMBER: 354
+:URL: https://github.com/siainbuletin/dotfiles/pull/354
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/354][https://github.com/siainbuletin/dotfiles/pull/354]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-09 15:52
+- Merged :: 2026-11-09 16:12
+- Branch :: =claude/project-thread-t7rcvh= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/aad378cc5f3224a9832dae866a72295e6154d04d][aad378cc5f]]
+- Labels :: enhancement, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25KWiJPRkGcgDQT8pc4YUMR][project thread]]/
+
+Follows #352 (merged). Sia listed three fixes but said "two buttons"; I made three.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- The lint report (=sp-bibtex-lint-dryrun=) has one button per fix, each with the number of entries it would change. A button is a =sp-bibtex-lint:KIND:FILE= Org link, so =RET= runs it.
+- Three commands, one per fix (one =.bib= file, batches of =sp-bibtex-lint-batch-size= = 50, apply/skip/quit per batch, backup before the first write, nothing written without an answer):
+  - =sp-bibtex-lint-fix-order=: fields in the order of =sp-bibtex-field-order=; values untouched.
+  - =sp-bibtex-lint-fix-indent=: every entry laid out by =bibtex-fill-entry=, the =bibtex-mode= standard.
+  - =sp-bibtex-lint-fix-authors=, three steps:
+    1. names that are not =Last, First= are rewritten
+    2. names one typo away from an author note
+    3. names with the surname of an author note (below)
+  - For steps 2 and 3, per batch: =n= normalises the name in the BibTeX field to the note's name, =l= adds the name as a vulpea alias of the note (the =.bib= is not changed), =e= asks for each name, =s= skips, =q= quits.
+- Surname matches (step 3), a kind of match of its own:
+  - the report lists them in their own section with their own count, so they do not bury the typos
+  - same surname, and given names that fit the note's name by name: =TW Adorno=, =T. W. Adorno= and =Theodor Adorno= fit =Theodor W. Adorno=; =Michael Smith= is not =John Smith=, and =W Adorno= or =Theodor L. Adorno= are not =Theodor W. Adorno=
+  - several notes with the surname: those with as many given names as the BibTeX name are preferred (=TW Adorno= is =Theodor W. Adorno=, not =Tamara Adorno=); if more than one is left (=T Adorno=) the name is ambiguous, listed in its own section with the candidates, and never changed or aliased
+  - a name that is a typo of a note stays a typo match; a name that is a note's name or alias is not flagged
+- Aliases of a note count as known names. =sp-bibtex-lint-convert= (=C-c w b L=) asks which fix to run.
+- Any entry a fix touches is laid out like =bibtex-fill-entry=.
+- Literate doc updated as bullet lists; it tangles to the committed =sp-bibprocess.el=.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- 40 tests (this file and =sp-batch-report=) pass in Emacs 29 with =sp-cache-dir= and =sp-var-dir= defined, including given-name fits, surname matches, ambiguous names, normalise/alias flows and the report sections.
+- The alias write (=vulpea-buffer-alias-add=) is stubbed; not run on a real note or vault, nor in Emacs 31.
+
+No CHANGELOG edits, per the nightly-tidy rule. The branch is not prefixed with the PR number, because the session's branch name was fixed.
+
+--------------
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCsguMS2m92TG5VLGt]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/4a8877379a6b480883bf4b5221a38996c308e2be][4a8877379a]] ✨ feat: split the BibTeX lint fixes into order, indentation and author names (Claude, 2026-11-09 15:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/2f2c38d06fc2790739385ab039768b11f9634978][2f2c38d06f]] Merge main into the lint branch (Claude, 2026-11-09 16:01)
+- [[https://github.com/siainbuletin/dotfiles/commit/7f3ce5048d2e2a256daee4cb1c8ece64652feaa9][7f3ce5048d]] ✨ feat: match BibTeX names by the surname of an author note (Claude, 2026-11-09 16:09)

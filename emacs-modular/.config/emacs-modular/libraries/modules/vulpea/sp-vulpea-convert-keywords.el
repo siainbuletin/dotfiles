@@ -15,6 +15,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'sp-vulpea-convert-properties)
+(require 'sp-batch-report)
 
 (declare-function vulpea-db-query "vulpea-db")
 (declare-function vulpea-note-path "vulpea-note")
@@ -213,23 +214,22 @@ save. Returns the list of (KEY . VALUE) converted."
 
 (defun sp-vulpea-convert-keywords--show-preview (plan)
   "Show PLAN, an alist of (SOURCE . PAIRS), in a preview buffer."
-  (with-current-buffer (get-buffer-create "*keywords to meta preview*")
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (org-mode)
-      (insert (format "Header keywords -> meta lines (%s)\n\n"
-                      (if sp-vulpea-convert-keywords-remove-original
-                          "the #+key: lines are removed"
-                        "the #+key: lines are kept")))
-      (dolist (item plan)
-        (let ((source (car item)))
-          (insert (format "* %s\n" (if (bufferp source)
-                                       (buffer-name source)
-                                     (abbreviate-file-name source)))
-                  (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
-                             (cdr item) "")))))
-    (goto-char (point-min))
-    (display-buffer (current-buffer))))
+  (sp-batch-report-show
+   "*keywords to meta preview*"
+   (with-temp-buffer
+     (insert (format "#+title: Header keywords -> meta lines (%s)\n\n"
+                     (if sp-vulpea-convert-keywords-remove-original
+                         "the #+key: lines are removed"
+                       "the #+key: lines are kept")))
+     (dolist (item plan)
+       (let ((source (car item)))
+         (insert (format "* %s\n" (if (bufferp source)
+                                      (buffer-name source)
+                                    (sp-batch-report-file-link
+                                     source (abbreviate-file-name source))))
+                 (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
+                            (cdr item) ""))))
+     (buffer-string))))
 
 (defun sp-vulpea-convert-keywords--note-files ()
   "Return the file names of all Vulpea notes."
@@ -281,23 +281,29 @@ note is saved, except one with unsaved changes, which is skipped."
             (message "Converted %d header keyword%s to meta lines (not saved; C-/ undoes)"
                      (length done) (if (= 1 (length done)) "" "s")))
         (let ((converted 0) skipped)
-          (dolist (item plan)
-            (let* ((file (car item))
-                   (open (get-file-buffer file)))
-              (if (and open (buffer-modified-p open))
-                  (push file skipped)
-                (with-current-buffer (find-file-noselect file)
-                  (cl-incf converted (length (sp-vulpea-convert-keywords--apply keys)))
-                  (save-buffer)
-                  (unless open (kill-buffer))))))
-          (message "Converted %d header keyword%s in %d note%s%s"
-                   converted (if (= 1 converted) "" "s")
-                   (- (length plan) (length skipped))
-                   (if (= 1 (- (length plan) (length skipped))) "" "s")
-                   (if skipped
-                       (format "; skipped %d with unsaved changes: %s" (length skipped)
-                               (string-join (mapcar #'file-name-nondirectory skipped) ", "))
-                     "")))))))
+          (let ((run (sp-batch-report-run-batches
+                      plan
+                      (lambda (item _decision)
+                        (let* ((file (car item))
+                               (open (get-file-buffer file)))
+                          (if (and open (buffer-modified-p open))
+                              (push file skipped)
+                            (with-current-buffer (find-file-noselect file)
+                              (cl-incf converted (length (sp-vulpea-convert-keywords--apply keys)))
+                              (save-buffer)
+                              (unless open (kill-buffer))))))
+                      :label "Keywords to meta"
+                      :describe (lambda (item)
+                                  (format "Convert %s?" (file-name-nondirectory (car item)))))))
+            (message "Converted %d header keyword%s in %d note%s%s%s"
+                     converted (if (= 1 converted) "" "s")
+                     (- (plist-get run :done) (length skipped))
+                     (if (= 1 (- (plist-get run :done) (length skipped))) "" "s")
+                     (if skipped
+                         (format "; skipped %d with unsaved changes: %s" (length skipped)
+                                 (string-join (mapcar #'file-name-nondirectory skipped) ", "))
+                       "")
+                     (sp-batch-report-batches-note run))))))))
 
 ;;;###autoload
 (defun sp-vulpea-convert-keywords-all-notes ()

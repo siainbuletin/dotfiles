@@ -1,0 +1,21 @@
+* PR #21: Small docs changes and streamlining. Remove TODO from main repository…
+:PROPERTIES:
+:PR_NUMBER: 21
+:URL: https://github.com/siainbuletin/dotfiles/pull/21
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/21][https://github.com/siainbuletin/dotfiles/pull/21]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-20 22:01
+- Merged :: 2026-10-20 22:01
+- Branch :: =claude/vulpea-hierarchy-scope= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/6864b09d7266f01d72c83c47bd71a390bd3440bc][6864b09d72]]
+
+** Description
+... into personal notes
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f4122726c2eaa5b08a297a299fcbc033eae6457d][f4122726c2]] Small docs changes and streamlining. Remove TODO from main repository into personal notes (Sia Piperea, 2026-10-20 21:59)

@@ -18,7 +18,7 @@ The sub-modules are not new.
 - The code is unchanged.
 - Most files have no newline after their last line. Org always ends a tangled file with one, so tangling adds that newline and changes nothing else.
 
-The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after these.
+The table modules (=sp-collection-query=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query.org=, and are loaded by =sp-org-ext= right after these.
 
 | Part | File | What it holds |
 |------+------+---------------|
@@ -36,8 +36,8 @@ The table modules (=sp-collection-query-tables=, a custom module of mine) are de
 
 Load order:
 
-- =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query-tables=.
 - =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks=, =sp-vulpea-grouped-backlinks-widget= and =sp-refile= (which holds =sp-split-leave-parents=).
+- =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query=.
 - Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
 - Both are still tangled, so the files stay in step with their docs.
 
@@ -48,7 +48,7 @@ Load order:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-base.el
 :END:
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
@@ -114,15 +114,22 @@ Keybindings:
 
 *** Synced directories
 
-Sets =vulpea-db-sync-directories= to =~/notes/= only.
+Sets =vulpea-db-sync-directories= to the folders Vulpea indexes.
 
-- The Emacs config directory is not indexed.
-- The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=.
-- This =setq= ran afterwards and replaced it, so the duplicate was removed. The effective value is unchanged.
-- To index the config directory too, add =user-emacs-directory= here.
+- =sp-notes-dir=: the notes (=~/notes/=).
+- =user-emacs-directory=: the Emacs config, so its Org docs are indexed too.
+- =sp-writing-projects=: the writing projects (=~/Documents/writing/= by default, see =sp-globals=).
+  - To use another folder, customize =sp-writing-projects= instead of editing this list.
+  - Its =:ID:= entries are indexed, so they can be linked from the notes.
+  - A file there gets the agenda tag on save once it holds an open TODO heading (any =org-todo-keywords= keyword), so those headings reach the agenda through =vulpea-para=.
+  - For files that already have open TODOs, run =M-x vulpea-para-agenda-backfill= once.
+- A folder that does not exist is left out, so a missing =~/Documents/writing/= does not break the scan. Restart, or re-evaluate the form, after creating it.
+- After adding a folder, run =M-x vulpea-db-sync-full-scan= (or restart) to index it.
 
 #+begin_src emacs-lisp -i
-(setq vulpea-db-sync-directories (list sp-notes-dir))
+(setq vulpea-db-sync-directories
+      (seq-filter #'file-directory-p
+                  (list sp-notes-dir user-emacs-directory sp-writing-projects)))
 
 ;; The database is rebuilt from the notes, so it lives in `var/' (Git ignores
 ;; it) and not in the config folder, where Vulpea puts it by default.
@@ -253,7 +260,7 @@ This module configures =vulpea-ui=, the user interface layer for the Vulpea note
 
 - A sidebar shows the current note's outline and backlinks.
 - Collection views render filtered tables of notes.
-- Later modules such as =sp-collection-query-tables-views= build on the rendering and settings set here, together with the schemas in =sp-vulpea-schemas=.
+- Later modules such as =sp-collection-query-views= build on the rendering and settings set here, together with the schemas in =sp-vulpea-schemas=.
 
 It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-org-ext=.
 
@@ -264,7 +271,7 @@ UI functions for vulpea.
 
 This includes the sidebar and the possibility to render collection views.
 
-The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
+The functions I wrote later on for vulpea (ex. sp-collection-query-views.el)
 are based on this rendering done here, as well as the information that is
 found in sp-vulpea-schemas.el
 #+end_quote
@@ -284,7 +291,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;
 ;; This includes the sidebar and the possibility to render collection views.
 ;;
-;; The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
+;; The functions I wrote later on for vulpea (ex. sp-collection-query-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
 
@@ -700,7 +707,7 @@ The schemas cover:
 - software,
 - literature notes.
 
-The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions.
+The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query= modules builds on these definitions.
 
 - =sp-org-ext= requires this module after =sp-vulpea-base=.
 - It assumes Vulpea is already loaded, since it calls =vulpea-schema-define= at top level.
@@ -911,7 +918,13 @@ The =album= schema applies to notes tagged =album=.
 		      '((:key "pub-author" :type note :multiple t)
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
-			(:key "relevance" :type string :required nil))
+			(:key "relevance" :type string :required nil)
+			(:key "read-status" :type string :required t
+			      :one-of ("01-current" "02-preparing" "03-review" "04-paused" "05-done"))
+			(:key "relevance-factor" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05"))
+			(:key "read-priority" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05")))
 )
 #+end_src
 
@@ -929,6 +942,15 @@ The =album= schema applies to notes tagged =album=.
 #+end_src
 
 *** Book sections
+
+=book= applies to notes tagged =book= and only includes =base-text= (the chapters link to it with =bib-parent=; the tag is one of those of =sp-bibtex-types=).
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'book
+		      :predicate (lambda (note) (member "book" (vulpea-note-tags note)))
+		      :include 'base-text)
+#+end_src
+
 
 =booksection= applies to notes tagged =booksection=. On top of the base fields it has optional =pub-pages= and a required =bib-parent= link pointing at the note for the book, which must be tagged =book=.
 
@@ -970,6 +992,18 @@ The =album= schema applies to notes tagged =album=.
 		      )
 #+end_src
 
+=phdthesis= and =mastersthesis= apply to notes with those tags (the types of =sp-bibtex-types=). They only include =base-text=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'phdthesis
+		      :predicate (lambda (note) (member "phdthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
+
+(vulpea-schema-define 'mastersthesis
+		      :predicate (lambda (note) (member "mastersthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
+#+end_src
+
 ** Provide
 
 Provides the =sp-vulpea-schemas= feature and closes the file.
@@ -988,7 +1022,7 @@ A hub module for the Vulpea note system.
 
 - Installs two small Vulpea add-on packages: =vulpea-journal= and =vulpea-capf=.
 - Requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split.
-- Does not load the table modules (=sp-collection-query-tables=); =sp-org-ext= requires them after the Vulpea modules.
+- Does not load the table modules (=sp-collection-query=); =sp-org-ext= requires them after the Vulpea modules.
 - The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
 
 It is required from =sp-org-ext=, after =sp-vulpea-schemas=. The first lines of the file make sure every subdirectory of =libraries/modules/= is on the =load-path=.
@@ -1007,7 +1041,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
-;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
+;; smarter heading split.  The table modules (sp-collection-query) are not loaded
 ;; from here; sp-org-ext requires them after the Vulpea modules.
 
 ;;; Code:
@@ -1101,6 +1135,10 @@ Loads =sp-vulpea-convert-keywords=, the sibling command for file-header keywords
 
 #+begin_src emacs-lisp -i
 (require 'sp-vulpea-convert-keywords)
+
+;; Ordering the meta lines by key (single note and batch)
+
+(require 'sp-vulpea-meta-order)
 #+end_src
 
 *** Grouped backlinks comment
@@ -1268,6 +1306,7 @@ Loads Org, Vulpea and the =cl-lib= and =subr-x= helpers used for =cl-labels=, =s
 (require 'vulpea)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-batch-report)
 #+end_src
 
 *** Property blocklist
@@ -1700,8 +1739,17 @@ same order as FILES, once every file has been processed."
 #+begin_src emacs-lisp -i
 ;;;; Preview + real run across every Vulpea note ---------------------------
 
-(defun sia-vulpea-convert-all-notes-properties-to-meta-dryrun ()
+(defvar sia-vulpea-convert--excluded nil
+  "The files dropped from the preview report; the conversion leaves them alone.")
+
+(defun sia-vulpea--convertible-files ()
+  "The files with something convertible, minus `sia-vulpea-convert--excluded'."
+  (seq-remove (lambda (file) (member file sia-vulpea-convert--excluded))
+              (sia-vulpea--files-with-convertible-properties)))
+
+(defun sia-vulpea-convert-all-notes-properties-to-meta-dryrun (&optional excluded)
   "Report, without changing anything, what a full conversion would do.
+EXCLUDED lists the files (full names) to leave out, as dropped in the report.
 Lists, per note file, which non-blocklisted properties were
 found on its recognized nodes. Run this before
 `sia-vulpea-convert-all-notes-properties-to-meta' to sanity-check
@@ -1710,8 +1758,9 @@ writes to any file. Runs without freezing Emacs, with a live
 progress count and ETA in the echo area -- see
 `sia-vulpea--process-files-async'."
   (interactive)
+  (setq sia-vulpea-convert--excluded excluded)
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-         (files (sia-vulpea--files-with-convertible-properties)))
+         (files (sia-vulpea--convertible-files)))
     (if (null files)
         (message "Nothing would be converted -- no notes have any non-blocklisted properties.")
       (message "Pre-filter (raw-text scan): scanning %d of %d note file%s."
@@ -1733,18 +1782,31 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "%s: %s" (file-name-nondirectory file)
+             (format "- %s: %s" (sp-batch-report-file-link file)
                      (string-join (seq-uniq found) ", "))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
-         (if report
-             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
-               (erase-buffer)
-               (insert (string-join report "\n"))
-               (goto-char (point-min))
-               (display-buffer (current-buffer)))
-           (message "Nothing would be converted -- every property found is blocklisted."))))))))
+         (if (null report)
+             (message "Nothing would be converted -- every property found is blocklisted.")
+             (sp-batch-report-show
+              "*vulpea property conversion preview*"
+              (concat "#+title: Property conversion: dry run\n\n"
+                      "A applies the conversion to the files that are left (it asks first).\n\n"
+                      (sp-batch-report-key-entries
+                       (concat (string-join report "\n") "\n"))
+                      (and excluded
+                           (concat "\n" (sp-batch-report-dropped-section excluded))))
+              #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
+             (with-current-buffer "*vulpea property conversion preview*"
+               (setq sp-batch-report-excluded excluded
+                     sp-batch-report-redraw-function
+                     (lambda (excl)
+                       (sia-vulpea-convert-all-notes-properties-to-meta-dryrun excl))
+                     sp-batch-report-apply-function
+                     (lambda (excl)
+                       (setq sia-vulpea-convert--excluded excl)
+                       (sia-vulpea-convert-all-notes-properties-to-meta nil excl)))))))))))
 
 #+end_src
 
@@ -1759,7 +1821,7 @@ progress count and ETA in the echo area -- see
 - The file count in the summary counts files with at least one converted node.
 
 #+begin_src emacs-lisp -i
-(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
+(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original excluded)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
 file a fast raw-text pre-scan finds has something convertible
@@ -1777,12 +1839,15 @@ progress count and ETA in the echo area -- see
 When finished, opens a report buffer (in `org-mode', so the
 links are clickable via `org-open-at-point') listing every
 converted node as a \"- [[id:...][Title]]\" line -- see
-`sia-vulpea--insert-converted-report'."
+`sia-vulpea--insert-converted-report'.
+
+EXCLUDED lists the files (full names) to skip, as dropped in the preview."
   (interactive "P")
   (unless (y-or-n-p "This will edit and save every Vulpea note. Continue? ")
     (user-error "Aborted"))
+  (setq sia-vulpea-convert--excluded excluded)
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-         (files (sia-vulpea--files-with-convertible-properties)))
+         (files (sia-vulpea--convertible-files)))
     (if (null files)
         (message "Nothing to convert -- no notes have any non-blocklisted properties.")
       (message "Pre-filter (raw-text scan): converting %d of %d note file%s."
@@ -1878,6 +1943,7 @@ Dependencies:
 (require 'seq)
 (require 'subr-x)
 (require 'sp-vulpea-convert-properties)
+(require 'sp-batch-report)
 
 (declare-function vulpea-db-query "vulpea-db")
 (declare-function vulpea-note-path "vulpea-note")
@@ -2132,23 +2198,22 @@ The preview buffer lists, per note, the lines that would be added and, when remo
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-convert-keywords--show-preview (plan)
   "Show PLAN, an alist of (SOURCE . PAIRS), in a preview buffer."
-  (with-current-buffer (get-buffer-create "*keywords to meta preview*")
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (org-mode)
-      (insert (format "Header keywords -> meta lines (%s)\n\n"
-                      (if sp-vulpea-convert-keywords-remove-original
-                          "the #+key: lines are removed"
-                        "the #+key: lines are kept")))
-      (dolist (item plan)
-        (let ((source (car item)))
-          (insert (format "* %s\n" (if (bufferp source)
-                                       (buffer-name source)
-                                     (abbreviate-file-name source)))
-                  (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
-                             (cdr item) "")))))
-    (goto-char (point-min))
-    (display-buffer (current-buffer))))
+  (sp-batch-report-show
+   "*keywords to meta preview*"
+   (with-temp-buffer
+     (insert (format "#+title: Header keywords -> meta lines (%s)\n\n"
+                     (if sp-vulpea-convert-keywords-remove-original
+                         "the #+key: lines are removed"
+                       "the #+key: lines are kept")))
+     (dolist (item plan)
+       (let ((source (car item)))
+         (insert (format "* %s\n" (if (bufferp source)
+                                      (buffer-name source)
+                                    (sp-batch-report-file-link
+                                     source (abbreviate-file-name source))))
+                 (mapconcat (lambda (p) (format "- %s :: %s\n" (car p) (cdr p)))
+                            (cdr item) ""))))
+     (buffer-string))))
 #+end_src
 
 *** The commands
@@ -2206,23 +2271,29 @@ note is saved, except one with unsaved changes, which is skipped."
             (message "Converted %d header keyword%s to meta lines (not saved; C-/ undoes)"
                      (length done) (if (= 1 (length done)) "" "s")))
         (let ((converted 0) skipped)
-          (dolist (item plan)
-            (let* ((file (car item))
-                   (open (get-file-buffer file)))
-              (if (and open (buffer-modified-p open))
-                  (push file skipped)
-                (with-current-buffer (find-file-noselect file)
-                  (cl-incf converted (length (sp-vulpea-convert-keywords--apply keys)))
-                  (save-buffer)
-                  (unless open (kill-buffer))))))
-          (message "Converted %d header keyword%s in %d note%s%s"
-                   converted (if (= 1 converted) "" "s")
-                   (- (length plan) (length skipped))
-                   (if (= 1 (- (length plan) (length skipped))) "" "s")
-                   (if skipped
-                       (format "; skipped %d with unsaved changes: %s" (length skipped)
-                               (string-join (mapcar #'file-name-nondirectory skipped) ", "))
-                     "")))))))
+          (let ((run (sp-batch-report-run-batches
+                      plan
+                      (lambda (item _decision)
+                        (let* ((file (car item))
+                               (open (get-file-buffer file)))
+                          (if (and open (buffer-modified-p open))
+                              (push file skipped)
+                            (with-current-buffer (find-file-noselect file)
+                              (cl-incf converted (length (sp-vulpea-convert-keywords--apply keys)))
+                              (save-buffer)
+                              (unless open (kill-buffer))))))
+                      :label "Keywords to meta"
+                      :describe (lambda (item)
+                                  (format "Convert %s?" (file-name-nondirectory (car item)))))))
+            (message "Converted %d header keyword%s in %d note%s%s%s"
+                     converted (if (= 1 converted) "" "s")
+                     (- (plist-get run :done) (length skipped))
+                     (if (= 1 (- (plist-get run :done) (length skipped))) "" "s")
+                     (if skipped
+                         (format "; skipped %d with unsaved changes: %s" (length skipped)
+                                 (string-join (mapcar #'file-name-nondirectory skipped) ", "))
+                       "")
+                     (sp-batch-report-batches-note run))))))))
 
 ;;;###autoload
 (defun sp-vulpea-convert-keywords-all-notes ()
@@ -2252,7 +2323,7 @@ This module shows the backlinks of a Vulpea note, split into groups, in an Org b
 
 Dependencies and open points:
 
-- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collec-query-select-note=).
+- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-core= (for =sp-collec-query-select-note=).
 - Loaded from =sp-vulpea-ext=.
 - The =vulpea-ui= widget is a separate file, =sp-vulpea-grouped-backlinks-widget.el=, so this file does not need =vulpea-ui= or =vui= at load time.
 - The author flags that the shape of the link data from =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
@@ -2303,12 +2374,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Requires
 
-Loads =vulpea=, =org= and =sp-collection-query-tables-core=.
+Loads =vulpea=, =org= and =sp-collection-query-core=.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea)
 (require 'org)
-(require 'sp-collection-query-tables-core) ; for sp-collec-query-select-note
+(require 'sp-collection-query-core) ; for sp-collec-query-select-note
 #+end_src
 
 *** Functions from vulpea-ui
@@ -2893,13 +2964,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Open questions in relevant literature notes
 
-Selects all vulpea notes whose =relevance-factor= metadata is 4 or higher (notes without it count as 0), takes their files, and uses =org-ql-select= to return the headings in those files with the TODO keyword =OPENQ=. This is a top-level expression rather than a function, so it is meant to be evaluated by hand, for example with =C-x C-e=.
+Selects all vulpea notes whose =relevance-factor= metadata is 2 or lower, that is =01= or =02=, the most relevant (notes without it count as 99), takes their files, and uses =org-ql-select= to return the headings in those files with the TODO keyword =OPENQ=. This is a top-level expression rather than a function, so it is meant to be evaluated by hand, for example with =C-x C-e=.
 
 #+begin_src emacs-lisp -i
 ;;;; Computing the relevance of certain literature notes
 (let* ((notes (vulpea-db-query
                (lambda (n)
-                 (>= (or (vulpea-note-meta-get n "relevance-factor" 'number) 0) 4))))
+                 (<= (or (vulpea-note-meta-get n "relevance-factor" 'number) 99) 2))))
        (files (mapcar #'vulpea-note-path notes)))
   (org-ql-select files '(todo "OPENQ")
                  :action #'org-get-heading))
@@ -2947,3 +3018,5 @@ What each pull request changed in these modules, newest last; the one-line summa
   - No clash: =M-o n a= and =M-o n i= (=sp-insert-note=) share the =M-o n= prefix and neither uses =n=
     - the old =M-o n n= (=org-node-nodeify-entry=) belonged to the removed =org-node= module, and no module in =libraries/modules= binds it now
   - Not tested in a running Emacs. The change is one =:bind= entry.
+- [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
+  - ✨ The property conversion preview and the keyword conversion preview open in the shared =sp-batch-report-mode= buffer, with every note file as an Org link.

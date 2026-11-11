@@ -66,10 +66,16 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "The documents folder (calibre library, writing, elfeed.org)."
   :type 'directory :group 'spcustom)
 
+(defcustom sp-writing-projects (sp-path sp-documents-dir "writing/")
+  "Folder with the writing projects (~/Documents/writing by default).
+Vulpea indexes it (`vulpea-db-sync-directories'), so the IDs in it can be
+linked to and its open TODO headings reach the agenda."
+  :type 'directory :group 'spcustom)
+
 (defcustom sp-literature-dir (sp-path sp-documents-dir "literature/")
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
-
+  
 (defcustom sp-bibliography-dir
   (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" (sp-path sp-documents-dir "bibliography/"))
   "Folder with the .bib files (SP_BIBLIOGRAPHY_DIR, or below `sp-documents-dir')."
