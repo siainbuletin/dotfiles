@@ -1813,7 +1813,7 @@ The `Works' tables still use `sp-author-notes-key' only."
   :type 'string
   :group 'sp-author-notes)
 
-(defcustom sp-author-notes-organisation-tag "organisation"
+(defcustom sp-author-notes-organisation-tag "institution"
   "The extra tag of an author note that is made for an organisation.
 Such a note also gets `sp-author-notes-person-tag', so the Works tables
 and the BibTeX commands treat it like any other author note.  A note

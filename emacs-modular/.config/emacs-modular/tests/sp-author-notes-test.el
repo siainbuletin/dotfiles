@@ -651,7 +651,7 @@
         (dolist (created (sp-author-notes--run-created run))
           (let ((text (sp-author-notes-test--read (nth 2 created))))
             (if (equal (car created) "Doe, Roe Press")
-                (should (string-match-p "#\\+filetags: :person:organisation:" text))
+                (should (string-match-p "#\\+filetags: :person:institution:" text))
               (should (string-match-p "#\\+filetags: :person:$" text)))))))))
 
 (ert-deftest sp-author-notes-test-organisation-tag-only-note-is-found ()
@@ -659,7 +659,7 @@
     (sp-author-notes-test--with-vault
       (sp-author-notes-test--write
        (expand-file-name "o1.org" vault)
-       ":PROPERTIES:" ":ID: o1" ":END:" "#+title: Endnotes" "#+filetags: :organisation:" "")
+       ":PROPERTIES:" ":ID: o1" ":END:" "#+title: Endnotes" "#+filetags: :institution:" "")
       (sp-author-notes-test--write
        (expand-file-name "litnotes/e.org" vault)
        ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""

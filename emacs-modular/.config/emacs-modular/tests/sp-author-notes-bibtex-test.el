@@ -266,7 +266,7 @@
        "  year = {2011}}")
       (sp-an-bib-test--write
        (expand-file-name "p3.org" vault)
-       ":PROPERTIES:" ":ID: p-endnotes" ":END:" "#+title: Endnotes" "#+filetags: :organisation:" "")
+       ":PROPERTIES:" ":ID: p-endnotes" ":END:" "#+title: Endnotes" "#+filetags: :institution:" "")
       (let* ((groups (sp-author-notes-bibtex--compute))
              (group (seq-find (lambda (g) (equal (plist-get (car g) :title) "Endnotes")) groups)))
         (should group)
