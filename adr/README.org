@@ -35,3 +35,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0023-stow-instead-of-yadm.org][0023]] | GNU Stow in =~/dotfiles= instead of yadm | accepted |
 | [[file:0024-remove-denote-file-notes-by-tag.org][0024]] | Remove Denote; file notes into folders by tag (=sp-notes=) | accepted |
 | [[file:0025-dryrun-and-convert-command-names.org][0025]] | Lint commands are named =-dryrun= (preview) and =-convert= (apply) | accepted |
+| [[file:0026-emoji-prefix-for-commits-and-prs.org][0026]] | Commit messages and PR titles start with an emoji for the change type | accepted |

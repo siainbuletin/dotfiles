@@ -1,0 +1,26 @@
+#+title: 0026 Start commit messages and PR titles with an emoji for the change type
+#+date: 2026-11-11
+#+status: accepted
+
+* Context
+- Many PRs are open or merged at once, and I skim the list to decide what to review first.
+- Titles carried no sign of the kind of change, so a bug fix and a new feature looked the same.
+- Some PRs and commits already used an emoji (✨, 🐛, 🔧, 📝, ⚡, 🔥) without a written rule.
+
+* Decision
+- Every commit message and PR title starts with one emoji for the change type.
+- ✨ feature, 🐛 bug fix, 🔧 tooling or refactoring, 📝 documentation.
+- ⚡ performance and 🔥 removal stay in use because they were already in the history.
+- A type word after the emoji (=feat:=, =fix:=, =docs:=, =refactor:=) is optional.
+- The standard is written in the top-level =README.org= and in =CLAUDE.md=, which Claude reads.
+- All existing PR titles were retitled to follow it on 2026-11-11.
+
+* Alternatives considered
+- *Conventional Commits words only* (=feat:=, =fix:=): readable but not scannable in a long list.
+- *GitHub labels*: not visible in =git log= or in the PR list of the Forge buffer.
+- *Rewrite old commit messages*: needs a force-push of =main=, changes every later SHA and breaks clones and open PR branches. Rejected.
+
+* Consequences
+- Old commits on =main= keep their messages; only new commits follow the rule.
+- PR titles can be edited at any time, so a wrong emoji is cheap to fix.
+- The nightly CHANGELOG tidy can read the type from the emoji.
