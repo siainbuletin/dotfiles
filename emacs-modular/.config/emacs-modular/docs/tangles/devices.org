@@ -1,1 +1,0 @@
-#+title: External device management through Emacs
