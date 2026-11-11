@@ -63,7 +63,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :pages :check
+  '(:title :tags :todo :level :priority :id :file :path :sections :collection :pages :check
     :refs :pdf :devonthink :bibtex :dt-page)
   "Columns that are not meta keys.")
 
@@ -364,6 +364,12 @@ Roman numerals and empty text give nil."
        (string-match "[0-9]+" text)
        (string-to-number (match-string 0 text))))
 
+(defun sp-collec-query--parent-note (note)
+  "Return the note that the `sp-collec-query-check-parent-prop' link of NOTE points at, or nil."
+  (and-let* ((id (car (vulpea-note-meta-get-list
+                       note sp-collec-query-check-parent-prop 'link))))
+    (ignore-errors (vulpea-db-get-by-id id))))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -385,6 +391,9 @@ naming a meta key (several values are joined with \", \")."
                         (sp-collec-query--citekeys note) " "))
     (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
+    (:collection (if-let* ((parent (sp-collec-query--parent-note note)))
+                     (or (vulpea-note-title parent) "")
+                   ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -458,6 +467,10 @@ keeps using `sp-collec-query-cell', so it still compares the plain text."
     (cond ((memq column '(:refs :bibtex)) (sp-collec-query--refs-links text))
           ((and (stringp column) (member column sp-collec-query-note-link-columns))
            (sp-collec-query--note-link note text))
+          ((eq column :collection)
+           (if-let* ((parent (sp-collec-query--parent-note note)))
+               (sp-collec-query--note-link parent text)
+             text))
           ((or (eq column :id) (stringp column))
            (sp-org-link-link-ids text))
           (t text))))
@@ -535,18 +548,20 @@ The sort is stable, so notes equal under every key keep their order."
   "Number of folded notes per note object returned by `sp-collec-query-query'.")
 
 (defun sp-collec-query--fold (notes spec)
-  "Return NOTES without the notes tagged :fold-tag of SPEC.
+  "Return NOTES without the notes tagged :fold-tag of SPEC (a tag or a list).
 Each one is counted in `sp-collec-query--folded' on the note its meta key
 :fold-prop links to; that parent is added when NOTES lack it, and is
 dropped from the count when no note has the ID."
-  (if-let* ((tag (plist-get spec :fold-tag)))
+  (if-let* ((tag (plist-get spec :fold-tag))
+            (tags (if (listp tag) tag (list tag))))
       (let* ((prop (or (plist-get spec :fold-prop) "bib-parent"))
-             (kept (seq-remove (lambda (n) (member tag (vulpea-note-tags n))) notes))
+             (folded-p (lambda (n) (seq-intersection tags (vulpea-note-tags n))))
+             (kept (seq-remove folded-p notes))
              (by-id (make-hash-table :test #'equal))
              (counts (make-hash-table :test #'equal)))
         (dolist (n kept) (puthash (vulpea-note-id n) n by-id))
         (dolist (n notes)
-          (when (member tag (vulpea-note-tags n))
+          (when (funcall folded-p n)
             (dolist (id (delete-dups (vulpea-note-meta-get-list n prop 'link)))
               (cl-incf (gethash id counts 0))
               (unless (gethash id by-id)
