@@ -1,18 +1,23 @@
-#+title: devonthink-open
+#+title: devonthink-open: PDFs indexed in DEVONthink open in DEVONthink (literate source)
+#+property: header-args :mkdirp yes :comments no :padline no
+#+startup: content
 
 Makes PDFs that are indexed in DEVONthink open in DEVONthink when they are opened from the Finder or from Alfred's file picker. PDFs that are not in a DEVONthink database keep opening in an ordinary viewer (Preview by default); DEVONthink never gets them, so it does not offer to import them. macOS only.
 
-* Why it needs a small app
+This file is the source of the package. The scripts in =.local/=, the applet source and the settings file are written from it, and they are committed as well so that Stow can link them without Emacs. Change them here, not in the generated files.
 
-Choosing DEVONthink in "Open with" does not work: it imports the file instead of showing the indexed record (the forum thread [[https://discourse.devontechnologies.com/t/open-an-indexed-item-in-devonthink-from-the-finder/50406][Open an indexed item in Devonthink from the Finder]]). What does work, as that thread and the ones it links to say, is asking DEVONthink for the record whose path is the file's path (the AppleScript command =lookup records with path=) and opening the record's =x-devonthink-item://= link.
+* Tangling
 
-The Finder and Alfred (its "Open" on a file) both send a file to the default app for its type. So the default app for PDFs is a tiny applet, =DT Open PDF.app=, whose only job is to run =dt-open= on the files it is given. =dt-open= does the lookup in every open database and then either opens the item link or hands the file to the fallback viewer.
+- In Emacs: open this file and run =C-c C-v t= (=org-babel-tangle=).
+- From a shell, in this folder:
 
-* What is here
+#+begin_example
+emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "README.org")'
+#+end_example
 
-- =.local/bin/dt-open=: the lookup and the decision. It can be used on its own: =dt-open file.pdf=.
-- =.local/bin/dt-open-install=: builds the applet from =.local/share/dt-open/open-handler.applescript= into =~/Applications/=, gives it a PDF document type, signs it, registers it and makes it the default viewer for PDFs. =dt-open-install --uninstall= puts the previous default back.
-- =.config/dt-open/config=: the settings below.
+- It writes four files next to this one: =.local/bin/dt-open=, =.local/bin/dt-open-install= (both made executable by =:tangle-mode=), =.local/share/dt-open/open-handler.applescript= and =.config/dt-open/config=.
+- Each file is written from several code blocks that name the same =:tangle= target; Org joins them in the order they appear here, with no padding (=:padline no=).
+- The tangle on its own does not change anything in =$HOME=; =stow devonthink-open= does that. Stow ignores =README.*=, so this file is not linked.
 
 * Setting up
 
@@ -25,16 +30,371 @@ dt-open-install
 
 =~/.local/bin= must be on =PATH= only for you to type the commands; the applet uses the full path. Without =duti=, the installer says how to set the default in the Finder: select a PDF, Cmd-I, "Open with", "DT Open PDF", "Change All...". The first time a PDF is opened, macOS asks whether "DT Open PDF" may control DEVONthink (System Settings, Privacy & Security, Automation); allow it, or every PDF falls through to the fallback viewer.
 
-* Settings (=~/.config/dt-open/config=)
+=dt-open-install --uninstall= puts the previous default back (if =duti= recorded it) and removes the app.
+
+* Settings
+
+They live in =~/.config/dt-open/config= (the file is in the code section below).
 
 - =DT_OPEN_FALLBACK=: the app for PDFs that are not in DEVONthink (=Preview=). Set it to the viewer you used before, e.g. =Skim=. It is opened by name, so it cannot loop back into the applet.
 - =DT_OPEN_LAUNCH=: =1= starts DEVONthink when it is not running and waits for a database (up to 60 s), because the lookup only works with DEVONthink running and the databases open. =0= opens the PDF in the fallback viewer instead and never starts DEVONthink.
 - =DT_OPEN_MODE=: =window= opens the PDF in its own DEVONthink window; =reveal= (=?reveal=1= on the link) shows it in the main window, in its database.
 
+* Why it is built this way
+
+** What has to happen
+
+Choosing DEVONthink in "Open with" does not work: it imports the file instead of showing the indexed record (the forum thread [[https://discourse.devontechnologies.com/t/open-an-indexed-item-in-devonthink-from-the-finder/50406][Open an indexed item in Devonthink from the Finder]]). What does work, as that thread and the ones it links to say, is asking DEVONthink for the record whose path is the file's path (the AppleScript command =lookup records with path=, run once per open database) and opening the record's =x-devonthink-item://= link. Only DEVONthink knows which files are indexed, so something has to ask it at the moment a PDF is opened, and that something has to sit where the Finder and Alfred send a file to be opened.
+
+** Is an app needed?
+
+Yes, as far as I can find. macOS sends a file to "the default app for its type", and only an app bundle that declares the type in its =Info.plist= can fill that slot; a script, a shell command or a Hammerspoon function cannot. So the applet =DT Open PDF.app= is the smallest thing that can: it holds no logic, it passes the files to =dt-open=. It is built from the AppleScript source in this repository by =dt-open-install=, so there is no binary to keep.
+
+** Hammerspoon
+
+- Hammerspoon cannot be the default for PDFs. Its =hs.urlevent= module registers it for URL schemes (=http=, =https=, =mailto=, its own =hammerspoon://=), not for file types, and its own =Info.plist= does not declare PDFs.
+- What Hammerspoon can do is watch the keyboard and mouse. A =hs.eventtap= or =hs.hotkey= bound only while the Finder is frontmost could catch Cmd-O or a double-click on a selected PDF, run the same lookup and open the result. That is a different mechanism with real costs:
+  + It only works in the Finder. Alfred, Mail, a browser's download list and anything else that opens a file with the default app would not be covered.
+  + It reacts to input, not to the file being opened, so the PDF has to be recognised from the selection (an AppleScript call to the Finder for each key press) and the original key press has to be swallowed without breaking Return (rename in the Finder), drag selection and so on.
+  + The default app would still be Preview, so a missed key press opens Preview.
+- Hammerspoon is still the right tool if the aim is a hotkey ("open the selected file in DEVONthink"), and it could call =dt-open= for that. It is not a replacement for the default handler.
+
+** Other ways, and why not
+
+- /DEVONthink as the default, or "Open with" DEVONthink/: imports the file; it does not show the indexed record.
+- /Writing each item link into the file (extended attribute or Finder comment)/: needs a smart rule that stamps every indexed PDF, still needs something to read the link when the file is opened, and the DEVONthink staff warn that file paths and links in files can go stale. A lookup at open time has nothing to keep up to date.
+- /An Alfred workflow or a Finder Quick Action/: runs the lookup only when it is chosen explicitly, not when Return or a double-click opens the file.
+- /A file-routing app (FileRouter and the like)/: also an app that claims the type, but one that has to be installed and configured by hand; the applet here is the same idea, with the rule in version control.
+
+Not checked: that Alfred's Enter on a file uses the default app the way the Finder does. If it does not, Alfred's file action ("Open with" or its Open setting) has to be pointed at =DT Open PDF= by hand.
+
+** Speed
+
+Not measured: this was written in a Linux container with no DEVONthink. What happens when a PDF is opened, in order:
+
+1. LaunchServices starts the applet (the AppleScript runtime, then the =open= event).
+2. The applet starts =dt-open= (bash), which starts =perl= once to resolve symlinks.
+3. =dt-open= starts =osascript=, which compiles the lookup script, checks whether DEVONthink is running and sends it one Apple event per database (up to two paths per database, the second only if the first finds nothing).
+4. =open= is run once more: with the item link (DEVONthink comes to the front) or with the fallback app and the file.
+
+A PDF that is not in DEVONthink pays for all of this before Preview appears; a PDF that is in DEVONthink pays for it before the window opens. Each step is a process start or an Apple event, so I expect the sum to be noticeable but small when DEVONthink is already running; I do not know the number, and the time per database depends on how DEVONthink finds a record by path. To measure it:
+
+#+begin_example
+time ~/.local/bin/dt-open ~/some-indexed.pdf     # lookup and open, without the applet
+time ~/.local/bin/dt-open ~/some-other.pdf       # a PDF that is not indexed
+#+end_example
+
+If it is too slow, in order of effort:
+
+- Close DEVONthink's unused databases (fewer Apple events).
+- Set =DT_OPEN_LAUNCH=0= so that a closed DEVONthink is never started for a PDF.
+- Move the lookup into the applet's AppleScript, in the same process (no bash, no =perl=, no second =osascript=), and keep =dt-open= for the command line. This removes two process starts but moves the logic out of what can be tested without a Mac, so it is worth doing only if the numbers call for it.
+
+* The code
+
+** Settings file
+
+Shell syntax, read by =dt-open=. The values are the defaults, so deleting the file changes nothing.
+
+#+begin_src sh :tangle .config/dt-open/config
+# Read by ~/.local/bin/dt-open (shell syntax).
+# App that opens PDFs which are not in a DEVONthink database.
+DT_OPEN_FALLBACK="Preview"
+# 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
+# the PDF in the fallback app instead (never starts DEVONthink).
+DT_OPEN_LAUNCH=1
+# window: the PDF opens in its own DEVONthink window. reveal: it is shown in
+# the main window, in its database.
+DT_OPEN_MODE=window
+#+end_src
+
+** =dt-open=
+
+The script takes any number of files. It is written for the bash 3.2 that macOS ships.
+
+*** Usage and what it does
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+#!/bin/bash
+# dt-open: open PDFs in DEVONthink if they are indexed there, otherwise in a
+# normal PDF viewer.
+#
+# Usage: dt-open FILE...
+#
+# For each FILE this asks DEVONthink (every open database) for a record whose
+# path is FILE, using the "lookup records with path" command. If there is one,
+# the record's x-devonthink-item:// link is opened, so DEVONthink shows the PDF.
+# If there is none, FILE goes to $DT_OPEN_FALLBACK (Preview by default) and
+# DEVONthink is not involved. Files that are not PDFs are opened normally.
+#
+# Config (shell syntax) is read from ${XDG_CONFIG_HOME:-~/.config}/dt-open/config:
+#   DT_OPEN_FALLBACK  app that opens PDFs DEVONthink does not have   [Preview]
+#   DT_OPEN_LAUNCH    1 = start DEVONthink if it is not running, 0 = do not  [1]
+#   DT_OPEN_MODE      window = own window, reveal = show in the main window  [window]
+#
+# Written for macOS's bash 3.2: no associative arrays, no ${var,,}.
+
+#+end_src
+
+*** Reading the settings
+
+The settings file is optional. Every value has a default, and =set -u= makes a misspelt variable an error instead of an empty string.
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+set -u
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/dt-open/config"
+# shellcheck source=/dev/null
+[ -r "$config" ] && . "$config"
+fallback="${DT_OPEN_FALLBACK:-Preview}"
+launch="${DT_OPEN_LAUNCH:-1}"
+mode="${DT_OPEN_MODE:-window}"
+
+#+end_src
+
+The applet is the default for PDFs, so opening a PDF "with the fallback" must not go back into the applet. A fallback named after it is replaced by Preview.
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+# The handler app opens PDFs by default, so never fall back to ourselves.
+case "$fallback" in
+  "DT Open PDF"*) fallback=Preview ;;
+esac
+
+#+end_src
+
+*** The lookup
+
+One call to =osascript= with the AppleScript below on its standard input. It gets the path, the path with symlinks resolved, and whether it may start DEVONthink, and prints the item link of the first record it finds, or nothing.
+
+- =application id "DNtp"= is the creator code, which DEVONthink 3 and 4 both answer to. It avoids naming the app ("DEVONthink 3" or "DEVONthink").
+- If DEVONthink is not running it is started only when =DT_OPEN_LAUNCH= is =1=; otherwise the script returns at once, with no link, and the file goes to the fallback viewer.
+- Right after a start there are no databases yet, so it waits for the first one (120 times 0.5 s). Errors while DEVONthink is still starting are ignored (=try=).
+- =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads.
+- The record's =reference URL= is its =x-devonthink-item://= link.
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+# Prints the item link of the record for $1 (and $2, the symlink-resolved path),
+# or nothing. The lookup needs DEVONthink running with its databases open, so
+# after a launch we wait (up to 60 s) for the first database. Bundle id DNtp
+# is the creator code, which DEVONthink 3 and 4 both answer to.
+lookup() {
+  /usr/bin/osascript - "$1" "$2" "$launch" <<'APPLESCRIPT'
+on run argv
+	set thePath to item 1 of argv
+	set realPath to item 2 of argv
+	set mayLaunch to (item 3 of argv) is "1"
+	if not (application id "DNtp" is running) then
+		if not mayLaunch then return ""
+		tell application id "DNtp" to launch
+	end if
+	tell application id "DNtp"
+		repeat 120 times
+			try
+				if (count of databases) > 0 then exit repeat
+			end try
+			delay 0.5
+		end repeat
+		repeat with candidate in {thePath, realPath}
+			repeat with theDatabase in databases
+				set hits to lookup records with path (contents of candidate) in theDatabase
+				if (count of hits) > 0 then return reference URL of (item 1 of hits)
+			end repeat
+		end repeat
+	end tell
+	return ""
+end run
+APPLESCRIPT
+}
+
+#+end_src
+
+*** Symlinks
+
+DEVONthink stores the path it was given when the file was indexed; the Finder may give another name for the same file. The lookup therefore tries the resolved path first and the path as given second.
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+# Path with symlinks resolved; the original path if that fails.
+resolve() {
+  /usr/bin/perl -MCwd=realpath -e 'print realpath($ARGV[0]) // $ARGV[0]' "$1" 2>/dev/null || printf '%s' "$1"
+}
+
+#+end_src
+
+*** The loop over the files
+
+- A file that is not a PDF (by extension) or does not exist is opened with plain =open=, which is what the Finder would have done.
+- A PDF goes through the lookup. A link opens in DEVONthink (with =?reveal=1= in =reveal= mode); otherwise =open -a= names the fallback app, so the default app (our applet) is not consulted again.
+- The =2>/dev/null= hides AppleScript errors, for instance when the Automation permission was refused; the result is then the same as "not found", and the PDF opens in the fallback viewer.
+
+#+begin_src bash :tangle .local/bin/dt-open :tangle-mode (identity #o755)
+for file in "$@"; do
+  ext=$(printf '%s' "${file##*.}" | tr '[:upper:]' '[:lower:]')
+  if [ "$ext" != pdf ] || [ ! -f "$file" ]; then
+    /usr/bin/open "$file"
+    continue
+  fi
+  real=$(resolve "$file")
+  url=$(lookup "$real" "$file" 2>/dev/null)
+  if [ -n "$url" ]; then
+    [ "$mode" = reveal ] && url="$url?reveal=1"
+    /usr/bin/open "$url"
+  else
+    /usr/bin/open -a "$fallback" "$file"
+  fi
+done
+#+end_src
+
+** The applet source
+
+The only job of =DT Open PDF.app= is to hand the files it is given to =dt-open=. It does not use the =PATH= (an applet's shell has a short one) and quotes every path.
+
+#+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
+-- Source of "DT Open PDF.app", built by dt-open-install with osacompile.
+-- Finder and Alfred hand the PDFs they open to this app (it is the default
+-- viewer for PDFs); dt-open decides between DEVONthink and the fallback viewer.
+on open theFiles
+	set helper to (POSIX path of (path to home folder)) & ".local/bin/dt-open"
+	set args to ""
+	repeat with theFile in theFiles
+		set args to args & " " & quoted form of POSIX path of theFile
+	end repeat
+	do shell script quoted form of helper & args
+end open
+#+end_src
+
+** =dt-open-install=
+
+Builds the app from the source above and makes it the default for PDFs. It is plain bash, like =dt-open=, and runs under =set -e=.
+
+*** Usage
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+#!/bin/bash
+# dt-open-install: build "DT Open PDF.app" and make it the default PDF viewer,
+# so that Finder and Alfred open PDFs through dt-open.
+#
+#   dt-open-install              build, register, set as default for PDFs
+#   dt-open-install --uninstall  put the previous default back, remove the app
+#
+# Setting the default needs duti (brew install duti). Without it the script
+# builds the app and tells you to do it in Finder (Get Info > Open with >
+# DT Open PDF > Change All...).
+
+#+end_src
+
+*** Names and paths
+
+The app is built in =~/Applications=, so no =sudo= is needed. The bundle id is fixed so that =duti= and LaunchServices can refer to it.
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+set -eu
+
+[ "$(uname)" = Darwin ] || { echo "macOS only." >&2; exit 1; }
+
+app="$HOME/Applications/DT Open PDF.app"
+id=dev.siainbuletin.dt-open-pdf
+src="${XDG_DATA_HOME:-$HOME/.local/share}/dt-open/open-handler.applescript"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/dt-open"
+lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+pb=/usr/libexec/PlistBuddy
+
+#+end_src
+
+*** Uninstalling
+
+Puts back the default that was recorded when the app was installed, then unregisters and removes the app. Without =duti= it says how to do it by hand.
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+if [ "${1:-}" = --uninstall ]; then
+  if command -v duti >/dev/null && [ -r "$state/previous-handler" ]; then
+    duti -s "$(cat "$state/previous-handler")" com.adobe.pdf all
+    echo "Default PDF viewer restored to $(cat "$state/previous-handler")."
+  else
+    echo "Pick the PDF viewer again in Finder (Get Info > Open with > Change All...)."
+  fi
+  [ -d "$app" ] && { "$lsregister" -u "$app"; rm -rf "$app"; }
+  exit 0
+fi
+
+#+end_src
+
+*** Checks, and remembering the current default
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+[ -r "$src" ] || { echo "Missing $src: run stow devonthink-open first." >&2; exit 1; }
+[ -x "$HOME/.local/bin/dt-open" ] || { echo "Missing ~/.local/bin/dt-open: run stow devonthink-open first." >&2; exit 1; }
+
+# Remember the current default (third line of "duti -x pdf" is the bundle id),
+# unless it is already ours.
+if command -v duti >/dev/null; then
+  mkdir -p "$state"
+  current=$(duti -x pdf | sed -n 3p)
+  [ -n "$current" ] && [ "$current" != "$id" ] && printf '%s\n' "$current" > "$state/previous-handler"
+fi
+
+#+end_src
+
+*** Building the applet
+
+=osacompile= turns the AppleScript source into an applet. An applet quits by itself when its =on open= handler has finished.
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+mkdir -p "$HOME/Applications"
+rm -rf "$app"
+/usr/bin/osacompile -o "$app" "$src"
+
+#+end_src
+
+*** Declaring PDFs in =Info.plist=
+
+LaunchServices lists an app as a possible viewer for PDFs only if the app declares the type, so the generic document types that =osacompile= writes are replaced by one for =com.adobe.pdf=. =LSUIElement= keeps the applet out of the Dock while it runs; =NSAppleEventsUsageDescription= is the text of the Automation permission prompt.
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+plist="$app/Contents/Info.plist"
+set_key() { "$pb" -c "Set :$1 $3" "$plist" 2>/dev/null || "$pb" -c "Add :$1 $2 $3" "$plist"; }
+set_key CFBundleIdentifier string "$id"
+set_key LSUIElement bool true   # no Dock icon while it runs
+set_key NSAppleEventsUsageDescription string "DT Open PDF asks DEVONthink whether a PDF is one of its indexed files."
+"$pb" -c "Delete :CFBundleDocumentTypes" "$plist" 2>/dev/null || true
+"$pb" -c "Add :CFBundleDocumentTypes array" \
+      -c "Add :CFBundleDocumentTypes:0 dict" \
+      -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string PDF Document" \
+      -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Viewer" \
+      -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Alternate" \
+      -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array" \
+      -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.adobe.pdf" "$plist"
+
+#+end_src
+
+*** Signing and registering
+
+Changing =Info.plist= invalidates the applet's signature, and an unsigned app is not run on Apple silicon, so it is signed again, ad hoc. =lsregister= makes LaunchServices read the new declaration.
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+# Editing Info.plist breaks the applet's signature; sign it again (ad hoc).
+/usr/bin/codesign --force --deep --sign - "$app"
+"$lsregister" -f "$app"
+
+#+end_src
+
+*** Making it the default
+
+#+begin_src bash :tangle .local/bin/dt-open-install :tangle-mode (identity #o755)
+if command -v duti >/dev/null; then
+  duti -s "$id" com.adobe.pdf all
+  echo "Built $app and made it the default for PDFs."
+else
+  echo "Built $app."
+  echo "Make it the default: select a PDF in Finder, Cmd-I, Open with: DT Open PDF, Change All..."
+fi
+echo "The first PDF you open asks for permission to control DEVONthink: allow it."
+#+end_src
+
 * Limits
 
-- The lookup compares paths. A file is found if it is indexed under the path the Finder gives, or under that path with symlinks resolved. A file indexed through a different mount point or from a volume that is not mounted is not found and opens in the fallback viewer.
+- The lookup compares paths. A file is found if it is indexed under the path the Finder gives, or under that path with symlinks resolved. A file indexed through a different mount point, or on a volume that is not mounted, is not found and opens in the fallback viewer.
 - A file indexed in two databases opens its record in the first database that has it.
-- Every PDF goes through the applet, so opening a PDF that is not in DEVONthink costs the lookup (a fraction of a second when DEVONthink is running) and, with =DT_OPEN_LAUNCH=1=, starting DEVONthink if it is closed.
-- The applet is the default for PDFs system-wide, so other apps that open PDFs with the default app (mail attachments saved to disk, a browser's download list) also go through =dt-open=.
-- Not run on a Mac: written and checked in a Linux container (syntax, and the decisions of =dt-open= against stand-ins for =osascript= and =open=). The AppleScript lookup, the =osacompile= and =PlistBuddy= steps and the LaunchServices registration are untested; see the git history for fixes.
+- Every PDF goes through the applet, so opening a PDF that is not in DEVONthink costs the lookup and, with =DT_OPEN_LAUNCH=1=, starting DEVONthink if it is closed. See "Speed".
+- The applet is the default for PDFs system-wide, so other apps that open PDFs with the default app (a browser's download list, say) also go through =dt-open=.
+- A file can carry its own "open with" choice (the extended attribute =com.apple.LaunchServices.OpenWith=), which beats the default for that file; =xattr -d com.apple.LaunchServices.OpenWith FILE= removes it.
+- Not run on a Mac: written and checked in a Linux container (bash syntax, and the decisions of =dt-open= against stand-ins for =osascript= and =open=; the tangle was checked with a script, not with Emacs). The AppleScript lookup, the =osacompile=, =PlistBuddy= and =codesign= steps and the LaunchServices registration are untested; see the git history for fixes.
