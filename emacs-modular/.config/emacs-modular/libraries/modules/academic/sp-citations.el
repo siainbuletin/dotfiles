@@ -52,6 +52,8 @@
 ;;;; Citar library lookup
 ;; A `file' field names the PDF where BibDesk, or an earlier layout, put it.
 ;; When it is not there, look it up by name below the library.
+(require 'ucs-normalize)
+
 (defcustom sp-citations-library-index-ttl 60
   "Seconds the index of `sp-literature-dir' is kept before a missing file rebuilds it."
   :type 'integer
