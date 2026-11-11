@@ -188,6 +188,30 @@
                    "[[sp-open:/lib/book 1.pdf][book 1.pdf]]"))
     (should (equal (sp-collec-query-cell '(:title "y") :pdf) ""))))
 
+(ert-deftest sp-collec-query-test-key-files-missing-file-does-not-signal ()
+  "A `file' field of missing files gives nil, not citar's user-error."
+  (cl-letf (((symbol-function 'citar-get-files)
+             (lambda (key) (user-error "None of the files for `%s' exist" key))))
+    (let ((sp-literature-dir "/nonexistent-lib/"))
+      (cl-letf (((symbol-function 'citar-get-value) (lambda (_f _k) "x.pdf")))
+        (should-not (sp-collec-query--key-files "k"))))))
+
+(ert-deftest sp-collec-query-test-key-files-relative-to-library ()
+  "When citar finds nothing, a relative `file' path is read from the library."
+  (let* ((dir (make-temp-file "lit" t))
+         (sp-literature-dir (file-name-as-directory dir)))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name "inbox" dir))
+          (write-region "" nil (expand-file-name "inbox/a.pdf" dir))
+          (cl-letf (((symbol-function 'citar-get-files)
+                     (lambda (key) (user-error "None of the files for `%s' exist" key)))
+                    ((symbol-function 'citar-get-value)
+                     (lambda (_f _k) "inbox/a.pdf;inbox/gone.pdf")))
+            (should (equal (sp-collec-query--key-files "k")
+                           (list (expand-file-name "inbox/a.pdf" dir))))))
+      (delete-directory dir t))))
+
 (ert-deftest sp-collec-query-test-devonthink-column ()
   (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1 @chap2")))))
     (cl-letf (((symbol-function 'sp-collec-query--dt-running-p) (lambda () nil)))

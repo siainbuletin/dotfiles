@@ -193,14 +193,36 @@ in the bibliography, or when a key comes up twice."
   (delete-dups (mapcar #'sp-collec-query--crossref-root
                        (sp-collec-query--citekeys note))))
 
+(defvar sp-literature-dir)
+(declare-function citar-get-value "citar")
+
+(defun sp-collec-query--key-files (key)
+  "Return the existing files of the citation KEY, never signalling an error.
+`citar-get-files' is tried first.  It signals a `user-error' (\"None of the
+files for KEY exist\") when the `file' field lists only files that are not
+there, which would stop a table update.  Then the paths of the `file'
+field are read directly: relative ones are taken from `sp-literature-dir'
+\(the BibDesk layout), and only those that exist are kept."
+  (or (condition-case nil
+          (gethash key (citar-get-files key))
+        (error nil))
+      (when-let* ((field (ignore-errors (citar-get-value "file" key))))
+        (let (found)
+          (dolist (path (split-string field "[;:]" t "[ \t\n]+"))
+            (let ((file (expand-file-name
+                         path (and (boundp 'sp-literature-dir) sp-literature-dir))))
+              (when (file-exists-p file) (push file found))))
+          (nreverse found)))))
+
 (defun sp-collec-query--root-files (note)
   "Return the files of NOTE's top-level keys, each once.
 The files are those `citar-get-files' finds from the `file' field of the
-BibTeX entry and `citar-library-paths'."
+BibTeX entry and `citar-library-paths'; see `sp-collec-query--key-files'
+for a `file' field that points to files that are missing."
   (when (fboundp 'citar-get-files)
     (let (files)
       (dolist (key (sp-collec-query--root-keys note))
-        (dolist (file (gethash key (citar-get-files key)))
+        (dolist (file (sp-collec-query--key-files key))
           (push (expand-file-name file) files)))
       (delete-dups (nreverse files)))))
 
