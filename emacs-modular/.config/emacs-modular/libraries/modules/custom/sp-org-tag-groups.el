@@ -613,6 +613,89 @@ A group without a colour (such as `unsorted') gets the neutral `default'."
       (concat (propertize " " 'display `(space :align-to (- right ,columns)))
               (sp-org-tag-groups--chips tags columns)))))
 
+(defvar sp-notes-dir)
+(defvar sp-writing-projects)
+(defvar projectile-known-projects)
+(declare-function vulpea-select-candidate-path "vulpea-select")
+
+(defun sp-note-origin--under-p (path dir)
+  "Non-nil when PATH is below the directory DIR."
+  (and path dir
+       (string-prefix-p (file-name-as-directory (expand-file-name dir))
+                        (expand-file-name path))))
+
+(defun sp-note-origin--writing-roots ()
+  "Roots of the known Projectile projects below `sp-writing-projects'.
+The longest come first, so a project inside a project wins."
+  (when (and (bound-and-true-p projectile-known-projects)
+             (bound-and-true-p sp-writing-projects))
+    (let ((base (file-name-as-directory (expand-file-name sp-writing-projects))))
+      (sort (seq-filter
+             (lambda (root) (and (string-prefix-p base root) (not (string= base root))))
+             (mapcar (lambda (project)
+                       (file-name-as-directory (expand-file-name project)))
+                     projectile-known-projects))
+            (lambda (a b) (> (length a) (length b)))))))
+
+(defvar sp-note-origin--cache nil
+  "Cons of the project list the cache was made for, and a hash table.
+The table maps a file name to its origin; it is dropped when
+`projectile-known-projects' changes.")
+
+(defun sp-note-origin (path)
+  "Where the note file PATH lives, as a cons of a rank and a group title.
+The rank orders the groups in the selector:
+- 0 \"Notes\": below `sp-notes-dir'.
+- 1 \"Writing: NAME\": in the Projectile project NAME below `sp-writing-projects'.
+- 2 \"Writing\": below `sp-writing-projects', but in no Projectile project.
+- 3 \"Config\": below `user-emacs-directory'.
+- 4 \"Other\": anywhere else."
+  (let ((projects (bound-and-true-p projectile-known-projects)))
+    (unless (and sp-note-origin--cache (eq (car sp-note-origin--cache) projects))
+      (setq sp-note-origin--cache (cons projects (make-hash-table :test #'equal))))
+    (let ((table (cdr sp-note-origin--cache)))
+      (or (gethash path table)
+          (puthash
+           path
+           (cond
+            ((null path) (cons 4 "Other"))
+            ((sp-note-origin--under-p path (bound-and-true-p sp-notes-dir))
+             (cons 0 "Notes"))
+            ((sp-note-origin--under-p path (bound-and-true-p sp-writing-projects))
+             (if-let* ((root (seq-find (lambda (root)
+                                         (string-prefix-p root (expand-file-name path)))
+                                       (sp-note-origin--writing-roots))))
+                 (cons 1 (format "Writing: %s"
+                                 (file-name-nondirectory (directory-file-name root))))
+               (cons 2 "Writing")))
+            ((sp-note-origin--under-p path user-emacs-directory)
+             (cons 3 "Config"))
+            (t (cons 4 "Other")))
+           table)))))
+
+(defun sp-note-origin-group (candidate transform)
+  "Completion `group-function': the group title of the note CANDIDATE.
+With TRANSFORM non-nil the candidate is returned as it is."
+  (if transform
+      candidate
+    (cdr (sp-note-origin (vulpea-select-candidate-path candidate)))))
+
+(defun sp-note-origin-sort (candidates)
+  "Completion `display-sort-function': CANDIDATES by group, then shortest first.
+The groups come in the order of `sp-note-origin' and the project groups
+alphabetically; inside a group the order is the usual one of Vertico
+\(length, then alphabetical)."
+  (let ((keys (make-hash-table :test #'eq)))
+    (dolist (candidate candidates)
+      (puthash candidate (sp-note-origin (vulpea-select-candidate-path candidate)) keys))
+    (sort (copy-sequence candidates)
+          (lambda (a b)
+            (let ((oa (gethash a keys)) (ob (gethash b keys)))
+              (cond ((/= (car oa) (car ob)) (< (car oa) (car ob)))
+                    ((not (string= (cdr oa) (cdr ob))) (string< (cdr oa) (cdr ob)))
+                    ((/= (length a) (length b)) (< (length a) (length b)))
+                    (t (string< a b))))))))
+
 (defmacro sp-org-tag-groups--with-tag-column (&rest body)
   "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
 The candidate cache is bypassed, because the column width is not a
@@ -648,10 +731,17 @@ title, without the emoji."
 (defun sp-find-note (&rest args)
   "Find a note and visit it, like `vulpea-find', with its emoji and tag column.
 ARGS are the keywords of `vulpea-find'.  Typing a title that does not
-exist offers to create the note, as `vulpea-find' does."
+exist offers to create the note, as `vulpea-find' does.
+The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (apply #'vulpea-find args)))
+    (let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
+           (completion-category-overrides
+            (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
+                                (display-sort-function . ,#'sp-note-origin-sort)
+                                ,@old)
+                  completion-category-overrides)))
+      (apply #'vulpea-find args))))
 
 ;; My own key for it, instead of `vulpea-find'.
 (keymap-global-set "M-o f" #'sp-find-note)
