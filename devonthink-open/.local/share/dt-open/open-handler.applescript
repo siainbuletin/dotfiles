@@ -8,13 +8,14 @@ use scripting additions
 
 on open theFiles
 	set cfg to readConfig()
+	if cfgError of cfg is not "" then logLine(cfg, "settings could not be read: " & cfgError of cfg)
 	repeat with theFile in theFiles
 		openOne(POSIX path of theFile, cfg)
 	end repeat
 end open
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false, cfgError:""}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
@@ -32,6 +33,8 @@ on readConfig()
 				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
+	on error errMsg number errNum
+		if errNum is not -43 then set cfgError of cfg to errMsg & " (" & errNum & ")"
 	end try
 	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to ""
 	return cfg
@@ -84,27 +87,40 @@ on findLink(candidates, cfg)
 		end if
 		tell application id "DNtp" to launch
 	end if
+	waitForDatabases(cfg)
+	repeat with candidate in candidates
+		set theLink to linkInDatabases(contents of candidate, cfg)
+		if theLink is not "" then return theLink
+	end repeat
+	return ""
+end findLink
+
+-- Right after a start there are no databases yet: wait up to 60 s for one.
+on waitForDatabases(cfg)
 	tell application id "DNtp"
-		-- Right after a start there are no databases yet: wait up to 60 s for one.
 		repeat 120 times
 			try
 				if (count of databases) > 0 then exit repeat
 			end try
 			delay 0.5
 		end repeat
-		if cfgDebug of cfg then my logLine(cfg, "DEVONthink has " & (count of databases) & " database(s) open")
-		repeat with candidate in candidates
-			repeat with theDatabase in databases
-				set hits to lookup records with path (contents of candidate) in theDatabase
-				if cfgDebug of cfg then my logLine(cfg, "  " & (contents of candidate) & " in " & (name of theDatabase) & ": " & (count of hits))
-				if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
-			end repeat
+		set dbCount to count of databases
+	end tell
+	logLine(cfg, "DEVONthink has " & dbCount & " database(s) open")
+end waitForDatabases
+
+on linkInDatabases(aPath, cfg)
+	tell application id "DNtp"
+		repeat with theDatabase in databases
+			set hits to lookup records with path aPath in theDatabase
+			if cfgDebug of cfg then my logLine(cfg, "  " & aPath & " in " & (name of theDatabase) & ": " & (count of hits))
+			if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
 		end repeat
 	end tell
 	return ""
-end findLink
+end linkInDatabases
 on logLine(cfg, msg)
-	if not (cfgDebug of cfg) then return
+	if not (cfgDebug of cfg) and cfgError of cfg is "" then return
 	try
 		set logFile to (POSIX path of (path to home folder)) & "Library/Logs/DT Open PDF.log"
 		do shell script "/usr/bin/printf '%s %s\\n' \"$(/bin/date '+%F %T')\" " & quoted form of msg & " >> " & quoted form of logFile
