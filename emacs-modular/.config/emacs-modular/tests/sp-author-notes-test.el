@@ -562,3 +562,24 @@
             (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
               (sp-batch-report-restore))
             (should (null sp-author-notes--excluded))))))))
+
+(ert-deftest sp-author-notes-test-batch-report-lists-conversions ()
+  "The shared view shows comma lists, plain names and Denote links with the right fields."
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: a" ""
+     "- pub-author :: Ann Lee, Bo Roe, and Cy Poe" "")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/b.org" vault)
+     ":PROPERTIES:" ":ID: l2" ":END:" "#+title: b" ""
+     "- pub-author :: Ann Lee" "")
+    (let ((sp-author-notes--excluded nil) (sp-batch-report-interface 'new))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-author-notes-dryrun))
+      (with-current-buffer sp-author-notes--buffer-name
+        (let ((text (buffer-string)))
+          (should (string-match-p "as 3: Ann Lee | Bo Roe | Cy Poe" text))
+          (should (string-match-p "litnotes/a\\.org:6\\]\\]  \"Ann Lee, Bo Roe, and Cy Poe\"" text))
+          (should (string-match-p "litnotes/b\\.org:6\\]\\]  Ann Lee" text)))))))
