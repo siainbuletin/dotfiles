@@ -1,0 +1,40 @@
+#+title: devonthink-open
+
+Makes PDFs that are indexed in DEVONthink open in DEVONthink when they are opened from the Finder or from Alfred's file picker. PDFs that are not in a DEVONthink database keep opening in an ordinary viewer (Preview by default); DEVONthink never gets them, so it does not offer to import them. macOS only.
+
+* Why it needs a small app
+
+Choosing DEVONthink in "Open with" does not work: it imports the file instead of showing the indexed record (the forum thread [[https://discourse.devontechnologies.com/t/open-an-indexed-item-in-devonthink-from-the-finder/50406][Open an indexed item in Devonthink from the Finder]]). What does work, as that thread and the ones it links to say, is asking DEVONthink for the record whose path is the file's path (the AppleScript command =lookup records with path=) and opening the record's =x-devonthink-item://= link.
+
+The Finder and Alfred (its "Open" on a file) both send a file to the default app for its type. So the default app for PDFs is a tiny applet, =DT Open PDF.app=, whose only job is to run =dt-open= on the files it is given. =dt-open= does the lookup in every open database and then either opens the item link or hands the file to the fallback viewer.
+
+* What is here
+
+- =.local/bin/dt-open=: the lookup and the decision. It can be used on its own: =dt-open file.pdf=.
+- =.local/bin/dt-open-install=: builds the applet from =.local/share/dt-open/open-handler.applescript= into =~/Applications/=, gives it a PDF document type, signs it, registers it and makes it the default viewer for PDFs. =dt-open-install --uninstall= puts the previous default back.
+- =.config/dt-open/config=: the settings below.
+
+* Setting up
+
+#+begin_example
+cd ~/dotfiles
+stow devonthink-open
+brew install duti        # optional: lets dt-open-install set the default itself
+dt-open-install
+#+end_example
+
+=~/.local/bin= must be on =PATH= only for you to type the commands; the applet uses the full path. Without =duti=, the installer says how to set the default in the Finder: select a PDF, Cmd-I, "Open with", "DT Open PDF", "Change All...". The first time a PDF is opened, macOS asks whether "DT Open PDF" may control DEVONthink (System Settings, Privacy & Security, Automation); allow it, or every PDF falls through to the fallback viewer.
+
+* Settings (=~/.config/dt-open/config=)
+
+- =DT_OPEN_FALLBACK=: the app for PDFs that are not in DEVONthink (=Preview=). Set it to the viewer you used before, e.g. =Skim=. It is opened by name, so it cannot loop back into the applet.
+- =DT_OPEN_LAUNCH=: =1= starts DEVONthink when it is not running and waits for a database (up to 60 s), because the lookup only works with DEVONthink running and the databases open. =0= opens the PDF in the fallback viewer instead and never starts DEVONthink.
+- =DT_OPEN_MODE=: =window= opens the PDF in its own DEVONthink window; =reveal= (=?reveal=1= on the link) shows it in the main window, in its database.
+
+* Limits
+
+- The lookup compares paths. A file is found if it is indexed under the path the Finder gives, or under that path with symlinks resolved. A file indexed through a different mount point or from a volume that is not mounted is not found and opens in the fallback viewer.
+- A file indexed in two databases opens its record in the first database that has it.
+- Every PDF goes through the applet, so opening a PDF that is not in DEVONthink costs the lookup (a fraction of a second when DEVONthink is running) and, with =DT_OPEN_LAUNCH=1=, starting DEVONthink if it is closed.
+- The applet is the default for PDFs system-wide, so other apps that open PDFs with the default app (mail attachments saved to disk, a browser's download list) also go through =dt-open=.
+- Not run on a Mac: written and checked in a Linux container (syntax, and the decisions of =dt-open= against stand-ins for =osascript= and =open=). The AppleScript lookup, the =osacompile= and =PlistBuddy= steps and the LaunchServices registration are untested; see the git history for fixes.

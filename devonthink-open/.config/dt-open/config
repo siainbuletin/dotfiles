@@ -1,0 +1,9 @@
+# Read by ~/.local/bin/dt-open (shell syntax).
+# App that opens PDFs which are not in a DEVONthink database.
+DT_OPEN_FALLBACK="Preview"
+# 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
+# the PDF in the fallback app instead (never starts DEVONthink).
+DT_OPEN_LAUNCH=1
+# window: the PDF opens in its own DEVONthink window. reveal: it is shown in
+# the main window, in its database.
+DT_OPEN_MODE=window
