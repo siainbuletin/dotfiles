@@ -86,9 +86,6 @@ Two columns for books and collections (used by the section table, see [[*Book se
   - Works in all four renderers: the vui and exc tables find the link by its text property, the Org renderers as an Org link.
 - =:dt-page=
   - Finds the top-level PDF: the end of the =crossref= chain of each key, then its file with =citar-get-files=.
-  - A =file= field whose files are missing gives no link instead of an error (=sp-collec-query--key-files=):
-    - =citar-get-files= is tried first, and its error is caught.
-    - Then the =file= field is read directly, relative paths from =sp-literature-dir=, and only existing files are kept.
   - Finds that file's record in DEVONthink (one JXA call for the whole table, only when DEVONthink is running).
   - Links to =x-devonthink-item://UUID?page=N=; the text is the printed page ("p. 41").
   - The printed page is the first number of =pub-pages=; =N= counts from 0 and adds the page offset.
@@ -693,36 +690,14 @@ in the bibliography, or when a key comes up twice."
   (delete-dups (mapcar #'sp-collec-query--crossref-root
                        (sp-collec-query--citekeys note))))
 
-(defvar sp-literature-dir)
-(declare-function citar-get-value "citar")
-
-(defun sp-collec-query--key-files (key)
-  "Return the existing files of the citation KEY, never signalling an error.
-`citar-get-files' is tried first.  It signals a `user-error' (\"None of the
-files for KEY exist\") when the `file' field lists only files that are not
-there, which would stop a table update.  Then the paths of the `file'
-field are read directly: relative ones are taken from `sp-literature-dir'
-\(the BibDesk layout), and only those that exist are kept."
-  (or (condition-case nil
-          (gethash key (citar-get-files key))
-        (error nil))
-      (when-let* ((field (ignore-errors (citar-get-value "file" key))))
-        (let (found)
-          (dolist (path (split-string field "[;:]" t "[ \t\n]+"))
-            (let ((file (expand-file-name
-                         path (and (boundp 'sp-literature-dir) sp-literature-dir))))
-              (when (file-exists-p file) (push file found))))
-          (nreverse found)))))
-
 (defun sp-collec-query--root-files (note)
   "Return the files of NOTE's top-level keys, each once.
 The files are those `citar-get-files' finds from the `file' field of the
-BibTeX entry and `citar-library-paths'; see `sp-collec-query--key-files'
-for a `file' field that points to files that are missing."
+BibTeX entry and `citar-library-paths'."
   (when (fboundp 'citar-get-files)
     (let (files)
       (dolist (key (sp-collec-query--root-keys note))
-        (dolist (file (sp-collec-query--key-files key))
+        (dolist (file (gethash key (citar-get-files key)))
           (push (expand-file-name file) files)))
       (delete-dups (nreverse files)))))
 
