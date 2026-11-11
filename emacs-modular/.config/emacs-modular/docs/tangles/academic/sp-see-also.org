@@ -43,6 +43,26 @@ While I write a litnote, an idea often reminds me of another concept. I do not w
   - A footnote written inside =verbatim= or =code= marks (right after =\==or =~=).
 - A footnote that spans a blank line is not a footnote for Org either, so it is not read.
 
+* "See also" sections
+- A heading titled =See also= (any case) is a /see-also section/, with its whole subtree.
+  - It can be at the bottom of an entry that has an =:ID:=, or at the bottom of the file.
+- Every =id:= link in it is one mention of one concept, in a list item or in plain text.
+  - =- [[id:...][Concept]] why I want to link this= is one mention.
+  - =:where= is =section= (weight 1.5, see below).
+- Its scope is the parent of the section:
+  - =:heading= and =:heading-id= are those of the nearest ancestor of the section that has an =:ID:=.
+  - A section at the top level, with no such ancestor, belongs to the file: =:heading-id= is nil, and the mention carries the =:ID:= of the file as the litnote.
+  - An =:ID:= on the =See also= heading itself is ignored; it is not the scope.
+  - The open question above it counts, as for a footnote.
+- The links go through the same cache and index as footnotes, so they appear:
+  - in =sp-see-also-show= and the =see-also= widget, as concepts of the note;
+  - in =sp-see-also-show-concept=, the =concept-usage= widget and dynamic block, as "mentioned" by this note, with the section line as the snippet.
+- Not counted:
+  - A link in a footnote inside the section (it is read once, as a footnote).
+  - A link in a source, example, export or comment block, or on a comment line.
+- =sp-see-also-parse-buffer= leaves them out by default (the sidenote renderer draws only footnotes); pass =SECTIONS= non-nil, as =sp-see-also-mentions-in-buffer= does.
+- The cache is per file, so editing a section re-reads only that file.
+
 * Definition footnotes
 - Found: a line starting with =[fn:LABEL]=, outside source, example, export and comment blocks.
 - A definition ends at:
@@ -56,7 +76,7 @@ While I write a litnote, an idea often reminds me of another concept. I do not w
 - A definition nobody refers to uses its own position.
 - Why: the first version read only inline footnotes, so the real vault (numbered definitions) gave no mentions and every dashboard stayed empty.
 - The sidenote module gets the reference range and the definition text, so it works for both forms.
-- The cache version is 2, so files cached before this change are read again.
+- The cache version is 3 (it was 2 before the "See also" sections), so files cached before are read again.
 
 * The context of a footnote
 
@@ -107,7 +127,7 @@ Two functions decide it. Both are options, so the scoring can be changed without
 
 ** The default weights
 
-- =sp-see-also-where-weights=: =prose= 1.0, =quote= 2.0.
+- =sp-see-also-where-weights=: =prose= 1.0, =quote= 2.0, =section= 1.5 (a link in a "See also" section).
 - =sp-see-also-question-weights=: added to a mention under an open question. The earlier the state, the more urgent.
 
 | Keyword        | Weight |
@@ -240,7 +260,7 @@ Each file is stored with its modification time and size."
   "Keywords of a closed question; nil means those of `sp-org-keywords-research'."
   :type '(repeat string))
 
-(defcustom sp-see-also-where-weights '((prose . 1.0) (quote . 2.0))
+(defcustom sp-see-also-where-weights '((prose . 1.0) (quote . 2.0) (section . 1.5))
   "Weight of a mention by the place it was written."
   :type '(alist :key-type symbol :value-type number))
 
@@ -511,8 +531,53 @@ itself when nothing refers to it), :def-beg, :def-end, :label and :text."
          (after (buffer-substring-no-properties end (min eol (+ end 40)))))
     (sp-see-also--plain (concat before after))))
 
+;; A "See also" section lists links on purpose, so each link in it is a mention.
+
+(defun sp-see-also--section-items (headings skip avoid)
+  "Return the `id:' links in the \"See also\" sections among HEADINGS.
+A section is a heading titled \"See also\" (any case) and its subtree.  SKIP are
+the ranges not read; AVOID are the ranges of footnotes, which are read as
+footnotes.  Each item is a plist of :beg, :end, :label (nil), :text, :links,
+:snippet (the line, without its list bullet) and :section-pos, the position of
+the heading."
+  (let ((case-fold-search t)
+        items)
+    (save-excursion
+      (let ((rest headings))
+        (while rest
+          (let ((heading (pop rest)))
+            (when (string-equal-ignore-case (string-trim (plist-get heading :title))
+                                            "See also")
+              (let* ((level (plist-get heading :level))
+                     (start (save-excursion
+                              (goto-char (plist-get heading :pos))
+                              (line-end-position)))
+                     (end (or (plist-get (seq-find (lambda (h) (<= (plist-get h :level) level))
+                                                   rest)
+                                         :pos)
+                              (point-max))))
+                (goto-char start)
+                (while (re-search-forward
+                        "\\[\\[id:[^]\n]+\\]\\(?:\\[[^]]*\\]\\)?\\]" end t)
+                  (let ((beg (match-beginning 0))
+                        (link-end (match-end 0))
+                        (text (match-string-no-properties 0)))
+                    (unless (or (sp-see-also--in-ranges-p beg skip)
+                                (sp-see-also--in-ranges-p beg avoid)
+                                (sp-see-also--commented-p beg))
+                      (push (list :beg beg :end link-end :label nil :text text
+                                  :links (sp-see-also--links text)
+                                  :snippet (sp-see-also--plain
+                                            (replace-regexp-in-string
+                                             "\\`[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+" ""
+                                             (buffer-substring-no-properties
+                                              (line-beginning-position) (line-end-position))))
+                                  :section-pos (plist-get heading :pos))
+                            items)))))))))
+      (nreverse items))))
+
 ;;;###autoload
-(defun sp-see-also-parse-buffer (&optional buffer)
+(defun sp-see-also-parse-buffer (&optional buffer sections)
   "Return the see-also footnotes of BUFFER (default the current one), in order.
 A see-also footnote is an inline or definition footnote with an `id:' link.
 For a definition, :beg and :end are its first reference, :def-beg and :def-end
@@ -521,6 +586,10 @@ the definition.  Each is a plist:
 :where (`quote' or `prose'), :question (keyword of the nearest question
 heading above, or nil), :open (non-nil when that question is open),
 :question-title, :question-pos, :heading, :heading-id.
+When SECTIONS is non-nil, every `id:' link in a \"See also\" section is
+returned as well, one item for each link, with :where `section'.  Its context
+(:heading, :heading-id, :question) is that of the parent of the section, so it
+is the nearest heading with an ID, or the file when the section is at the top.
 Nothing is moved, narrowed for good or changed, and no mode is needed."
   (with-current-buffer (or buffer (current-buffer))
     (save-restriction
@@ -529,30 +598,51 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
         (let* ((states (sp-see-also--states))
                (keywords (append (car states) (cdr states)))
                (ranges (sp-see-also--block-ranges))
+               (all (sp-see-also--footnotes-all (car ranges)))
                (raw (delq nil
                           (mapcar (lambda (footnote)
                                     (when-let* ((links (sp-see-also--links
                                                         (plist-get footnote :text))))
                                       (append footnote (list :links links))))
-                                  (sp-see-also--footnotes-all (car ranges)))))
-               (headings (and raw (sp-see-also--headings keywords (car ranges))))
+                                  all)))
+               (headings (and (or raw sections)
+                              (sp-see-also--headings keywords (car ranges))))
+               (items (and sections
+                           (sp-see-also--section-items
+                            headings (car ranges)
+                            (mapcan (lambda (f)
+                                      (list (cons (plist-get f :beg) (plist-get f :end))
+                                            (cons (or (plist-get f :def-beg) 0)
+                                                  (or (plist-get f :def-end) 0))))
+                                    all))))
                stack result)
-          (dolist (footnote raw)
-            (let ((beg (plist-get footnote :beg)))
+          (dolist (footnote (if items
+                                (sort (append raw items)
+                                      (lambda (a b) (< (plist-get a :beg) (plist-get b :beg))))
+                              raw))
+            (let ((beg (plist-get footnote :beg))
+                  (section-pos (plist-get footnote :section-pos)))
               (while (and headings (< (plist-get (car headings) :pos) beg))
                 (let ((heading (pop headings)))
                   (while (and stack (>= (plist-get (car stack) :level)
                                         (plist-get heading :level)))
                     (pop stack))
                   (push heading stack)))
-              (let ((question (seq-find (lambda (h) (plist-get h :keyword)) stack))
-                    (nearest (car stack))
-                    (with-id (seq-find (lambda (h) (plist-get h :id)) stack)))
+              (let* ((scope (if section-pos
+                                (cdr (seq-drop-while
+                                      (lambda (h) (/= (plist-get h :pos) section-pos))
+                                      stack))
+                              stack))
+                     (question (seq-find (lambda (h) (plist-get h :keyword)) scope))
+                     (nearest (car scope))
+                     (with-id (seq-find (lambda (h) (plist-get h :id)) scope)))
                 (push (append
                        footnote
-                       (list :snippet (sp-see-also--snippet beg (plist-get footnote :end))
-                             :where (if (sp-see-also--in-ranges-p beg (cdr ranges))
-                                        'quote 'prose)
+                       (list :snippet (or (plist-get footnote :snippet)
+                                          (sp-see-also--snippet beg (plist-get footnote :end)))
+                             :where (cond (section-pos 'section)
+                                          ((sp-see-also--in-ranges-p beg (cdr ranges)) 'quote)
+                                          (t 'prose))
                              :question (and question (plist-get question :keyword))
                              :open (and question
                                         (member (plist-get question :keyword) (car states))
@@ -566,10 +656,11 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
 
 (defun sp-see-also-mentions-in-buffer (&optional buffer)
   "Return one mention for each concept link of each footnote in BUFFER.
+Links in a \"See also\" section count too (:where `section').
 A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
 :links, plus :id (the concept) and :desc (the text of the link)."
   (let (mentions)
-    (dolist (footnote (sp-see-also-parse-buffer buffer))
+    (dolist (footnote (sp-see-also-parse-buffer buffer t))
       (let ((base (copy-sequence footnote)))
         (cl-remf base :text)
         (cl-remf base :links)
@@ -584,7 +675,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
 - The whole cache goes when the format or the question keywords change.
 
 #+begin_src emacs-lisp -i
-(defconst sp-see-also--cache-version 2
+(defconst sp-see-also--cache-version 3
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
@@ -1589,6 +1680,96 @@ Interactively, ID is the :ID: of the entry at point."
       (should (equal (mapcar (lambda (c) (plist-get c :id)) concepts) '("d-two" "d-one")))
       (should (= (plist-get (car concepts) :quotes) 1))
       (should (= (length (sp-see-also-concept-usage "d-one")) 1)))))
+
+(defconst sp-see-also-test--section-note
+  (sp-see-also-test--text
+   ":PROPERTIES:"
+   ":ID: file-id"
+   ":END:"
+   "#+title: Litnote with sections"
+   "Intro[fn::[[id:c-fn][Footnoted]]]."
+   "* Entry with an id"
+   ":PROPERTIES:"
+   ":ID: entry-id"
+   ":END:"
+   "Body text."
+   "** see Also"
+   ":PROPERTIES:"
+   ":ID: section-own-id"
+   ":END:"
+   "- [[id:s-one][Section one]] because of the method"
+   "- [[id:s-two][Section two]] and [[id:s-three][three]]"
+   "- A footnote in the list[fn::[[id:c-fn2][Inside]]]"
+   "#+begin_src org"
+   "[[id:s-skip][Skipped]]"
+   "#+end_src"
+   "# [[id:s-comment][Commented]]"
+   "*** Deeper heading"
+   "- [[id:s-deep][Deep]]"
+   "* QUESTION Open one"
+   "** See also"
+   "- [[id:s-question][Under question]]"
+   "* Last"
+   "Not a section [[id:s-plain][Plain link]]."
+   "* See also"
+   "Plain text [[id:s-file][File level]]."))
+
+(ert-deftest sp-see-also-section-links-are-mentions ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (let ((mentions (sp-see-also-mentions-in-buffer)))
+      (should (equal (mapcar (lambda (m) (plist-get m :id)) mentions)
+                     '("c-fn" "s-one" "s-two" "s-three" "c-fn2" "s-deep"
+                       "s-question" "s-file")))
+      (should (equal (mapcar (lambda (m) (plist-get m :where)) mentions)
+                     '(prose section section section prose section section section))))))
+
+(ert-deftest sp-see-also-section-scope-is-the-parent ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (let* ((mentions (sp-see-also-mentions-in-buffer))
+           (one (nth 1 mentions))
+           (deep (nth 5 mentions))
+           (question (nth 6 mentions))
+           (file-level (nth 7 mentions)))
+      (should (equal (plist-get one :heading) "Entry with an id"))
+      (should (equal (plist-get one :heading-id) "entry-id"))
+      (should (equal (plist-get deep :heading-id) "entry-id"))
+      (should (equal (plist-get one :snippet) "Section one because of the method"))
+      (should (equal (plist-get question :question) "QUESTION"))
+      (should (plist-get question :open))
+      (should (null (plist-get file-level :heading-id)))
+      (should (null (plist-get file-level :heading)))
+      (should (equal (plist-get file-level :snippet) "Plain text File level.")))))
+
+(ert-deftest sp-see-also-section-links-are-optional-for-the-parser ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (should (equal (mapcar (lambda (f) (plist-get f :where)) (sp-see-also-parse-buffer))
+                   '(prose prose)))
+    (should (= (length (sp-see-also-parse-buffer nil t)) 8))))
+
+(ert-deftest sp-see-also-section-links-reach-the-dashboards ()
+  (sp-see-also-test--with-vault
+    (let* ((file (sp-see-also-test--write root "sections.org" sp-see-also-test--section-note))
+           (concepts (sp-see-also-concepts-for-file file))
+           (usage (sp-see-also-concept-usage "s-one")))
+      (should (member "s-file" (mapcar (lambda (c) (plist-get c :id)) concepts)))
+      (should (= (length usage) 1))
+      (should (equal (plist-get (car usage) :id) "file-id"))
+      (should (eq (plist-get (car (plist-get (car usage) :mentions)) :where) 'section)))))
+
+(ert-deftest sp-see-also-section-edit-is-read-again ()
+  (sp-see-also-test--with-vault
+    (let ((file (sp-see-also-test--write root "edit.org" "* Entry\n:PROPERTIES:\n:ID: e\n:END:\n")))
+      (should (null (sp-see-also-concepts-for-file file)))
+      (sleep-for 0.01)
+      (with-temp-file file
+        (insert "* Entry\n:PROPERTIES:\n:ID: e\n:END:\n** See also\n- [[id:n][New]]\n"))
+      (set-file-times file (time-add (current-time) 5))
+      (should (equal (mapcar (lambda (c) (plist-get c :id))
+                             (sp-see-also-concepts-for-file file))
+                     '("n"))))))
 
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here

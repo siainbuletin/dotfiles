@@ -338,5 +338,95 @@
       (should (= (plist-get (car concepts) :quotes) 1))
       (should (= (length (sp-see-also-concept-usage "d-one")) 1)))))
 
+(defconst sp-see-also-test--section-note
+  (sp-see-also-test--text
+   ":PROPERTIES:"
+   ":ID: file-id"
+   ":END:"
+   "#+title: Litnote with sections"
+   "Intro[fn::[[id:c-fn][Footnoted]]]."
+   "* Entry with an id"
+   ":PROPERTIES:"
+   ":ID: entry-id"
+   ":END:"
+   "Body text."
+   "** see Also"
+   ":PROPERTIES:"
+   ":ID: section-own-id"
+   ":END:"
+   "- [[id:s-one][Section one]] because of the method"
+   "- [[id:s-two][Section two]] and [[id:s-three][three]]"
+   "- A footnote in the list[fn::[[id:c-fn2][Inside]]]"
+   "#+begin_src org"
+   "[[id:s-skip][Skipped]]"
+   "#+end_src"
+   "# [[id:s-comment][Commented]]"
+   "*** Deeper heading"
+   "- [[id:s-deep][Deep]]"
+   "* QUESTION Open one"
+   "** See also"
+   "- [[id:s-question][Under question]]"
+   "* Last"
+   "Not a section [[id:s-plain][Plain link]]."
+   "* See also"
+   "Plain text [[id:s-file][File level]]."))
+
+(ert-deftest sp-see-also-section-links-are-mentions ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (let ((mentions (sp-see-also-mentions-in-buffer)))
+      (should (equal (mapcar (lambda (m) (plist-get m :id)) mentions)
+                     '("c-fn" "s-one" "s-two" "s-three" "c-fn2" "s-deep"
+                       "s-question" "s-file")))
+      (should (equal (mapcar (lambda (m) (plist-get m :where)) mentions)
+                     '(prose section section section prose section section section))))))
+
+(ert-deftest sp-see-also-section-scope-is-the-parent ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (let* ((mentions (sp-see-also-mentions-in-buffer))
+           (one (nth 1 mentions))
+           (deep (nth 5 mentions))
+           (question (nth 6 mentions))
+           (file-level (nth 7 mentions)))
+      (should (equal (plist-get one :heading) "Entry with an id"))
+      (should (equal (plist-get one :heading-id) "entry-id"))
+      (should (equal (plist-get deep :heading-id) "entry-id"))
+      (should (equal (plist-get one :snippet) "Section one because of the method"))
+      (should (equal (plist-get question :question) "QUESTION"))
+      (should (plist-get question :open))
+      (should (null (plist-get file-level :heading-id)))
+      (should (null (plist-get file-level :heading)))
+      (should (equal (plist-get file-level :snippet) "Plain text File level.")))))
+
+(ert-deftest sp-see-also-section-links-are-optional-for-the-parser ()
+  (with-temp-buffer
+    (insert sp-see-also-test--section-note)
+    (should (equal (mapcar (lambda (f) (plist-get f :where)) (sp-see-also-parse-buffer))
+                   '(prose prose)))
+    (should (= (length (sp-see-also-parse-buffer nil t)) 8))))
+
+(ert-deftest sp-see-also-section-links-reach-the-dashboards ()
+  (sp-see-also-test--with-vault
+    (let* ((file (sp-see-also-test--write root "sections.org" sp-see-also-test--section-note))
+           (concepts (sp-see-also-concepts-for-file file))
+           (usage (sp-see-also-concept-usage "s-one")))
+      (should (member "s-file" (mapcar (lambda (c) (plist-get c :id)) concepts)))
+      (should (= (length usage) 1))
+      (should (equal (plist-get (car usage) :id) "file-id"))
+      (should (eq (plist-get (car (plist-get (car usage) :mentions)) :where) 'section)))))
+
+(ert-deftest sp-see-also-section-edit-is-read-again ()
+  (sp-see-also-test--with-vault
+    (let ((file (sp-see-also-test--write root "edit.org" "* Entry\n:PROPERTIES:\n:ID: e\n:END:\n")))
+      (should (null (sp-see-also-concepts-for-file file)))
+      (sleep-for 0.01)
+      (with-temp-file file
+        (insert "* Entry\n:PROPERTIES:\n:ID: e\n:END:\n** See also\n- [[id:n][New]]\n"))
+      (set-file-times file (time-add (current-time) 5))
+      (should (equal (mapcar (lambda (c) (plist-get c :id))
+                             (sp-see-also-concepts-for-file file))
+                     '("n"))))))
+
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here

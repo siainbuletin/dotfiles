@@ -68,7 +68,7 @@ Each file is stored with its modification time and size."
   "Keywords of a closed question; nil means those of `sp-org-keywords-research'."
   :type '(repeat string))
 
-(defcustom sp-see-also-where-weights '((prose . 1.0) (quote . 2.0))
+(defcustom sp-see-also-where-weights '((prose . 1.0) (quote . 2.0) (section . 1.5))
   "Weight of a mention by the place it was written."
   :type '(alist :key-type symbol :value-type number))
 
@@ -329,8 +329,53 @@ itself when nothing refers to it), :def-beg, :def-end, :label and :text."
          (after (buffer-substring-no-properties end (min eol (+ end 40)))))
     (sp-see-also--plain (concat before after))))
 
+;; A "See also" section lists links on purpose, so each link in it is a mention.
+
+(defun sp-see-also--section-items (headings skip avoid)
+  "Return the `id:' links in the \"See also\" sections among HEADINGS.
+A section is a heading titled \"See also\" (any case) and its subtree.  SKIP are
+the ranges not read; AVOID are the ranges of footnotes, which are read as
+footnotes.  Each item is a plist of :beg, :end, :label (nil), :text, :links,
+:snippet (the line, without its list bullet) and :section-pos, the position of
+the heading."
+  (let ((case-fold-search t)
+        items)
+    (save-excursion
+      (let ((rest headings))
+        (while rest
+          (let ((heading (pop rest)))
+            (when (string-equal-ignore-case (string-trim (plist-get heading :title))
+                                            "See also")
+              (let* ((level (plist-get heading :level))
+                     (start (save-excursion
+                              (goto-char (plist-get heading :pos))
+                              (line-end-position)))
+                     (end (or (plist-get (seq-find (lambda (h) (<= (plist-get h :level) level))
+                                                   rest)
+                                         :pos)
+                              (point-max))))
+                (goto-char start)
+                (while (re-search-forward
+                        "\\[\\[id:[^]\n]+\\]\\(?:\\[[^]]*\\]\\)?\\]" end t)
+                  (let ((beg (match-beginning 0))
+                        (link-end (match-end 0))
+                        (text (match-string-no-properties 0)))
+                    (unless (or (sp-see-also--in-ranges-p beg skip)
+                                (sp-see-also--in-ranges-p beg avoid)
+                                (sp-see-also--commented-p beg))
+                      (push (list :beg beg :end link-end :label nil :text text
+                                  :links (sp-see-also--links text)
+                                  :snippet (sp-see-also--plain
+                                            (replace-regexp-in-string
+                                             "\\`[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+" ""
+                                             (buffer-substring-no-properties
+                                              (line-beginning-position) (line-end-position))))
+                                  :section-pos (plist-get heading :pos))
+                            items)))))))))
+      (nreverse items))))
+
 ;;;###autoload
-(defun sp-see-also-parse-buffer (&optional buffer)
+(defun sp-see-also-parse-buffer (&optional buffer sections)
   "Return the see-also footnotes of BUFFER (default the current one), in order.
 A see-also footnote is an inline or definition footnote with an `id:' link.
 For a definition, :beg and :end are its first reference, :def-beg and :def-end
@@ -339,6 +384,10 @@ the definition.  Each is a plist:
 :where (`quote' or `prose'), :question (keyword of the nearest question
 heading above, or nil), :open (non-nil when that question is open),
 :question-title, :question-pos, :heading, :heading-id.
+When SECTIONS is non-nil, every `id:' link in a \"See also\" section is
+returned as well, one item for each link, with :where `section'.  Its context
+(:heading, :heading-id, :question) is that of the parent of the section, so it
+is the nearest heading with an ID, or the file when the section is at the top.
 Nothing is moved, narrowed for good or changed, and no mode is needed."
   (with-current-buffer (or buffer (current-buffer))
     (save-restriction
@@ -347,30 +396,51 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
         (let* ((states (sp-see-also--states))
                (keywords (append (car states) (cdr states)))
                (ranges (sp-see-also--block-ranges))
+               (all (sp-see-also--footnotes-all (car ranges)))
                (raw (delq nil
                           (mapcar (lambda (footnote)
                                     (when-let* ((links (sp-see-also--links
                                                         (plist-get footnote :text))))
                                       (append footnote (list :links links))))
-                                  (sp-see-also--footnotes-all (car ranges)))))
-               (headings (and raw (sp-see-also--headings keywords (car ranges))))
+                                  all)))
+               (headings (and (or raw sections)
+                              (sp-see-also--headings keywords (car ranges))))
+               (items (and sections
+                           (sp-see-also--section-items
+                            headings (car ranges)
+                            (mapcan (lambda (f)
+                                      (list (cons (plist-get f :beg) (plist-get f :end))
+                                            (cons (or (plist-get f :def-beg) 0)
+                                                  (or (plist-get f :def-end) 0))))
+                                    all))))
                stack result)
-          (dolist (footnote raw)
-            (let ((beg (plist-get footnote :beg)))
+          (dolist (footnote (if items
+                                (sort (append raw items)
+                                      (lambda (a b) (< (plist-get a :beg) (plist-get b :beg))))
+                              raw))
+            (let ((beg (plist-get footnote :beg))
+                  (section-pos (plist-get footnote :section-pos)))
               (while (and headings (< (plist-get (car headings) :pos) beg))
                 (let ((heading (pop headings)))
                   (while (and stack (>= (plist-get (car stack) :level)
                                         (plist-get heading :level)))
                     (pop stack))
                   (push heading stack)))
-              (let ((question (seq-find (lambda (h) (plist-get h :keyword)) stack))
-                    (nearest (car stack))
-                    (with-id (seq-find (lambda (h) (plist-get h :id)) stack)))
+              (let* ((scope (if section-pos
+                                (cdr (seq-drop-while
+                                      (lambda (h) (/= (plist-get h :pos) section-pos))
+                                      stack))
+                              stack))
+                     (question (seq-find (lambda (h) (plist-get h :keyword)) scope))
+                     (nearest (car scope))
+                     (with-id (seq-find (lambda (h) (plist-get h :id)) scope)))
                 (push (append
                        footnote
-                       (list :snippet (sp-see-also--snippet beg (plist-get footnote :end))
-                             :where (if (sp-see-also--in-ranges-p beg (cdr ranges))
-                                        'quote 'prose)
+                       (list :snippet (or (plist-get footnote :snippet)
+                                          (sp-see-also--snippet beg (plist-get footnote :end)))
+                             :where (cond (section-pos 'section)
+                                          ((sp-see-also--in-ranges-p beg (cdr ranges)) 'quote)
+                                          (t 'prose))
                              :question (and question (plist-get question :keyword))
                              :open (and question
                                         (member (plist-get question :keyword) (car states))
@@ -384,10 +454,11 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
 
 (defun sp-see-also-mentions-in-buffer (&optional buffer)
   "Return one mention for each concept link of each footnote in BUFFER.
+Links in a \"See also\" section count too (:where `section').
 A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
 :links, plus :id (the concept) and :desc (the text of the link)."
   (let (mentions)
-    (dolist (footnote (sp-see-also-parse-buffer buffer))
+    (dolist (footnote (sp-see-also-parse-buffer buffer t))
       (let ((base (copy-sequence footnote)))
         (cl-remf base :text)
         (cl-remf base :links)
@@ -395,7 +466,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
           (push (append (list :id (car link) :desc (cdr link)) base) mentions))))
     (nreverse mentions)))
 
-(defconst sp-see-also--cache-version 2
+(defconst sp-see-also--cache-version 3
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
