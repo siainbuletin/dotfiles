@@ -22,7 +22,7 @@ Left where they are on purpose:
 - =sp-headless-host= (=early-init.el=) and =sp-defer-late-modules= (=init.el=): they are read before the module lists run, so they cannot come from a module.
 - Settings of one package (the =:custom= of a =use-package=), which are documented with the package.
 - Platform settings such as =mac-command-modifier= (=sp-macos=), which belong to their platform module.
-- Values derived from a path, such as =org-directory= and =vulpea-db-sync-directories=: they follow =sp-notes-dir=, so changing the path here is enough.
+- Values derived from a path, such as =org-directory= and =vulpea-db-sync-directories=: they follow =sp-notes-dir= (and =sp-writing-projects= for the latter), so changing the path here is enough.
 - The default font and the theme (=sp-fonts=, =sp-themes=): they are set separately on purpose.
 - Paths inside the configuration's own tree (=~/.config/...=), the legacy =~/.emacs.d= entries, =~/bin/mark.sh=, =~/opt/plantuml= and the plain =~/= used as a starting directory. They are tool locations rather than data.
 
@@ -153,6 +153,12 @@ The notes, documents, literature, bibliography, org, source and clone folders. T
 
 (defcustom sp-documents-dir (sp-paths--dir "SP_DOCUMENTS_DIR" "~/Documents")
   "The documents folder (calibre library, writing, elfeed.org)."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-writing-projects (sp-path sp-documents-dir "writing/")
+  "Folder with the writing projects (~/Documents/writing by default).
+Vulpea indexes it (`vulpea-db-sync-directories'), so the IDs in it can be
+linked to and its open TODO headings reach the agenda."
   :type 'directory :group 'spcustom)
 
 (defcustom sp-literature-dir (sp-path sp-documents-dir "literature/")

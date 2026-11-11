@@ -27,7 +27,9 @@
    ("M-o n n" . org-id-get-create))
 )
 
-(setq vulpea-db-sync-directories (list sp-notes-dir))
+(setq vulpea-db-sync-directories
+      (seq-filter #'file-directory-p
+                  (list sp-notes-dir user-emacs-directory sp-writing-projects)))
 
 ;; The database is rebuilt from the notes, so it lives in `var/' (Git ignores
 ;; it) and not in the config folder, where Vulpea puts it by default.
