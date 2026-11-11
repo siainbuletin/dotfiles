@@ -113,15 +113,22 @@ Keybindings:
 
 *** Synced directories
 
-Sets =vulpea-db-sync-directories= to =~/notes/= only.
+Sets =vulpea-db-sync-directories= to the folders Vulpea indexes.
 
-- The Emacs config directory is not indexed.
-- The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=.
-- This =setq= ran afterwards and replaced it, so the duplicate was removed. The effective value is unchanged.
-- To index the config directory too, add =user-emacs-directory= here.
+- =sp-notes-dir=: the notes (=~/notes/=).
+- =user-emacs-directory=: the Emacs config, so its Org docs are indexed too.
+- =sp-writing-projects=: the writing projects (=~/Documents/writing/= by default, see =sp-globals=).
+  - To use another folder, customize =sp-writing-projects= instead of editing this list.
+  - Its =:ID:= entries are indexed, so they can be linked from the notes.
+  - A file there gets the agenda tag on save once it holds an open TODO heading (any =org-todo-keywords= keyword), so those headings reach the agenda through =vulpea-para=.
+  - For files that already have open TODOs, run =M-x vulpea-para-agenda-backfill= once.
+- A folder that does not exist is left out, so a missing =~/Documents/writing/= does not break the scan. Restart, or re-evaluate the form, after creating it.
+- After adding a folder, run =M-x vulpea-db-sync-full-scan= (or restart) to index it.
 
 #+begin_src emacs-lisp -i
-(setq vulpea-db-sync-directories (list sp-notes-dir))
+(setq vulpea-db-sync-directories
+      (seq-filter #'file-directory-p
+                  (list sp-notes-dir user-emacs-directory sp-writing-projects)))
 
 ;; The database is rebuilt from the notes, so it lives in `var/' (Git ignores
 ;; it) and not in the config folder, where Vulpea puts it by default.
