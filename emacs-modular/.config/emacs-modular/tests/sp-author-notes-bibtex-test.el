@@ -230,3 +230,45 @@
           (should (= 0 (sp-author-notes-bibtex--author-apply
                         person (sp-author-notes-bibtex--author-compute person)
                         '("smith2018other" "smith2020attention")))))))))
+
+;;;; Organisations
+
+(ert-deftest sp-an-bib-test-split-authors-organisation ()
+  (let ((sp-author-notes--braced-organisations (make-hash-table :test #'equal)))
+    (should (equal (sp-author-notes-bibtex--split-authors
+                    "{{Marx and Engels Institute}} and Smith, John")
+                   '("Marx and Engels Institute" "John Smith")))
+    (should (equal (sp-author-notes-bibtex--split-authors "{{Doe, Roe Press}}")
+                   '("Doe, Roe Press")))))
+
+(ert-deftest sp-an-bib-test-match-organisation ()
+  (let ((sp-author-notes--braced-organisations (make-hash-table :test #'equal))
+        (sp-author-notes-organisations '("Endnotes Collective")))
+    (should (eq 'exact (sp-author-notes-bibtex--match "Endnotes Collective" "Endnotes Collective")))
+    ;; The last-name-and-initial guess is for people only.
+    (should-not (sp-author-notes-bibtex--match "Endnotes Collective" "E. Collective"))
+    (should-not (sp-author-notes-bibtex--match "Eva Collective" "{{Endnotes Collective}}"))
+    (should (eq 'possible (sp-author-notes-bibtex--match "Eva Roe" "E. Roe")))
+    (should-not (sp-author-notes-bibtex--possible-key "Endnotes Collective"))))
+
+(ert-deftest sp-an-bib-test-organisation-compute ()
+  (let ((sp-author-notes--braced-organisations (make-hash-table :test #'equal)))
+    (sp-an-bib-test--with-vault
+      (sp-an-bib-test--write
+       bib
+       "@book{endnotes2010,"
+       "  author = {{Endnotes}},"
+       "  title = {Misery},"
+       "  year = {2010}}"
+       "@book{roe2011,"
+       "  author = {E. Notes},"
+       "  title = {Other},"
+       "  year = {2011}}")
+      (sp-an-bib-test--write
+       (expand-file-name "p3.org" vault)
+       ":PROPERTIES:" ":ID: p-endnotes" ":END:" "#+title: Endnotes" "#+filetags: :organisation:" "")
+      (let* ((groups (sp-author-notes-bibtex--compute))
+             (group (seq-find (lambda (g) (equal (plist-get (car g) :title) "Endnotes")) groups)))
+        (should group)
+        (should (equal (mapcar (lambda (m) (cons (plist-get (car m) :key) (cdr m))) (cdr group))
+                       '(("endnotes2010" . exact))))))))
