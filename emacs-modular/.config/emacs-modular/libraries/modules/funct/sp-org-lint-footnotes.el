@@ -939,6 +939,5 @@ are skipped.  The work is done by a second Emacs."
                                      plans)
                              (list :backup-root root)))))
 
-
 (provide 'sp-org-lint-footnotes)
 ;;; sp-org-lint-footnotes.el ends here

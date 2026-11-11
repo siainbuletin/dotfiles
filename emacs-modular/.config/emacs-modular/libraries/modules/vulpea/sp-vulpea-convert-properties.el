@@ -373,7 +373,6 @@ progress count and ETA in the echo area -- see
                        (setq sia-vulpea-convert--excluded excl)
                        (sia-vulpea-convert-all-notes-properties-to-meta nil excl)))))))))))
 
-
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original excluded)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every

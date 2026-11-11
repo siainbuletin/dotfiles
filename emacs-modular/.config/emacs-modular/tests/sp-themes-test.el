@@ -42,7 +42,7 @@
 (ert-deftest sp-themes-test-registry-backgrounds ()
   (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
                   (lambda-light-faded . light) (lambda-dark . dark)
-                  (modus-operandi . light)
+                  (modus-operandi . light) 
                   (sp-dark . dark) (sp-light . light)))
     (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
 
@@ -84,6 +84,22 @@
    (should (sp-theme-dark-p))
    (sp-load-theme 'ef-day)
    (should-not (sp-theme-dark-p))))
+
+(ert-deftest sp-themes-test-lazy-highlight ()
+  (sp-themes-test--clean
+   (let ((old (face-attribute 'lazy-highlight :background nil)))
+     (unwind-protect
+         (progn
+           (cl-letf (((symbol-function 'face-attribute)
+                      (lambda (face attr &rest _)
+                        (pcase (list face attr)
+                          ('(default :background) "#000000")
+                          ('(default :foreground) "#ffffff")
+                          (_ "#ff0000"))))
+                     ((symbol-function 'sp-theme-dark-p) (lambda () t)))
+             (sp-theme-update-lazy-highlight))
+           (should (equal (face-attribute 'lazy-highlight :background) "#520000")))
+       (set-face-attribute 'lazy-highlight nil :background old)))))
 
 (ert-deftest sp-themes-test-time-appearance ()
   (let ((sp-theme-auto-source 'time))
@@ -184,22 +200,6 @@
        (sp-theme-auto-mode -1))
      (should-not sp-theme--auto-timer)
      (should-not (memq #'sp-theme-sync server-after-make-frame-hook)))))
-
-(ert-deftest sp-themes-test-lazy-highlight ()
-  (sp-themes-test--clean
-   (let ((old (face-attribute 'lazy-highlight :background nil)))
-     (unwind-protect
-         (progn
-           (cl-letf (((symbol-function 'face-attribute)
-                      (lambda (face attr &rest _)
-                        (pcase (list face attr)
-                          ('(default :background) "#000000")
-                          ('(default :foreground) "#ffffff")
-                          (_ "#ff0000"))))
-                     ((symbol-function 'sp-theme-dark-p) (lambda () t)))
-             (sp-theme-update-lazy-highlight))
-           (should (equal (face-attribute 'lazy-highlight :background) "#520000")))
-       (set-face-attribute 'lazy-highlight nil :background old)))))
 
 (provide 'sp-themes-test)
 ;;; sp-themes-test.el ends here
