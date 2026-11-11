@@ -24,3 +24,30 @@ Changes to the dotfiles that are not the Emacs configuration: the repository lay
 - [[https://github.com/siainbuletin/dotfiles/pull/313][#313]] (Claude) 🔧 Changed Caps+Shift+; to toggle the service mode (leave it with the key that enters it), using =aerospace list-modes --current=. Follows #312.
 - [[https://github.com/siainbuletin/dotfiles/pull/322][#322]] (Claude) ✨ Added Caps+Ctrl+h/j/k/l to run =aerospace join-with= directly, so windows can always be stacked (the service-mode =shift-hjkl= clashed with the layer's move keys).
 - [[https://github.com/siainbuletin/dotfiles/pull/323][#323]] (Claude) 🔧 Changed =aerospace.org= and =aerospace.toml= to =config-version = 2= with =persistent-workspaces = []=, which also removes the =reload-config= warning; behaviour is unchanged.
+
+* DEVONthink PDFs from Finder and Alfred
+/2026-11-11./ Opening a PDF indexed in DEVONthink from outside Emacs. The Emacs side is in the Emacs changelog under "DEVONthink, litdb and literature notes".
+
+- [[https://github.com/siainbuletin/dotfiles/pull/379][#379]] (Claude) ✨ Added =devonthink-open= (macOS): Finder and Alfred open an indexed PDF in its DEVONthink record. One applet reads the settings, resolves symlinks, looks the PDF up in every open database and opens the item link or the fallback viewer; =dt-open= is removed and the package is listed as macOS only in =stow-migration/packages.tsv=. Not run on a Mac when merged.
+- [[https://github.com/siainbuletin/dotfiles/pull/382][#382]] (Claude) 🐛 Fixed =devonthink-open= losing the old PDF viewer: it stays as the fallback and the applet can log why a lookup failed. Follows #379.
+- [[https://github.com/siainbuletin/dotfiles/pull/384][#384]] (Claude) 🐛 Fixed the lookup failing with =-1728= inside the DEVONthink =tell= block; settings errors are still reported. Follows #382.
+- [[https://github.com/siainbuletin/dotfiles/commit/a0dbe8d4f753a51c879f7a30b5c3bfeada90bc99][a0dbe8d]], [[https://github.com/siainbuletin/dotfiles/commit/6daf120fed5159d1ad5f24b44a07dc7b56401c89][6daf120]], [[https://github.com/siainbuletin/dotfiles/commit/6628e1ca6eb2390e675667b239bd93b1536b175e][6628e1c]], [[https://github.com/siainbuletin/dotfiles/commit/80dc6f91b55549eddbfa203ffde458f9ad36c3c4][80dc6f9]] (Sia) 🔧 Tidied the package: the tangled output is in the repository, a =.stow-local-ignore= keeps the README and tangled sources out of =$HOME=, and logging goes to =~/Library=. The =.gitignore= added first was removed again.
+
+* The pull request history as plain text
+/2026-11-09 to 2026-11-11./ Every pull request kept as an org file, so the history can be searched and read.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/340][#340]] (Claude) ✨ Added =gh-pr-pdf=, a Stow package: a repository's pull requests (and Discussions) as searchable org files and a paginated Typst PDF, from =github-backup= JSON. Not run with =typst compile= when merged.
+- [[https://github.com/siainbuletin/dotfiles/pull/341][#341]] (Claude) 🐛 Fixed =typst compile= failing on =@key=, =$= and =<key>= in pull request text by escaping them before =pandoc= and in the Typst source. Follows #340.
+- [[https://github.com/siainbuletin/dotfiles/pull/349][#349]] (Sia) 📝 Broke the =gh-pr-pdf= README into bullet points.
+- [[https://github.com/siainbuletin/dotfiles/pull/350][#350]] (Claude) ⚡ Changed =gh-pr-pdf= to fetch only what changed after the first run. Follows #340 and #341.
+- [[https://github.com/siainbuletin/dotfiles/commit/d006641d3fb4ccb443d25f8090cbcba66d1670f9][d006641]] (Sia) ✨ Added =dotfiles-prs/=, a backup of this repository's pull request history as plain text (the =github-backup= JSON, one org file per pull request, =all.org= and the Typst source).
+
+* Commit and pull request titles
+/2026-11-11./ One way to say what a change is at a glance.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/385][#385]] (Claude) 📝 Added the standard that every commit message and pull request title starts with an emoji for the change type (✨ feature, 🐛 fix, 🔧 tooling and refactoring, 📝 docs, ⚡ performance, 🔥 removal): =README.org=, ADR 0026 and =CLAUDE.md=.
+
+* Other tool settings
+/2026-11-09 to 2026-11-11./ Single changes that belong to no larger set.
+
+- [[https://github.com/siainbuletin/dotfiles/commit/0a755ce579a7e03dfb5dbee9b7efb88024194c3c][0a755ce]], [[https://github.com/siainbuletin/dotfiles/commit/a0dbe8d4f753a51c879f7a30b5c3bfeada90bc99][a0dbe8d]] (Sia) 🔧 Changed =btop.conf=: disks and the CPU box are no longer shown. These two commits also hold the changes listed under other sets.
