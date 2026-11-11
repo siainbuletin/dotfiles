@@ -4,11 +4,14 @@
 # Left out, it is the PDF viewer that was the default before dt-open-install
 # ran, or Preview if none was recorded.
 # DT_OPEN_FALLBACK=Highlights
+
 # 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
+
 # window: the PDF opens in its own DEVONthink window. reveal: it is shown in
 # the main window, in its database.
 DT_OPEN_MODE=window
+
 # 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
-DT_OPEN_DEBUG=0
+DT_OPEN_DEBUG=1
