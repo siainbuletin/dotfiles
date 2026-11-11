@@ -23,9 +23,9 @@ The package is for the Mac and nothing else uses it.
 emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "README.org")'
 #+end_example
 
-- It writes three files next to this one: =.local/bin/dt-open-install= (made executable by =:tangle-mode=), =.local/share/dt-open/open-handler.applescript= and =.config/dt-open/config=.
+- It writes four files next to this one: =.local/bin/dt-open-install= (made executable by =:tangle-mode=), =.local/share/dt-open/open-handler.applescript=, =.config/dt-open/config= and =.stow-local-ignore=.
 - Each file is written from several code blocks that name the same =:tangle= target; Org joins them in the order they appear here, with no padding (=:padline no=).
-- The tangle on its own does not change anything in =$HOME=; =stow devonthink-open= does that. Stow ignores =README.*=, so this file is not linked.
+- The tangle on its own does not change anything in =$HOME=; =stow devonthink-open= does that. The =.stow-local-ignore= keeps this file out of =$HOME=.
 
 * Setting up
 
@@ -48,9 +48,10 @@ The app can also be used from a shell: =open -a "DT Open PDF" file.pdf=.
 
 They live in =~/.config/dt-open/config= (the file is in the code section below), one =NAME=value= per line. Lines that start with =#= are comments; a comment after a value is not allowed. Quotes around a value are optional. The applet reads the file at every start, so a change applies to the next PDF.
 
-- =DT_OPEN_FALLBACK=: the app for PDFs that are not in DEVONthink (=Preview=). Set it to the viewer you used before, e.g. =Skim=. It is opened by name, so it cannot loop back into the applet.
+- =DT_OPEN_FALLBACK=: the app for PDFs that are not in DEVONthink, e.g. =Highlights= or =Skim=. It is opened by name, so it cannot loop back into the applet. When it is left out (the default), the app opens them with the PDF viewer that was the default before =dt-open-install= made it the default (the installer records it when =duti= is installed), and with Preview if none was recorded.
 - =DT_OPEN_LAUNCH=: =1= starts DEVONthink when it is not running and waits for a database (up to 60 s), because the lookup only works with DEVONthink running and the databases open. =0= opens the PDF in the fallback viewer instead and never starts DEVONthink.
 - =DT_OPEN_MODE=: =window= opens the PDF in its own DEVONthink window; =reveal= (=?reveal=1= on the link) shows it in the main window, in its database.
+- =DT_OPEN_DEBUG=: =1= writes what the app does for each PDF (the paths it tried, the databases it asked, any error) to =~/Library/Logs/DT Open PDF.log=. See "When every PDF opens in the fallback viewer".
 
 * Why it is built this way
 
@@ -126,6 +127,17 @@ If it is too slow:
 
 * The code
 
+** Stow ignore list
+
+Stow does not read =.gitignore=, so the Finder's =.DS_Store= files (it makes one in every folder it opens, here too) would be linked into =$HOME= and then clash with the =.DS_Store= that already is there: "cannot stow ... over existing target .DS_Store". A package's own =.stow-local-ignore= fixes that, as in =hammerspoon= and =aerospace=. The file replaces Stow's default list, which is what skips =README.*=, so this README has to be listed too (anchored with =^/= to the top of the package).
+
+#+begin_src sh :tangle .stow-local-ignore
+# Replaces the stow default list, which is what skips README.*; so README.org
+# is listed here. Keeps the Finder's .DS_Store files out of $HOME.
+\.DS_Store
+^/README\.org$
+#+end_src
+
 ** Settings file
 
 Read by the applet. The values are the defaults, so deleting the file changes nothing.
@@ -133,14 +145,18 @@ Read by the applet. The values are the defaults, so deleting the file changes no
 #+begin_src sh :tangle .config/dt-open/config
 # Read by DT Open PDF.app: one NAME=value per line, # starts a comment line
 # (not after a value); quotes around a value are optional.
-# App that opens PDFs which are not in a DEVONthink database.
-DT_OPEN_FALLBACK="Preview"
+# App that opens PDFs which are not in a DEVONthink database, e.g. Highlights.
+# Left out, it is the PDF viewer that was the default before dt-open-install
+# ran, or Preview if none was recorded.
+# DT_OPEN_FALLBACK=Highlights
 # 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
 # window: the PDF opens in its own DEVONthink window. reveal: it is shown in
 # the main window, in its database.
 DT_OPEN_MODE=window
+# 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
+DT_OPEN_DEBUG=0
 #+end_src
 
 ** The applet source
@@ -166,44 +182,42 @@ on open theFiles
 		openOne(POSIX path of theFile, cfg)
 	end repeat
 end open
-
 #+end_src
 
 *** Reading the settings
 
-The file is optional: every setting has a default, and any error while reading (no file, unreadable) leaves the defaults. A line is =NAME=value=; the name is the text before the first === and the value is the rest, without a pair of surrounding quotes. A fallback named after this app is replaced by Preview, since the app is the default for PDFs and would open itself again.
+The file is optional: every setting has a default, and any error while reading (no file, unreadable) leaves the defaults. A line is =NAME=value=; the name is the text before the first === and the value is the rest, without a pair of surrounding quotes. An empty fallback means "the viewer that was the default before"; a fallback named after this app is treated as empty, since the app is the default for PDFs and would open itself again.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"Preview", cfgLaunch:true, cfgReveal:false}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
 		repeat with aLine in paragraphs of cfgText
 			set aLine to contents of aLine
-			set eq to offset of "=" in aLine
-			if aLine does not start with "#" and eq > 1 then
-				set theKey to text 1 thru (eq - 1) of aLine
+			set eqPos to offset of "=" in aLine
+			if aLine does not start with "#" and eqPos > 1 then
+				set theKey to text 1 thru (eqPos - 1) of aLine
 				set theValue to ""
-				if eq < (count aLine) then set theValue to text (eq + 1) thru -1 of aLine
+				if eqPos < (count aLine) then set theValue to text (eqPos + 1) thru -1 of aLine
 				if theValue starts with "\"" and theValue ends with "\"" and (count theValue) > 1 then set theValue to text 2 thru -2 of theValue
-				if theKey is "DT_OPEN_FALLBACK" and theValue is not "" then set cfgFallback of cfg to theValue
+				if theKey is "DT_OPEN_FALLBACK" then set cfgFallback of cfg to theValue
 				if theKey is "DT_OPEN_LAUNCH" then set cfgLaunch of cfg to (theValue is not "0")
 				if theKey is "DT_OPEN_MODE" then set cfgReveal of cfg to (theValue is "reveal")
+				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
 	end try
-	-- This app is the default for PDFs: never fall back to ourselves.
-	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to "Preview"
+	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to ""
 	return cfg
 end readConfig
-
 #+end_src
 
 *** Deciding for one file
 
-A file that does not end in =.pdf= (AppleScript compares text without regard to case) is opened with plain =open=, as the Finder would have done. For a PDF, a link means DEVONthink has it: =open location= opens the link, with =?reveal=1= in =reveal= mode. Otherwise =open -a= names the fallback app, so the default app (this applet) is not consulted again.
+A file that does not end in =.pdf= (AppleScript compares text without regard to case) is opened with plain =open=, as the Finder would have done. For a PDF, a link means DEVONthink has it: =open location= opens the link, with =?reveal=1= in =reveal= mode. Otherwise the fallback command runs, which names an app, so the default app (this applet) is not consulted again.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
 on openOne(thePath, cfg)
@@ -211,36 +225,55 @@ on openOne(thePath, cfg)
 		do shell script "/usr/bin/open " & quoted form of thePath
 		return
 	end if
-	set itemLink to lookupLink(thePath, cfgLaunch of cfg)
+	set itemLink to lookupLink(thePath, cfg)
 	if itemLink is not "" then
+		logLine(cfg, thePath & " -> " & itemLink)
 		if cfgReveal of cfg then set itemLink to itemLink & "?reveal=1"
 		open location itemLink
 	else
-		do shell script "/usr/bin/open -a " & quoted form of (cfgFallback of cfg) & " " & quoted form of thePath
+		set theCommand to fallbackCommand(thePath, cfg)
+		logLine(cfg, thePath & " -> not opened in DEVONthink, running: " & theCommand)
+		do shell script theCommand
 	end if
 end openOne
+#+end_src
 
+*** The fallback viewer
+
+The command that opens a PDF that is not in DEVONthink, in this order: the app named by =DT_OPEN_FALLBACK=; the viewer that was the default before the installer ran (its bundle id is the first line of =~/.local/state/dt-open/previous-handler=, written by =dt-open-install= when =duti= is installed; =open -b= opens an app by bundle id); Preview.
+
+#+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
+on fallbackCommand(thePath, cfg)
+	set theFile to quoted form of thePath
+	if cfgFallback of cfg is not "" then return "/usr/bin/open -a " & quoted form of (cfgFallback of cfg) & " " & theFile
+	try
+		set stateFile to (POSIX path of (path to home folder)) & ".local/state/dt-open/previous-handler"
+		set bundleID to paragraph 1 of (read (POSIX file stateFile) as «class utf8»)
+		if bundleID is not "" then return "/usr/bin/open -b " & quoted form of bundleID & " " & theFile
+	end try
+	return "/usr/bin/open -a Preview " & theFile
+end fallbackCommand
 #+end_src
 
 *** Looking the file up
 
-DEVONthink stores the path it was given when the file was indexed, and the Finder may give another name for the same file, so the path with symlinks resolved is tried first and the path as given second. Any error, such as the Automation permission being refused, gives "no link", and the PDF opens in the fallback viewer.
+DEVONthink stores the path it was given when the file was indexed, and the Finder may give another name for the same file, so the path with symlinks resolved is tried first and the path as given second. An error gives "no link", and the PDF opens in the fallback viewer, so a failed lookup never loses the PDF. The error is written to the log in debug mode. The one error that is also shown is -1743, macOS refusing the Apple event: the app has no Automation permission for DEVONthink, and without it every PDF would silently go to the fallback viewer.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
--- The item link of the record for the file, or "" if there is none. Any error
--- (for instance the Automation permission being refused) also gives "", so the
--- PDF still opens in the fallback viewer.
-on lookupLink(thePath, mayLaunch)
+on lookupLink(thePath, cfg)
 	try
-		-- DEVONthink stores the path it was given; try the path with symlinks
-		-- resolved first, then the path as the Finder gave it.
 		set resolved to ((current application's NSString's stringWithString:thePath)'s stringByResolvingSymlinksInPath()) as text
-		return findLink({resolved, thePath}, mayLaunch)
-	on error
+		return findLink({resolved, thePath}, cfg)
+	on error errMsg number errNum
+		logLine(cfg, "lookup failed (" & errNum & "): " & errMsg)
+		if errNum is -1743 then
+			try
+				display alert "DT Open PDF may not control DEVONthink" message "Allow it in System Settings > Privacy & Security > Automation, then open the PDF again. This time it was opened in the fallback viewer." giving up after 8
+			end try
+		end if
 		return ""
 	end try
 end lookupLink
-
 #+end_src
 
 The lookup itself:
@@ -248,13 +281,17 @@ The lookup itself:
 - =application id "DNtp"= is the creator code, which DEVONthink 3 and 4 both answer to. It avoids naming the app ("DEVONthink 3" or "DEVONthink").
 - If DEVONthink is not running it is started only when =DT_OPEN_LAUNCH= is =1=; otherwise the handler returns at once, with no link.
 - Right after a start there are no databases yet, so it waits for the first one (120 times 0.5 s). Errors while DEVONthink is still starting are ignored (=try=).
-- =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads.
+- =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads. A result that is not a list counts as no match.
 - The record's =reference URL= is its =x-devonthink-item://= link. A file indexed in two databases opens the record of the first one that has it.
+- In debug mode each step is logged. The extra Apple events for the log are only sent then (=if cfgDebug of cfg=), and =my= is needed to call a handler from inside the =tell= block.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
-on findLink(candidates, mayLaunch)
+on findLink(candidates, cfg)
 	if not (application id "DNtp" is running) then
-		if not mayLaunch then return ""
+		if not (cfgLaunch of cfg) then
+			logLine(cfg, "DEVONthink is not running and DT_OPEN_LAUNCH is 0")
+			return ""
+		end if
 		tell application id "DNtp" to launch
 	end if
 	tell application id "DNtp"
@@ -265,15 +302,31 @@ on findLink(candidates, mayLaunch)
 			end try
 			delay 0.5
 		end repeat
+		if cfgDebug of cfg then my logLine(cfg, "DEVONthink has " & (count of databases) & " database(s) open")
 		repeat with candidate in candidates
 			repeat with theDatabase in databases
 				set hits to lookup records with path (contents of candidate) in theDatabase
-				if (count of hits) > 0 then return reference URL of (item 1 of hits)
+				if cfgDebug of cfg then my logLine(cfg, "  " & (contents of candidate) & " in " & (name of theDatabase) & ": " & (count of hits))
+				if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
 			end repeat
 		end repeat
 	end tell
 	return ""
 end findLink
+#+end_src
+
+*** The debug log
+
+Only when =DT_OPEN_DEBUG= is =1=. One line per event, with the time, appended to =~/Library/Logs/DT Open PDF.log= (Console.app shows it under Log Reports, or =tail -f= it).
+
+#+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
+on logLine(cfg, msg)
+	if not (cfgDebug of cfg) then return
+	try
+		set logFile to (POSIX path of (path to home folder)) & "Library/Logs/DT Open PDF.log"
+		do shell script "/usr/bin/printf '%s %s\\n' \"$(/bin/date '+%F %T')\" " & quoted form of msg & " >> " & quoted form of logFile
+	end try
+end logLine
 #+end_src
 
 ** =dt-open-install=
@@ -408,6 +461,27 @@ else
 fi
 echo "The first PDF you open asks for permission to control DEVONthink: allow it."
 #+end_src
+
+* When every PDF opens in the fallback viewer
+
+The app opens a PDF in the fallback viewer whenever the lookup finds nothing or fails, so a lookup that does not work looks like "the app only changes the default viewer". Find out which of these it is:
+
+1. *Automation permission.* In System Settings, Privacy & Security, Automation, "DT Open PDF" must be listed with DEVONthink switched on. If it is not listed, or is off, the app is refused every time (the app shows an alert for this error). To be asked again: =tccutil reset AppleEvents dev.siainbuletin.dt-open-pdf=, then open a PDF. Rebuilding the app with =dt-open-install= gives it a new signature, which can also make macOS ask again.
+2. *Is the PDF indexed?* In DEVONthink, select the record and look at its path in the Info inspector. A PDF that was imported (a copy inside the database) is not a file the Finder can open as "the same" PDF; only indexed files are found by path. The path DEVONthink shows must be the path of the file the Finder opens.
+3. *Try the lookup without the app.* Terminal asks for its own Automation permission the first time:
+
+#+begin_example
+osascript <<'EOF'
+tell application id "DNtp"
+	repeat with d in databases
+		log (name of d) & ": " & (count of (lookup records with path "/full/path/to/file.pdf" in d))
+	end repeat
+end tell
+EOF
+#+end_example
+
+   A =1= for a database means DEVONthink finds the file and the problem is in the app (permission, settings). All =0= means the path does not match what DEVONthink stored. An error means the problem is with DEVONthink or the permission; "Can't get application id" would mean the id =DNtp= is not recognised for your DEVONthink version, which the app relies on.
+4. *Read the log.* Set =DT_OPEN_DEBUG=1= in the settings file, open the PDF, and read =~/Library/Logs/DT Open PDF.log=: it lists the settings read, the paths tried, the databases asked and any error with its number.
 
 * Limits
 

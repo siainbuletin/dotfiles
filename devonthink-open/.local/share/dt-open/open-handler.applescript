@@ -14,26 +14,26 @@ on open theFiles
 end open
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"Preview", cfgLaunch:true, cfgReveal:false}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
 		repeat with aLine in paragraphs of cfgText
 			set aLine to contents of aLine
-			set eq to offset of "=" in aLine
-			if aLine does not start with "#" and eq > 1 then
-				set theKey to text 1 thru (eq - 1) of aLine
+			set eqPos to offset of "=" in aLine
+			if aLine does not start with "#" and eqPos > 1 then
+				set theKey to text 1 thru (eqPos - 1) of aLine
 				set theValue to ""
-				if eq < (count aLine) then set theValue to text (eq + 1) thru -1 of aLine
+				if eqPos < (count aLine) then set theValue to text (eqPos + 1) thru -1 of aLine
 				if theValue starts with "\"" and theValue ends with "\"" and (count theValue) > 1 then set theValue to text 2 thru -2 of theValue
-				if theKey is "DT_OPEN_FALLBACK" and theValue is not "" then set cfgFallback of cfg to theValue
+				if theKey is "DT_OPEN_FALLBACK" then set cfgFallback of cfg to theValue
 				if theKey is "DT_OPEN_LAUNCH" then set cfgLaunch of cfg to (theValue is not "0")
 				if theKey is "DT_OPEN_MODE" then set cfgReveal of cfg to (theValue is "reveal")
+				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
 	end try
-	-- This app is the default for PDFs: never fall back to ourselves.
-	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to "Preview"
+	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to ""
 	return cfg
 end readConfig
 on openOne(thePath, cfg)
@@ -41,30 +41,47 @@ on openOne(thePath, cfg)
 		do shell script "/usr/bin/open " & quoted form of thePath
 		return
 	end if
-	set itemLink to lookupLink(thePath, cfgLaunch of cfg)
+	set itemLink to lookupLink(thePath, cfg)
 	if itemLink is not "" then
+		logLine(cfg, thePath & " -> " & itemLink)
 		if cfgReveal of cfg then set itemLink to itemLink & "?reveal=1"
 		open location itemLink
 	else
-		do shell script "/usr/bin/open -a " & quoted form of (cfgFallback of cfg) & " " & quoted form of thePath
+		set theCommand to fallbackCommand(thePath, cfg)
+		logLine(cfg, thePath & " -> not opened in DEVONthink, running: " & theCommand)
+		do shell script theCommand
 	end if
 end openOne
--- The item link of the record for the file, or "" if there is none. Any error
--- (for instance the Automation permission being refused) also gives "", so the
--- PDF still opens in the fallback viewer.
-on lookupLink(thePath, mayLaunch)
+on fallbackCommand(thePath, cfg)
+	set theFile to quoted form of thePath
+	if cfgFallback of cfg is not "" then return "/usr/bin/open -a " & quoted form of (cfgFallback of cfg) & " " & theFile
 	try
-		-- DEVONthink stores the path it was given; try the path with symlinks
-		-- resolved first, then the path as the Finder gave it.
+		set stateFile to (POSIX path of (path to home folder)) & ".local/state/dt-open/previous-handler"
+		set bundleID to paragraph 1 of (read (POSIX file stateFile) as «class utf8»)
+		if bundleID is not "" then return "/usr/bin/open -b " & quoted form of bundleID & " " & theFile
+	end try
+	return "/usr/bin/open -a Preview " & theFile
+end fallbackCommand
+on lookupLink(thePath, cfg)
+	try
 		set resolved to ((current application's NSString's stringWithString:thePath)'s stringByResolvingSymlinksInPath()) as text
-		return findLink({resolved, thePath}, mayLaunch)
-	on error
+		return findLink({resolved, thePath}, cfg)
+	on error errMsg number errNum
+		logLine(cfg, "lookup failed (" & errNum & "): " & errMsg)
+		if errNum is -1743 then
+			try
+				display alert "DT Open PDF may not control DEVONthink" message "Allow it in System Settings > Privacy & Security > Automation, then open the PDF again. This time it was opened in the fallback viewer." giving up after 8
+			end try
+		end if
 		return ""
 	end try
 end lookupLink
-on findLink(candidates, mayLaunch)
+on findLink(candidates, cfg)
 	if not (application id "DNtp" is running) then
-		if not mayLaunch then return ""
+		if not (cfgLaunch of cfg) then
+			logLine(cfg, "DEVONthink is not running and DT_OPEN_LAUNCH is 0")
+			return ""
+		end if
 		tell application id "DNtp" to launch
 	end if
 	tell application id "DNtp"
@@ -75,12 +92,21 @@ on findLink(candidates, mayLaunch)
 			end try
 			delay 0.5
 		end repeat
+		if cfgDebug of cfg then my logLine(cfg, "DEVONthink has " & (count of databases) & " database(s) open")
 		repeat with candidate in candidates
 			repeat with theDatabase in databases
 				set hits to lookup records with path (contents of candidate) in theDatabase
-				if (count of hits) > 0 then return reference URL of (item 1 of hits)
+				if cfgDebug of cfg then my logLine(cfg, "  " & (contents of candidate) & " in " & (name of theDatabase) & ": " & (count of hits))
+				if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
 			end repeat
 		end repeat
 	end tell
 	return ""
 end findLink
+on logLine(cfg, msg)
+	if not (cfgDebug of cfg) then return
+	try
+		set logFile to (POSIX path of (path to home folder)) & "Library/Logs/DT Open PDF.log"
+		do shell script "/usr/bin/printf '%s %s\\n' \"$(/bin/date '+%F %T')\" " & quoted form of msg & " >> " & quoted form of logFile
+	end try
+end logLine
