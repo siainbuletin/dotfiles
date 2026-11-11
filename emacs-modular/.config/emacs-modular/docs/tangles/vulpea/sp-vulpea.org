@@ -18,7 +18,7 @@ The sub-modules are not new.
 - The code is unchanged.
 - Most files have no newline after their last line. Org always ends a tangled file with one, so tangling adds that newline and changes nothing else.
 
-The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after these.
+The table modules (=sp-collection-query=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query.org=, and are loaded by =sp-org-ext= right after these.
 
 | Part | File | What it holds |
 |------+------+---------------|
@@ -35,7 +35,7 @@ The table modules (=sp-collection-query-tables=, a custom module of mine) are de
 
 Load order:
 
-- =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query-tables=.
+- =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query=.
 - =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks= and =sp-refile= (which holds =sp-split-leave-parents=).
 - Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
 - Both are still tangled, so the files stay in step with their docs.
@@ -47,7 +47,7 @@ Load order:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-base.el
 :END:
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
@@ -259,7 +259,7 @@ This module configures =vulpea-ui=, the user interface layer for the Vulpea note
 
 - A sidebar shows the current note's outline and backlinks.
 - Collection views render filtered tables of notes.
-- Later modules such as =sp-collection-query-tables-views= build on the rendering and settings set here, together with the schemas in =sp-vulpea-schemas=.
+- Later modules such as =sp-collection-query-views= build on the rendering and settings set here, together with the schemas in =sp-vulpea-schemas=.
 
 It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-org-ext=.
 
@@ -270,7 +270,7 @@ UI functions for vulpea.
 
 This includes the sidebar and the possibility to render collection views.
 
-The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
+The functions I wrote later on for vulpea (ex. sp-collection-query-views.el)
 are based on this rendering done here, as well as the information that is
 found in sp-vulpea-schemas.el
 #+end_quote
@@ -290,7 +290,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;
 ;; This includes the sidebar and the possibility to render collection views.
 ;;
-;; The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
+;; The functions I wrote later on for vulpea (ex. sp-collection-query-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
 
@@ -706,7 +706,7 @@ The schemas cover:
 - software,
 - literature notes.
 
-The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions.
+The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query= modules builds on these definitions.
 
 - =sp-org-ext= requires this module after =sp-vulpea-base=.
 - It assumes Vulpea is already loaded, since it calls =vulpea-schema-define= at top level.
@@ -1021,7 +1021,7 @@ A hub module for the Vulpea note system.
 
 - Installs two small Vulpea add-on packages: =vulpea-journal= and =vulpea-capf=.
 - Requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split.
-- Does not load the table modules (=sp-collection-query-tables=); =sp-org-ext= requires them after the Vulpea modules.
+- Does not load the table modules (=sp-collection-query=); =sp-org-ext= requires them after the Vulpea modules.
 - The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
 
 It is required from =sp-org-ext=, after =sp-vulpea-schemas=. The first lines of the file make sure every subdirectory of =libraries/modules/= is on the =load-path=.
@@ -1040,7 +1040,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
-;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
+;; smarter heading split.  The table modules (sp-collection-query) are not loaded
 ;; from here; sp-org-ext requires them after the Vulpea modules.
 
 ;;; Code:
@@ -2312,7 +2312,7 @@ This module shows the backlinks of a Vulpea note in an Org buffer, split into gr
 
 Dependencies and open points:
 
-- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collec-query-select-note=).
+- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-core= (for =sp-collec-query-select-note=).
 - Loaded from =sp-vulpea-ext=.
 - The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason. The docstrings do not actually explain it.
 - The author flags that the shape of the link data from =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
@@ -2363,12 +2363,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Requires
 
-Loads =vulpea=, =org= and =sp-collection-query-tables-core=.
+Loads =vulpea=, =org= and =sp-collection-query-core=.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea)
 (require 'org)
-(require 'sp-collection-query-tables-core) ; for sp-collec-query-select-note
+(require 'sp-collection-query-core) ; for sp-collec-query-select-note
 #+end_src
 
 ** Classifying backlinks

@@ -256,7 +256,7 @@
            (made nil) (updates 0))
       (unwind-protect
           (progn
-            (provide 'sp-collection-query-tables-org)
+            (provide 'sp-collection-query-org)
             (cl-letf* ((sp-litnotes-meta-create-function
                         (lambda (key) (push key made) (expand-file-name (concat key ".org") dir)))
                        ((symbol-function 'sp-litnotes-meta--tidy-new-note) #'ignore)
@@ -1174,7 +1174,7 @@
               (insert ":PROPERTIES:\n:ID: " name "\n:END:\n#+title: T\n\n* H\n")))
           (with-temp-file (funcall file "old")
             (insert ":PROPERTIES:\n:ID: old\n:END:\n#+title: T\n\n#+BEGIN: collection-query-table :view \"book-sections\"\n#+END:\n\n* H\n"))
-          (provide 'sp-collection-query-tables-org)
+          (provide 'sp-collection-query-org)
           (cl-letf (((symbol-function 'vulpea-note-id) (lambda (n) (plist-get n :id)))
                     ((symbol-function 'vulpea-note-title) (lambda (n) (plist-get n :title)))
                     ((symbol-function 'vulpea-note-tags) (lambda (n) (plist-get n :tags)))

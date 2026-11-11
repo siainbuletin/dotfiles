@@ -19,7 +19,7 @@
 
 (require 'vulpea)
 (require 'org)
-(require 'sp-collection-query-tables-core) ; for sp-collec-query-select-note
+(require 'sp-collection-query-core) ; for sp-collec-query-select-note
 
 (defun sp-vulpea-grouped-backlinks--meta-key-at (file pos)
   "If POS in FILE sits on a \"- KEY :: ...\" meta line, return KEY.

@@ -1076,8 +1076,8 @@ The note is in the Vulpea database when this returns."
 
 ;;;; Show the children in the table of the book
 
-(declare-function sp-collec-query-dblock-has-block-p "sp-collection-query-tables-org")
-(declare-function sp-collec-query-dblock-update-buffer "sp-collection-query-tables-org")
+(declare-function sp-collec-query-dblock-has-block-p "sp-collection-query-org")
+(declare-function sp-collec-query-dblock-update-buffer "sp-collection-query-org")
 (declare-function org-create-dblock "org")
 (declare-function org-update-dblock "org")
 (declare-function vulpea-db-update-file "vulpea-db")
@@ -1139,9 +1139,9 @@ which are put in the Vulpea database first.  Insert a
 above the first heading, when the note has none.  Return `inserted',
 `updated' or nil."
   (when (derived-mode-p 'org-mode)
-    (unless (and (require 'sp-collection-query-tables-org nil t)
+    (unless (and (require 'sp-collection-query-org nil t)
                  (fboundp 'sp-collec-query-dblock-update-buffer))
-      (user-error "The query table module (sp-collection-query-tables-org) did not load"))
+      (user-error "The query table module (sp-collection-query-org) did not load"))
     (let ((was-modified (buffer-modified-p))
           (how 'updated))
       (when (fboundp 'vulpea-db-update-file)
@@ -1313,9 +1313,9 @@ was not open."
          (buffer (or open (find-file-noselect file))))
     (unwind-protect
         (with-current-buffer buffer
-          (unless (and (require 'sp-collection-query-tables-org nil t)
+          (unless (and (require 'sp-collection-query-org nil t)
                        (fboundp 'sp-collec-query-dblock-update-buffer))
-            (user-error "The query table module (sp-collection-query-tables-org) did not load"))
+            (user-error "The query table module (sp-collection-query-org) did not load"))
           (let ((was-modified (buffer-modified-p))
                 (before (buffer-hash))
                 (has-block (sp-collec-query-dblock-has-block-p))

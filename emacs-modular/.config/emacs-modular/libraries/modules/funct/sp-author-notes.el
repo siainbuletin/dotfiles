@@ -1107,7 +1107,7 @@ folder.  A failure is recorded as a problem."
 
 (defun sp-author-notes--table-items (run)
   "The author notes of RUN whose tables are to be filled; nil when that cannot be done."
-  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t)))
       (progn
         (sp-author-notes--problem
          run nil nil "Tables not filled: the query tables and vulpea are not loaded")
@@ -1753,7 +1753,7 @@ deleted: they are listed, so you can merge them."
 The notes are asked for in the Vulpea database with SPEC, default
 `sp-author-notes-works-spec', for the ID in the buffer text, so the buffer
 does not need to visit a file."
-  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
     (save-excursion
       (goto-char (point-min))
       (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
@@ -1831,7 +1831,7 @@ Return the message to show."
          (result (car (sp-author-notes--process-file
                        run file #'sp-author-notes--works-pass))))
     (when apply
-      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
           (sp-author-notes--populate run file)
         (sp-author-notes--problem
          run file nil "Table not filled: the query tables and vulpea are not loaded")))

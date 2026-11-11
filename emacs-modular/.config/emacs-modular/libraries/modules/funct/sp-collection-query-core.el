@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-core.el --- Query specs and rows for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-core.el --- Query specs and rows for query tables -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -800,5 +800,5 @@ just edited is not redrawn from a database that has not caught up."
 (define-obsolete-function-alias 'sia-vulpea--note-tag-annotation
   #'sp-collec-query--tag-annotation "2026-10-21")
 
-(provide 'sp-collection-query-tables-core)
-;;; sp-collection-query-tables-core.el ends here
+(provide 'sp-collection-query-core)
+;;; sp-collection-query-core.el ends here

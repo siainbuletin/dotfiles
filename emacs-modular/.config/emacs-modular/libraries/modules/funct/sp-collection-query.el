@@ -1,21 +1,21 @@
-;;; sp-collection-query-tables.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
+;;; sp-collection-query.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Everything about query tables is loaded from here:
 ;;
-;;   sp-collection-query-tables-core    spec -> notes -> cells, writing meta back
-;;   sp-collection-query-tables-views   saved views
-;;   sp-collection-query-tables-org     the `collection-query-table' dynamic block, Org buffer renderer
-;;   sp-collection-query-tables-menu    the transient menu that builds a spec
-;;   sp-collection-query-tables-exc     exc grid renderer (loaded when first used)
-;;   sp-collection-query-tables-vui     vui renderer and inline tables (loaded when first used)
-;;   sp-collection-query-tables-book    section table of a book or collection (and its vulpea-ui widget)
+;;   sp-collection-query-core    spec -> notes -> cells, writing meta back
+;;   sp-collection-query-views   saved views
+;;   sp-collection-query-org     the `collection-query-table' dynamic block, Org buffer renderer
+;;   sp-collection-query-menu    the transient menu that builds a spec
+;;   sp-collection-query-exc     exc grid renderer (loaded when first used)
+;;   sp-collection-query-vui     vui renderer and inline tables (loaded when first used)
+;;   sp-collection-query-book    section table of a book or collection (and its vulpea-ui widget)
 ;;
 ;; `sp-collec-query-menu' (C-c w T) is the front door; `sp-collec-query-open'
 ;; is the function the others call.
 ;;
-;; The files and features are called sp-collection-query-tables-*, the
+;; The files and features are called sp-collection-query-*, the
 ;; symbols sp-collec-query-* ("collec" is "collection", the set of notes a
 ;; query runs against), to keep command names short.
 
@@ -23,20 +23,21 @@
 
 (require 'subr-x)
 
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-views)
-(require 'sp-collection-query-tables-org)
-(require 'sp-collection-query-tables-menu)
-(require 'sp-collection-query-tables-book)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-views)
+(require 'sp-collection-query-org)
+(require 'sp-collection-query-menu)
+(require 'sp-collection-query-book)
+(require 'sp-collection-query-templates)
 
-(declare-function sp-collec-query-exc-open "sp-collection-query-tables-exc")
-(declare-function sp-collec-query-exc-available-p "sp-collection-query-tables-exc")
-(declare-function sp-collec-query-vui-open "sp-collection-query-tables-vui")
+(declare-function sp-collec-query-exc-open "sp-collection-query-exc")
+(declare-function sp-collec-query-exc-available-p "sp-collection-query-exc")
+(declare-function sp-collec-query-vui-open "sp-collection-query-vui")
 (defvar sp-collec-query-exc--spec)
 
-(autoload 'sp-collec-query-inline-toggle "sp-collection-query-tables-vui" nil t)
-(autoload 'sp-collec-query-inline-mount "sp-collection-query-tables-vui" nil t)
-(autoload 'sp-collec-query-inline-unmount "sp-collection-query-tables-vui" nil t)
+(autoload 'sp-collec-query-inline-toggle "sp-collection-query-vui" nil t)
+(autoload 'sp-collec-query-inline-mount "sp-collection-query-vui" nil t)
+(autoload 'sp-collec-query-inline-unmount "sp-collection-query-vui" nil t)
 
 (defcustom sp-collec-query-renderer 'auto
   "How `sp-collec-query-open' shows a table.
@@ -76,7 +77,7 @@ Set it before this module loads; nil leaves installing them to you."
   "Return the renderer to use: `exc', `vui' or `org'."
   (if (not (eq sp-collec-query-renderer 'auto))
       sp-collec-query-renderer
-    (cond ((progn (require 'sp-collection-query-tables-exc)
+    (cond ((progn (require 'sp-collection-query-exc)
                   (sp-collec-query-exc-available-p))
            'exc)
           ((require 'vui nil t) 'vui)
@@ -100,18 +101,18 @@ buffer is redrawn with SPEC instead of opening another."
          (renderer (sp-collec-query--renderer)))
     (if (and (eq renderer 'exc) target (buffer-live-p target)
              (buffer-local-value 'sp-collec-query-exc--spec target))
-        (progn (require 'sp-collection-query-tables-exc)
+        (progn (require 'sp-collection-query-exc)
                (with-current-buffer target (sp-collec-query-exc--draw spec))
                (pop-to-buffer target))
       (let ((buffer-name (sp-collec-query--buffer-name name spec)))
         (pcase renderer
-          ('exc (require 'sp-collection-query-tables-exc)
+          ('exc (require 'sp-collection-query-exc)
                 (sp-collec-query-exc-open spec buffer-name))
-          ('vui (require 'sp-collection-query-tables-vui)
+          ('vui (require 'sp-collection-query-vui)
                 (sp-collec-query-vui-open spec buffer-name))
           (_ (sp-collec-query-org-open spec buffer-name)))))))
 
-(declare-function sp-collec-query-exc--draw "sp-collection-query-tables-exc")
+(declare-function sp-collec-query-exc--draw "sp-collection-query-exc")
 
 (defun sp-collec-query-open-view (name)
   "Open the saved view NAME, picked with completion."
@@ -138,5 +139,5 @@ buffer is redrawn with SPEC instead of opening another."
 (keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
 (keymap-global-set "C-c w B" #'sp-collec-query-book-open)
 
-(provide 'sp-collection-query-tables)
-;;; sp-collection-query-tables.el ends here
+(provide 'sp-collection-query)
+;;; sp-collection-query.el ends here

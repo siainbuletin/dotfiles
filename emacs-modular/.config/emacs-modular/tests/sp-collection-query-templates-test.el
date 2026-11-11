@@ -1,7 +1,7 @@
-;;; sp-collection-query-tables-templates-test.el --- Tests for view templates and bib-parent checks -*- lexical-binding: t; -*-
+;;; sp-collection-query-templates-test.el --- Tests for view templates and bib-parent checks -*- lexical-binding: t; -*-
 
 ;; Batch run with stubbed Vulpea:
-;;   emacs -Q --batch -l tests/sp-collection-query-tables-templates-test.el -f ert-run-tests-batch-and-exit
+;;   emacs -Q --batch -l tests/sp-collection-query-templates-test.el -f ert-run-tests-batch-and-exit
 ;; Not tested: the interactive commands that read a dynamic block in a note.
 
 (require 'ert)
@@ -24,8 +24,9 @@
 (defun vulpea-note-meta-get-list (note key &optional _type) (cdr (assoc key (plist-get note :meta))))
 
 (let ((dir (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (f '("core" "views" "org"))
-    (load (expand-file-name (format "../libraries/modules/funct/sp-collection-query-tables-%s.el" f) dir) nil t)))
+  (defvar sp-org-dblock-template-functions nil)
+(dolist (f '("core" "views" "org" "templates"))
+    (load (expand-file-name (format "../libraries/modules/funct/sp-collection-query-%s.el" f) dir) nil t)))
 
 (setq sp-collec-query-views-file (expand-file-name "views/v.el" sp-etc-dir))
 
@@ -98,4 +99,17 @@
     (should (equal (plist-get (sp-collec-query-views-get "new") :tags) '("n")))
     (should (sp-collec-query-views-get "older"))))
 
-;;; sp-collection-query-tables-templates-test.el ends here
+;;;; Dynamic block templates
+
+(ert-deftest sp-collec-query-templ-test-view-templates-are-grouped ()
+  (let ((sp-collec-query-views '(("albums" :tags ("album") :columns (:title)))))
+    (setq sp-collec-query-views--loaded t)
+    (let ((templates (sp-collec-query-dblock-templates)))
+      (should (equal (plist-get (cdr (assoc "reference-entries" templates)) :category) "Academic"))
+      (should (equal (plist-get (cdr (assoc "encyclopedia-articles" templates)) :category) "Academic"))
+      (should (equal (plist-get (cdr (assoc "albums" templates)) :category) "Collections"))
+      (should (equal (plist-get (cdr (assoc "albums" templates)) :view) "albums"))
+      (should (equal (plist-get (cdr (assoc "albums" templates)) :name) "collection-query-table"))))
+  (should (memq #'sp-collec-query-dblock-templates sp-org-dblock-template-functions)))
+
+;;; sp-collection-query-templates-test.el ends here

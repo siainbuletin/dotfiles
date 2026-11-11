@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-book-widget.el --- vulpea-ui widget: position in a book -*- lexical-binding: t; -*-
+;;; sp-collection-query-book-widget.el --- vulpea-ui widget: position in a book -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,7 +13,7 @@
 (require 'vulpea)
 (require 'vulpea-ui)
 (require 'vui)
-(require 'sp-collection-query-tables-book)
+(require 'sp-collection-query-book)
 
 (defcustom sp-collec-query-book-widget-order 345
   "Order of the book position widget in the vulpea-ui sidebar.
@@ -80,5 +80,5 @@ Lower numbers come first; the unlinked mentions widget is 350."
   :component 'sp-collec-query-book-widget
   :order sp-collec-query-book-widget-order)
 
-(provide 'sp-collection-query-tables-book-widget)
-;;; sp-collection-query-tables-book-widget.el ends here
+(provide 'sp-collection-query-book-widget)
+;;; sp-collection-query-book-widget.el ends here

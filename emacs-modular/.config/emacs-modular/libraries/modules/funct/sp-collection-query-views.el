@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-views.el --- Saved views for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-views.el --- Saved views for query tables -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,16 +13,20 @@
 (require 'pp)
 (require 'subr-x)
 (require 'cl-lib)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 
 (defcustom sp-collec-query-views-file
-  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
   "File where the views you save are written.
 It is inside the configuration (`user-emacs-directory'), so with Stow it
 is a link to the file in the dotfiles repository: a saved view shows up in
 `git status' there, ready to commit."
   :type 'file
   :group 'sp-collec-query)
+
+(defconst sp-collec-query-views--tables-file
+  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  "Where the views were saved before the module was renamed to `sp-collection-query'.")
 
 (defconst sp-collec-query-views--etc-file
   (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
@@ -99,6 +103,7 @@ from before the rename), so views saved there carry over.  The next save
 writes `sp-collec-query-views-file'."
   (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--tables-file
                     sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
@@ -167,5 +172,5 @@ A saved view wins over one of `sp-collec-query-views-defaults'."
   (sp-collec-query-views-save-to-disk)
   (message "Deleted query table view \"%s\"" name))
 
-(provide 'sp-collection-query-tables-views)
-;;; sp-collection-query-tables-views.el ends here
+(provide 'sp-collection-query-views)
+;;; sp-collection-query-views.el ends here

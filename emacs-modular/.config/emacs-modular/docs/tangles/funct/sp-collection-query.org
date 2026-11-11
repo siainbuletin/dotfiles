@@ -1,12 +1,12 @@
 #+TITLE: sp-collec-query: tables of Vulpea notes
 #+STARTUP: content
 
-Literate source for the =sp-collection-query-tables= family in =libraries/modules/funct/=.
+Literate source for the =sp-collection-query= family in =libraries/modules/funct/=.
 
-- Nine modules are written from this one file, each under its own heading below.
+- Ten modules are written from this one file, each under its own heading below.
 - The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
-- This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
+- This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-views.org=.
 
 * What it is for
 
@@ -19,27 +19,28 @@ A table of Vulpea notes, like a Dataview query.
 
 * Layout
 
-All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= requires right after the Vulpea modules (it is not part of that group).
+All of it is loaded from =sp-collection-query.el=, which =sp-org-ext= requires right after the Vulpea modules (it is not part of that group).
 
 | File                       | Role                                                        |
 |----------------------------+-------------------------------------------------------------|
-| =sp-collection-query-tables= | Entry point, renderer choice, keys, Elpaca recipes          |
-| =sp-collection-query-tables-core= | Spec, query, cells, sorting, writing meta back, refreshing  |
-| =sp-collection-query-tables-views= | Saved views on disk                                         |
-| =sp-collection-query-tables-org= | =collection-query-table= dynamic block, Org buffer renderer           |
-| =sp-collection-query-tables-menu= | Transient menu that builds a spec                           |
-| =sp-collection-query-tables-exc= | exc grid renderer (loaded on first use)                     |
-| =sp-collection-query-tables-vui= | vui renderer and inline tables (loaded on first use)        |
-| =sp-collection-query-tables-book= | Section table of a book or collection, in page order       |
-| =sp-collection-query-tables-book-widget= | =vulpea-ui= sidebar widget: position in the book (loaded with =vulpea-ui=) |
+| =sp-collection-query= | Entry point, renderer choice, keys, Elpaca recipes          |
+| =sp-collection-query-core= | Spec, query, cells, sorting, writing meta back, refreshing  |
+| =sp-collection-query-views= | Saved views on disk                                         |
+| =sp-collection-query-org= | =collection-query-table= dynamic block, Org buffer renderer           |
+| =sp-collection-query-menu= | Transient menu that builds a spec                           |
+| =sp-collection-query-exc= | exc grid renderer (loaded on first use)                     |
+| =sp-collection-query-vui= | vui renderer and inline tables (loaded on first use)        |
+| =sp-collection-query-book= | Section table of a book or collection, in page order       |
+| =sp-collection-query-book-widget= | =vulpea-ui= sidebar widget: position in the book (loaded with =vulpea-ui=) |
+| =sp-collection-query-templates= | Every view as a template of =sp-org-dblock-insert-template=, in the groups Academic and Collections |
 
 * Names: why the prefix is =sp-collec-query-=
 
 Naming:
 
-- Files and features keep the full name, =sp-collection-query-tables=, so =require= and the file list say what the module is.
+- Files and features keep the full name, =sp-collection-query=, so =require= and the file list say what the module is.
 - Symbols (commands, settings, functions, the customize group) use the abbreviation =sp-collec-query-=.
-- Why: with the full name the longest symbol reached 45 characters (=sp-collection-query-tables-menu--d-tags-none=), and the commands were tiresome to type or read in =M-x=.
+- Why: with the full name the longest symbol reached 45 characters (=sp-collection-query-menu--d-tags-none=), and the commands were tiresome to type or read in =M-x=.
 
 What the abbreviation stands for:
 
@@ -51,7 +52,7 @@ What the abbreviation stands for:
 This breaks the Emacs Lisp habit that a prefix equals the feature name, on purpose. Two things follow:
 
 - Completing =sp-collec-query-= in =M-x= lists every command of the family.
-- A module and a command can look alike: =sp-collec-query-menu= is the transient command, =sp-collection-query-tables-menu= the file that defines it.
+- A module and a command can look alike: =sp-collec-query-menu= is the transient command, =sp-collection-query-menu= the file that defines it.
 
 The customize group is =sp-collec-query= and its =:prefix= says so.
 
@@ -75,7 +76,7 @@ A plist. Every filter is optional and the filters are combined with /and/.
 | =:column-widths=                 | exc only: alist =(COLUMN . WIDTH)=; =t= stands for the columns not listed |
 | =:wrap=                          | exc only: =wrap= (wrap inside the width) or =fit= (size to the text)    |
 
-Two columns for books and collections (used by the section table, see [[*Book sections: sp-collection-query-tables-book.el]]):
+Two columns for books and collections (used by the section table, see [[*Book sections: sp-collection-query-book.el]]):
 
 - =:bibtex=
   - Lists the citation keys of the note's =ROAM_REFS= (=@key= and =cite:key=; URLs are skipped).
@@ -118,11 +119,11 @@ In a note, the same spec is the parameter list of a dynamic block:
 
 - A dynamic block can use a view: =#+BEGIN: collection-query-table :view "book-sections"=.
   - Other keys in the block override the view, e.g. =:parent-of "some-id"=.
-  - =M-x sp-collec-query-insert-view-dblock= asks for a view and inserts such a block.
+  - =M-x sp-org-dblock-insert-template= (=C-c C-x t=), the one command for inserting dynamic blocks, lists every view, in the group *Academic* (the literature note views) or *Collections* (any other view, such as your albums). =sp-collec-query-insert-view-dblock= is now an obsolete alias of it.
 - Register a new view without editing any file:
   - in the menu: =S= saves the spec being built;
   - from a block: =M-x sp-collec-query-view-save-from-dblock= with point in a =collection-query-table= block saves its parameters.
-  - Both write =sp-collec-query-views-file=, =views/sp-collection-query-tables-views.el= in the configuration, which is tracked in the repository: after =stow -R emacs-modular= it is a link into =~/dotfiles=, so a saved view appears in =git status= there. A saved view with the name of a built-in one wins.
+  - Both write =sp-collec-query-views-file=, =views/sp-collection-query-views.el= in the configuration, which is tracked in the repository: after =stow -R emacs-modular= it is a link into =~/dotfiles=, so a saved view appears in =git status= there. A saved view with the name of a built-in one wins.
 - Built-in views (=sp-collec-query-views-defaults=, in the repository):
   - =book-sections=: the notes linking to this note by =bib-parent=, by page, with a =Check= column.
   - =collection-articles=: the same, plus =pub-year=, for a =collection=.
@@ -175,12 +176,12 @@ Still working, as obsolete aliases:
 Data and blocks:
 
 - A views file written by the first version is read and converted.
-- The views file is now =sp-collection-query-tables-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
+- The views file is now =sp-collection-query-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
 - The dynamic block is =collection-query-table=. =#+BEGIN: vulpea-table= in existing notes still works.
 
 Gone or not aliased:
 
-- The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone. Require =sp-collection-query-tables=.
+- The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone. Require =sp-collection-query=.
 - The settings and commands of the rename itself (=sp-vulpea-table-*=, now =sp-collec-query-*=) are not aliased. Set and call the new names.
 - The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
 
@@ -231,9 +232,74 @@ Try a spec without saving anything: evaluate with =C-c C-c=.
 #+end_src
 
 
-* Entry point: sp-collection-query-tables.el
+* Dynamic block templates: sp-collection-query-templates.el
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-templates.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Every view is offered by =sp-org-dblock-insert-template= (=C-c C-x t=), the one command that inserts dynamic blocks (see the doc of =sp-org-base=).
+
+- The block inserted is =#+BEGIN: collection-query-table :view NAME=; it takes its query from the view, so editing the view changes every block that uses it.
+- Each view is in a group, shown as a heading in the completion list:
+  - *Academic*: the views of the literature notes (=book-sections=, =collection-articles=, =reference-entries=, =encyclopedia-articles=, =bib-parent-mismatches=).
+  - *Collections*: every other view, such as one you saved for your albums.
+  - =sp-collec-query-view-categories= gives the group of a view by name; =sp-collec-query-default-category= is the group of a view not listed.
+- This is how a new kind of collection gets its menu entry: save a view, and optionally add its name to =sp-collec-query-view-categories=.
+- The templates are registered in =sp-org-dblock-template-functions=, so =sp-org-base= does not need to load this module.
+
+#+begin_src emacs-lisp -i
+;;; sp-collection-query-templates.el --- Insert query table views as dynamic blocks -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Offers every query table view to `sp-org-dblock-insert-template', in
+;; groups: Academic for the literature note views, Collections for the rest.
+
+;;; Code:
+
+(require 'subr-x)
+(require 'sp-collection-query-views)
+
+(defcustom sp-collec-query-view-categories
+  '(("book-sections" . "Academic")
+    ("collection-articles" . "Academic")
+    ("reference-entries" . "Academic")
+    ("encyclopedia-articles" . "Academic")
+    ("bib-parent-mismatches" . "Academic"))
+  "The group of a view in `sp-org-dblock-insert-template', by view name.
+Elements are (VIEW-NAME . CATEGORY)."
+  :type '(alist :key-type (string :tag "View") :value-type (string :tag "Group"))
+  :group 'sp-collec-query)
+
+(defcustom sp-collec-query-default-category "Collections"
+  "The group of a view that `sp-collec-query-view-categories' does not list."
+  :type 'string
+  :group 'sp-collec-query)
+
+(defun sp-collec-query-view-category (name)
+  "The group of the view called NAME."
+  (or (cdr (assoc name sp-collec-query-view-categories))
+      sp-collec-query-default-category))
+
+(defun sp-collec-query-dblock-templates ()
+  "Templates for `sp-org-dblock-insert-template', one per view.
+Each inserts a `collection-query-table' block with that :view."
+  (mapcar (lambda (name)
+            (list name
+                  :category (sp-collec-query-view-category name)
+                  :name "collection-query-table"
+                  :view name))
+          (sp-collec-query-views-names)))
+
+(add-hook 'sp-org-dblock-template-functions #'sp-collec-query-dblock-templates)
+
+(provide 'sp-collection-query-templates)
+;;; sp-collection-query-templates.el ends here
+#+end_src
+
+* Entry point: sp-collection-query.el
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It:
@@ -250,7 +316,7 @@ The exc and vui parts load the first time they are used, so a missing package ne
 The header lists the parts. =sp-collec-query-menu= is the front door and =sp-collec-query-open= is the function everything else calls.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
+;;; sp-collection-query.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -260,18 +326,18 @@ The header lists the parts. =sp-collec-query-menu= is the front door and =sp-col
 #+begin_src emacs-lisp -i
 ;; Everything about query tables is loaded from here:
 ;;
-;;   sp-collection-query-tables-core    spec -> notes -> cells, writing meta back
-;;   sp-collection-query-tables-views   saved views
-;;   sp-collection-query-tables-org     the `collection-query-table' dynamic block, Org buffer renderer
-;;   sp-collection-query-tables-menu    the transient menu that builds a spec
-;;   sp-collection-query-tables-exc     exc grid renderer (loaded when first used)
-;;   sp-collection-query-tables-vui     vui renderer and inline tables (loaded when first used)
-;;   sp-collection-query-tables-book    section table of a book or collection (and its vulpea-ui widget)
+;;   sp-collection-query-core    spec -> notes -> cells, writing meta back
+;;   sp-collection-query-views   saved views
+;;   sp-collection-query-org     the `collection-query-table' dynamic block, Org buffer renderer
+;;   sp-collection-query-menu    the transient menu that builds a spec
+;;   sp-collection-query-exc     exc grid renderer (loaded when first used)
+;;   sp-collection-query-vui     vui renderer and inline tables (loaded when first used)
+;;   sp-collection-query-book    section table of a book or collection (and its vulpea-ui widget)
 ;;
 ;; `sp-collec-query-menu' (C-c w T) is the front door; `sp-collec-query-open'
 ;; is the function the others call.
 ;;
-;; The files and features are called sp-collection-query-tables-*, the
+;; The files and features are called sp-collection-query-*, the
 ;; symbols sp-collec-query-* ("collec" is "collection", the set of notes a
 ;; query runs against), to keep command names short.
 #+end_src
@@ -283,24 +349,25 @@ The header lists the parts. =sp-collec-query-menu= is the front door and =sp-col
 #+begin_src emacs-lisp -i
 (require 'subr-x)
 
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-views)
-(require 'sp-collection-query-tables-org)
-(require 'sp-collection-query-tables-menu)
-(require 'sp-collection-query-tables-book)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-views)
+(require 'sp-collection-query-org)
+(require 'sp-collection-query-menu)
+(require 'sp-collection-query-book)
+(require 'sp-collection-query-templates)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-collec-query-exc-open "sp-collection-query-tables-exc")
-(declare-function sp-collec-query-exc-available-p "sp-collection-query-tables-exc")
-(declare-function sp-collec-query-vui-open "sp-collection-query-tables-vui")
+(declare-function sp-collec-query-exc-open "sp-collection-query-exc")
+(declare-function sp-collec-query-exc-available-p "sp-collection-query-exc")
+(declare-function sp-collec-query-vui-open "sp-collection-query-vui")
 (defvar sp-collec-query-exc--spec)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(autoload 'sp-collec-query-inline-toggle "sp-collection-query-tables-vui" nil t)
-(autoload 'sp-collec-query-inline-mount "sp-collection-query-tables-vui" nil t)
-(autoload 'sp-collec-query-inline-unmount "sp-collection-query-tables-vui" nil t)
+(autoload 'sp-collec-query-inline-toggle "sp-collection-query-vui" nil t)
+(autoload 'sp-collec-query-inline-mount "sp-collection-query-vui" nil t)
+(autoload 'sp-collec-query-inline-unmount "sp-collection-query-vui" nil t)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -348,7 +415,7 @@ Set it before this module loads; nil leaves installing them to you."
   "Return the renderer to use: `exc', `vui' or `org'."
   (if (not (eq sp-collec-query-renderer 'auto))
       sp-collec-query-renderer
-    (cond ((progn (require 'sp-collection-query-tables-exc)
+    (cond ((progn (require 'sp-collection-query-exc)
                   (sp-collec-query-exc-available-p))
            'exc)
           ((require 'vui nil t) 'vui)
@@ -376,20 +443,20 @@ buffer is redrawn with SPEC instead of opening another."
          (renderer (sp-collec-query--renderer)))
     (if (and (eq renderer 'exc) target (buffer-live-p target)
              (buffer-local-value 'sp-collec-query-exc--spec target))
-        (progn (require 'sp-collection-query-tables-exc)
+        (progn (require 'sp-collection-query-exc)
                (with-current-buffer target (sp-collec-query-exc--draw spec))
                (pop-to-buffer target))
       (let ((buffer-name (sp-collec-query--buffer-name name spec)))
         (pcase renderer
-          ('exc (require 'sp-collection-query-tables-exc)
+          ('exc (require 'sp-collection-query-exc)
                 (sp-collec-query-exc-open spec buffer-name))
-          ('vui (require 'sp-collection-query-tables-vui)
+          ('vui (require 'sp-collection-query-vui)
                 (sp-collec-query-vui-open spec buffer-name))
           (_ (sp-collec-query-org-open spec buffer-name)))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-collec-query-exc--draw "sp-collection-query-tables-exc")
+(declare-function sp-collec-query-exc--draw "sp-collection-query-exc")
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -426,13 +493,13 @@ buffer is redrawn with SPEC instead of opening another."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables)
-;;; sp-collection-query-tables.el ends here
+(provide 'sp-collection-query)
+;;; sp-collection-query.el ends here
 #+end_src
 
 * Core: specs, queries and cells
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-core.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-core.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 Everything that does not depend on how a table is drawn.
@@ -447,7 +514,7 @@ Everything that does not depend on how a table is drawn.
 Group, requires. The group =sp-collec-query= holds every option of the module family.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-core.el --- Query specs and rows for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-core.el --- Query specs and rows for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1386,18 +1453,18 @@ The commands and helpers of the first version lived under =sia-vulpea-*=. These 
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-core)
-;;; sp-collection-query-tables-core.el ends here
+(provide 'sp-collection-query-core)
+;;; sp-collection-query-core.el ends here
 #+end_src
 
 * Saved views
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-views.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-views.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 A view is a name and a spec. Views you save are written to =sp-collec-query-views-file= as readable Lisp.
 
-- The default is =views/sp-collection-query-tables-views.el= in the configuration, a file the repository tracks (empty at first), so it is a link into =~/dotfiles= under Stow.
+- The default is =views/sp-collection-query-views.el= in the configuration, a file the repository tracks (empty at first), so it is a link into =~/dotfiles= under Stow.
   - A view saved from the menu or from a dynamic block therefore shows up in =git status= in =~/dotfiles=, ready to commit. Nothing else is needed.
   - Views in the older places (below =sp-etc-dir=, directly in =user-emacs-directory=) are read until the new file holds a view, and the next save writes the new file.
 - The built-in views are in the code (=sp-collec-query-views-defaults=), not in this file.
@@ -1408,7 +1475,7 @@ A view is a name and a spec. Views you save are written to =sp-collec-query-view
 The views file, the in-memory alist, the converter for the first-version format, and loading, saving, getting, putting and deleting. The file is read on first use rather than when the module loads, so a module load never fails on a broken views file.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-views.el --- Saved views for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-views.el --- Saved views for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1431,12 +1498,12 @@ The views file, the in-memory alist, the converter for the first-version format,
 (require 'pp)
 (require 'subr-x)
 (require 'cl-lib)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-views-file
-  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
   "File where the views you save are written.
 It is inside the configuration (`user-emacs-directory'), so with Stow it
 is a link to the file in the dotfiles repository: a saved view shows up in
@@ -1446,6 +1513,10 @@ is a link to the file in the dotfiles repository: a saved view shows up in
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defconst sp-collec-query-views--tables-file
+  (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
+  "Where the views were saved before the module was renamed to `sp-collection-query'.")
+
 (defconst sp-collec-query-views--etc-file
   (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
   "Where the views were saved before they moved into the configuration.")
@@ -1531,6 +1602,7 @@ from before the rename), so views saved there carry over.  The next save
 writes `sp-collec-query-views-file'."
   (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--tables-file
                     sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
@@ -1615,13 +1687,13 @@ A saved view wins over one of `sp-collec-query-views-defaults'."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-views)
-;;; sp-collection-query-tables-views.el ends here
+(provide 'sp-collection-query-views)
+;;; sp-collection-query-views.el ends here
 #+end_src
 
 * Org output: dynamic block and Org buffer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-org.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-org.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 The plain-text side: the =collection-query-table= dynamic block, a command that inserts one, and =org= as a renderer (a read-only Org buffer with the same table). It needs no packages beyond Org, so it is the last fallback.
@@ -1631,7 +1703,7 @@ The plain-text side: the =collection-query-table= dynamic block, a command that 
 The dynamic block and its helpers. Titles become =id:= links (=sp-collec-query-link-titles=), and a =|= or a line break in a cell is escaped, which used to break the table.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-org.el --- Org table output for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-org.el --- Org table output for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1654,14 +1726,14 @@ The dynamic block and its helpers. Titles become =id:= links (=sp-collec-query-l
 (require 'org-table)
 (require 'cl-lib)
 (require 'subr-x)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-collec-query-views-get "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-read-name "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-put "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-names "sp-collection-query-tables-views")
+(declare-function sp-collec-query-views-get "sp-collection-query-views")
+(declare-function sp-collec-query-views-read-name "sp-collection-query-views")
+(declare-function sp-collec-query-views-put "sp-collection-query-views")
+(declare-function sp-collec-query-views-names "sp-collection-query-views")
 (defvar sp-collec-query-dblock-names)
 #+end_src
 
@@ -1747,15 +1819,9 @@ the string \"self\", resolved on every update to the note the block is in.
 (defalias 'org-dblock-write:vulpea-table #'org-dblock-write:collection-query-table
   "Old name of the `collection-query-table' dynamic block, read from existing notes.")
 
-(defun sp-collec-query-insert-view-dblock (name)
-  "Insert a dynamic block that uses the view NAME at point and fill it.
-The block holds only the name, so changing the view later changes the
-block the next time it is updated."
-  (interactive
-   (progn (require 'sp-collection-query-tables-views)
-          (list (sp-collec-query-views-read-name "Insert view: "))))
-  (org-create-dblock (list :name "collection-query-table" :view name))
-  (org-update-dblock))
+;; One command inserts every dynamic block now; see `sp-org-dblock-insert-template'.
+(define-obsolete-function-alias 'sp-collec-query-insert-view-dblock
+  #'sp-org-dblock-insert-template "2026-11-12")
 
 (defun sp-collec-query-view-save-from-dblock (name)
   "Save the parameters of the dynamic block at point as the view NAME.
@@ -1763,7 +1829,7 @@ A \"self\" :parent-of is kept, so the view can be used in any book.  The
 block is not changed; replace its parameters with :view to use the view.
 The view is written to `sp-collec-query-views-file'."
   (interactive (list (read-string "Save view as: ")))
-  (require 'sp-collection-query-tables-views)
+  (require 'sp-collection-query-views)
   (when (string-empty-p name) (user-error "A view needs a name"))
   (let ((params (save-excursion (org-prepare-dblock))))
     (unless (member (format "%s" (plist-get params :name)) sp-collec-query-dblock-names)
@@ -1780,7 +1846,7 @@ SPEC is kept as written, so a \"self\" :parent-of keeps meaning the note
 the block is in.  Interactively, SPEC is a saved view picked with
 completion; the menu (`sp-collec-query-menu') inserts its own draft."
   (interactive
-   (progn (require 'sp-collection-query-tables-views)
+   (progn (require 'sp-collection-query-views)
           (list (sp-collec-query-views-get
                  (sp-collec-query-views-read-name "Insert view: ")))))
   (org-create-dblock (append (list :name "collection-query-table")
@@ -2034,13 +2100,13 @@ A read-only =sp-collec-query-org-mode= buffer; =g= runs the query again.
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-org)
-;;; sp-collection-query-tables-org.el ends here
+(provide 'sp-collection-query-org)
+;;; sp-collection-query-org.el ends here
 #+end_src
 
 * Menu: building a query
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-menu.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-menu.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 A transient menu that edits a spec one setting at a time and shows each current value beside its key. Nothing runs until you choose to open, preview, insert or save.
@@ -2050,7 +2116,7 @@ A transient menu that edits a spec one setting at a time and shows each current 
 Header and state: the spec being edited, the name of the view it came from, and the table buffer to redraw when the menu was started from one.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-menu.el --- Transient menu to build query table queries -*- lexical-binding: t; -*-
+;;; sp-collection-query-menu.el --- Transient menu to build query table queries -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2073,13 +2139,13 @@ Header and state: the spec being edited, the name of the view it came from, and 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'transient)
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-views)
-(require 'sp-collection-query-tables-org)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-views)
+(require 'sp-collection-query-org)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-collec-query-open "sp-collection-query-tables")
+(declare-function sp-collec-query-open "sp-collection-query")
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2565,7 +2631,7 @@ Open (or redraw the table the menu came from), preview the count, insert as a dy
 #+end_src
 
 #+begin_src emacs-lisp -i
-;;;###autoload (autoload 'sp-collec-query-menu "sp-collection-query-tables-menu" nil t)
+;;;###autoload (autoload 'sp-collec-query-menu "sp-collection-query-menu" nil t)
 (transient-define-prefix sp-collec-query-menu ()
   "Build, run and save a table of Vulpea notes."
   [:description sp-collec-query-menu--header
@@ -2601,13 +2667,13 @@ Open (or redraw the table the menu came from), preview the count, insert as a dy
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-menu)
-;;; sp-collection-query-tables-menu.el ends here
+(provide 'sp-collection-query-menu)
+;;; sp-collection-query-menu.el ends here
 #+end_src
 
 * exc renderer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-exc.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-exc.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF from emacs-taf.
@@ -2621,7 +2687,7 @@ Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF 
 Header, declarations, the column-width option and the buffer-local state. The state is =permanent-local= because exc re-initialises the major mode every time it redraws.
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-exc.el --- Query tables as exc grids -*- lexical-binding: t; -*-
+;;; sp-collection-query-exc.el --- Query tables as exc grids -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2646,7 +2712,7 @@ Header, declarations, the column-width option and the buffer-local state. The st
 #+begin_src emacs-lisp -i
 (require 'cl-lib)
 (require 'subr-x)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2658,7 +2724,7 @@ Header, declarations, the column-width option and the buffer-local state. The st
 (declare-function exc-set-column-width "exc")
 (declare-function exc-get-cell-at-point "exc")
 (declare-function exc-etaf-goto "exc-etaf")
-(declare-function sp-collec-query-menu "sp-collection-query-tables-menu")
+(declare-function sp-collec-query-menu "sp-collection-query-menu")
 (defvar exc--data-source)
 (defvar exc-calc-sheet-limit)
 (defvar sp-collec-query-menu--spec)
@@ -2904,20 +2970,20 @@ A minor mode with its own keymap (=C-c o= open the note, =C-c q= edit the query 
 (defun sp-collec-query-exc-edit-query ()
   "Change this table's query in the menu; running it redraws this buffer."
   (interactive)
-  (require 'sp-collection-query-tables-menu)
+  (require 'sp-collection-query-menu)
   (setq sp-collec-query-menu--spec (copy-tree sp-collec-query-exc--spec)
         sp-collec-query-menu--target (current-buffer))
   (sp-collec-query-menu))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-exc)
-;;; sp-collection-query-tables-exc.el ends here
+(provide 'sp-collection-query-exc)
+;;; sp-collection-query-exc.el ends here
 #+end_src
 
 * vui renderer and inline tables
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-vui.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-vui.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 The original renderer, ported to specs: a live table in its own buffer, and inline tables that replace the content of =collection-query-table= dynamic blocks while you work in a note. It stays as the fallback for when exc or ETAF cannot be loaded.
@@ -2927,7 +2993,7 @@ The original renderer, ported to specs: a live table in its own buffer, and inli
 The component. Titles are buttons, meta columns are editable fields, and the "Sort by" row re-sorts live. Sorting by =:title= now works (it did nothing before).
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-vui.el --- Query tables as vui components -*- lexical-binding: t; -*-
+;;; sp-collection-query-vui.el --- Query tables as vui components -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2948,8 +3014,8 @@ The component. Titles are buttons, meta columns are editable fields, and the "So
 #+begin_src emacs-lisp -i
 (require 'subr-x)
 (require 'vui)
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-org)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-org)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3163,13 +3229,13 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-vui)
-;;; sp-collection-query-tables-vui.el ends here
+(provide 'sp-collection-query-vui)
+;;; sp-collection-query-vui.el ends here
 #+end_src
 
-* Book sections: sp-collection-query-tables-book.el
+* Book sections: sp-collection-query-book.el
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-book.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-book.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 The sections of a book or an edited collection as a table in page order, so it is easy to move between chapters.
@@ -3188,7 +3254,7 @@ The sections of a book or an edited collection as a table in page order, so it i
 ** Header and requires
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-book.el --- Section tables for books and collections -*- lexical-binding: t; -*-
+;;; sp-collection-query-book.el --- Section tables for books and collections -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3202,7 +3268,7 @@ The sections of a book or an edited collection as a table in page order, so it i
 ;; incollection) link back to it with the meta key bib-parent.  The table
 ;; lists those chapters in page order, from their pub-pages meta key.
 ;; The same data feeds the vulpea-ui widget in
-;; `sp-collection-query-tables-book-widget'.
+;; `sp-collection-query-book-widget'.
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3213,11 +3279,11 @@ The sections of a book or an edited collection as a table in page order, so it i
 (require 'subr-x)
 (require 'seq)
 (require 'vulpea)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-collec-query-open "sp-collection-query-tables")
+(declare-function sp-collec-query-open "sp-collection-query")
 (declare-function org-entry-get "org")
 #+end_src
 
@@ -3369,17 +3435,17 @@ collection is asked for."
 
 #+begin_src emacs-lisp -i
 (with-eval-after-load 'vulpea-ui
-  (require 'sp-collection-query-tables-book-widget))
+  (require 'sp-collection-query-book-widget))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-book)
-;;; sp-collection-query-tables-book.el ends here
+(provide 'sp-collection-query-book)
+;;; sp-collection-query-book.el ends here
 #+end_src
 
-* Book position widget: sp-collection-query-tables-book-widget.el
+* Book position widget: sp-collection-query-book-widget.el
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-book-widget.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-book-widget.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 A =vulpea-ui= sidebar widget, "Book position", built like the widgets of =sp-tab-inbox=.
@@ -3398,7 +3464,7 @@ A =vulpea-ui= sidebar widget, "Book position", built like the widgets of =sp-tab
 ** Header and requires
 
 #+begin_src emacs-lisp -i
-;;; sp-collection-query-tables-book-widget.el --- vulpea-ui widget: position in a book -*- lexical-binding: t; -*-
+;;; sp-collection-query-book-widget.el --- vulpea-ui widget: position in a book -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -3421,7 +3487,7 @@ A =vulpea-ui= sidebar widget, "Book position", built like the widgets of =sp-tab
 (require 'vulpea)
 (require 'vulpea-ui)
 (require 'vui)
-(require 'sp-collection-query-tables-book)
+(require 'sp-collection-query-book)
 #+end_src
 
 ** Widget
@@ -3502,8 +3568,8 @@ Lower numbers come first; the unlinked mentions widget is 350."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-collection-query-tables-book-widget)
-;;; sp-collection-query-tables-book-widget.el ends here
+(provide 'sp-collection-query-book-widget)
+;;; sp-collection-query-book-widget.el ends here
 #+end_src
 
 * Changes by pull request
@@ -3519,7 +3585,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer.
   - Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/165][#165]]
-  - 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=.
+  - 🔧 Changed the views file to =sp-collection-query-views.el= in =sp-etc-dir=, not =user-emacs-directory=.
   - A file in the old place is read until the new one is saved.
   - Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/168][#168]]
@@ -3537,14 +3603,14 @@ What each pull request changed in this module, newest last; the one-line summary
   - The menu's =o= reads the columns in order (=rating,title:desc=), =O= is the default direction for those without their own
     - vui keeps the columns clicked before as tie-breakers (the number after the arrow is the rank) with a Reset button;
     - the summary line says "sorted by". exc and Org take the spec as is.
-  - Not run in Emacs beyond the sort tests in =tests/sp-collection-query-tables-test.el= (core with stubbed Vulpea)
+  - Not run in Emacs beyond the sort tests in =tests/sp-collection-query-test.el= (core with stubbed Vulpea)
     - menu and vui not run.
 - [[https://github.com/siainbuletin/dotfiles/pull/192][#192]]
   - ✨ Added =sp-collec-query-dblock-auto-mode=, off by default, which runs =org-dblock-update= on the =collection-query-table= blocks (and the old =vulpea-table= name) when a note is opened and some seconds after any Org note is saved, so the blocks follow the Vulpea database without =C-c C-x C-u=.
   - Options: =sp-collec-query-dblock-update-on=, =-names=, =-delay=, =-save=
     - command =sp-collec-query-dblock-update-all=.
   - A block with the same result leaves the buffer unmodified, and nothing is saved unless =-save= is set.
-  - Tested in Emacs 29.3 in batch with stubbed block writer (7 tests in =tests/sp-collection-query-tables-test.el=)
+  - Tested in Emacs 29.3 in batch with stubbed block writer (7 tests in =tests/sp-collection-query-test.el=)
     - not run against a real Vulpea database or in the interactive config.
   - Notes are only saved with =sp-collec-query-dblock-save=.
   - Follows #172.
@@ -3579,27 +3645,31 @@ What each pull request changed in this module, newest last; the one-line summary
   - Tested in Emacs 29.3 batch with citar stubbed
     - not run in the real vault or the exc and vui widgets.
 - [[https://github.com/siainbuletin/dotfiles/pull/329][#329]]
-  - ✨ Added =sp-collection-query-tables-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w B= (=sp-collec-query-book-open=).
+  - ✨ Added =sp-collection-query-book=: the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) as a table sorted by page, opened with =C-c w B= (=sp-collec-query-book-open=).
   - ✨ Added the =:pages= and =:page= columns to the query tables (the =pub-pages= text and its first number).
-  - ✨ Added the "Book position" =vulpea-ui= widget (=sp-collection-query-tables-book-widget=): the sections in page order, the current one marked, previous and next buttons.
-  - Tested in Emacs 29.3 batch with stubbed Vulpea (6 tests in =tests/sp-collection-query-tables-book-test.el=)
+  - ✨ Added the "Book position" =vulpea-ui= widget (=sp-collection-query-book-widget=): the sections in page order, the current one marked, previous and next buttons.
+  - Tested in Emacs 29.3 batch with stubbed Vulpea (6 tests in =tests/sp-collection-query-book-test.el=)
     - the widget and the table renderers are not run, and nothing was run against the real vault.
 - [[https://github.com/siainbuletin/dotfiles/pull/330][#330]]
   - ✨ Added views as templates for dynamic blocks: =:view "name"= in a =collection-query-table= block (other keys override it), =sp-collec-query-insert-view-dblock= and =sp-collec-query-view-save-from-dblock=.
   - ✨ Added built-in views =book-sections=, =collection-articles= and =bib-parent-mismatches=, the =:check= column and the =:flagged= spec key: a =booksection= must have a =book= parent and an =incollection= a =collection= parent, and the other way round.
-  - Tested in Emacs 29.3 batch with stubbed Vulpea (5 tests in =tests/sp-collection-query-tables-templates-test.el=)
+  - Tested in Emacs 29.3 batch with stubbed Vulpea (5 tests in =tests/sp-collection-query-templates-test.el=)
     - the commands that read a block in a note are not run, nor anything against the real vault.
 - [[https://github.com/siainbuletin/dotfiles/pull/331][#331]]
   - 🔧 Changed sorting on =:pages= (or the =pub-pages= meta key) to compare the first number in the text, so there is no separate =:page= column
     - the =:page= column from #329 is removed, and the book and collection views sort by =:pages=.
   - Tested in Emacs 29.3 batch with stubbed Vulpea.
 - [[https://github.com/siainbuletin/dotfiles/pull/337][#337]]
-  - 🔧 Changed the default of =sp-collec-query-views-file= to =views/sp-collection-query-tables-views.el= in the configuration, a tracked file (empty at first), so saved views can be committed without moving files
+  - 🔧 Changed the default of =sp-collec-query-views-file= to =views/sp-collection-query-views.el= in the configuration, a tracked file (empty at first), so saved views can be committed without moving files
     - views in the older places are still read until the new file holds a view.
-  - After pulling a PR that adds files, run =stow -R emacs-modular= in =~/dotfiles=: a file that is not linked yet makes =(require ...)= fail, as =sp-collection-query-tables-book= did after #329.
+  - After pulling a PR that adds files, run =stow -R emacs-modular= in =~/dotfiles=: a file that is not linked yet makes =(require ...)= fail, as =sp-collection-query-book= did after #329.
 - [[https://github.com/siainbuletin/dotfiles/pull/345][#345]]
   - ✨ Added the =:bibtex= column: the citation keys of =ROAM_REFS= as links that open the BibTeX entry; =embark-act= on one offers the citar actions (=citar-key= target, through =citar-embark=).
   - ✨ Added the =:dt-page= column: a =x-devonthink-item://UUID?page=N= link to the page of the =crossref='ed PDF in DEVONthink where the section's =pub-pages= start, with a page offset (=sp-collec-query-dt-page-offset=, or the meta key =pdf-offset= on the book).
   - 🔧 Changed the default columns of the book section table to =:pages :title "pub-author" :bibtex :dt-page=.
-  - Tested in Emacs 29.3 batch with citar and Vulpea stubbed (5 new tests in =tests/sp-collection-query-tables-test.el=)
+  - Tested in Emacs 29.3 batch with citar and Vulpea stubbed (5 new tests in =tests/sp-collection-query-test.el=)
     - not run against DEVONthink, the real vault, citar-embark or the exc and vui renderers.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
+  - ✨ Renamed the module from =sp-collection-query-tables= to =sp-collection-query= (files, features, doc, tests; the =sp-collec-query-= symbols are unchanged). A views file saved under the old name is still read.
+  - ✨ New =sp-collection-query-templates=: every view is a template of =sp-org-dblock-insert-template=, in the group Academic (literature notes) or Collections (everything else). =sp-collec-query-insert-view-dblock= is an obsolete alias of that command.

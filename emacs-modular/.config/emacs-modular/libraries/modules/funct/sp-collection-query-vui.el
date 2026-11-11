@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-vui.el --- Query tables as vui components -*- lexical-binding: t; -*-
+;;; sp-collection-query-vui.el --- Query tables as vui components -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -11,8 +11,8 @@
 
 (require 'subr-x)
 (require 'vui)
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-org)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-org)
 
 (defun sp-collec-query-vui--promote (keys column)
   "Return KEYS with COLUMN as the primary key.
@@ -192,5 +192,5 @@ spec's sort."
 (define-obsolete-function-alias 'sia-vulpea-inline-tables-unmount
   #'sp-collec-query-inline-unmount "2026-10-21")
 
-(provide 'sp-collection-query-tables-vui)
-;;; sp-collection-query-tables-vui.el ends here
+(provide 'sp-collection-query-vui)
+;;; sp-collection-query-vui.el ends here

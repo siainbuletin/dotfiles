@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-org.el --- Org table output for query tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-org.el --- Org table output for query tables -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,12 +13,12 @@
 (require 'org-table)
 (require 'cl-lib)
 (require 'subr-x)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 
-(declare-function sp-collec-query-views-get "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-read-name "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-put "sp-collection-query-tables-views")
-(declare-function sp-collec-query-views-names "sp-collection-query-tables-views")
+(declare-function sp-collec-query-views-get "sp-collection-query-views")
+(declare-function sp-collec-query-views-read-name "sp-collection-query-views")
+(declare-function sp-collec-query-views-put "sp-collection-query-views")
+(declare-function sp-collec-query-views-names "sp-collection-query-views")
 (defvar sp-collec-query-dblock-names)
 
 (defcustom sp-collec-query-link-titles t
@@ -92,15 +92,9 @@ the string \"self\", resolved on every update to the note the block is in.
 (defalias 'org-dblock-write:vulpea-table #'org-dblock-write:collection-query-table
   "Old name of the `collection-query-table' dynamic block, read from existing notes.")
 
-(defun sp-collec-query-insert-view-dblock (name)
-  "Insert a dynamic block that uses the view NAME at point and fill it.
-The block holds only the name, so changing the view later changes the
-block the next time it is updated."
-  (interactive
-   (progn (require 'sp-collection-query-tables-views)
-          (list (sp-collec-query-views-read-name "Insert view: "))))
-  (org-create-dblock (list :name "collection-query-table" :view name))
-  (org-update-dblock))
+;; One command inserts every dynamic block now; see `sp-org-dblock-insert-template'.
+(define-obsolete-function-alias 'sp-collec-query-insert-view-dblock
+  #'sp-org-dblock-insert-template "2026-11-12")
 
 (defun sp-collec-query-view-save-from-dblock (name)
   "Save the parameters of the dynamic block at point as the view NAME.
@@ -108,7 +102,7 @@ A \"self\" :parent-of is kept, so the view can be used in any book.  The
 block is not changed; replace its parameters with :view to use the view.
 The view is written to `sp-collec-query-views-file'."
   (interactive (list (read-string "Save view as: ")))
-  (require 'sp-collection-query-tables-views)
+  (require 'sp-collection-query-views)
   (when (string-empty-p name) (user-error "A view needs a name"))
   (let ((params (save-excursion (org-prepare-dblock))))
     (unless (member (format "%s" (plist-get params :name)) sp-collec-query-dblock-names)
@@ -125,7 +119,7 @@ SPEC is kept as written, so a \"self\" :parent-of keeps meaning the note
 the block is in.  Interactively, SPEC is a saved view picked with
 completion; the menu (`sp-collec-query-menu') inserts its own draft."
   (interactive
-   (progn (require 'sp-collection-query-tables-views)
+   (progn (require 'sp-collection-query-views)
           (list (sp-collec-query-views-get
                  (sp-collec-query-views-read-name "Insert view: ")))))
   (org-create-dblock (append (list :name "collection-query-table")
@@ -307,5 +301,5 @@ See `sp-collec-query-dblock-update-on' for when."
 (define-obsolete-function-alias 'sia-insert-vulpea-table
   #'sp-collec-query-insert-dblock "2026-10-21")
 
-(provide 'sp-collection-query-tables-org)
-;;; sp-collection-query-tables-org.el ends here
+(provide 'sp-collection-query-org)
+;;; sp-collection-query-org.el ends here
