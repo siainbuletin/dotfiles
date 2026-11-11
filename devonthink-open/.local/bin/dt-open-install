@@ -9,7 +9,6 @@
 # Setting the default needs duti (brew install duti). Without it the script
 # builds the app and tells you to do it in Finder (Get Info > Open with >
 # DT Open PDF > Change All...).
-
 set -eu
 
 [ "$(uname)" = Darwin ] || { echo "macOS only." >&2; exit 1; }
@@ -20,7 +19,6 @@ src="${XDG_DATA_HOME:-$HOME/.local/share}/dt-open/open-handler.applescript"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/dt-open"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 pb=/usr/libexec/PlistBuddy
-
 if [ "${1:-}" = --uninstall ]; then
   if command -v duti >/dev/null && [ -r "$state/previous-handler" ]; then
     duti -s "$(cat "$state/previous-handler")" com.adobe.pdf all
@@ -31,7 +29,6 @@ if [ "${1:-}" = --uninstall ]; then
   [ -d "$app" ] && { "$lsregister" -u "$app"; rm -rf "$app"; }
   exit 0
 fi
-
 [ -r "$src" ] || { echo "Missing $src: run stow devonthink-open first." >&2; exit 1; }
 # osacompile needs DEVONthink's scripting dictionary to compile the lookup.
 /usr/bin/osascript -e 'path to application id "DNtp"' >/dev/null 2>&1 ||
@@ -44,11 +41,9 @@ if command -v duti >/dev/null; then
   current=$(duti -x pdf | sed -n 3p)
   [ -n "$current" ] && [ "$current" != "$id" ] && printf '%s\n' "$current" > "$state/previous-handler"
 fi
-
 mkdir -p "$HOME/Applications"
 rm -rf "$app"
 /usr/bin/osacompile -o "$app" "$src"
-
 plist="$app/Contents/Info.plist"
 set_key() { "$pb" -c "Set :$1 $3" "$plist" 2>/dev/null || "$pb" -c "Add :$1 $2 $3" "$plist"; }
 set_key CFBundleIdentifier string "$id"
@@ -62,11 +57,9 @@ set_key NSAppleEventsUsageDescription string "DT Open PDF asks DEVONthink whethe
       -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Alternate" \
       -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array" \
       -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.adobe.pdf" "$plist"
-
 # Editing Info.plist breaks the applet's signature; sign it again (ad hoc).
 /usr/bin/codesign --force --deep --sign - "$app"
 "$lsregister" -f "$app"
-
 if command -v duti >/dev/null; then
   duti -s "$id" com.adobe.pdf all
   echo "Built $app and made it the default for PDFs."

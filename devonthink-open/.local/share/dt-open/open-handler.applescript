@@ -12,7 +12,6 @@ on open theFiles
 		openOne(POSIX path of theFile, cfg)
 	end repeat
 end open
-
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
 	set cfg to {cfgFallback:"Preview", cfgLaunch:true, cfgReveal:false}
@@ -37,7 +36,6 @@ on readConfig()
 	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to "Preview"
 	return cfg
 end readConfig
-
 on openOne(thePath, cfg)
 	if thePath does not end with ".pdf" then
 		do shell script "/usr/bin/open " & quoted form of thePath
@@ -51,7 +49,6 @@ on openOne(thePath, cfg)
 		do shell script "/usr/bin/open -a " & quoted form of (cfgFallback of cfg) & " " & quoted form of thePath
 	end if
 end openOne
-
 -- The item link of the record for the file, or "" if there is none. Any error
 -- (for instance the Automation permission being refused) also gives "", so the
 -- PDF still opens in the fallback viewer.
@@ -65,7 +62,6 @@ on lookupLink(thePath, mayLaunch)
 		return ""
 	end try
 end lookupLink
-
 on findLink(candidates, mayLaunch)
 	if not (application id "DNtp" is running) then
 		if not mayLaunch then return ""
