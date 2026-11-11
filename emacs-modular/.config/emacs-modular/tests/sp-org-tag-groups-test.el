@@ -71,5 +71,47 @@
       (should (equal (plist-get (sp-org-tag-groups--chip-face-1 "loose") :background)
                      (car (sp-org-tag-groups-palette-entry 'default)))))))
 
+(defmacro sp-org-tag-groups-test--with-dirs (&rest body)
+  "Run BODY with notes, a writing folder with two projects, and a config folder."
+  (declare (indent 0))
+  `(let ((sp-notes-dir "/tmp/t/notes/")
+         (sp-writing-projects "/tmp/t/writing/")
+         (user-emacs-directory "/tmp/t/config/")
+         (projectile-known-projects '("/tmp/t/writing/book/" "/tmp/t/writing/paper"
+                                      "/tmp/t/elsewhere/proj/"))
+         (sp-note-origin--cache nil))
+     ,@body))
+
+(ert-deftest sp-org-tag-groups-origin-groups ()
+  (sp-org-tag-groups-test--with-dirs
+    (should (equal (sp-note-origin "/tmp/t/notes/a.org") '(0 . "Notes")))
+    (should (equal (sp-note-origin "/tmp/t/writing/book/ch1/a.org") '(1 . "Writing: book")))
+    (should (equal (sp-note-origin "/tmp/t/writing/paper/a.org") '(1 . "Writing: paper")))
+    (should (equal (sp-note-origin "/tmp/t/writing/loose/a.org") '(2 . "Writing")))
+    (should (equal (sp-note-origin "/tmp/t/config/docs/a.org") '(3 . "Config")))
+    (should (equal (sp-note-origin "/tmp/t/elsewhere/proj/a.org") '(4 . "Other")))
+    (should (equal (sp-note-origin nil) '(4 . "Other")))))
+
+(ert-deftest sp-org-tag-groups-origin-without-projectile ()
+  (sp-org-tag-groups-test--with-dirs
+    (let ((projectile-known-projects nil))
+      (should (equal (sp-note-origin "/tmp/t/writing/book/a.org") '(2 . "Writing"))))))
+
+(ert-deftest sp-org-tag-groups-origin-sort-orders-groups ()
+  (sp-org-tag-groups-test--with-dirs
+    (cl-letf (((symbol-function 'vulpea-select-candidate-path)
+               (lambda (c) (get-text-property 0 'path c))))
+      (let* ((mk (lambda (title path) (propertize title 'path path)))
+             (cands (list (funcall mk "zzz" "/tmp/t/config/a.org")
+                          (funcall mk "bbb" "/tmp/t/writing/paper/a.org")
+                          (funcall mk "ccc" "/tmp/t/writing/x/a.org")
+                          (funcall mk "aaaa" "/tmp/t/notes/a.org")
+                          (funcall mk "a" "/tmp/t/notes/b.org")
+                          (funcall mk "bk" "/tmp/t/writing/book/a.org"))))
+        (should (equal (mapcar #'substring-no-properties (sp-note-origin-sort cands))
+                       '("a" "aaaa" "bk" "bbb" "ccc" "zzz")))
+        (should (equal (sp-note-origin-group (nth 1 cands) nil) "Writing: paper"))
+        (should (eq (sp-note-origin-group (nth 1 cands) t) (nth 1 cands)))))))
+
 (provide 'sp-org-tag-groups-test)
 ;;; sp-org-tag-groups-test.el ends here
