@@ -603,6 +603,20 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query--link-ids (note key)
+  "Return the targets of every link in the meta values of KEY of NOTE.
+`vulpea-note-meta-get-list' with the type `link' reads only the first link
+of a value, so a line such as `- pub-author :: [[id:a][A]], [[id:b][B]]'
+gives just a.  This reads all of them; a value without a link is kept as is."
+  (let (ids)
+    (dolist (value (vulpea-note-meta-get-list note key))
+      (let ((start 0) (found nil))
+        (while (string-match "\\[\\[\\(?:id:\\)?\\([^]]+\\)\\]" value start)
+          (push (match-string 1 value) ids)
+          (setq found t start (match-end 0)))
+        (unless found (push (string-trim value) ids))))
+    (nreverse ids)))
+
 (defun sp-collec-query--meta-match-p (note clause)
   "Non-nil if NOTE satisfies the meta CLAUSE, a (KEY . VALUE) cons."
   (let ((values (vulpea-note-meta-get-list note (car clause))))
@@ -634,12 +648,12 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
                       (plist-get spec :meta))
          (or (null parent-of)
              (member parent-of
-                     (vulpea-note-meta-get-list
-                      note (or (plist-get spec :parent-prop) "parents") 'link)))
+                     (sp-collec-query--link-ids
+                      note (or (plist-get spec :parent-prop) "parents"))))
          (or (null parent-of) (null (plist-get spec :except-prop))
              (not (member parent-of
-                          (vulpea-note-meta-get-list
-                           note (plist-get spec :except-prop) 'link))))
+                          (sp-collec-query--link-ids
+                           note (plist-get spec :except-prop)))))
          (or (not (plist-get spec :flagged))
              (not (string-empty-p (sp-collec-query-check note))))
          (pcase (plist-get spec :level)
@@ -1069,7 +1083,7 @@ dropped from the count when no note has the ID."
         (dolist (n kept) (puthash (vulpea-note-id n) n by-id))
         (dolist (n notes)
           (when (funcall folded-p n)
-            (dolist (id (delete-dups (vulpea-note-meta-get-list n prop 'link)))
+            (dolist (id (delete-dups (sp-collec-query--link-ids n prop)))
               (cl-incf (gethash id counts 0))
               (unless (gethash id by-id)
                 (when-let* ((parent (ignore-errors (vulpea-db-get-by-id id))))
