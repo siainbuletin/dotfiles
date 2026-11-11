@@ -294,15 +294,22 @@ Enables =projectile-mode= globally with caching.
 - Its command map is on =C-c p=, and also on =C-c C-p= inside =projectile-mode-map=.
 - =<f5>=, =S-<f5>= and =<f6>= compile, test and run the project.
 
+Where it looks for projects:
+
+- =projectile-project-search-path= is set once, in =:custom=: =sp-git-dir=, =sp-src-dir= and =sp-writing-projects=.
+  - =(cons sp-writing-projects 1)= means each direct subfolder of the writing folder with a =.git= is a project.
+  - A folder that is not a git repository becomes a project with an empty =.projectile= file in its root.
+- It used to be set twice, to the writing and config directories in =:init= and to =~/git= and =~/src= in =:custom=. The =:custom= value won, so the writing folder was never searched; the =:init= value is gone.
+- Run =M-x projectile-discover-projects-in-search-path= once to register the projects; =M-x projectile-add-known-project= adds a single folder.
+
 Where its files go (see [[file:../base/sp-globals.org::*State files: where each one lives][State files]]):
 
 - =projectile-known-projects-file= is =projectile-bookmarks.eld= in =sp-etc-dir=: the list of projects is kept.
 - =projectile-frecency-file= is =projectile-frecency.eld= in =sp-cache-dir=: visit counts for ranking, rebuilt as you work.
 - =project-list-file= (the built-in =project.el= list) is =project-list= in =sp-cache-dir=.
 
-Two things conflict here:
+One thing conflicts here:
 
-- =projectile-project-search-path= is set twice: to the writing and config directories in =:init=, and to =~/git= and =~/src= in =:custom=. Which list takes effect depends on use-package's evaluation order, not on clear intent.
 - The =<f6>= binding shadows the global =redraw-display= key from =sp-windows= whenever projectile mode is on.
 
 #+begin_src emacs-lisp -i
@@ -311,11 +318,6 @@ Two things conflict here:
 
 (use-package projectile
   :ensure t
-  :init
-  (setq projectile-project-search-path
-        (list (sp-path sp-documents-dir "writing/")
-              "~/.config/"))
-  
   :config
   (projectile-mode +1)
   
@@ -327,7 +329,8 @@ Two things conflict here:
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path (list sp-git-dir sp-src-dir))
+  (projectile-project-search-path
+   (list sp-git-dir sp-src-dir (cons sp-writing-projects 1)))
   (projectile-enable-caching t)
   ;; Known projects are kept; the visit counts and the project.el list can be
   ;; rebuilt.
