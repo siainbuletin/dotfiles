@@ -63,7 +63,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :pages :check
+  '(:title :tags :todo :level :priority :id :file :path :sections :collection :pages :check
     :refs :pdf :devonthink :bibtex :dt-page)
   "Columns that are not meta keys.")
 
@@ -364,6 +364,12 @@ Roman numerals and empty text give nil."
        (string-match "[0-9]+" text)
        (string-to-number (match-string 0 text))))
 
+(defun sp-collec-query--parent-note (note)
+  "Return the note that the `sp-collec-query-check-parent-prop' link of NOTE points at, or nil."
+  (and-let* ((id (car (vulpea-note-meta-get-list
+                       note sp-collec-query-check-parent-prop 'link))))
+    (ignore-errors (vulpea-db-get-by-id id))))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -385,6 +391,9 @@ naming a meta key (several values are joined with \", \")."
                         (sp-collec-query--citekeys note) " "))
     (:check (sp-collec-query-check note))
     (:pages (or (car (vulpea-note-meta-get-list note "pub-pages")) ""))
+    (:collection (if-let* ((parent (sp-collec-query--parent-note note)))
+                     (or (vulpea-note-title parent) "")
+                   ""))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -458,6 +467,10 @@ keeps using `sp-collec-query-cell', so it still compares the plain text."
     (cond ((memq column '(:refs :bibtex)) (sp-collec-query--refs-links text))
           ((and (stringp column) (member column sp-collec-query-note-link-columns))
            (sp-collec-query--note-link note text))
+          ((eq column :collection)
+           (if-let* ((parent (sp-collec-query--parent-note note)))
+               (sp-collec-query--note-link parent text)
+             text))
           ((or (eq column :id) (stringp column))
            (sp-org-link-link-ids text))
           (t text))))

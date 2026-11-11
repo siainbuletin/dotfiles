@@ -59,7 +59,8 @@
 ;;;; Folding notes into their parent
 
 (defvar sp-collec-query-test-db
-  '(("b2" . (:id "b2" :title "Other book" :tags ("book")))))
+  '(("b2" . (:id "b2" :title "Other book" :tags ("book")))
+    ("c9" . (:id "c9" :title "Essays on X" :tags ("collection")))))
 
 (ert-deftest sp-collec-query-test-fold-counts-sections-on-the-book ()
   (let* ((book (list :id "b1" :title "Book" :tags '("book")))
@@ -83,6 +84,15 @@
     ;; both leave the table; only b2 is in the stubbed database
     (should (equal (mapcar (lambda (n) (plist-get n :id)) out) '("b2")))
     (should (equal (sp-collec-query-cell (car out) :sections) "1"))))
+
+(ert-deftest sp-collec-query-test-collection-column-shows-parent-title ()
+  (let ((chapter (list :id "i1" :title "Chapter" :tags '("incollection")
+                       :meta '(("bib-parent" "c9"))))
+        (loose (list :id "i2" :title "Loose" :tags '("incollection"))))
+    (should (equal (sp-collec-query-cell chapter :collection) "Essays on X"))
+    (should (equal (sp-collec-query-display-cell chapter :collection)
+                   "[[id:c9][Essays on X]]"))
+    (should (equal (sp-collec-query-cell loose :collection) ""))))
 
 (ert-deftest sp-collec-query-test-no-fold-tag-changes-nothing ()
   (let ((notes (list (list :id "s1" :tags '("booksection")))))

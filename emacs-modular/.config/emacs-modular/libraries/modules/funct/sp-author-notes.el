@@ -88,13 +88,14 @@ you wrote as \"First Last\"."
 
 (defcustom sp-author-notes-works-spec
   '(:parent-of "self" :parent-prop "pub-author"
-    :fold-tag ("booksection" "incollection") :fold-prop "bib-parent"
-    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :collection :sections "read-status" "read-priority" "pub-year" "relevance-factor")
     :sort-by "pub-year")
   "The spec of the `collection-query-table' block put in the Works heading.
 See `sp-collec-query-spec-keys'.  :title is the note title, the citekey.
-Book sections and collection chapters are left out and counted in
-:sections on their book or collection."
+Book sections are left out and counted in :sections on their book.
+Chapters of a collection (incollection) stay as their own rows; :collection
+shows the title of the collection they are in."
   :type 'sexp
   :group 'sp-author-notes)
 
@@ -105,8 +106,8 @@ Book sections and collection chapters are left out and counted in
 
 (defcustom sp-author-notes-edited-spec
   '(:parent-of "self" :parent-prop "pub-editor" :except-prop "pub-author"
-    :fold-tag ("booksection" "incollection") :fold-prop "bib-parent"
-    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :collection :sections "read-status" "read-priority" "pub-year" "relevance-factor")
     :sort-by "pub-year")
   "The spec of the `collection-query-table' block put in the edited works heading.
 Like `sp-author-notes-works-spec', but for `pub-editor', and a work whose
