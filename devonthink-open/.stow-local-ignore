@@ -1,2 +1,4 @@
+# Replaces the stow default list, which is what skips README.*; so README.org
+# is listed here. Keeps the Finder's .DS_Store files out of $HOME.
 \.DS_Store
 ^/README\.org$
