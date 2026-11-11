@@ -140,7 +140,7 @@ Stow does not read =.gitignore=, so the Finder's =.DS_Store= files (it makes one
 
 ** Settings file
 
-Read by the applet. The values are the defaults, so deleting the file changes nothing.
+Read by the applet. Deleting the file changes nothing, except that =DT_OPEN_DEBUG= is off by default; it is =1= here while the applet is being tried out, and every log line costs a shell start, so set it back to =0= afterwards.
 
 #+begin_src sh :tangle .config/dt-open/config
 # Read by DT Open PDF.app: one NAME=value per line, # starts a comment line
@@ -149,14 +149,17 @@ Read by the applet. The values are the defaults, so deleting the file changes no
 # Left out, it is the PDF viewer that was the default before dt-open-install
 # ran, or Preview if none was recorded.
 # DT_OPEN_FALLBACK=Highlights
+
 # 1: start DEVONthink when it is not running, so the lookup can happen. 0: open
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
+
 # window: the PDF opens in its own DEVONthink window. reveal: it is shown in
 # the main window, in its database.
 DT_OPEN_MODE=window
+
 # 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
-DT_OPEN_DEBUG=0
+DT_OPEN_DEBUG=1
 #+end_src
 
 ** The applet source
@@ -178,6 +181,7 @@ use scripting additions
 
 on open theFiles
 	set cfg to readConfig()
+	if cfgError of cfg is not "" then logLine(cfg, "settings could not be read: " & cfgError of cfg)
 	repeat with theFile in theFiles
 		openOne(POSIX path of theFile, cfg)
 	end repeat
@@ -186,12 +190,12 @@ end open
 
 *** Reading the settings
 
-The file is optional: every setting has a default, and any error while reading (no file, unreadable) leaves the defaults. A line is =NAME=value=; the name is the text before the first === and the value is the rest, without a pair of surrounding quotes. An empty fallback means "the viewer that was the default before"; a fallback named after this app is treated as empty, since the app is the default for PDFs and would open itself again.
+The file is optional: every setting has a default, and a missing file leaves the defaults. Any other error while reading is kept in =cfgError=, leaves the defaults and is written to the log even when debug is off. A line is =NAME=value=; the name is the text before the first === and the value is the rest, without a pair of surrounding quotes. An empty fallback means "the viewer that was the default before"; a fallback named after this app is treated as empty, since the app is the default for PDFs and would open itself again.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgReveal:false, cfgDebug:false, cfgError:""}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
@@ -209,6 +213,8 @@ on readConfig()
 				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
+	on error errMsg number errNum
+		if errNum is not -43 then set cfgError of cfg to errMsg & " (" & errNum & ")"
 	end try
 	if cfgFallback of cfg starts with "DT Open PDF" then set cfgFallback of cfg to ""
 	return cfg
@@ -280,9 +286,9 @@ The lookup itself:
 
 - =application id "DNtp"= is the creator code, which DEVONthink 3 and 4 both answer to. It avoids naming the app ("DEVONthink 3" or "DEVONthink").
 - If DEVONthink is not running it is started only when =DT_OPEN_LAUNCH= is =1=; otherwise the handler returns at once, with no link.
-- Right after a start there are no databases yet, so it waits for the first one (120 times 0.5 s). Errors while DEVONthink is still starting are ignored (=try=).
-- =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads. A result that is not a list counts as no match.
-- The record's =reference URL= is its =x-devonthink-item://= link. A file indexed in two databases opens the record of the first one that has it.
+- =waitForDatabases=: right after a start there are no databases yet, so it waits for the first one (120 times 0.5 s). Errors while DEVONthink is still starting are ignored (=try=).
+- =linkInDatabases=: =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads. A result that is not a list counts as no match. The record's =reference URL= is its =x-devonthink-item://= link, and a file indexed in two databases opens the record of the first one that has it.
+- The path is a plain variable (=aPath=) and the paths are looped over /outside/ the =tell= block, on purpose. Inside =tell application id "DNtp"=, DEVONthink's own terms take over: =contents of candidate= was read as "every /content/ (=«class DTcn»=) of the path" and failed with error -1728 ("Can't get every «class DTcn» of ..."), so every lookup failed and every PDF went to the fallback viewer. Keep the =tell= blocks small and give them only plain variables.
 - In debug mode each step is logged. The extra Apple events for the log are only sent then (=if cfgDebug of cfg=), and =my= is needed to call a handler from inside the =tell= block.
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
@@ -294,34 +300,47 @@ on findLink(candidates, cfg)
 		end if
 		tell application id "DNtp" to launch
 	end if
+	waitForDatabases(cfg)
+	repeat with candidate in candidates
+		set theLink to linkInDatabases(contents of candidate, cfg)
+		if theLink is not "" then return theLink
+	end repeat
+	return ""
+end findLink
+
+-- Right after a start there are no databases yet: wait up to 60 s for one.
+on waitForDatabases(cfg)
 	tell application id "DNtp"
-		-- Right after a start there are no databases yet: wait up to 60 s for one.
 		repeat 120 times
 			try
 				if (count of databases) > 0 then exit repeat
 			end try
 			delay 0.5
 		end repeat
-		if cfgDebug of cfg then my logLine(cfg, "DEVONthink has " & (count of databases) & " database(s) open")
-		repeat with candidate in candidates
-			repeat with theDatabase in databases
-				set hits to lookup records with path (contents of candidate) in theDatabase
-				if cfgDebug of cfg then my logLine(cfg, "  " & (contents of candidate) & " in " & (name of theDatabase) & ": " & (count of hits))
-				if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
-			end repeat
+		set dbCount to count of databases
+	end tell
+	logLine(cfg, "DEVONthink has " & dbCount & " database(s) open")
+end waitForDatabases
+
+on linkInDatabases(aPath, cfg)
+	tell application id "DNtp"
+		repeat with theDatabase in databases
+			set hits to lookup records with path aPath in theDatabase
+			if cfgDebug of cfg then my logLine(cfg, "  " & aPath & " in " & (name of theDatabase) & ": " & (count of hits))
+			if class of hits is list and (count of hits) > 0 then return reference URL of (item 1 of hits)
 		end repeat
 	end tell
 	return ""
-end findLink
+end linkInDatabases
 #+end_src
 
 *** The debug log
 
-Only when =DT_OPEN_DEBUG= is =1=. One line per event, with the time, appended to =~/Library/Logs/DT Open PDF.log= (Console.app shows it under Log Reports, or =tail -f= it).
+Only when =DT_OPEN_DEBUG= is =1=, or when the settings file could not be read. One line per event, with the time, appended to =~/Library/Logs/DT Open PDF.log= (Console.app shows it under Log Reports, or =tail -f= it).
 
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
 on logLine(cfg, msg)
-	if not (cfgDebug of cfg) then return
+	if not (cfgDebug of cfg) and cfgError of cfg is "" then return
 	try
 		set logFile to (POSIX path of (path to home folder)) & "Library/Logs/DT Open PDF.log"
 		do shell script "/usr/bin/printf '%s %s\\n' \"$(/bin/date '+%F %T')\" " & quoted form of msg & " >> " & quoted form of logFile
