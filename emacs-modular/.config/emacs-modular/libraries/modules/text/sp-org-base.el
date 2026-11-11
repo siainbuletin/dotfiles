@@ -652,10 +652,22 @@ LABEL is picked with completion, in groups, from the templates (see
           (seq-remove (lambda (cell) (member (car cell) sp-org-dblock-disabled-names))
                       org-dynamic-blocks))))
 
+(defun sp-org-dblock--refuse-disabled-insert (orig-fun &rest args)
+  "Around advice for `vulpea-ui-collection-insert-dblock'.
+Call ORIG-FUN with ARGS unless \"vulpea-collection\" is in
+`sp-org-dblock-disabled-names'."
+  (if (member "vulpea-collection" sp-org-dblock-disabled-names)
+      (user-error "The vulpea-collection block is disabled; use `sp-org-dblock-insert-template'")
+    (apply orig-fun args)))
+
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template)
   (sp-org-dblock-hide-disabled)
   (advice-add 'org-dynamic-block-define :after #'sp-org-dblock-hide-disabled))
+
+(with-eval-after-load 'vulpea-ui
+  (sp-org-dblock-hide-disabled)
+  (advice-add 'vulpea-ui-collection-insert-dblock :around #'sp-org-dblock--refuse-disabled-insert))
 
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

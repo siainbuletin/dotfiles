@@ -101,5 +101,12 @@
     (sp-org-dblock-hide-disabled)
     (should (equal org-dynamic-blocks '(("clocktable" . x))))))
 
+(ert-deftest sp-org-dblock-refuses-disabled-vulpea-collection-insert ()
+  (let ((sp-org-dblock-disabled-names '("vulpea-collection")))
+    (should-error (sp-org-dblock--refuse-disabled-insert (lambda () 'inserted))
+                  :type 'user-error))
+  (let ((sp-org-dblock-disabled-names nil))
+    (should (eq (sp-org-dblock--refuse-disabled-insert (lambda () 'inserted)) 'inserted))))
+
 (provide 'sp-org-base-dblock-test)
 ;;; sp-org-base-dblock-test.el ends here

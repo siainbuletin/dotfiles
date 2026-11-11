@@ -955,8 +955,11 @@ One command inserts every kind of dynamic block, so there is no need to remember
   - =sp-org-dblock-template-functions=: each function returns more templates. =sp-collection-query= adds one for every query table view (see its doc).
 - The "Children of this note" template uses =:parent-of self=, which =sp-collection-query= resolves on every update to the ID of the note the block is in (it adds an ID to the note if it has none), so the block keeps working when copied to another note.
 - =sp-org-dblock-disabled-names= (default ="vulpea-collection"=) are dynamic blocks left out of Org's own insert menu (=C-c C-x x=, =org-dynamic-blocks=), so this is the only place to insert a block.
+  - =vulpea-collection= comes from =vulpea-ui=: it calls =org-dynamic-block-define= when it loads, so =C-c C-x x= offers a block whose =:query ""= lists every note in the database.
   - The block name stays defined, so a block already in a note still updates.
-  - Removal is repeated whenever Org or a package defines a block (advice on =org-dynamic-block-define=).
+  - Removal is repeated whenever Org or a package defines a block (advice on =org-dynamic-block-define=), and once more when =vulpea-ui= has loaded.
+  - =M-x vulpea-ui-collection-insert-dblock= (the command behind that menu entry) refuses with a pointer to =sp-org-dblock-insert-template= while its block is disabled.
+  - =sp-collection-query= is the replacement: save a view and it is in the menu (see its doc). The collection buffers and the Collections sidebar widget of =vulpea-ui= are not touched.
 
 #+begin_src emacs-lisp -i
 ;;;; Dynamic block templates
@@ -1072,10 +1075,22 @@ LABEL is picked with completion, in groups, from the templates (see
           (seq-remove (lambda (cell) (member (car cell) sp-org-dblock-disabled-names))
                       org-dynamic-blocks))))
 
+(defun sp-org-dblock--refuse-disabled-insert (orig-fun &rest args)
+  "Around advice for `vulpea-ui-collection-insert-dblock'.
+Call ORIG-FUN with ARGS unless \"vulpea-collection\" is in
+`sp-org-dblock-disabled-names'."
+  (if (member "vulpea-collection" sp-org-dblock-disabled-names)
+      (user-error "The vulpea-collection block is disabled; use `sp-org-dblock-insert-template'")
+    (apply orig-fun args)))
+
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template)
   (sp-org-dblock-hide-disabled)
   (advice-add 'org-dynamic-block-define :after #'sp-org-dblock-hide-disabled))
+
+(with-eval-after-load 'vulpea-ui
+  (sp-org-dblock-hide-disabled)
+  (advice-add 'vulpea-ui-collection-insert-dblock :around #'sp-org-dblock--refuse-disabled-insert))
 #+end_src
 
 * Provide
