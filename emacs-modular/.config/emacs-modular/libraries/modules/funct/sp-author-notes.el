@@ -1359,14 +1359,13 @@ a dropped one, A writes what is left, g shows the preview again.")
                      (mapcar #'list (sp-author-notes--run-pending run)))))
       (add (if apply "Plain names turned into links" "Plain names to turn into links")
            (cl-loop for (file . r) in lits
-                    append (mapcar (lambda (c) (funcall item (nth 1 c) file (nth 3 c)))
+                    append (mapcar (lambda (c) (funcall item (nth 0 c) file (nth 2 c)))
                                    (plist-get r :converted))))
       (add "Lists of names with commas, to disambiguate"
            (cl-loop for (file . r) in lits
                     append (mapcar
                             (lambda (a)
-                              (pcase-let ((`(,raw ,names ,line ,chosen)
-                                           (list (nth 1 a) (nth 2 a) (nth 3 a) (nth 4 a))))
+                              (pcase-let ((`(,raw ,names ,line ,chosen) a))
                                 (append
                                  (funcall item (format "\"%s\"" raw) file line)
                                  (list :children
@@ -1379,8 +1378,8 @@ a dropped one, A writes what is left, g shows the preview again.")
       (add (if apply "Denote links turned into ID links" "Denote links to turn into ID links")
            (cl-loop for (file . r) in lits
                     append (mapcar (lambda (d)
-                                     (funcall item (format "denote:%s -> id:%s" (nth 1 d) (nth 2 d))
-                                              file (nth 3 d)))
+                                     (funcall item (format "denote:%s -> id:%s" (nth 0 d) (nth 1 d))
+                                              file (nth 2 d)))
                                    (plist-get r :denoted))))
       (add (if apply "Notes tagged for authors" "Notes to tag as authors")
            (mapcar (lambda (tg)
