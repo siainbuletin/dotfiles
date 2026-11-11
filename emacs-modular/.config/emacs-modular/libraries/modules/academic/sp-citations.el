@@ -49,13 +49,71 @@
   :defer t  ;; Defer loading until oc-csl needs it
   :after oc)
 
+;;;; Citar library lookup
+;; A `file' field names the PDF where BibDesk, or an earlier layout, put it.
+;; When it is not there, look it up by name below the library.
+(require 'ucs-normalize)
+
+(defcustom sp-citations-library-index-ttl 60
+  "Seconds the index of `sp-literature-dir' is kept before a missing file rebuilds it."
+  :type 'integer
+  :group 'sp)
+
+(defvar sp-citations--library-index nil
+  "Cons of the time and a table of file name to the paths below `sp-literature-dir'.")
+
+(defun sp-citations--library-index (&optional rebuild)
+  "Return the table of file names below `sp-literature-dir', built when REBUILD or nil.
+Keys are the lower-case file names; values are lists of absolute paths.
+Hidden folders and the backup folder are skipped."
+  (when (or rebuild (null sp-citations--library-index))
+    (let ((table (make-hash-table :test #'equal))
+          (backup (and (boundp 'sia-citar-library-backup-path)
+                       (file-name-as-directory
+                        (expand-file-name sia-citar-library-backup-path)))))
+      (when (and (stringp sp-literature-dir) (file-directory-p sp-literature-dir))
+        (dolist (file (directory-files-recursively
+                       sp-literature-dir "" nil
+                       (lambda (dir)
+                         (not (or (string-prefix-p "." (file-name-nondirectory dir))
+                                  (equal (file-name-as-directory dir) backup))))))
+          (let ((base (file-name-nondirectory file)))
+            (unless (string-prefix-p "." base)
+              (push file (gethash (downcase (ucs-normalize-NFC-string base)) table))))))
+      (setq sp-citations--library-index (cons (float-time) table))))
+  (cdr sp-citations--library-index))
+
+(defun sp-citations--find-in-library (name)
+  "Return the files below `sp-literature-dir' named like the path NAME.
+The folders of NAME are ignored; the index is rebuilt once when it is older
+than `sp-citations-library-index-ttl' and has no match."
+  (let ((key (downcase (ucs-normalize-NFC-string (file-name-nondirectory name)))))
+    (or (gethash key (sp-citations--library-index))
+        (when (> (- (float-time) (car sp-citations--library-index))
+                 sp-citations-library-index-ttl)
+          (gethash key (sp-citations--library-index t))))))
+
+(defun sp-citations-parser-library (fieldvalue)
+  "Parse the `file' field FIELDVALUE; find the files that are not where it says.
+For `citar-file-parser-functions'.  Each name the default parsers give that
+does not exist, as an absolute path or relative to `sp-literature-dir', is
+searched by its file name below `sp-literature-dir'.  Names that exist are
+left to the other parsers, so this returns only the files it found."
+  (let (found)
+    (dolist (parser '(citar-file--parser-default citar-file--parser-triplet))
+      (when (fboundp parser)
+        (dolist (name (funcall parser fieldvalue))
+          (unless (file-exists-p (expand-file-name name sp-literature-dir))
+            (setq found (append found (sp-citations--find-in-library name)))))))
+    (delete-dups found)))
+
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
   :ensure t
   :commands (citar-open-notes
              citar-insert-citation)
-
+  
   :custom
   ;; Use with org citation
   (org-cite-global-bibliography sp-bibtex-files)
@@ -66,11 +124,11 @@
   (citar-library-file-extensions '("pdf" "jpg"))
   (citar-file-additional-files-separator "-")
   (citar-notes-paths (list (or sp-bib-notes sp-notes-dir)))
-
+  
   ;; Working at point
   (citar-at-point-function 'embark-act) ;; use embark with at-point
 
-  (citar-additional-fields
+  (citar-additional-fields 
     '("doi"
       "url"))   ;; What exactly can you do with these additional fields?
 
@@ -81,6 +139,8 @@
           (note . ,sp-citar-note)))
 
   :config
+  ;; Find a PDF that is not where its `file' field says.
+  (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (when (display-graphic-p)
     ;; nerd-icons has no octicon PDF/text glyph, so those two use
     ;; FontAwesome; link-external maps to the octicon directly.
@@ -92,7 +152,7 @@
   :bind
          (("C-c w b o" . citar-open))
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
-
+         
          :hook
          (LaTeX-mode . citar-capf-setup)
          (org-mode . citar-capf-setup)

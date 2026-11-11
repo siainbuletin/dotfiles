@@ -1,0 +1,643 @@
+#!/usr/bin/env python3
+"""gh-pr-pdf: turn a GitHub repo's pull requests (and optionally Discussions)
+into searchable org-mode files and one paginated PDF built with Typst.
+
+Pipeline
+  1. github-backup  -> raw JSON for every PR (description, comments, review
+                       comments, reviews, commits)          [network, needs gh login]
+  2. this script    -> one org file per PR, plus all.org     [pure Python]
+  3. pandoc         -> org to Typst source                   [local]
+  4. typst          -> paginated PDF with clickable commit links
+
+Usage
+  gh-pr-pdf siainbuletin/dotfiles
+  gh-pr-pdf siainbuletin/dotfiles --discussions
+  gh-pr-pdf siainbuletin/dotfiles                       # the 2nd run onwards only fetches what changed
+  gh-pr-pdf siainbuletin/dotfiles --full                # force a complete fetch
+  gh-pr-pdf siainbuletin/dotfiles --skip-fetch          # re-render from existing backup/
+  gh-pr-pdf siainbuletin/dotfiles --no-pdf              # org files only
+  gh-pr-pdf siainbuletin/dotfiles --per-pdf 200         # several PDFs of 200 PRs each
+
+Output (default ./<repo>-prs/)
+  backup/   raw github-backup JSON (kept so you can re-render offline)
+  org/      pr-00001.org, pr-00002.org, ... (+ discussion-*.org), all.org
+  <repo>-prs.pdf and the intermediate .typ file
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(f"gh-pr-pdf: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def need(tool: str, hint: str) -> None:
+    if not shutil.which(tool):
+        die(f"'{tool}' not found. {hint}")
+
+
+# --------------------------------------------------------------------------
+# 1. Fetch
+# --------------------------------------------------------------------------
+
+STATE_NAME = ".gh-pr-pdf-state.json"
+RENDER_VERSION = 1          # bump when the org layout changes, so cached org files are rebuilt
+CHECKPOINTS = ("last_update", "reviews_last_update")   # github-backup's own -i markers
+
+
+def now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def load_state(backup: Path) -> dict:
+    try:
+        st = json.loads((backup / STATE_NAME).read_text(encoding="utf-8"))
+        return st if isinstance(st, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(backup: Path, st: dict) -> None:
+    (backup / STATE_NAME).write_text(json.dumps(st, indent=1, sort_keys=True), encoding="utf-8")
+
+
+def github_backup_help() -> str:
+    need("github-backup", "Install it with: pipx install github-backup   (or: pip install github-backup)")
+    return subprocess.run(["github-backup", "-h"], capture_output=True, text=True).stdout
+
+
+def pr_flags(help_txt: str, private: bool) -> list[str]:
+    flags = ["--pulls", "--pull-comments", "--pull-commits", "--pull-details"]
+    if "--pull-reviews" in help_txt:
+        flags.append("--pull-reviews")
+    if private:
+        flags.append("--private")
+    return flags
+
+
+def decide_mode(st: dict, flags: list[str], full: bool, full_every: int) -> tuple[bool, str]:
+    """(incremental?, reason). github-backup -i trusts its own checkpoints, and its
+    docs warn that an earlier failed run can leave a hole in the data. So a full
+    fetch is forced when there is no earlier complete run, when the options differ
+    (a new flag is not backfilled), and every --full-every days."""
+    if full:
+        return False, "--full given"
+    try:
+        last_full = datetime.fromisoformat(st["last_full"])
+    except (KeyError, ValueError, TypeError):
+        return False, "no earlier complete run recorded"
+    if st.get("flags") != flags:
+        return False, "options differ from the last run"
+    age = now() - last_full
+    if full_every > 0 and age >= timedelta(days=full_every):
+        return False, f"last full fetch was {age.days} days ago (--full-every {full_every})"
+    return True, f"last full fetch {age.days} days ago, last run {st.get('last_run', '?')}"
+
+
+def reset_checkpoints(backup: Path) -> None:
+    """Delete github-backup's -i markers so that the next run starts from nothing
+    and then writes fresh ones. Only files with these exact names, inside backup/."""
+    for name in CHECKPOINTS:
+        for p in [backup / name, *backup.glob(f"repositories/*/pulls/{name}")]:
+            if p.is_file():
+                p.unlink()
+
+
+def fetch_prs(owner: str, repo: str, backup: Path, flags: list[str], help_txt: str, incremental: bool) -> None:
+    if not incremental:
+        reset_checkpoints(backup)
+    # -i is always passed: it is what makes github-backup write its checkpoints. With
+    # none present it fetches everything, with them only what changed since.
+    cmd = ["github-backup", owner, "-R", repo, "-o", str(backup), *flags, "-i"]
+
+    tokfile = None
+    try:
+        if "--token-from-gh" in help_txt:
+            cmd.append("--token-from-gh")
+        else:
+            # Older github-backup: hand it the gh token through a 0600 file,
+            # not on the command line where `ps` would show it.
+            need("gh", "Install the GitHub CLI and run: gh auth login")
+            tok = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True)
+            if tok.returncode != 0 or not tok.stdout.strip():
+                die("could not read a token from `gh auth token`; run: gh auth login")
+            fd, tokfile = tempfile.mkstemp(prefix="ghtok-")
+            os.write(fd, tok.stdout.strip().encode())
+            os.close(fd)
+            os.chmod(tokfile, 0o600)
+            cmd += ["-t", f"file://{tokfile}"]
+        print("+", " ".join(cmd), flush=True)
+        if subprocess.run(cmd).returncode != 0:
+            die("github-backup failed (see its output above)")
+    finally:
+        if tokfile:
+            os.unlink(tokfile)
+
+
+DISCUSSIONS_QUERY = """
+query($owner:String!, $name:String!, $after:String) {
+  repository(owner:$owner, name:$name) {
+    discussions(first:25, after:$after, orderBy:{field:CREATED_AT, direction:ASC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number title body url createdAt author { login }
+        category { name }
+        answer { id }
+        comments(first:100) {
+          pageInfo { hasNextPage }
+          nodes {
+            id body url createdAt author { login }
+            replies(first:50) {
+              pageInfo { hasNextPage }
+              nodes { body url createdAt author { login } }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
+def fetch_discussions(owner: str, repo: str, backup: Path) -> None:
+    """Discussions via `gh api graphql` (own fetcher: github-backup's discussion
+    JSON layout is new and I could not verify it)."""
+    need("gh", "Install the GitHub CLI and run: gh auth login")
+    dest = backup / "discussions-graphql"
+    dest.mkdir(parents=True, exist_ok=True)
+    after = None
+    count = 0
+    while True:
+        cmd = ["gh", "api", "graphql", "-f", f"query={DISCUSSIONS_QUERY}",
+               "-f", f"owner={owner}", "-f", f"name={repo}"]
+        if after:
+            cmd += ["-f", f"after={after}"]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            die(f"discussions query failed: {r.stderr.strip() or r.stdout.strip()}")
+        data = json.loads(r.stdout)
+        if data.get("errors"):
+            die(f"discussions query error: {data['errors']}")
+        block = data["data"]["repository"]["discussions"]
+        for d in block["nodes"]:
+            if d["comments"]["pageInfo"]["hasNextPage"] or any(
+                c["replies"]["pageInfo"]["hasNextPage"] for c in d["comments"]["nodes"]
+            ):
+                print(f"warning: discussion #{d['number']} has more than 100 comments / 50 replies; "
+                      "extra ones were not fetched", file=sys.stderr)
+            (dest / f"{d['number']}.json").write_text(json.dumps(d, indent=1), encoding="utf-8")
+            count += 1
+        if not block["pageInfo"]["hasNextPage"]:
+            break
+        after = block["pageInfo"]["endCursor"]
+    print(f"fetched {count} discussions")
+
+
+# --------------------------------------------------------------------------
+# 2. Render to org
+# --------------------------------------------------------------------------
+
+DIRECTIVE = re.compile(r"^[ \t]*#\+(?!begin_|end_)", re.I)
+
+
+def oneline(s) -> str:
+    return re.sub(r"\s+", " ", s or "").strip()
+
+
+def olink(url: str, desc: str | None = None) -> str:
+    url = url.replace("[", "%5B").replace("]", "%5D")
+    desc = oneline(desc or url).replace("[", "(").replace("]", ")")
+    return f"[[{url}][{desc}]]"
+
+
+def ts(s) -> str:
+    if not s:
+        return ""
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return str(s)
+
+
+def login(u) -> str:
+    return (u or {}).get("login") or "ghost"
+
+
+def esc_block(text: str) -> str:
+    """Org escapes lines starting with * or #+ inside blocks with a comma."""
+    return re.sub(r"(?m)^(\s*)(\*|#\+)", r"\1,\2", text)
+
+
+class Md2Org:
+    """GitHub-flavoured Markdown -> org via pandoc, with a cache.
+
+    Text comes from strangers, so: raw HTML is dropped, pandoc runs with
+    --sandbox, and org directives such as #+INCLUDE: are neutralised."""
+
+    def __init__(self) -> None:
+        self.have_pandoc = bool(shutil.which("pandoc"))
+        self.cache: dict = {}
+        if not self.have_pandoc:
+            print("warning: pandoc not found; bodies will be kept as raw Markdown blocks", file=sys.stderr)
+
+    def __call__(self, text, shift: int) -> str:
+        text = (text or "").replace("\r\n", "\n")
+        text = re.sub(r"<!--.*?-->", "", text, flags=re.S).strip()
+        if not text:
+            return "/(empty)/"
+        key = (text, shift)
+        if key in self.cache:
+            return self.cache[key]
+        out = None
+        if self.have_pandoc:
+            r = subprocess.run(
+                # tex_math_dollars off: otherwise "$HOME/$PATH" becomes a math fragment
+                ["pandoc", "--sandbox", "-f", "gfm-raw_html-tex_math_dollars", "-t", "org", "--wrap=none",
+                 f"--shift-heading-level-by={shift}"],
+                input=text, capture_output=True, text=True)
+            if r.returncode == 0:
+                out = r.stdout.strip()
+        if out is None:
+            out = "#+begin_example\n" + esc_block(text) + "\n#+end_example"
+        out = "\n".join(": " + ln if DIRECTIVE.match(ln) else ln for ln in out.splitlines())
+        self.cache[key] = out
+        return out
+
+
+def listkey(d: dict, *keys: str) -> list:
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, list):
+            return v
+    return []
+
+
+def by_date(items: list, *keys: str) -> list:
+    return sorted(items, key=lambda x: next((x.get(k) for k in keys if x.get(k)), ""))
+
+
+def meta_list(pairs: list[tuple[str, str]]) -> list[str]:
+    return [f"- {k} :: {v}" for k, v in pairs if v]
+
+
+def render_pr(pr: dict, owner: str, repo: str, md: Md2Org) -> str:
+    n = pr.get("number")
+    base = f"https://github.com/{owner}/{repo}"
+    url = pr.get("html_url") or f"{base}/pull/{n}"
+    merged = bool(pr.get("merged") or pr.get("merged_at"))
+    state = "merged" if merged else (pr.get("state") or "unknown")
+    head = (pr.get("head") or {}).get("ref")
+    tgt = (pr.get("base") or {}).get("ref")
+    labels = ", ".join(l.get("name", "") for l in (pr.get("labels") or []) if isinstance(l, dict))
+    msha = pr.get("merge_commit_sha")
+
+    o: list[str] = [
+        f"* PR #{n}: {oneline(pr.get('title'))}",
+        ":PROPERTIES:",
+        f":PR_NUMBER: {n}",
+        f":URL: {url}",
+        f":STATE: {state}",
+        f":AUTHOR: {login(pr.get('user'))}",
+        ":END:",
+    ]
+    o += meta_list([
+        ("Link", olink(url)),
+        ("State", state),
+        ("Author", "@" + login(pr.get("user"))),
+        ("Opened", ts(pr.get("created_at"))),
+        ("Merged" if merged else "Closed", ts(pr.get("merged_at") if merged else pr.get("closed_at"))),
+        ("Branch", f"={head}= → ={tgt}=" if head and tgt else ""),
+        ("Merge commit", olink(f"{base}/commit/{msha}", msha[:10]) if msha else ""),
+        ("Labels", labels),
+    ])
+    o += ["", "** Description", md(pr.get("body"), 2)]
+
+    convo = by_date(listkey(pr, "comment_regular_data", "comments_regular_data", "issue_comment_data"),
+                    "created_at")
+    if convo:
+        o += ["", "** Conversation"]
+        for c in convo:
+            o += ["", f"*** @{login(c.get('user'))}, {ts(c.get('created_at'))}",
+                  olink(c["html_url"], "permalink") if c.get("html_url") else "",
+                  md(c.get("body"), 3)]
+
+    reviews = by_date(listkey(pr, "review_data", "reviews_data"), "submitted_at", "created_at")
+    if reviews:
+        o += ["", "** Reviews"]
+        for r in reviews:
+            o += ["", f"*** @{login(r.get('user'))}: {r.get('state', '')}, {ts(r.get('submitted_at'))}",
+                  olink(r["html_url"], "permalink") if r.get("html_url") else "",
+                  md(r.get("body"), 3) if (r.get("body") or "").strip() else ""]
+
+    rcs = by_date(listkey(pr, "comment_data", "review_comment_data"), "created_at")
+    if rcs:
+        o += ["", "** Code review comments"]
+        for c in rcs:
+            line = c.get("line") or c.get("original_line")
+            where = f"{c.get('path', '?')}" + (f":{line}" if line else "")
+            o += ["", f"*** @{login(c.get('user'))} on {oneline(where)}, {ts(c.get('created_at'))}",
+                  olink(c["html_url"], "permalink") if c.get("html_url") else ""]
+            hunk = (c.get("diff_hunk") or "").strip("\n")
+            if hunk:
+                hunk = "\n".join(hunk.splitlines()[-12:])
+                o += ["#+begin_src diff", esc_block(hunk), "#+end_src"]
+            o += [md(c.get("body"), 3)]
+
+    commits = listkey(pr, "commit_data", "commits_data")
+    if commits:
+        o += ["", f"** Commits ({len(commits)})", ""]
+        for c in commits:
+            sha = c.get("sha", "")
+            cm = c.get("commit") or {}
+            first = oneline((cm.get("message") or "").split("\n", 1)[0])
+            who = (cm.get("author") or {}).get("name") or login(c.get("author"))
+            o.append(f"- {olink(c.get('html_url') or f'{base}/commit/{sha}', sha[:10])} "
+                     f"{first} ({oneline(who)}, {ts((cm.get('author') or {}).get('date'))})")
+    return "\n".join(x for x in o if x is not None) + "\n"
+
+
+def render_discussion(d: dict, owner: str, repo: str, md: Md2Org) -> str:
+    n = d.get("number")
+    url = d.get("url") or f"https://github.com/{owner}/{repo}/discussions/{n}"
+    o = [f"* Discussion #{n}: {oneline(d.get('title'))}",
+         ":PROPERTIES:", f":DISCUSSION_NUMBER: {n}", f":URL: {url}",
+         f":AUTHOR: {login(d.get('author'))}", ":END:"]
+    o += meta_list([
+        ("Link", olink(url)),
+        ("Category", (d.get("category") or {}).get("name", "")),
+        ("Author", "@" + login(d.get("author"))),
+        ("Opened", ts(d.get("createdAt"))),
+        ("Answered", "yes" if d.get("answer") else ""),
+    ])
+    o += ["", "** Post", md(d.get("body"), 2)]
+    comments = (d.get("comments") or {}).get("nodes") or []
+    if comments:
+        o += ["", "** Comments"]
+    for c in comments:
+        o += ["", f"*** @{login(c.get('author'))}, {ts(c.get('createdAt'))}",
+              olink(c["url"], "permalink") if c.get("url") else "", md(c.get("body"), 3)]
+        for r in (c.get("replies") or {}).get("nodes") or []:
+            o += ["", f"**** Reply: @{login(r.get('author'))}, {ts(r.get('createdAt'))}",
+                  olink(r["url"], "permalink") if r.get("url") else "", md(r.get("body"), 4)]
+    return "\n".join(o) + "\n"
+
+
+def load_json_files(paths) -> list[dict]:
+    out = []
+    for p in paths:
+        try:
+            out.append(json.loads(p.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as e:
+            print(f"warning: skipping {p}: {e}", file=sys.stderr)
+    return out
+
+
+def load_prs(backup: Path) -> list[dict]:
+    files = [p for p in backup.rglob("*.json") if p.parent.name == "pulls" and p.stem.isdigit()]
+    prs = {pr["number"]: pr for pr in load_json_files(files) if isinstance(pr, dict) and "number" in pr}
+    return [prs[k] for k in sorted(prs)]
+
+
+def load_discussions(backup: Path) -> list[dict]:
+    d = backup / "discussions-graphql"
+    if not d.is_dir():
+        return []
+    ds = load_json_files(d.glob("*.json"))
+    return sorted(ds, key=lambda x: x.get("number", 0))
+
+
+# --------------------------------------------------------------------------
+# 3 + 4. PDF
+# --------------------------------------------------------------------------
+
+# PR text is full of things Typst reads as code: "@key" is a reference to a
+# label ("label `<key>` does not exist"), "$...$" is math and "<key>" is a
+# label. How much of that pandoc escapes depends on its version, so these
+# characters are swapped for private-use placeholders before pandoc sees them
+# and turned into Typst's own escapes afterwards. \u{..} works both in markup
+# and inside "strings" (link targets); fenced and inline code stay literal.
+MASKS = {"@": "", "$": "", "<": ""}
+TYPST_ESC = {"@": "\\u{40}", "$": "\\u{24}", "<": "\\u{3c}"}
+FENCE_RE = re.compile(r"^\s*(`{3,})")
+RAW_SPAN_RE = re.compile(r"((?<!\\)`[^`\n]*`)")
+LABEL_LINE_RE = re.compile(r"^<[^<>\s]*>\s*$")
+
+
+def mask_typst_chars(text: str) -> str:
+    for ch in MASKS.values():            # a placeholder already in the text
+        text = text.replace(ch, "�")
+    for ch, ph in MASKS.items():
+        text = text.replace(ch, ph)
+    return text
+
+
+def _swap(s: str, table: dict[str, str]) -> str:
+    for ch, ph in MASKS.items():
+        s = s.replace(ph, table[ch])
+    return s
+
+
+def harden_typst(typ: str) -> str:
+    """Turn the placeholders into literal characters (code) or Typst escapes (text)."""
+    literal = {ch: ch for ch in MASKS}
+    out: list[str] = []
+    fence = 0                            # length of the open ``` fence, 0 = none
+    for line in typ.split("\n"):
+        m = FENCE_RE.match(line)
+        if fence:
+            if m and len(m.group(1)) >= fence and not line.strip().strip("`"):
+                fence = 0
+            out.append(_swap(line, literal))
+        elif m:
+            fence = len(m.group(1))
+            out.append(_swap(line, literal))
+        elif LABEL_LINE_RE.match(line):  # pandoc's heading anchor: no placeholders allowed
+            out.append(_swap(line, {ch: "-" for ch in MASKS}))
+        else:
+            parts = RAW_SPAN_RE.split(line)
+            out.append("".join(_swap(p, literal if k % 2 else TYPST_ESC) for k, p in enumerate(parts)))
+    return "\n".join(out)
+
+
+def typst_leaks(typ: str) -> list[int]:
+    """Line numbers where text still has an unescaped @name (a Typst reference)."""
+    bad, fence = [], 0
+    for n, line in enumerate(typ.split("\n"), 1):
+        m = FENCE_RE.match(line)
+        if fence or m:
+            if fence and m and len(m.group(1)) >= fence and not line.strip().strip("`"):
+                fence = 0
+            elif not fence:
+                fence = len(m.group(1))
+            continue
+        line = RAW_SPAN_RE.sub("", line)
+        line = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line)
+        if re.search(r"(?<![\\\w])@[A-Za-z]", line):
+            bad.append(n)
+    return bad
+
+
+TYPST_PREAMBLE = """\
+#set page(numbering: "1")
+#show link: set text(fill: rgb("#1d4ed8"))
+#show raw: set text(size: 8pt)
+"""
+
+
+def build_pdf(org_files: list[Path], title: str, out_pdf: Path) -> bool:
+    need("pandoc", "Install pandoc 3.1.2 or newer (Typst output support).")
+    combined = out_pdf.with_suffix(".combined.org")
+    body = mask_typst_chars("".join(f.read_text(encoding="utf-8") + "\n" for f in org_files))
+    # H:9 matters: pandoc's org reader otherwise turns headlines deeper than
+    # level 3 into list items, which would flatten headings inside PR bodies.
+    combined.write_text(
+        f"#+TITLE: {title}\n#+DATE: {datetime.now():%Y-%m-%d}\n#+OPTIONS: H:9 num:nil toc:nil\n\n{body}",
+        encoding="utf-8")
+
+    typ = out_pdf.with_suffix(".typ")
+    r = subprocess.run(
+        ["pandoc", "--sandbox", "-f", "org", "-t", "typst", "-s", "--toc", "--toc-depth=1",
+         "-V", "papersize=a4", "-V", "fontsize=9.5pt", "-o", str(typ), str(combined)],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        die(f"pandoc failed: {r.stderr.strip()}")
+    hardened = harden_typst(typ.read_text(encoding="utf-8"))
+    typ.write_text(TYPST_PREAMBLE + hardened, encoding="utf-8")
+    combined.unlink()
+    leaks = typst_leaks(hardened)
+    if leaks:
+        print(f"warning: unescaped @name left in {typ.name} on line(s) "
+              f"{', '.join(map(str, leaks[:10]))}; typst will read it as a reference", file=sys.stderr)
+
+    if not shutil.which("typst"):
+        print(f"typst not found, so no PDF yet. Typst source is at {typ}\n"
+              "Install typst (https://github.com/typst/typst/releases, `brew install typst`, "
+              "or `cargo install typst-cli`) and run again with --skip-fetch.", file=sys.stderr)
+        return False
+    r = subprocess.run(["typst", "compile", str(typ), str(out_pdf)], capture_output=True, text=True)
+    if r.returncode != 0:
+        die(f"typst failed:\n{r.stderr.strip()}")
+    return True
+
+
+# --------------------------------------------------------------------------
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="PRs (and Discussions) of a GitHub repo -> org files -> Typst PDF")
+    ap.add_argument("repo", help="OWNER/REPO or https://github.com/OWNER/REPO")
+    ap.add_argument("-o", "--out", help="output directory (default: ./<repo>-prs)")
+    ap.add_argument("--discussions", action="store_true", help="also fetch and render GitHub Discussions")
+    ap.add_argument("--skip-fetch", action="store_true", help="reuse existing backup/ instead of calling the API")
+    ap.add_argument("--full", action="store_true", help="fetch everything again instead of only what changed")
+    ap.add_argument("--full-every", type=int, default=30, metavar="DAYS",
+                    help="also fetch everything again when the last full fetch is this old (default 30, 0 = never)")
+    ap.add_argument("--no-pdf", action="store_true", help="stop after writing org files")
+    ap.add_argument("--per-pdf", type=int, default=0, metavar="N", help="split into PDFs of N items each")
+    ap.add_argument("--reverse", action="store_true", help="newest PR first")
+    ap.add_argument("--private", action="store_true", help="repo is private (passed to github-backup)")
+    a = ap.parse_args()
+
+    m = re.match(r"^(?:https?://github\.com/)?([^/\s]+)/([^/\s]+?)(?:\.git)?/?$", a.repo)
+    if not m:
+        die("repo must look like OWNER/REPO")
+    owner, repo = m.groups()
+
+    out = Path(a.out or f"{repo}-prs").resolve()
+    backup, orgdir = out / "backup", out / "org"
+    backup.mkdir(parents=True, exist_ok=True)
+
+    state = load_state(backup)
+    if not a.skip_fetch:
+        help_txt = github_backup_help()
+        flags = pr_flags(help_txt, a.private)
+        incremental, why = decide_mode(state, flags, a.full, a.full_every)
+        print(f"fetching pull requests: {'incremental' if incremental else 'full'} ({why})", flush=True)
+        fetch_prs(owner, repo, backup, flags, help_txt, incremental)
+        state.update(flags=flags, last_run=now().isoformat(timespec="seconds"))
+        if not incremental:
+            state["last_full"] = state["last_run"]
+        save_state(backup, state)      # saved now, so a render crash does not lose the fetch
+        if a.discussions:
+            fetch_discussions(owner, repo, backup)   # always complete: it is one query per 25 discussions
+
+    prs, discs = load_prs(backup), load_discussions(backup)
+    if not prs and not discs:
+        die(f"no pull request JSON found under {backup} (expected .../pulls/<number>.json)")
+    if a.reverse:
+        prs.reverse()
+
+    # Sanity check: --pull-details gives a commit count; if it says commits exist
+    # but no list was found, the JSON key names differ from what this script expects.
+    if prs and any((p.get("commits") or 0) > 0 for p in prs) and not any(
+            listkey(p, "commit_data", "commits_data") for p in prs):
+        print("warning: PRs report commits but no commit list was found. Keys in first PR file: "
+              + ", ".join(sorted(prs[0])), file=sys.stderr)
+
+    orgdir.mkdir(parents=True, exist_ok=True)
+    md = Md2Org()
+    # An org file is rebuilt only when the JSON it came from changed (or the
+    # renderer did); pandoc runs several times per pull request, so this matters.
+    ver = f"{RENDER_VERSION}:{int(md.have_pandoc)}"
+    cache = state.get("rendered", {}) if state.get("render_version") == ver else {}
+    new_cache: dict[str, str] = {}
+    files: list[Path] = []
+    count = {"rendered": 0, "reused": 0}
+
+    def emit(kind: str, obj: dict, render) -> None:
+        f = orgdir / f"{kind}-{obj['number']:05d}.org"
+        digest = hashlib.sha1(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+        if cache.get(f.name) == digest and f.exists():
+            count["reused"] += 1
+        else:
+            f.write_text(render(obj, owner, repo, md), encoding="utf-8")
+            count["rendered"] += 1
+        new_cache[f.name] = digest
+        files.append(f)
+
+    for pr in prs:
+        emit("pr", pr, render_pr)
+    for d in discs:
+        emit("discussion", d, render_discussion)
+    for old in list(orgdir.glob("pr-*.org")) + list(orgdir.glob("discussion-*.org")):
+        if old.name not in new_cache:      # PR or discussion no longer in the backup
+            old.unlink()
+    state.update(rendered=new_cache, render_version=ver)
+    save_state(backup, state)
+    print(f"{len(prs)} PRs and {len(discs)} discussions in {orgdir}: "
+          f"{count['rendered']} rendered, {count['reused']} unchanged")
+
+    title = f"{owner}/{repo}: pull requests" + (" and discussions" if discs else "")
+    (orgdir / "all.org").write_text(
+        f"#+TITLE: {title}\n#+STARTUP: overview\n#+OPTIONS: H:9 num:nil toc:nil\n\n" + "".join(f.read_text(encoding="utf-8") + "\n" for f in files),
+        encoding="utf-8")
+    if a.no_pdf:
+        return 0
+
+    chunks = [files] if a.per_pdf <= 0 else [files[i:i + a.per_pdf] for i in range(0, len(files), a.per_pdf)]
+    ok = True
+    for i, chunk in enumerate(chunks, 1):
+        suffix = f"-part{i:02d}" if len(chunks) > 1 else ""
+        pdf = out / f"{repo}-prs{suffix}.pdf"
+        t = title + (f" (part {i} of {len(chunks)})" if len(chunks) > 1 else "")
+        if build_pdf(chunk, t, pdf):
+            print(f"wrote {pdf}")
+        else:
+            ok = False
+    return 0 if ok else 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,61 @@
+* PR #108: Add sp-select-note and sp-insert-note with tag emoji and a tag column
+:PROPERTIES:
+:PR_NUMBER: 108
+:URL: https://github.com/siainbuletin/dotfiles/pull/108
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/108][https://github.com/siainbuletin/dotfiles/pull/108]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 15:22
+- Merged :: 2026-10-25 15:42
+- Branch :: =108-tag-emoji-select= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/3ed9654e588bf13f28326554d81629d3d4069924][3ed9654e58]]
+- Labels :: enhancement, simplifying
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Ncux17Yj6ANSAph5xngrN3][project thread]]/
+
+Follow-up to #60 (merged).
+
+**** What changes
+:PROPERTIES:
+:CUSTOM_ID: what-changes
+:END:
+- With =sp-tag-emoji-mode= on, =vulpea-select-describe-fn= is =sp-tag-emoji-describe-note=: the emoji of the note's tags, then the title (=vulpea-select=, =vulpea-find=, =vulpea-insert=). It depends on the note alone, so vulpea's candidate cache stays valid; the previous value (now =vulpea-select-describe-outline-full= from =sp-vulpea-base=) is restored when the mode is turned off.
+- =sp-select-note= is my own selector (same keywords as =vulpea-select=) built on =vulpea-select-from=: the tags in a column at the right edge (=(space :align-to (- right N))=, =N= a fraction of the frame width), small and dimmed, still matchable.
+- =sp-insert-note= is =vulpea-insert= with the same emoji and tag column; the link text stays the plain title.
+- Both bypass vulpea's candidate cache while they run (the column width is not a property of the note).
+- *Callers now use them*, for one look everywhere: =sp-org-create-note-and-link= (its "insert existing" branch) and the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note in =sp-graphs=, and =sp-collec-query-select-note= (which also no longer confuses same-titled notes). Each of those modules now requires =sp-tag-emoji=.
+- Rules can opt out of the selector with =:select nil=. =sp-tag-emoji-select-visit= is not part of this PR.
+- Docs and CHANGELOG follow.
+
+**** Worth checking
+:PROPERTIES:
+:CUSTOM_ID: worth-checking
+:END:
+=sp-org-create-note-and-link= used to call =vulpea-insert= with two positional functions. Upstream =vulpea-insert= takes keywords (=:filter-fn=, =:create-fn=), so the call now uses keywords; if your installed vulpea still has the positional signature, that call needs to go back.
+
+**** Checked (Emacs 29.3, headless)
+:PROPERTIES:
+:CUSTOM_ID: checked-emacs-293-headless
+:END:
+Candidate strings with a stubbed =vulpea-select-from= and fake notes, =sp-insert-note= calling a stubbed =vulpea-insert= with the emoji describe function and the cache off, mode on/off restoring the describe function; every changed =.el= reads and balances, and each tangles from its doc.
+
+**** Not checked
+:PROPERTIES:
+:CUSTOM_ID: not-checked
+:END:
+The look in a real minibuffer (Vertico / mini-frame), the callers with a real vulpea database, and the real =vulpea-insert= signature (read from upstream source, not your installed copy).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01Xrgdre7xkfaqJ3bbVqXTo5]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/a4f7704962195fad1f6ddb5de006c4710d8cb932][a4f7704962]] Add sp-tag-emoji-select: emoji before titles and a right-hand tag column in the note selector (Claude, 2026-10-25 15:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/fc72e44f8af9b5042aaf46e0bd038ac9ba968d75][fc72e44f8a]] Rename the tag selector to sp-select-note and add sp-insert-note (Claude, 2026-10-25 15:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/fcb83c7dc01ce663813c16c97f61cd33c4ea5c82][fcb83c7dc0]] Merge main into 108-tag-emoji-select (Claude, 2026-10-25 15:28)
+- [[https://github.com/siainbuletin/dotfiles/commit/ab4312dcec1fed0ea4f763449cf614f552837895][ab4312dcec]] Remove sp-tag-emoji-select-visit; link and note pickers call sp-select-note and sp-insert-note (Claude, 2026-10-25 15:30)

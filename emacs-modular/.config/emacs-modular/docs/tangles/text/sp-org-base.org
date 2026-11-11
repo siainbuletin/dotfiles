@@ -942,11 +942,24 @@ Used as the `url' provider of `thing-at-point' in Org buffers."
 
 * Dynamic block templates
 
-Named templates for Org dynamic blocks, so a block can be inserted on the fly without typing its parameters. Each template is =(LABEL . PLIST)=. The plist is what =org-create-dblock= takes: =:name= is the dynamic block's name, and every other key is a block parameter.
+One command inserts every kind of dynamic block, so there is no need to remember which command or menu a block comes from.
 
-Add templates by customizing =sp-org-dblock-templates= (=M-x customize-variable=) or with =add-to-list=. The default =collection-query-table= template lists the children of the note it is inserted in. It uses =:parent-of self=, which =sp-collection-query-tables= resolves on every update to the ID of the note the block is in (it adds an ID to the note if it has none), so the block keeps working when copied to another note.
-
-=M-x sp-org-dblock-insert-template= (also =C-c C-x t= in Org buffers) picks a template with completion, inserts it at point and, by default, updates it.
+- =M-x sp-org-dblock-insert-template= (also =C-c C-x t= in Org buffers) picks a template with completion, inserts it at point and, by default, updates it.
+- The candidates are in groups, like =sp-find-note= groups notes by where they live:
+  - The group is the =:category= of the template, shown as a heading in the completion list.
+  - =sp-org-dblock-category-order= says which groups come first; the rest follow alphabetically.
+- A template is =(LABEL . PLIST)=. The plist is what =org-create-dblock= takes: =:name= is the dynamic block's name, and every other key is a block parameter.
+  - =:category= is not a block parameter; it is removed before the block is inserted. Without it the group is "Other".
+- Two sources of templates:
+  - =sp-org-dblock-templates=, the ones you write by hand (=M-x customize-variable= or =add-to-list=).
+  - =sp-org-dblock-template-functions=: each function returns more templates. =sp-collection-query= adds one for every query table view (see its doc).
+- The "Children of this note" template uses =:parent-of self=, which =sp-collection-query= resolves on every update to the ID of the note the block is in (it adds an ID to the note if it has none), so the block keeps working when copied to another note.
+- =sp-org-dblock-disabled-names= (default ="vulpea-collection"=) are dynamic blocks left out of Org's own insert menu (=C-c C-x x=, =org-dynamic-blocks=), so this is the only place to insert a block.
+  - =vulpea-collection= comes from =vulpea-ui=: it calls =org-dynamic-block-define= when it loads, so =C-c C-x x= offers a block whose =:query ""= lists every note in the database.
+  - The block name stays defined, so a block already in a note still updates.
+  - Removal is repeated whenever Org or a package defines a block (advice on =org-dynamic-block-define=), and once more when =vulpea-ui= has loaded.
+  - =M-x vulpea-ui-collection-insert-dblock= (the command behind that menu entry) refuses with a pointer to =sp-org-dblock-insert-template= while its block is disabled.
+  - =sp-collection-query= is the replacement: save a view and it is in the menu (see its doc). The collection buffers and the Collections sidebar widget of =vulpea-ui= are not touched.
 
 #+begin_src emacs-lisp -i
 ;;;; Dynamic block templates
@@ -956,6 +969,7 @@ Add templates by customizing =sp-org-dblock-templates= (=M-x customize-variable=
 
 (defcustom sp-org-dblock-templates
   '(("Children of this note"
+     :category "Collections"
      :name "collection-query-table"
      :parent-of self
      :columns (:title)
@@ -963,10 +977,28 @@ Add templates by customizing =sp-org-dblock-templates= (=M-x customize-variable=
   "Named templates for `sp-org-dblock-insert-template'.
 Each element is (LABEL . PLIST).  PLIST is what `org-create-dblock'
 takes: :name is the dynamic block name and the other keys are its
-parameters.  For a `collection-query-table' block, `:parent-of self'
-means the note the block is in."
+parameters, except :category, the group of the template in the
+completion list (\"Other\" when missing).  For a `collection-query-table'
+block, `:parent-of self' means the note the block is in."
   :type '(alist :key-type (string :tag "Label")
                 :value-type (plist :tag "Dynamic block"))
+  :group 'sp-org-dblock)
+
+(defvar sp-org-dblock-template-functions nil
+  "Functions that return more templates for `sp-org-dblock-insert-template'.
+Each is called with no arguments and returns a list like
+`sp-org-dblock-templates'.  A module adds its own with `add-hook'.")
+
+(defcustom sp-org-dblock-category-order '("Academic" "Collections")
+  "The groups of `sp-org-dblock-insert-template' that come first, in order."
+  :type '(repeat string)
+  :group 'sp-org-dblock)
+
+(defcustom sp-org-dblock-disabled-names '("vulpea-collection")
+  "Dynamic blocks that Org's own insert menu does not offer.
+They are removed from `org-dynamic-blocks'; a block of that name already
+in a note still updates."
+  :type '(repeat string)
   :group 'sp-org-dblock)
 
 (defcustom sp-org-dblock-update-after-insert t
@@ -974,27 +1006,91 @@ means the note the block is in."
   :type 'boolean
   :group 'sp-org-dblock)
 
+(defun sp-org-dblock--all-templates ()
+  "All templates: `sp-org-dblock-templates' and those of the template functions."
+  (append sp-org-dblock-templates
+          (apply #'append (mapcar #'funcall sp-org-dblock-template-functions))))
+
+(defun sp-org-dblock--category (template)
+  "The group of TEMPLATE, an element (LABEL . PLIST)."
+  (or (plist-get (cdr template) :category) "Other"))
+
+(defun sp-org-dblock--category-rank (category)
+  "Where CATEGORY comes in `sp-org-dblock-category-order'; later ones get more."
+  (or (seq-position sp-org-dblock-category-order category #'equal)
+      (length sp-org-dblock-category-order)))
+
+(defun sp-org-dblock--completion-table (templates)
+  "A completion table over the labels of TEMPLATES, grouped by category."
+  (let ((groups (make-hash-table :test #'equal)))
+    (dolist (template templates)
+      (puthash (car template) (sp-org-dblock--category template) groups))
+    (lambda (string pred action)
+      (if (eq action 'metadata)
+          `(metadata
+            (category . sp-dblock-template)
+            (group-function
+             . ,(lambda (label transform)
+                  (if transform label (gethash label groups))))
+            (display-sort-function
+             . ,(lambda (labels)
+                  (sort (copy-sequence labels)
+                        (lambda (a b)
+                          (let* ((ca (gethash a groups)) (cb (gethash b groups))
+                                 (ra (sp-org-dblock--category-rank ca))
+                                 (rb (sp-org-dblock--category-rank cb)))
+                            (cond ((/= ra rb) (< ra rb))
+                                  ((not (equal ca cb)) (string< ca cb))
+                                  (t (string< a b)))))))))
+        (complete-with-action action (mapcar #'car templates) string pred)))))
+
 (defun sp-org-dblock-insert-template (label)
   "Insert the dynamic block template LABEL at point.
-LABEL is picked with completion from `sp-org-dblock-templates'.  The
-block is filled in when `sp-org-dblock-update-after-insert' is non-nil,
-and point ends on its #+BEGIN line."
+LABEL is picked with completion, in groups, from the templates (see
+`sp-org-dblock--all-templates').  The block is filled in when
+`sp-org-dblock-update-after-insert' is non-nil, and point ends on its
+#+BEGIN line."
   (interactive
-   (list (completing-read "Dynamic block template: "
-                          (mapcar #'car sp-org-dblock-templates) nil t)))
-  (let ((template (cdr (assoc label sp-org-dblock-templates))))
+   (list (completing-read "Dynamic block: "
+                          (sp-org-dblock--completion-table (sp-org-dblock--all-templates))
+                          nil t)))
+  (let ((template (cdr (assoc label (sp-org-dblock--all-templates)))))
     (unless template
       (user-error "No dynamic block template named %S" label))
     (unless (derived-mode-p 'org-mode)
       (user-error "Dynamic blocks can only be inserted in Org buffers"))
     (unless (bolp) (insert "\n"))
-    (org-create-dblock (copy-tree template))
+    (org-create-dblock
+     (cl-loop for (key value) on template by #'cddr
+              unless (eq key :category)
+              append (list key (copy-tree value))))
     (when sp-org-dblock-update-after-insert
       (org-update-dblock))
     (beginning-of-line)))
 
+(defun sp-org-dblock-hide-disabled (&rest _)
+  "Remove `sp-org-dblock-disabled-names' from Org's insert menu."
+  (when (boundp 'org-dynamic-blocks)
+    (setq org-dynamic-blocks
+          (seq-remove (lambda (cell) (member (car cell) sp-org-dblock-disabled-names))
+                      org-dynamic-blocks))))
+
+(defun sp-org-dblock--refuse-disabled-insert (orig-fun &rest args)
+  "Around advice for `vulpea-ui-collection-insert-dblock'.
+Call ORIG-FUN with ARGS unless \"vulpea-collection\" is in
+`sp-org-dblock-disabled-names'."
+  (if (member "vulpea-collection" sp-org-dblock-disabled-names)
+      (user-error "The vulpea-collection block is disabled; use `sp-org-dblock-insert-template'")
+    (apply orig-fun args)))
+
 (with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template))
+  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template)
+  (sp-org-dblock-hide-disabled)
+  (advice-add 'org-dynamic-block-define :after #'sp-org-dblock-hide-disabled))
+
+(with-eval-after-load 'vulpea-ui
+  (sp-org-dblock-hide-disabled)
+  (advice-add 'vulpea-ui-collection-insert-dblock :around #'sp-org-dblock--refuse-disabled-insert))
 #+end_src
 
 * Provide
@@ -1024,3 +1120,6 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/285][#285]]
   - 🐛 Fixed =browse-url-url-at-point: Wrong type argument: buffer-or-string-p= on opening a URL in an Org file: Org buffers use =sp-org-url-at-point=, which returns a string, and a Markdown link pasted inside a plain link opens its inner address.
   - Details: [[*URL at point in Org buffers][URL at point in Org buffers]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
+  - ✨ =sp-org-dblock-insert-template= is the one command for inserting dynamic blocks: its candidates are grouped by =:category= (=sp-org-dblock-category-order=), modules add templates through =sp-org-dblock-template-functions=, and =sp-org-dblock-disabled-names= (default =vulpea-collection=) hides blocks from Org's own insert menu.

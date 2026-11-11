@@ -94,7 +94,13 @@
 		      '((:key "pub-author" :type note :multiple t)
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
-			(:key "relevance" :type string :required nil))
+			(:key "relevance" :type string :required nil)
+			(:key "read-status" :type string :required t
+			      :one-of ("01-current" "02-preparing" "03-review" "04-paused" "05-done"))
+			(:key "relevance-factor" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05"))
+			(:key "read-priority" :type string :required t
+			      :one-of ("01" "02" "03" "04" "05")))
 )
 
 (vulpea-schema-define 'article
@@ -103,6 +109,10 @@
 		      :fields
 		      '((:key "pub-pages" :type string :required nil))
 )
+
+(vulpea-schema-define 'book
+		      :predicate (lambda (note) (member "book" (vulpea-note-tags note)))
+		      :include 'base-text)
 
 (vulpea-schema-define 'booksection
 		      :predicate (lambda (note) (member "booksection" (vulpea-note-tags note)))
@@ -127,6 +137,14 @@
 		      (:key "bib-parent" :type note :required t :target-tags ("collection"))
 		      (:key "pub-author" :type note :required t))
 		      )
+
+(vulpea-schema-define 'phdthesis
+		      :predicate (lambda (note) (member "phdthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
+
+(vulpea-schema-define 'mastersthesis
+		      :predicate (lambda (note) (member "mastersthesis" (vulpea-note-tags note)))
+		      :include 'base-text)
 
 (provide 'sp-vulpea-schemas)
 ;; sp-vulpea-schemas.el ends here.

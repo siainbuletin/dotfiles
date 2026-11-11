@@ -1,0 +1,54 @@
+* PR #181: ✨ Add a config-files TODO agenda view
+:PROPERTIES:
+:PR_NUMBER: 181
+:URL: https://github.com/siainbuletin/dotfiles/pull/181
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/181][https://github.com/siainbuletin/dotfiles/pull/181]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-28 21:31
+- Merged :: 2026-10-28 21:58
+- Branch :: =181-config-todos-agenda= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/fbe97755e004945a4e83c27f135083bfa0bedbb9][fbe97755e0]]
+- Labels :: new-feature
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2HGywC1okeJg2iDuYSe2SYV][project thread]]/
+
+*Before:* TODO headings in the docs of the configuration itself were invisible to the agenda, or mixed into the PARA views.
+
+*After:* =C-c o a c= lists every open TODO heading in the config's Org files, each line led by the file's =#+title:= instead of the Area/Project category.
+
+**** Changes (=sp-agenda-views=, =sp-org-agenda= doc, CHANGELOG)
+:PROPERTIES:
+:CUSTOM_ID: changes-sp-agenda-views-sp-org-agenda-doc-changelog
+:END:
+- New view =c= built like the issue views (=sp-org-issues=): restricts =org-agenda-files= and binds =vulpea-para-agenda-inhibit-files-update=. Its =todo ""= block names no keyword: it matches any keyword that is not a done state, as =org-todo-keywords= or a file's =#+todo:= line define them.
+- Only this view changes =org-agenda-prefix-format=; =sp-agenda-views-file-title= reads the title from the buffer (file name as fallback).
+- *Source of files (my choice):* =sp-agenda-views-config-source= is =yadm= by default (=git ls-files '*.org'= on =sp-yadm-repo= with =~= as work tree); =dirs= searches =sp-agenda-views-config-dirs= instead. Empty result signals a =user-error=.
+- =sp-org-agenda= doc: new "Config file views" section with the setup and why file-set views, TODO keywords vs tags and file titles matter; key table updated.
+- CHANGELOG entry in "Agenda, capture and task keywords".
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+Emacs 29.3 in batch with stubs for vulpea-para: both file sources return the right files (an untracked =.org= is skipped in yadm mode), and the agenda shows the file title or the file name. Default TODO keywords only; not run in the full config.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiByGEMc2iZouwYY3kJ]]
+
+** Conversation
+
+*** @siainbuletin, 2026-10-28 21:57
+[[https://github.com/siainbuletin/dotfiles/pull/181#issuecomment-6481699629][permalink]]
+read the documentation here.
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/11196ea5ae18095e7e987600b977f6a10b98e72a][11196ea5ae]] ✨ Add a config-files TODO agenda view (C-c o a c) (Claude, 2026-10-28 21:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/813fc51cf2a89b9a183654f018e9240eac5a8074][813fc51cf2]] 📝 Link the sp-org-issues doc from the config view section (Claude, 2026-10-28 21:35)
+- [[https://github.com/siainbuletin/dotfiles/commit/e08c87834824af977778ace0947b710f8fc49984][e08c878348]] 📝 Correct how the config view depends on org-todo-keywords (Claude, 2026-10-28 21:36)

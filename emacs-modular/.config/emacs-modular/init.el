@@ -347,6 +347,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-treemacs ;; File tree on <f9>
 
                     'sp-writedesk
+                    'sp-reading-sidenotes ;; see-also footnotes as sidenotes in sp-reading-mode (needs sp-see-also)
 
                     ;;;; Modern settings
                     'sp-canvas
@@ -415,6 +416,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-batch-report ;; report buffer of the batch commands (files as Org links)
+                    'sp-backup-lookup ;; open or diff the backups the batch commands made of the visited file
                     'sp-async-work ;; long jobs in slices, with mode-line progress (author and litnote commands)
                     'sp-author-notes ;; author notes and Works tables from pub-author (preview first)
                     'sp-author-notes-bibtex ;; BibTeX works of an author with no litnote yet, offers to create it

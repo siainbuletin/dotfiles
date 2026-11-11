@@ -14,6 +14,7 @@
 (require 'vulpea)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-batch-report)
 
 (defvar sia-vulpea-convert-property-blocklist
   '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
@@ -303,8 +304,17 @@ same order as FILES, once every file has been processed."
 
 ;;;; Preview + real run across every Vulpea note ---------------------------
 
-(defun sia-vulpea-convert-all-notes-properties-to-meta-dryrun ()
+(defvar sia-vulpea-convert--excluded nil
+  "The files dropped from the preview report; the conversion leaves them alone.")
+
+(defun sia-vulpea--convertible-files ()
+  "The files with something convertible, minus `sia-vulpea-convert--excluded'."
+  (seq-remove (lambda (file) (member file sia-vulpea-convert--excluded))
+              (sia-vulpea--files-with-convertible-properties)))
+
+(defun sia-vulpea-convert-all-notes-properties-to-meta-dryrun (&optional excluded)
   "Report, without changing anything, what a full conversion would do.
+EXCLUDED lists the files (full names) to leave out, as dropped in the report.
 Lists, per note file, which non-blocklisted properties were
 found on its recognized nodes. Run this before
 `sia-vulpea-convert-all-notes-properties-to-meta' to sanity-check
@@ -313,8 +323,9 @@ writes to any file. Runs without freezing Emacs, with a live
 progress count and ETA in the echo area -- see
 `sia-vulpea--process-files-async'."
   (interactive)
+  (setq sia-vulpea-convert--excluded excluded)
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-         (files (sia-vulpea--files-with-convertible-properties)))
+         (files (sia-vulpea--convertible-files)))
     (if (null files)
         (message "Nothing would be converted -- no notes have any non-blocklisted properties.")
       (message "Pre-filter (raw-text scan): scanning %d of %d note file%s."
@@ -336,21 +347,33 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "%s: %s" (file-name-nondirectory file)
+             (format "- %s: %s" (sp-batch-report-file-link file)
                      (string-join (seq-uniq found) ", "))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
-         (if report
-             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
-               (erase-buffer)
-               (insert (string-join report "\n"))
-               (goto-char (point-min))
-               (display-buffer (current-buffer)))
-           (message "Nothing would be converted -- every property found is blocklisted."))))))))
+         (if (null report)
+             (message "Nothing would be converted -- every property found is blocklisted.")
+             (sp-batch-report-show
+              "*vulpea property conversion preview*"
+              (concat "#+title: Property conversion: dry run\n\n"
+                      "A applies the conversion to the files that are left (it asks first).\n\n"
+                      (sp-batch-report-key-entries
+                       (concat (string-join report "\n") "\n"))
+                      (and excluded
+                           (concat "\n" (sp-batch-report-dropped-section excluded))))
+              #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
+             (with-current-buffer "*vulpea property conversion preview*"
+               (setq sp-batch-report-excluded excluded
+                     sp-batch-report-redraw-function
+                     (lambda (excl)
+                       (sia-vulpea-convert-all-notes-properties-to-meta-dryrun excl))
+                     sp-batch-report-apply-function
+                     (lambda (excl)
+                       (setq sia-vulpea-convert--excluded excl)
+                       (sia-vulpea-convert-all-notes-properties-to-meta nil excl)))))))))))
 
-
-(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
+(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original excluded)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
 file a fast raw-text pre-scan finds has something convertible
@@ -368,12 +391,15 @@ progress count and ETA in the echo area -- see
 When finished, opens a report buffer (in `org-mode', so the
 links are clickable via `org-open-at-point') listing every
 converted node as a \"- [[id:...][Title]]\" line -- see
-`sia-vulpea--insert-converted-report'."
+`sia-vulpea--insert-converted-report'.
+
+EXCLUDED lists the files (full names) to skip, as dropped in the preview."
   (interactive "P")
   (unless (y-or-n-p "This will edit and save every Vulpea note. Continue? ")
     (user-error "Aborted"))
+  (setq sia-vulpea-convert--excluded excluded)
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-         (files (sia-vulpea--files-with-convertible-properties)))
+         (files (sia-vulpea--convertible-files)))
     (if (null files)
         (message "Nothing to convert -- no notes have any non-blocklisted properties.")
       (message "Pre-filter (raw-text scan): converting %d of %d note file%s."

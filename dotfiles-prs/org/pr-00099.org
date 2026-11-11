@@ -1,0 +1,43 @@
+* PR #99: Header line and mode line for lambda-line (with tag emoji, theme faces); Prot-style sp-prot-modeline
+:PROPERTIES:
+:PR_NUMBER: 99
+:URL: https://github.com/siainbuletin/dotfiles/pull/99
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/99][https://github.com/siainbuletin/dotfiles/pull/99]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 14:16
+- Merged :: 2026-10-25 15:22
+- Branch :: =99-modeline-fix-and-prot-adaptation= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/e63b4b90f186b4911fb8a8cffd90c1901cdb620a][e63b4b90f1]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23Yd38q22bNvkAAYUumjJrU][project thread]]/
+
+*Before:* the mode line showed nothing. =sp-lambda-line= set =mode-line-format= to a bare ="%_"= when the position is =bottom=, overwriting the status line lambda-line had just installed. lambda-line also never shows minor modes or =global-mode-string= (so no tag emoji).
+
+*After:*
+
+- =sp-lambda-line= is renamed =sp-header-and-modeline=. The divider bug is gone, and the mode line is never a bare divider (no =top= / layout option any more).
+- *Both modelines work the same way:* the file name (path, or directory) is in a header line, keycast is at the bottom in the mode line, and =keycast-header-line-mode= is no longer turned on (=sp-frame= has the call commented out).
+- *=sp-header-and-modeline=:* lambda-line in the mode line at the bottom; header line = path on the left, project name on the right; keycast is the right-hand (tertiary) part of the line through =lambda-line-default-tertiary-function= (keycast's own mode-line segment is anchored after an empty element and shows nothing); the tag emoji of =sp-tag-emoji= are appended to the middle part of every mode line (advice on =lambda-line-compose=); lambda-line faces are set from the theme (=mode-line=, =mode-line-inactive=, =mode-line-buffer-id=, =success=/=warning=/=error=) at load and after =sp-load-theme=.
+- *=sp-prot-modeline=* (renamed from =sp-modeline=, adapted from Prot's =prot-modeline.el=): buffer name, major and minor modes, branch, Flymake, tag emoji (misc info), keycast after the branch with Prot's settings (=sp-prot-modeline-keycast=), and the path in a header line. Not loaded by =init.el=; a commented line beside ='sp-header-and-modeline= loads it instead (load one of the two).
+- Docs, docs index and CHANGELOG updated; the docs tangle to the =.el= files.
+
+*Not tested:* nothing was run (no Emacs in the container; the =.el= files were only paren-balanced by script). To check in Emacs 31: header next to the mode line, keys appearing at the right of lambda-line (the =keycast-format= call and the anchor trick are the riskiest part), tag emoji in an Org buffer, colours after =sp-load-theme=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01MfEFZ7KDkwwcifErLfjf4X]]
+
+** Commits (7)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/4a982347de1d7026630c5fae5f26d34a3ff73030][4a982347de]] Fix empty lambda-line mode line; add sp-modeline adapted from Prot's (Claude, 2026-10-25 14:16)
+- [[https://github.com/siainbuletin/dotfiles/commit/548905f70b7141fc503729fda4308e36aa020348][548905f70b]] Point the CHANGELOG entry at the new PR number (Claude, 2026-10-25 14:16)
+- [[https://github.com/siainbuletin/dotfiles/commit/8c0eb5269e7571bc0de11dac6995cf72e2e0caab][8c0eb5269e]] Rename to sp-header-and-modeline and sp-prot-modeline; add header line, tag emoji, theme faces, keycast (Claude, 2026-10-25 14:23)
+- [[https://github.com/siainbuletin/dotfiles/commit/4fafba7451504436fb00527a74443acc3c35f010][4fafba7451]] Keycast in the bottom mode line and the file name in a header line for both modelines (Claude, 2026-10-25 14:48)
+- [[https://github.com/siainbuletin/dotfiles/commit/f2a6dbd0324ec7e624705f305c66ed0683df7f04][f2a6dbd032]] Rename sp-header-and-modeline to sp-lambda-modeline (Claude, 2026-10-25 15:13)
+- [[https://github.com/siainbuletin/dotfiles/commit/856448b7bb83840d6c890c44a498333dc55847e0][856448b7bb]] Remove sp-choose-modeline and its doc; point to cfc047b (Claude, 2026-10-25 15:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/43190c64c22cf7571681449890d158e7a42dff3d][43190c64c2]] Merge branch 'main' into 99-modeline-fix-and-prot-adaptation (Sia Piperea, 2026-10-25 15:22)

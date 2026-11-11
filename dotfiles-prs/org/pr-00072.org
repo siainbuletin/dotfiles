@@ -1,0 +1,42 @@
+* PR #72: Gather the Vulpea modules into libraries/modules/vulpea/ with one doc
+:PROPERTIES:
+:PR_NUMBER: 72
+:URL: https://github.com/siainbuletin/dotfiles/pull/72
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/72][https://github.com/siainbuletin/dotfiles/pull/72]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 22:07
+- Merged :: 2026-10-23 22:45
+- Branch :: =72-vulpea-master-module= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/21724cdec60c443e451831be1ff72db4e19f198f][21724cdec6]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2YFH3nLwGkEpUY5fr2P61Pj][project thread]]/
+
+*Before:* the Vulpea modules were spread over =libraries/modules/text/= (=base=, =ui=, =para=, =schemas=, =ext=, =ext-back=, =split=) and =funct/= (=convert-properties=, =grouped-backlinks=, =org-ql=), each with its own doc. =sp-vulpea-ext= also required =sp-vulpea-table=.
+
+*After:*
+
+- The ten modules moved (=git mv=) into =libraries/modules/vulpea/=, code unchanged, each still its own =.el= with its own =provide=. There is no loader module (an earlier version of this PR had =sp-vulpea=; removed as asked): =sp-org-ext= requires =sp-vulpea-base=, =-ui=, =-para=, =-schemas= and =-ext= itself, as before, and =-ext= still requires =-convert-properties=, =-grouped-backlinks= and =-split=.
+- Their ten docs are now one, =docs/tangles/vulpea/sp-vulpea.org=, with a section per file (same approach as #71): each section sets its target with a =:header-args:emacs-lisp+: :tangle ...= property. The old =sp-vulpea-split-old.org= note moved beside it.
+- =sp-vulpea-table= is excluded, as asked: the require is gone from =sp-vulpea-ext= (code and doc) and =sp-org-ext= requires it after the Vulpea modules.
+- =docs/main.org= gets a =vulpea/= section (links go to sections of the combined doc); =load-order.org= and its SVG (re-rendered with Graphviz), =conditional-loading.org= and the =sp-org-ext= doc follow. =tests/sp-vulpea-para-test.el= points at the new path. CHANGELOG has a "Vulpea modules" set.
+
+*Choices:* =sp-vulpea-ext-back= (an empty slot) and =sp-vulpea-org-ql= (a draft that runs a query at load) are moved and documented but not required by anything, as before; tangling gives =ext-back= its skeleton instead of an empty file. =sp-vulpea-grouped-backlinks= requires =sp-vulpea-table-core= (for the note selector), so Vulpea still pulls in that one table file.
+
+*Checked* (Emacs, container): tangling =sp-vulpea.org= gives the ten files identical to the old ones (apart from the =sp-vulpea-ext= change and the =ext-back= skeleton), parens check, and the 5 =sp-vulpea-para= ERT tests pass from the new path. *Not checked:* a real start with Elpaca and the vault.
+
+*Conflicts to expect:* #63 (defcustom group) and #66 (moves =load-order.org=) touch these files; #58 and #71 edit =docs/main.org=, =load-order.org= and the CHANGELOG nearby.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01HJHZkEqLs53FsVfwoPzyev]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/2697c5cc504e8c4d8260a3233b89c68bdde300ce][2697c5cc50]] Gather the Vulpea modules under one catch-all module, sp-vulpea (Claude, 2026-10-23 22:07)
+- [[https://github.com/siainbuletin/dotfiles/commit/10012e774b42f0097c0f601cb623bdd0c3c9f08d][10012e774b]] Fix the table doc: sp-org-ext, not sp-vulpea-ext, requires the table modules (Claude, 2026-10-23 22:09)
+- [[https://github.com/siainbuletin/dotfiles/commit/8a3baec2488f7270f98a43a6fed4b082ab2cdb42][8a3baec248]] Drop the sp-vulpea loader: sp-org-ext requires the Vulpea modules itself (Claude, 2026-10-23 22:15)

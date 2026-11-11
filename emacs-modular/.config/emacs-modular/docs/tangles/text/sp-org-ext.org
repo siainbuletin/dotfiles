@@ -14,7 +14,7 @@ This module is the hub for Org extensions. Its first job is to load a group of o
 
 - appearance, capture, Babel, agenda, images,
 - the =org-node= memory workflow,
-- the Vulpea note database modules (base, UI, PARA, schemas and extensions, then my =sp-collection-query-tables= modules).
+- the Vulpea note database modules (base, UI, PARA, schemas and extensions, then my =sp-collection-query= modules).
 
 So loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
 
@@ -76,7 +76,7 @@ Requires the appearance, Babel, agenda and image modules.
 Loads the Vulpea stack:
 
 - the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions (all described in [[file:../vulpea/sp-vulpea.org][sp-vulpea.org]]),
-- then =sp-collection-query-tables=, which is a separate custom module and so is not part of that group.
+- then =sp-collection-query=, which is a separate custom module and so is not part of that group.
 
 Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
@@ -87,7 +87,7 @@ Because they are only reached through this file, disabling =sp-org-ext= also dis
 (require 'sp-vulpea-para)
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext)
-(require 'sp-collection-query-tables) ;; my own table modules
+(require 'sp-collection-query) ;; my own table modules
 #+end_src
 
 ** Personal org extensions

@@ -1,0 +1,45 @@
+* PR #58: Combine the four graph modules into sp-graphs
+:PROPERTIES:
+:PR_NUMBER: 58
+:URL: https://github.com/siainbuletin/dotfiles/pull/58
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/58][https://github.com/siainbuletin/dotfiles/pull/58]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 12:12
+- Merged :: 2026-10-23 22:53
+- Branch :: =58-merge-graph-modules= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/56b522fc66088916e945fffd334122cc7e639fde][56b522fc66]]
+- Labels :: simplifying, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2KUCM39dWJy6NCg5K1jzhBN][project thread]]/
+
+*Stacked on #37* (merge #37 first and GitHub retargets this to =main=). #46 is already merged and is in #37's branch. This replaces #57, which I closed because its branch carried the wrong number.
+
+*Before:* four modules for graphs of notes (=sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator=, =sp-relationship-annotator-live=), each with its own doc and its own entry in =lem--late-modules=, with nothing saying which of them are packages and which are my code.
+
+*After:* one module, =libraries/modules/custom/sp-graphs.el= (plus its page template =sp-graphs.html=), and one literate doc, =docs/tangles/custom/sp-graphs.org=.
+
+- The doc has a side-by-side table of the four, a list of how they differ, and two clearly separated parts: /Installed with use-package/ (=discourse-graphs= with all its =dg-= settings, and =vulpea-graph=, both Elpaca =:ensure= recipes) and /Custom code/ (the relationship annotator and the live view, documented as before).
+- Behaviour, command names, options and the =dg-= settings are unchanged. The =.el= is the four old files in the old order; only the headers, the =provide= and the live module's =(require 'sp-relationship-annotator)= are gone. The page template is byte-identical to the old one, only renamed.
+- =lem--late-modules= lists =sp-graphs= where the four were (nine late modules instead of twelve). =docs/main.org=, =docs/load-order.org= (text, graph source and the re-rendered =load-order-modules.svg=), =sp-config-profiles.el=, =conditional-loading.org= and the comparison doc follow. CHANGELOG has a new "Graph modules" set (#37's two entries moved into it, ahead of this one) and the repeated =Changed=/=Fixed= headings in "Open pull requests" are merged.
+- The annotator's line-by-line notes no longer give =.el= line numbers, since the tangled file is now a different one. The HTML notes keep theirs.
+
+*Checked* (Emacs 29.3, container): the doc tangles to =sp-graphs.el= and =sp-graphs.html=; every old code block appears in the new =.el= (compared with whitespace ignored); retangling gives identical files; byte-compile warnings are the same as for the old files; with =vulpea=, =vui= and =use-package= stubbed, the file loads, both =use-package= forms are seen, all eleven commands are defined and the page template and vendored scripts are found next to the file. *Not checked:* a real start with Elpaca and your notes, =discourse-graphs= or =vulpea-graph= running, the live server in this combined file (its code is unchanged, and #37's tests were not rerun). I did not read the =vulpea-graph= source, so the doc describes it only from its recipe, commands and dependencies.
+
+*Conflicts to expect:* #12, #36, #39 and #50 edit the module list or docs next to these lines, and #54 edits =docs/load-order.org= and the =init.el= comment; the fixes are one-liners (use =sp-graphs=). #39 (=sp-embr=) mentions =sp-relationship-annotator= in its text only. CHANGELOG.org will also conflict with the other open PRs that add entries.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01GEDRFiEotkaRtWpM8dVG3Y]]
+
+** Commits (5)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/c1e538c448850f8b184cd933ddb02d66f1a8fd69][c1e538c448]] Combine the four graph modules into sp-graphs (Claude, 2026-10-23 12:11)
+- [[https://github.com/siainbuletin/dotfiles/commit/8a898ccfd644e8e0089e31ce8031afb564d177e0][8a898ccfd6]] Use the PR number 58 in the CHANGELOG entry (Claude, 2026-10-23 12:12)
+- [[https://github.com/siainbuletin/dotfiles/commit/17ebc9fa656ddaaaa2a277fff09551e11bf7652d][17ebc9fa65]] Merge 37-relationship-live-view; keep sp-graphs in the load-order docs and graph (Claude, 2026-10-23 12:13)
+- [[https://github.com/siainbuletin/dotfiles/commit/489c0c3ed3fd3b739bf9d2e28e889e62cb6da32c][489c0c3ed3]] Merge main; redraw the load-order graph for the current module order (Claude, 2026-10-23 21:57)
+- [[https://github.com/siainbuletin/dotfiles/commit/5221e92f1cda12bc1fbf27f8e2d944dabb896fc6][5221e92f1c]] Merge branch 'main' into 58-merge-graph-modules (Sia Piperea, 2026-10-23 22:52)

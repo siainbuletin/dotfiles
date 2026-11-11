@@ -100,7 +100,7 @@
                  (sp-litnotes-refs--plans) (sp-litnotes-refs--bib-index (list bib)))))
       (should (string-match-p "through crossref: 1" text))
       (should (string-match-p "keys not in any registered .bib: 1" text))
-      (should (string-match-p "nowhere in =b.org=" text)))))
+      (should (string-match-p "nowhere in \\[\\[file:[^]]*b\\.org\\]\\[b\\.org\\]\\]" text)))))
 
 
 (ert-deftest sp-litnotes-refs-creates-ids-and-stubs ()
@@ -147,6 +147,28 @@
   (let ((stub (sp-litnotes-refs--stub '(:file "/x/n.org" :title "k-1" :tags ("book") :meta nil) "k-1")))
     (should (string-match-p "@book{k-1," stub))
     (should-not (string-match-p "title" stub))))
+
+(ert-deftest sp-litnotes-refs-report-drop-and-apply ()
+  "A dropped note leaves the plan list and is passed on as excluded."
+  (sp-litnotes-refs-test--with-vault
+    (with-temp-file bib (insert "@book{k1, title = {B}}\n"))
+    (let ((file (expand-file-name "a.org" dir)) seen)
+      (sp-litnotes-refs-test--write file
+        ":PROPERTIES:" ":ID:       abc" ":END:" "#+reference: k1")
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-refs--show-report (sp-litnotes-refs--plans)
+                                       (sp-litnotes-refs--bib-index (list bib))))
+      (with-current-buffer "*litnote refs*"
+        (goto-char (point-min))
+        (re-search-forward "^- \\[\\[file:[^]]*a\\.org")
+        (sp-batch-report-drop)
+        (should (equal sp-batch-report-excluded (list file)))
+        (should (string-match-p "Dropped from the list" (buffer-string)))
+        (cl-letf (((symbol-function 'sp-litnotes-refs-convert)
+                   (lambda (&optional excl) (setq seen excl))))
+          (sp-batch-report-apply))
+        (should (equal seen (list file)))
+        (kill-buffer)))))
 
 (provide 'sp-litnotes-refs-test)
 ;;; sp-litnotes-refs-test.el ends here

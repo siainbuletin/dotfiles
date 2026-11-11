@@ -163,14 +163,9 @@ when the workspace is created."
 
 (use-package projectile
   :ensure t
-  :init
-  (setq projectile-project-search-path
-        (list (sp-path sp-documents-dir "writing/")
-              "~/.config/"))
-
   :config
   (projectile-mode +1)
-
+  
   :bind (("C-c p" . projectile-command-map)
          :map projectile-mode-map
          ("C-c C-p" . projectile-command-map)
@@ -179,7 +174,8 @@ when the workspace is created."
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path (list sp-git-dir sp-src-dir))
+  (projectile-project-search-path
+   (list sp-git-dir sp-src-dir (cons sp-writing-projects 1)))
   (projectile-enable-caching t)
   ;; Known projects are kept; the visit counts and the project.el list can be
   ;; rebuilt.

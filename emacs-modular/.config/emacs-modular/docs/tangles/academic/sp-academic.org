@@ -158,6 +158,9 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
 (require 'sp-litdb)
+(require 'sp-cite-match)
+(require 'sp-reading)
+(require 'sp-see-also)
 #+end_src
 
 ** Helper libraries
@@ -566,6 +569,7 @@ The lint and its completion are described in the order of the code. Nothing here
 (require 'subr-x)
 (require 'bibtex)
 (require 'sp-async-work)
+(require 'sp-batch-report)
 
 (defvar sp-var-dir)
 (defvar sp-bibliography-dir)
@@ -598,6 +602,29 @@ The lint and its completion are described in the order of the code. Nothing here
   "Folder where a .bib file is copied before `sp-bibtex-lint-convert' writes it."
   :type 'directory
   :group 'sp-bibtex)
+
+(defcustom sp-bibtex-lint-batch-size 50
+  "Number of entries `sp-bibtex-lint-convert' shows at once, for you to apply or skip."
+  :type 'integer
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-files-flatten nil
+  "Non-nil: the attachment fix moves the files to the top of `sp-literature-dir'.
+The field then holds the bare file name.  Nil leaves the files where they are
+and writes their path relative to `sp-literature-dir'."
+  :type 'boolean
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-files-devonthink-tool nil
+  "The `devonthink-move.py' script that moves the files, or nil to rename them.
+Used when `sp-bibtex-files-flatten' is on.  The script moves the files with
+DEVONthink's own move, so records keep their UUID; files it does not index are
+renamed on disk."
+  :type '(choice (const :tag "Rename on disk" nil) file)
+  :group 'sp-bibtex)
+
+(defvar sp-bibtex-lint--library nil
+  "The index of `sp-literature-dir' while a lint job checks attachment paths.")
 
 (defcustom sp-bibtex-people-cache-seconds 600
   "Seconds the list of author notes is kept for name completion and the lint."
@@ -693,19 +720,46 @@ Author notes (=:person:= notes) are only /read/: =sp-bibtex-people= indexes thei
 (defvar sp-bibtex--people-cache nil
   "(TIME . INDEX) of the author notes, see `sp-bibtex-people'.")
 
-(defun sp-bibtex--make-people (titles)
-  "The index of the person TITLES: a plist of :names, :keys and :buckets."
+(defun sp-bibtex--note-aliases (file)
+  "The aliases in the head of the note FILE (its ROAM_ALIASES), as a list of strings."
+  (when (and file (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents file nil 0 4096)
+      (let ((case-fold-search t) aliases)
+        (while (re-search-forward "^\\(?:#\\+\\|[ \t]*:\\)ROAM_ALIASES:?[ \t]*\\(.*\\)$" nil t)
+          (setq aliases (append aliases (ignore-errors
+                                         (split-string-and-unquote (match-string-no-properties 1))))))
+        aliases))))
+
+(defun sp-bibtex--make-people (people)
+  "The index of PEOPLE: a plist of :names, :keys, :files, :surnames and :buckets.
+Each of PEOPLE is a title, or a plist with :title and :file from
+`sp-author-notes--file-head'.  The aliases of the note files count as known
+names, so a name that is an alias is not suggested to be a typo."
   (let ((keys (make-hash-table :test #'equal))
         (buckets (make-hash-table :test #'equal))
+        (files (make-hash-table :test #'equal))
+        (surnames (make-hash-table :test #'equal))
         names)
-    (dolist (title titles)
-      (let* ((canonical (sp-bibtex-canonical-name title))
+    (dolist (person people)
+      (let* ((title (if (stringp person) person (plist-get person :title)))
+             (canonical (sp-bibtex-canonical-name title))
              (key (sp-bibtex--name-key canonical)))
         (unless (gethash key keys)
           (puthash key canonical keys)
+          (push canonical (gethash (sp-bibtex--surname-key canonical) surnames))
+          (when-let* ((file (and (consp person) (plist-get person :file))))
+            (puthash key file files))
           (push canonical names)
           (push canonical (gethash (sp-bibtex--bucket key) buckets)))))
-    (list :names (sort names #'string<) :keys keys :buckets buckets
+    (dolist (person people)
+      (when-let* ((file (and (consp person) (plist-get person :file))))
+        (dolist (alias (sp-bibtex--note-aliases file))
+          (let ((key (sp-bibtex--name-key (sp-bibtex-canonical-name alias))))
+            (unless (gethash key keys)
+              (puthash key (sp-bibtex-canonical-name (plist-get person :title)) keys))))))
+    (list :names (sort names #'string<) :keys keys :files files :surnames surnames
+          :buckets buckets
           :memo (make-hash-table :test #'equal))))
 
 (defun sp-bibtex--bucket (key)
@@ -724,10 +778,77 @@ Author notes (=:person:= notes) are only /read/: =sp-bibtex-people= indexes thei
     (require 'sp-author-notes-bibtex)
     (setq sp-bibtex--people-cache
           (cons (float-time)
-                (sp-bibtex--make-people
-                 (mapcar (lambda (head) (plist-get head :title))
-                         (sp-author-notes-bibtex--people))))))
+                (sp-bibtex--make-people (sp-author-notes-bibtex--people)))))
   (cdr sp-bibtex--people-cache))
+
+;; The names that are not typos of an author note but share its surname.
+
+(defun sp-bibtex--fold (string)
+  "STRING without accents, when `sp-author-notes-fold-diacritics' is loaded."
+  (if (fboundp 'sp-author-notes-fold-diacritics)
+      (sp-author-notes-fold-diacritics string)
+    string))
+
+(defun sp-bibtex--name-parts (canonical)
+  "The last name and the given names of the CANONICAL name, as (LAST . GIVEN).
+GIVEN is nil for a name without a comma."
+  (let ((parts (mapcar #'string-trim (sp-bibtex--split-depth0 canonical ","))))
+    (cons (car parts) (cadr parts))))
+
+(defun sp-bibtex--surname-key (canonical)
+  "A lookup key for the last name of the CANONICAL name: no accents, braces or case."
+  (sp-bibtex--name-key (sp-bibtex--fold (car (sp-bibtex--name-parts canonical)))))
+
+(defun sp-bibtex--given-units (given)
+  "The given names GIVEN as a list of units (INITIAL . WORD).
+INITIAL is an upper case letter.  WORD is the lower case name for a name
+written out and nil for an initial: `TW' and `T. W.' give (\"T\") (\"W\"), and
+`Theodor W.' gives (\"T\" . \"theodor\") (\"W\").  A hyphen starts a new unit."
+  (let (units)
+    (dolist (token (split-string (replace-regexp-in-string "[{}.]" " " (sp-bibtex--fold (or given "")))
+                                 "[ \t]+" t))
+      (dolist (part (split-string token "-" t))
+        (cond
+         ((string-match-p "\\`[[:upper:]]\\{1,3\\}\\'" part)
+          (dolist (c (string-to-list part)) (push (list (char-to-string c)) units)))
+         ((= (length part) 1) (push (list (upcase part)) units))
+         (t (push (cons (upcase (substring part 0 1)) (downcase part)) units)))))
+    (nreverse units)))
+
+(defun sp-bibtex--initials-compatible-p (given note-given)
+  "Non-nil when the given names GIVEN fit the NOTE-GIVEN names of an author note.
+Each name, in order, has the initial of the other's name in that place, and two
+names written out are the same.  One side may stop early or go on: `T', `TW',
+`Theodor' and `Theodor W. X.' fit `Theodor W.'; `W', `Michael', `Theodor L.'
+and `Theodore' do not."
+  (let ((mine (sp-bibtex--given-units given))
+        (theirs (sp-bibtex--given-units note-given)))
+    (and mine theirs
+         (cl-every (lambda (m n)
+                     (and (equal (car m) (car n))
+                          (or (null (cdr m)) (null (cdr n)) (equal (cdr m) (cdr n)))))
+                   mine theirs))))
+
+(defun sp-bibtex--surname-match (canonical people)
+  "The author notes with the last name of CANONICAL and compatible given names.
+Return nil when CANONICAL is a name of a note already, has no given names, or
+no note matches; else the list of the matching note names (canonical).  When
+several notes match, those that have as many given names as CANONICAL are
+preferred: `TW Adorno' is `Theodor W. Adorno', not `Tamara Adorno'."
+  (let ((parts (sp-bibtex--name-parts canonical)))
+    (when (and (cdr parts)
+               (not (gethash (sp-bibtex--name-key canonical) (plist-get people :keys))))
+      (let* ((hits (seq-filter
+                    (lambda (note)
+                      (when-let* ((given (cdr (sp-bibtex--name-parts note))))
+                        (sp-bibtex--initials-compatible-p (cdr parts) given)))
+                    (gethash (sp-bibtex--surname-key canonical) (plist-get people :surnames))))
+             (wanted (length (sp-bibtex--given-units (cdr parts))))
+             (full (seq-filter (lambda (note)
+                                 (>= (length (sp-bibtex--given-units (cdr (sp-bibtex--name-parts note))))
+                                     wanted))
+                               hits)))
+        (if (and (cdr hits) full) full hits)))))
 
 (defun sp-bibtex--suggestion (canonical people)
   "The author note a name CANONICAL is probably a typo of, or nil.
@@ -746,6 +867,179 @@ that has a note, or none close to it, gets nil."
                    memo))))))
 #+end_src
 
+*** Name prefixes
+
+An old Zotero export wrote names with a prefix as =biblatex= key=value text, for example =family=Hayek given=Friedrich given=Friedrich, given=Friedrich A., prefix=von useprefix=false=. This part reads such names and moves misplaced prefixes (particles such as =von=, =van=, =de=). It is its own fix, =prefixes=; nothing else calls it.
+
+- What counts as a key=value name:
+  - it has one or more of the keys =family=, =given=, =prefix=, =suffix= and =useprefix=
+  - nothing but spaces comes before the first key
+  - the whole name may be wrapped in braces
+  - names are still split at =and=, so one field can hold several of them
+- How the parts are read, by =sp-bibtex--keyvalue-parts=:
+  - a value runs from its key to the next key
+  - commas, spaces and braces around a value are dropped
+  - empty values are dropped
+- How the parts become one name, by =sp-bibtex--keyvalue-name=:
+  - =family= is the last name, with =prefix= in front of it: =von Hayek=
+  - =suffix= goes in the middle, as BibTeX wants: =Last, Jr., First=
+  - =useprefix= is ignored; the prefix is always kept in the last name
+  - the result is =Last, First=, the form of the rest of the lint: =von Hayek, Friedrich A.=
+- Repeated =given= parts:
+  - equal ones are merged: five times =Friedrich= is one
+  - a shorter one that fits a longer one is dropped: =Friedrich= and =F.= fit =Friedrich A.=
+  - fitting is the one of the author notes (=sp-bibtex--initials-compatible-p=)
+  - the fullest one stays: most names, then most letters
+  - given names that do not fit (=Friedrich= and =Hans=) are never guessed: the name is reported and left as it is
+  - a name with no =family= or with two different ones is reported and left as it is
+- Misplaced prefixes, by =sp-bibtex--move-particles=, in names that already have a comma:
+  - =Hayek, Friedrich A. von= becomes =von Hayek, Friedrich A.=
+  - =Hayek von, Friedrich= becomes =von Hayek, Friedrich=
+  - =Hayek, Friedrich A., von= (the prefix as a part of its own) becomes =von Hayek, Friedrich A.=
+  - several particles move together and keep their order: =de la=
+  - a prefix that is already in front is not doubled
+  - only lower case words of =sp-bibtex-name-particles= move, and one given name always stays, so =Li, Bin= is not touched
+- Names with no comma and no key are left to the =authors= fix, which already moves the particles in front of the last name.
+
+#+begin_src emacs-lisp -i
+(defconst sp-bibtex--keyvalue-re
+  "\\(?:\\`\\|[ \t,]\\)\\(family\\|given\\|prefix\\|suffix\\|useprefix\\)="
+  "A key of the key=value name form (family=, given=, prefix=, suffix=, useprefix=).
+Group 1 is the key; the match starts at the space or comma before it.")
+
+(defun sp-bibtex--keyvalue-clean (value)
+  "The text of a key=value VALUE: no spaces, commas or outer braces around it."
+  (let ((clean (string-trim (replace-regexp-in-string "[ \t\n]+" " " value) "[ ,]+" "[ ,]+")))
+    (when-let* ((unwrapped (sp-bibtex--unwrap clean))
+                ((eq (cdr unwrapped) ?{)))
+      (setq clean (string-trim (car unwrapped))))
+    clean))
+
+(defun sp-bibtex--keyvalue-parts (name)
+  "The parts of NAME, when it is written as key=value text, as an alist (KEY . VALUE).
+The alist is in the order of the text.  Return nil when NAME is not written so."
+  (let* ((text (string-trim name))
+         (text (if (string-match-p "\\`{[ \t]*\\(?:family\\|given\\|prefix\\|suffix\\|useprefix\\)=" text)
+                   (or (car (sp-bibtex--unwrap text)) text)
+                 text))
+         (pos 0) hits parts)
+    (while (string-match sp-bibtex--keyvalue-re text pos)
+      (push (list (match-string 1 text) (match-beginning 0) (match-end 0)) hits)
+      (setq pos (match-end 0)))
+    (setq hits (nreverse hits))
+    (when (and hits (string-empty-p (string-trim (substring text 0 (nth 1 (car hits))))))
+      (while hits
+        (let* ((hit (pop hits))
+               (end (if hits (nth 1 (car hits)) (length text)))
+               (value (sp-bibtex--keyvalue-clean (substring text (nth 2 hit) end))))
+          (unless (string-empty-p value) (push (cons (car hit) value) parts))))
+      (nreverse parts))))
+
+(defun sp-bibtex--fullest-given (givens)
+  "The fullest of the GIVENS, a list of given names; nil when two do not fit each other.
+Equal ones count once.  `Friedrich' and `F.' fit `Friedrich A.', which is the
+fullest: the most names, then the most letters."
+  (let* ((all (delete-dups (copy-sequence givens)))
+         (best (car all)))
+    (dolist (given (cdr all))
+      (let ((n (length (sp-bibtex--given-units given)))
+            (m (length (sp-bibtex--given-units best))))
+        (when (or (> n m) (and (= n m) (> (length given) (length best))))
+          (setq best given))))
+    (and best
+         (seq-every-p (lambda (given) (sp-bibtex--initials-compatible-p given best)) all)
+         best)))
+
+(defun sp-bibtex--keyvalue-name (name)
+  "NAME, written as key=value text, as a plist: (:name \"Last, First\") or (:error TEXT).
+Return nil when NAME is not written as key=value text.  The prefix goes in front
+of the family name and `useprefix' is ignored."
+  (when-let* ((parts (sp-bibtex--keyvalue-parts name)))
+    (let* ((values (lambda (key)
+                     (delete-dups (mapcar #'cdr (seq-filter (lambda (p) (equal (car p) key)) parts)))))
+           (families (funcall values "family"))
+           (prefixes (funcall values "prefix"))
+           (suffixes (funcall values "suffix"))
+           (givens (funcall values "given"))
+           (given (sp-bibtex--fullest-given givens)))
+      (cond
+       ((null families) (list :error "no family= part, left as it is"))
+       ((cdr families) (list :error "several different family= parts, left as it is"))
+       ((and givens (null given)) (list :error "given= parts that do not fit each other, left as it is"))
+       (t
+        (let* ((family (car families))
+               (prefix (string-join prefixes " "))
+               (last (if (or (string-empty-p prefix)
+                             (string-prefix-p (concat prefix " ") family))
+                         family
+                       (concat prefix " " family))))
+          (list :name (string-join (delq nil (list last (and suffixes (string-join suffixes " "))
+                                                    given))
+                                   ", "))))))))
+
+(defun sp-bibtex--trailing-particles (words)
+  "Split WORDS into (REST . PARTICLES): the particles at its end, one word always left in REST."
+  (let ((rest (copy-sequence words)) particles)
+    (while (and (cdr rest) (member (car (last rest)) sp-bibtex-name-particles))
+      (push (car (last rest)) particles)
+      (setq rest (butlast rest)))
+    (cons rest particles)))
+
+(defun sp-bibtex--move-particles (name)
+  "NAME with the particles that stand after the last name moved in front of it.
+Only a NAME with a comma is changed: `Hayek, Friedrich A. von', `Hayek von,
+Friedrich' and `Hayek, Friedrich A., von' give `von Hayek, Friedrich A.'."
+  (let* ((parts (mapcar #'string-trim (sp-bibtex--split-depth0 name ",")))
+         (n (length parts)))
+    (if (not (memq n '(2 3)))
+        name
+      (let* ((last-split (sp-bibtex--trailing-particles
+                          (sp-bibtex--split-depth0 (car parts) "[ \t]+")))
+             (tail (car (last parts)))
+             (tail-words (sp-bibtex--split-depth0 tail "[ \t]+"))
+             (alone (and (= n 3) (seq-every-p (lambda (w) (member w sp-bibtex-name-particles))
+                                              tail-words)))
+             (given-split (if alone
+                              (cons nil tail-words)
+                            (sp-bibtex--trailing-particles tail-words)))
+             (moved (append (cdr given-split) (cdr last-split)))
+             (rest-last (car last-split)))
+        (if (null moved)
+            name
+          (let* ((front (if (equal (seq-take rest-last (length moved)) moved) nil moved))
+                 (new-last (string-join (append front rest-last) " "))
+                 (middle (and (= n 3) (list (nth 1 parts))))
+                 (given (and (not alone) (list (string-join (car given-split) " ")))))
+            (string-join (append (list new-last) middle given) ", ")))))))
+
+(defun sp-bibtex--lint-prefixes (fields)
+  "Check the prefixes of the author and editor names in FIELDS, an alist of name and raw value.
+Return (NEW-FIELDS PROBLEMS UNRESOLVED): FIELDS with key=value names rewritten
+and particles in front of the last name, the strings that say what changed, and
+the strings for the names that could not be read and are left as they are."
+  (let (new problems unresolved)
+    (dolist (field fields)
+      (let ((name (car field)) (value (cdr field)))
+        (when (member (downcase name) '("author" "editor"))
+          (when-let* ((unwrapped (sp-bibtex--unwrap value)))
+            (let* ((text (string-trim (replace-regexp-in-string "[ \t\n]+" " " (car unwrapped))))
+                   (fixed (mapconcat
+                           (lambda (n)
+                             (let ((kv (sp-bibtex--keyvalue-name n)))
+                               (cond ((plist-get kv :name))
+                                     ((plist-get kv :error)
+                                      (push (format "%s: %s: %s" name n (plist-get kv :error))
+                                            unresolved)
+                                      n)
+                                     (t (sp-bibtex--move-particles n)))))
+                           (sp-bibtex-split-names text) " and ")))
+              (unless (equal fixed text)
+                (push (format "%s: %s → %s" name text fixed) problems)
+                (setq value (format (if (eq (cdr unwrapped) ?\") "\"%s\"" "{%s}") fixed))))))
+        (push (cons name value) new)))
+    (list (nreverse new) (nreverse problems) (nreverse unresolved))))
+#+end_src
+
 *** Entries
 
 An entry is read with =bibtex-parse-entry= (raw values, in file order). Linting it gives the fields with canonical names in the order of =sp-bibtex-field-order= and a list of what differs. An entry that is rewritten is written as =@type{key,= with the fields aligned at the equal sign; its values keep their delimiters and text. An entry with a =%= comment line inside would lose it, so it is reported and never rewritten. The reading runs in slices of 100 entries through =sp-async-work=, like =sp-author-notes-bibtex=.
@@ -755,11 +1049,23 @@ An entry is read with =bibtex-parse-entry= (raw values, in file order). Linting 
   "The rank of the field NAME in `sp-bibtex-field-order'; unlisted fields come last."
   (or (seq-position sp-bibtex-field-order (downcase name)) (length sp-bibtex-field-order)))
 
-(defun sp-bibtex--lint-fields (fields people)
-  "Lint the FIELDS, an alist of name and raw value.
-Return (NEW-FIELDS . PROBLEMS): the fields with canonical names, in the
-configured order, and a list of strings that say what differs."
-  (let (problems new)
+(defun sp-bibtex--case-problem (case)
+  "The sentence for CASE, a list (FIELD NAME NOTE-NAME NOTE-FILE [KIND]).
+KIND is `surname' for a name with the surname of a note, else a typo of one."
+  (if (eq (nth 4 case) 'surname)
+      (format "%s: %s → %s (same surname)" (nth 0 case) (nth 1 case) (nth 2 case))
+    (format "%s: %s is not an author note; did you mean %s?"
+            (nth 0 case) (nth 1 case) (nth 2 case))))
+
+(defun sp-bibtex--lint-names (fields people)
+  "Check the author and editor names in FIELDS, an alist of name and raw value.
+Return (NEW-FIELDS PROBLEMS CASES AMBIGUOUS): FIELDS with canonical names, the
+strings that say what changed, for each name one typo away from an author note
+a list (FIELD NAME NOTE-NAME NOTE-FILE), and for each name with the surname of
+one note and compatible initials the same list with `surname' added.  AMBIGUOUS
+lists (FIELD NAME NOTE-NAMES) for names whose surname and initials fit several
+notes."
+  (let (problems cases ambiguous new)
     (dolist (field fields)
       (let ((name (car field)) (value (cdr field)))
         (when (member (downcase name) '("author" "editor"))
@@ -775,19 +1081,45 @@ configured order, and a list of strings that say what differs."
                               (format "{%s}" fixed))))
               (when people
                 (dolist (n (sp-bibtex-split-names fixed))
-                  (when-let* ((near (sp-bibtex--suggestion n people)))
-                    (push (format "%s: %s is not an author note; did you mean %s?" name n near)
-                          problems)))))))
+                  (if-let* ((near (sp-bibtex--suggestion n people)))
+                      (push (list name n near
+                                  (gethash (sp-bibtex--name-key near) (plist-get people :files)))
+                            cases)
+                    (let ((same (sp-bibtex--surname-match n people)))
+                      (cond
+                       ((null same))
+                       ((null (cdr same))
+                        (push (list name n (car same)
+                                    (gethash (sp-bibtex--name-key (car same)) (plist-get people :files))
+                                    'surname)
+                              cases))
+                       (t (push (list name n same) ambiguous))))))))))
         (push (cons name value) new)))
-    (setq new (nreverse new))
-    (let ((sorted (sort (copy-sequence new)
-                        (lambda (a b) (< (sp-bibtex--field-rank (car a))
-                                         (sp-bibtex--field-rank (car b)))))))
-      (unless (equal (mapcar #'car sorted) (mapcar #'car new))
-        (push (format "fields: %s → %s" (string-join (mapcar #'car new) " ")
-                      (string-join (mapcar #'car sorted) " "))
-              problems))
-      (cons sorted (nreverse problems)))))
+    (list (nreverse new) (nreverse problems) (nreverse cases) (nreverse ambiguous))))
+
+(defun sp-bibtex--sort-fields (fields)
+  "FIELDS in the order of `sp-bibtex-field-order'."
+  (sort (copy-sequence fields)
+        (lambda (a b) (< (sp-bibtex--field-rank (car a)) (sp-bibtex--field-rank (car b))))))
+
+(defun sp-bibtex--order-problem (fields sorted)
+  "The sentence that says FIELDS are not in the order of SORTED, or nil."
+  (unless (equal (mapcar #'car sorted) (mapcar #'car fields))
+    (format "fields: %s → %s" (string-join (mapcar #'car fields) " ")
+            (string-join (mapcar #'car sorted) " "))))
+
+(defun sp-bibtex--lint-fields (fields people)
+  "Lint the FIELDS, an alist of name and raw value.
+Return (NEW-FIELDS . PROBLEMS): the fields with canonical names, in the
+configured order, and a list of strings that say what differs."
+  (let* ((names (sp-bibtex--lint-names fields people))
+         (sorted (sp-bibtex--sort-fields (car names))))
+    (cons sorted
+          (append (nth 1 names)
+                  (mapcar #'sp-bibtex--case-problem (seq-remove (lambda (c) (eq (nth 4 c) 'surname))
+                                                                (nth 2 names)))
+                  (when-let* ((problem (sp-bibtex--order-problem (car names) sorted)))
+                    (list problem))))))
 
 (defun sp-bibtex--entry-text (type key fields)
   "The text of the entry TYPE, KEY and FIELDS (an alist of name and raw value)."
@@ -799,11 +1131,95 @@ configured order, and a list of strings that say what differs."
                        fields "\n")
             "\n}")))
 
-(defun sp-bibtex--lint-chunk (file limit people apply seen)
+(defvar sp-bibtex--fill-buffer nil
+  "Scratch `bibtex-mode' buffer in which `sp-bibtex--fill-text' lays entries out.")
+
+(defun sp-bibtex--fill-text (text)
+  "The entry TEXT laid out the way `bibtex-fill-entry' does it.
+That is the standard of `bibtex-mode': field names at `bibtex-field-indentation',
+text at `bibtex-text-indentation'.  TEXT itself when it cannot be filled."
+  (unless (buffer-live-p sp-bibtex--fill-buffer)
+    (setq sp-bibtex--fill-buffer (generate-new-buffer " *sp-bibtex-fill*"))
+    (with-current-buffer sp-bibtex--fill-buffer (delay-mode-hooks (bibtex-mode))))
+  (with-current-buffer sp-bibtex--fill-buffer
+    (erase-buffer)
+    (insert text)
+    (goto-char (point-min))
+    (condition-case nil
+        (progn (bibtex-fill-entry)
+               (buffer-substring-no-properties (point-min) (point-max)))
+      (error text))))
+
+(defun sp-bibtex--entry-rewrites (kinds type key fields people old start end)
+  "The rewrites of the entry TYPE, KEY and FIELDS that are of one of KINDS.
+OLD is the text of the entry, between START and END.  KINDS are `order',
+`indent', `authors' (names to `Last, First'), `prefixes' (key=value names and
+misplaced particles), `notes' (names one typo away from
+an author note), `surnames' (names with the surname of one author note and
+compatible initials), `ambiguous' (the same for several notes; reported only)
+and `files' (attachment paths, see `sp-bibtex-files--rewrite').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
+`notes'); PROBLEMS are the lines for the report."
+  (let* ((names (sp-bibtex--lint-names fields people))
+         (sorted (sp-bibtex--sort-fields fields))
+         (order (sp-bibtex--order-problem fields sorted))
+         (cases (seq-remove (lambda (c) (eq (nth 4 c) 'surname)) (nth 2 names)))
+         (same (seq-filter (lambda (c) (eq (nth 4 c) 'surname)) (nth 2 names)))
+         (near (mapcar #'sp-bibtex--case-problem cases))
+         (form (nth 1 names))
+         (prefix (and (memq 'prefixes kinds) (sp-bibtex--lint-prefixes fields)))
+         (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
+         (filed (and (memq 'files kinds) sp-bibtex-lint--library
+                     (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
+         (base (list :start start :end end :old old))
+         rewrites)
+    (when (and filled (not (equal filled old)))
+      (push (cons 'indent (append base (list :new filled :desc '("indentation differs from bibtex-mode"))))
+            rewrites))
+    (when (and order (memq 'order kinds))
+      (push (cons 'order (append base (list :desc (list order)
+                                            :new (sp-bibtex--fill-text
+                                                  (sp-bibtex--entry-text type key sorted)))))
+            rewrites))
+    (when (and form (memq 'authors kinds))
+      (push (cons 'authors (append base (list :desc form
+                                              :new (sp-bibtex--fill-text
+                                                    (sp-bibtex--entry-text type key (car names))))))
+            rewrites))
+    (when (nth 1 prefix)
+      (push (cons 'prefixes (append base (list :desc (nth 1 prefix)
+                                               :new (sp-bibtex--fill-text
+                                                     (sp-bibtex--entry-text type key (car prefix))))))
+            rewrites))
+    (when (and cases (memq 'notes kinds))
+      (push (cons 'notes (append base (list :desc near :cases cases))) rewrites))
+    (when (and same (memq 'surnames kinds))
+      (push (cons 'surnames (append base (list :desc (mapcar #'sp-bibtex--case-problem same)
+                                               :cases same)))
+            rewrites))
+    (when-let* ((changes (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'change)) (nth 1 filed))))
+                ((not (equal (car filed) old))))
+      (push (cons 'files (append base (list :new (car filed) :desc changes :moves (nth 2 filed))))
+            rewrites))
+    (when (and (nth 3 names) (memq 'ambiguous kinds))
+      (push (cons 'ambiguous
+                  (append base (list :desc (mapcar (lambda (a)
+                                                     (format "%s: %s could be %s" (nth 0 a) (nth 1 a)
+                                                             (string-join (nth 2 a) " or ")))
+                                                   (nth 3 names)))))
+            rewrites))
+    (cons (nreverse rewrites)
+          (append form (nth 1 prefix) (nth 2 prefix) near (and order (list order))
+                  (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'problem)) (nth 1 filed)))
+                  (and filled (not (equal filled old))
+                       (list "indentation differs from bibtex-mode"))))))
+
+(defun sp-bibtex--lint-chunk (file limit people seen kinds)
   "Lint the entries from point in the current buffer, at most LIMIT of them.
-Return (RESULTS . MORE).  RESULTS lists (FILE KEY POSITION PROBLEMS); MORE is
-non-nil when LIMIT was reached.  SEEN is a hash table of the keys met so far.
-With APPLY the entries that differ are replaced in the buffer."
+Return (RESULTS . MORE).  RESULTS lists (FILE KEY POSITION PROBLEMS REWRITES);
+MORE is non-nil when LIMIT was reached.  SEEN is a hash table of the keys met
+so far.  REWRITES is what `sp-bibtex--entry-rewrites' returns for KINDS: an
+alist, empty for an entry that is only reported.  The buffer is not changed."
   (let ((count 0) results)
     (while (and (< count limit)
                 (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t))
@@ -823,36 +1239,412 @@ With APPLY the entries that differ are replaced in the buffer."
                         results))
                 (goto-char (min (point-max) (1+ beg))))
             (let* ((fields (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))
-                   (linted (sp-bibtex--lint-fields fields people))
-                   (problems (cdr linted))
+                   (start (save-excursion (goto-char beg) (skip-chars-forward " \t") (point)))
                    (commented (save-excursion
                                 (goto-char beg)
-                                (re-search-forward "^[ \t]*%" end t))))
+                                (re-search-forward "^[ \t]*%" end t)))
+                   (analysis (sp-bibtex--entry-rewrites
+                              (unless commented kinds) type key fields people
+                              (buffer-substring-no-properties start end) start end))
+                   (problems (cdr analysis)))
               (when-let* ((first (gethash key seen)))
                 (push (format "duplicate key (also in %s)" (file-name-nondirectory first)) problems))
               (puthash key (or (gethash key seen) file) seen)
               (when commented
                 (setq problems (append problems '("has a comment inside, left as it is"))))
-              (when problems
-                (push (list file key beg problems) results))
-              (if (and apply (not commented)
-                       (not (equal fields (car linted)))
-                       (or (cl-some (lambda (p) (string-match-p "^\\(author\\|editor\\|fields\\):" p))
-                                    (cdr linted))))
-                  (let ((text (sp-bibtex--entry-text type key (car linted))))
-                    (goto-char beg)
-                    (delete-region beg end)
-                    (insert text))
-                (goto-char end)))))))
+              (when (or problems (car analysis))
+                (push (list file key beg problems (car analysis)) results))
+              (goto-char end))))))
     (cons (nreverse results) (>= count limit))))
+#+end_src
+
+*** Attachment paths
+
+A further fix of the lint, separate from the others: =M-x sp-bibtex-lint-fix-files=. It has a button in the report and an entry in =M-x sp-bibtex-lint-convert=. It never touches names or field order.
+
+- What it does to each entry:
+  - turns the BibDesk =bdsk-file-N= fields (a base64 bookmark) into one =file = {...}= field; several files are joined with =;=
+  - merges into an existing plain =file= field when there is one
+  - makes paths like =~/Documents/literature/x.pdf= relative to =sp-literature-dir= (typos such as =Docuemnts= are accepted)
+  - finds the file of a relative path elsewhere in the library, by name, when it is not at the path written
+  - leaves Zotero-style =label:path:type= parts alone
+- How a =bdsk-file-N= is resolved:
+  - the bookmark holds the old relative path; only its file name is used
+  - the name is looked up anywhere below =sp-literature-dir= (case and accents ignored) and must match exactly one file
+  - otherwise the PDF whose name, without BibDesk's trailing digit, equals the citekey (letters and digits only) is used, if it is the only one
+  - an entry that cannot be resolved keeps its =bdsk-file-N= fields and is listed as a problem in the report
+- Where it shows:
+  - the report has a section "Attachment paths" with each change, and the button runs the fix
+  - the fix works like =sp-bibtex-lint-fix-order=: whole file, one question, a backup, nothing else changed in the entry
+- =sp-bibtex-files-flatten= (default nil):
+  - nil: the files stay where they are, and the path is written relative to the library (=inbox/mac-bibdesk/x.pdf=)
+  - non-nil: the files are moved to the top of the library and the bare name is written; a file never overwrites another, and the moves are added to a =.tsv= next to the backups
+  - off by default, because DEVONthink sees a file moved outside it as a new record
+- =sp-bibtex-files-devonthink-tool= (default nil): with =sp-bibtex-files-flatten= on, the path of =tools/devonthink-move.py= ([[file:devonthink-move.org][doc]]); the files are then moved through DEVONthink, so the records keep their UUID, and a stop of the tool (the file did not move as asked) cancels the write of the =.bib= file
+
+#+begin_src emacs-lisp -i
+;;;; Attachment paths
+
+(require 'ucs-normalize)
+(defvar sp-literature-dir)
+
+(defconst sp-bibtex-files--absolute-re
+  "\\`\\(?:~\\|/Users/[^/]+\\)/Doc[[:alpha:]]*/\\.?literature/\\(.+\\)\\'"
+  "An absolute path into the literature folder; accepts typos of `Documents'.")
+
+(defconst sp-bibtex-files--bdsk-field-re
+  "^\\([ \t]*\\)bdsk-file-\\([0-9]+\\)\\([ \t]*\\)=[ \t\n\r]*{\\([^}]*\\)}\\([ \t]*,?\\)"
+  "A bdsk-file-N field: indent, N, space before =, base64 value, trailing comma.")
+
+(defconst sp-bibtex-files--file-field-re
+  "^\\([ \t]*\\)file\\([ \t]*\\)=\\([ \t]*\\){\\([^{}]*\\)}\\([ \t]*,?\\)"
+  "A plain file field: indent, space, space, value, trailing comma.")
+
+(defvar sp-bibtex-files--pending nil
+  "The moves (FROM . TO) the entry being rewritten needs.")
+
+(cl-defstruct (sp-bibtex-files--ctx (:constructor sp-bibtex-files--ctx-create))
+  "The library to resolve in: its DIR, file NAMES, STEMS and the planned MOVES."
+  dir names stems flatten
+  (moves (make-hash-table :test #'equal))
+  (dests (make-hash-table :test #'equal)))
+
+(defun sp-bibtex-files--norm (string)
+  "STRING in lower case with only letters and digits of a to z left."
+  (replace-regexp-in-string "[^a-z0-9]" "" (downcase (ucs-normalize-NFC-string string))))
+
+(defun sp-bibtex-files--stem-key (name)
+  "Key of the file NAME: without extension and BibDesk's trailing digits."
+  (sp-bibtex-files--norm
+   (replace-regexp-in-string "[0-9]+\\'" "" (file-name-sans-extension name))))
+
+(defun sp-bibtex-files-index (dir flatten)
+  "Index the files below DIR (not the hidden ones) for `sp-bibtex-files-report'."
+  (let ((ctx (sp-bibtex-files--ctx-create
+              :dir dir :flatten flatten
+              :names (make-hash-table :test #'equal)
+              :stems (make-hash-table :test #'equal))))
+    (dolist (file (directory-files-recursively
+                   dir "" nil
+                   (lambda (d) (not (string-prefix-p "." (file-name-nondirectory d))))))
+      (let ((base (file-name-nondirectory file)))
+        (unless (string-prefix-p "." base)
+          (let ((rel (file-relative-name file dir)))
+            (push rel (gethash (downcase (ucs-normalize-NFC-string base))
+                               (sp-bibtex-files--ctx-names ctx)))
+            (when (string-suffix-p ".pdf" (downcase base))
+              (push rel (gethash (sp-bibtex-files--stem-key base)
+                                 (sp-bibtex-files--ctx-stems ctx))))))))
+    ctx))
+
+(defun sp-bibtex-files--bdsk-path (value)
+  "The relative path stored in VALUE, the base64 text of a bdsk-file field.
+Nil when VALUE is not a BibDesk bookmark."
+  (ignore-errors
+    (let* ((text (replace-regexp-in-string "[^A-Za-z0-9+/=]" "" value))
+           (raw (base64-decode-string
+                 (concat text (make-string (mod (- (length text)) 4) ?=)) nil t))
+           (pos (string-match "Xbookmark" raw)))
+      (when (and pos (string-prefix-p "bplist00" raw))
+        (let* ((p (+ pos 9))
+               (marker (aref raw p))
+               (kind (ash marker -4))
+               (low (logand marker 15))
+               (len low) (start (1+ p)))
+          (when (= low 15)
+            (pcase (aref raw (1+ p))
+              (#x10 (setq len (aref raw (+ p 2)) start (+ p 3)))
+              (#x11 (setq len (+ (ash (aref raw (+ p 2)) 8) (aref raw (+ p 3)))
+                          start (+ p 4)))))
+          (pcase kind
+            (5 (decode-coding-string (substring raw start (+ start len)) 'utf-8))
+            (6 (decode-coding-string (substring raw start (+ start (* 2 len))) 'utf-16be))))))))
+
+(defun sp-bibtex-files--lookup (name ctx)
+  "The library paths of the files called like the last part of NAME."
+  (gethash (downcase (ucs-normalize-NFC-string (file-name-nondirectory name)))
+           (sp-bibtex-files--ctx-names ctx)))
+
+(defun sp-bibtex-files--target-1 (rel ctx)
+  "The path for REL as `sp-bibtex-files--target' says, without recording the move."
+  (let ((base (file-name-nondirectory rel))
+        (dir (sp-bibtex-files--ctx-dir ctx))
+        (moves (sp-bibtex-files--ctx-moves ctx))
+        (dests (sp-bibtex-files--ctx-dests ctx)))
+    (cond ((or (not (sp-bibtex-files--ctx-flatten ctx)) (not (string-match-p "/" rel))) rel)
+          ((gethash rel moves))
+          ((or (file-exists-p (expand-file-name base dir)) (gethash base dests)) rel)
+          (t (puthash base t dests) (puthash rel base moves)))))
+
+(defun sp-bibtex-files--target (rel ctx)
+  "The path to write for the library path REL; with `flatten' it plans the move."
+  (let ((target (sp-bibtex-files--target-1 rel ctx))
+        (dir (sp-bibtex-files--ctx-dir ctx)))
+    (unless (equal target rel)
+      (push (cons (expand-file-name rel dir) (expand-file-name target dir))
+            sp-bibtex-files--pending))
+    target))
+
+(defun sp-bibtex-files--resolve (value key ctx)
+  "Resolve the bdsk-file VALUE of entry KEY; return (PATH . nil) or (nil . PROBLEM)."
+  (if-let* ((old (sp-bibtex-files--bdsk-path value)))
+      (let ((found (or (sp-bibtex-files--lookup old ctx)
+                       (gethash (sp-bibtex-files--norm key) (sp-bibtex-files--ctx-stems ctx)))))
+        (cond ((null found) (cons nil (format "not found: %s" old)))
+              ((cdr found) (cons nil (format "ambiguous: %s" (string-join found ", "))))
+              (t (cons (car found) nil))))
+    (cons nil "not a BibDesk bookmark")))
+
+(defun sp-bibtex-files--relativise (value ctx)
+  "Make the absolute literature paths in the file field VALUE relative.
+Return (NEW-VALUE NOTES)."
+  (let (notes)
+    (cons (mapconcat
+           (lambda (part)
+             (let ((trimmed (string-trim part)))
+               (if (and (string-match sp-bibtex-files--absolute-re trimmed)
+                        (not (string-search ":" (match-string 1 trimmed))))
+                   (let* ((rel (match-string 1 trimmed))
+                          (new (if (file-exists-p (expand-file-name rel (sp-bibtex-files--ctx-dir ctx)))
+                                   rel
+                                 (let ((found (sp-bibtex-files--lookup rel ctx)))
+                                   (if (and found (null (cdr found)))
+                                       (sp-bibtex-files--target (car found) ctx)
+                                     (push (cons 'problem (format "file not found: %s" rel)) notes)
+                                     rel)))))
+                     (push (cons 'change (format "file: %s → %s" trimmed new)) notes)
+                     new)
+                 part)))
+           (split-string value ";") ";")
+          (list (nreverse notes)))))
+
+(defun sp-bibtex-files--rewrite (text key ctx)
+  "Rewrite the attachment fields of the entry TEXT (entry KEY).
+Return (NEW-TEXT NOTES MOVES), NOTES a list of (KIND . MESSAGE) with KIND
+`change' or `problem' and MOVES the files to move, (FROM . TO).  Entries with
+unresolved bdsk-file fields keep them."
+  (let ((new text) (notes nil) (fields nil) (start 0) (sp-bibtex-files--pending nil))
+    (save-match-data
+      (while (string-match sp-bibtex-files--bdsk-field-re text start)
+        (push (list (match-beginning 0) (match-end 0) (match-string 1 text)
+                    (match-string 2 text) (match-string 3 text) (match-string 4 text)
+                    (match-string 5 text))
+              fields)
+        (setq start (match-end 0)))
+      (setq fields (nreverse fields))
+      (when fields
+        (let* ((sorted (sort (copy-sequence fields)
+                             (lambda (a b) (< (string-to-number (nth 3 a))
+                                              (string-to-number (nth 3 b))))))
+               (existing (string-match sp-bibtex-files--file-field-re text))
+               paths problems)
+          (dolist (f sorted)
+            (let ((r (sp-bibtex-files--resolve (nth 5 f) key ctx)))
+              (if (car r)
+                  (push (car r) paths)
+                (push (format "bdsk-file-%s: %s" (nth 3 f) (cdr r)) problems))))
+          (setq paths (nreverse paths))
+          (when (and (null problems) (cl-some (lambda (p) (string-match-p "[;{}]\\|\\`[ \t]\\|[ \t]\\'" (file-name-nondirectory p))) paths))
+            (push "a file name has ; { } or edge spaces" problems))
+          (when (and (null problems) (not existing)
+                     (string-match-p "^[ \t]*file[ \t]*=" text))
+            (push "existing file field is not a plain {...}" problems))
+          (if problems
+              (dolist (p (nreverse problems)) (push (cons 'problem p) notes))
+            (let* ((targets (mapcar (lambda (p) (sp-bibtex-files--target p ctx)) paths))
+                   (value (string-join targets ";"))
+                   (last-field (car (last fields))))
+              (dolist (f (reverse fields))
+                (let ((st (nth 0 f)) (en (nth 1 f)))
+                  (if (and (eq f last-field) (not existing))
+                      (setq new (concat (substring new 0 st)
+                                        (nth 2 f) "file"
+                                        (make-string (max 1 (+ 6 (length (nth 3 f)) (length (nth 4 f)))) ?\s)
+                                        "= {" value "}" (nth 6 f)
+                                        (substring new en)))
+                    (cond ((string-prefix-p "\r\n" (substring new en)) (setq en (+ en 2)))
+                          ((string-prefix-p "\n" (substring new en)) (setq en (1+ en))))
+                    (setq new (concat (substring new 0 st) (substring new en))))))
+              (when existing
+                (when (string-match sp-bibtex-files--file-field-re new)
+                  (setq new (concat (substring new 0 (match-end 4)) ";" value
+                                    (substring new (match-end 4))))))
+              (push (cons 'change (format "%s → file = {%s}"
+                                          (mapconcat (lambda (f) (concat "bdsk-file-" (nth 3 f))) sorted ", ")
+                                          value))
+                    notes)))))
+      (when (string-match sp-bibtex-files--file-field-re new)
+        (let* ((b (match-beginning 4)) (e (match-end 4))
+               (r (sp-bibtex-files--relativise (match-string 4 new) ctx)))
+          (setq new (concat (substring new 0 b) (car r) (substring new e)))
+          (setq notes (append (reverse (cadr r)) notes)))))
+    (list new (nreverse notes) (reverse sp-bibtex-files--pending))))
+
+(defun sp-bibtex-files--library ()
+  "Index `sp-literature-dir' for the attachment fix; nil when it is not a folder."
+  (when (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
+             (file-directory-p sp-literature-dir))
+    (sp-bibtex-files-index sp-literature-dir sp-bibtex-files-flatten)))
+
+(defun sp-bibtex-files--log (moves)
+  "Add the MOVES, (FROM . TO) pairs, to the .tsv of the day in the backup folder."
+  (make-directory sp-bibtex-lint-backup-directory t)
+  (write-region (mapconcat (lambda (m) (format "%s\t%s\n" (car m) (cdr m))) moves "")
+                nil
+                (expand-file-name (format-time-string "files-moves-%Y%m%d.tsv")
+                                  sp-bibtex-lint-backup-directory)
+                'append 'silent))
+
+(defun sp-bibtex-files--call-tool (args)
+  "Run `sp-bibtex-files-devonthink-tool' with ARGS; return (STATUS . OUTPUT)."
+  (with-temp-buffer
+    (let ((status (apply #'call-process "python3" nil t nil
+                         (expand-file-name sp-bibtex-files-devonthink-tool) args)))
+      (cons status (string-trim (buffer-string))))))
+
+(defun sp-bibtex-files--confirm-flatten ()
+  "Ask whether to go on, since the attached files are moved."
+  (yes-or-no-p (format "`sp-bibtex-files-flatten' is on: the files are moved to the top of the library%s.  Go on? "
+                       (if sp-bibtex-files-devonthink-tool " through DEVONthink" ""))))
+
+(defun sp-bibtex-files--move-in-devonthink (moves)
+  "Move MOVES, (FROM . TO) pairs, with `sp-bibtex-files-devonthink-tool'.
+A `user-error' with what the tool said when it stops."
+  (let ((list (make-temp-file "sp-bibtex-moves" nil ".tsv")))
+    (unwind-protect
+        (progn
+          (write-region (mapconcat (lambda (m) (format "%s\t%s\n" (car m) (cdr m))) moves "")
+                        nil list nil 'silent)
+          (let ((done (sp-bibtex-files--call-tool
+                       (list "move" "--apply" "--plain-rename" "--moves" list))))
+            (message "devonthink-move: %s" (cdr done))
+            (unless (eq (car done) 0)
+              (user-error "devonthink-move stopped: %s" (cdr done)))))
+      (delete-file list))))
+
+(defun sp-bibtex-files--move (moves)
+  "Move the files of MOVES, a list of (FROM . TO) absolute paths; never over a file.
+With `sp-bibtex-files-devonthink-tool' DEVONthink moves them; otherwise they are
+renamed.  Each move is added to a .tsv, one a day, in
+`sp-bibtex-lint-backup-directory'."
+  (when-let* ((todo (seq-filter (lambda (m) (and (file-exists-p (car m))
+                                                 (not (file-exists-p (cdr m)))))
+                                (delete-dups (copy-sequence moves)))))
+    (if sp-bibtex-files-devonthink-tool
+        (sp-bibtex-files--move-in-devonthink todo)
+      (dolist (m todo) (rename-file (car m) (cdr m))))
+    (sp-bibtex-files--log todo)))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-files (file)
+  "Turn the BibDesk bdsk-file fields of the .bib FILE into file fields.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Absolute paths
+into `sp-literature-dir' become relative to it.  All entries are fixed at
+once, after one question and a backup.  With `sp-bibtex-files-flatten' the
+files are moved to the top of the library."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (unless (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
+               (file-directory-p sp-literature-dir))
+    (user-error "`sp-literature-dir' is not a folder"))
+  (when (or (not sp-bibtex-files-flatten)
+            (sp-bibtex-files--confirm-flatten))
+    (sp-bibtex-lint--fix file 'files)))
 #+end_src
 
 *** Report and apply
 
-=M-x sp-bibtex-lint-dryrun= (=C-c w b l=) lists the entries to fix, without changing a file. =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks once, copies each file to =sp-bibtex-lint-backup-directory= and rewrites names and field order. Duplicate keys and names near an author note are only reported.
+The lint works on one =.bib= file at a time, and it is read-only. The fixes are five separate commands, each with a button in the report.
+
+- Which file:
+  - the file of the current buffer, when it is a =.bib= file
+  - otherwise, or with a prefix argument, one read with completion from =sp-bibtex-files=
+- =M-x sp-bibtex-lint-dryrun= (=C-c w b l=):
+  - lists the entries to fix in the shared report buffer (=sp-batch-report=)
+  - each entry is a link to its line: =RET= visits it, =n= and =p= move, =g= refreshes
+  - the top of the report has one button for each fix, with the number of entries it would change
+  - never changes a file
+- The buttons are links of a =sp-bibtex-lint:KIND:FILE= type, so =RET= on one runs the fix; no confirmation question comes before the batches.
+- The fixes (attachment paths has its own section):
+  - =M-x sp-bibtex-lint-fix-order=:
+    - whole file at once
+    - puts the fields in the order of =sp-bibtex-field-order=
+    - changes nothing else in the entry's values
+  - =M-x sp-bibtex-lint-fix-indent=:
+    - whole file at once
+    - lays out every entry the way =bibtex-mode= does it (=bibtex-fill-entry=)
+    - so field names sit at =bibtex-field-indentation= and text at =bibtex-text-indentation=, with the settings of the running Emacs
+    - changes only whitespace
+  - =M-x sp-bibtex-lint-fix-prefixes=, see [[*Name prefixes]]:
+    - key=value names from an old Zotero export (=family=Hayek given=Friedrich ..., prefix=von useprefix=false=) become =von Hayek, Friedrich A.=
+    - prefixes after the last name (=Hayek, Friedrich A. von=) move in front of it
+    - names it cannot read are listed in the report with the reason and left as they are
+    - goes in batches, with =a=, =g=, =s=, =d=, =u= and =q=, like the author names
+    - the report has a button for it, and =M-x sp-bibtex-lint-dryrun= lists the entries
+  - =M-x sp-bibtex-lint-fix-authors=, in four steps, one after the other:
+    - step 0: the name prefixes fix above runs first, with its own batches, so key=value names and misplaced prefixes are fixed before the names are checked
+    - step 1: names that are not =Last, First= are rewritten
+    - step 2: names one typo away from an author note
+    - step 3: names with the surname of an author note, see below
+    - for each batch of step 2 and 3 you choose =n=, =l=, =e=, =s= or =q=
+      - =n= normalises the name in the BibTeX field to the name of the note
+      - =l= adds the name, as =Last, First=, as an alias of the note (a vulpea alias, in =ROAM_ALIASES=), and the =.bib= file is not changed
+      - =e= asks =n=, =l=, =s= or =q= for each name, and =q= there drops the batch
+      - the aliases of the notes count as known names, so an alias is not suggested again
+- Names with the surname of an author note (step 3):
+  - a kind of match of its own, so it does not bury the typos: the report lists them in a section of their own, with their own count, and the main list holds only the other problems
+  - the name must not be a name of a note already, nor a typo of one (the typo wins)
+  - the surname must be the same (accents, case and dots ignored)
+  - the given names must fit those of the note, name by name:
+    - an initial fits a name that starts with it, so =TW=, =T. W.= and =Theodor= fit =Theodor W.=
+    - two names written out must be the same
+    - extra names on either side are ignored: =Theodor W. X.= fits =Theodor W.=
+    - a different name or initial does not fit: =Michael Smith= is not =John Smith=, and =W Adorno= or =Theodor L. Adorno= are not =Theodor W. Adorno=
+  - several notes with that surname and compatible names:
+    - those with as many given names as the BibTeX name are preferred, so =TW Adorno= is =Theodor W. Adorno=, not =Tamara Adorno=
+    - if more than one is left (=T Adorno=), the name is ambiguous
+    - an ambiguous name is listed in its own section of the report (with the candidates) and is never changed or aliased
+- =M-x sp-bibtex-lint-fix-files= is a further fix, described under "Attachment paths" above; =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks which of the five to run.
+- Dropping entries for later (author fixes only), the mechanism of the other lint reports (=sp-batch-report=):
+  - in the report: =d= drops the entry at point, =u= on a dropped one brings it back, =A= runs the author fixes with what is left
+  - the dropped entries move to a section "Dropped from the list" at the end of the report, with their count
+  - in an author batch question: =d= asks (comma separated, with completion) which entries of the batch to drop, =u= which dropped ones to bring back; the batch is shown again each time
+  - a dropped entry is left out of all three author steps and of the name prefixes fix, in this run and in later ones
+  - a brought-back entry is part of the next run, not of the batch on screen
+  - =M-x sp-bibtex-lint-restore-dropped= brings entries back without the report
+  - where it lives: the list =sp-bibtex-lint--excluded= holds the keys =FILE::ENTRY-KEY=
+    - it lasts for the Emacs session, like the dropped entries of the other lint reports, and is not saved to disk
+    - the =.bib= file and the notes are never changed by a drop
+  - field order and indentation ignore drops: they are fixed for every entry
+  - the report's counts for those two buttons include the dropped entries; the author count and the lists do not
+- Field order and indentation are applied to the whole file at once:
+  - one yes-or-no question gives the number of entries, then everything is fixed
+  - no batches and no apply/skip per batch
+  - the file is copied to =sp-bibtex-lint-backup-directory= before it is written
+- Name prefixes and author names go in batches:
+  - batch size is =sp-bibtex-lint-batch-size= (default 50)
+  - in the name prefixes and in step 1 of the author names: =a= applies a batch, =g= applies it and every later batch without asking again, =s= skips it, =d= and =u= drop and bring back entries, =q= quits; the next batch is shown only after the answer
+  - a dropped entry stays out of a global run
+  - in steps 2 and 3 the choices are the ones above
+  - the file is copied before the first write, then written again after each applied batch
+- For all of them:
+  - nothing is written without an answer
+  - if the file changed on disk since the lint, nothing more is written and you are asked to run the command again
+  - an entry whose text is no longer the one that was linted is left alone and counted
+  - the open buffer of the file must be saved first, and is reverted after a write
+- Duplicate keys and entries with a comment inside are reported only; a rewritten entry is laid out like =bibtex-fill-entry= does it.
 
 #+begin_src emacs-lisp -i
 (defconst sp-bibtex-lint--buffer "*BibTeX lint*")
+(defconst sp-bibtex-lint--batch-buffer "*BibTeX lint batch*")
+
+(defconst sp-bibtex-lint--kinds
+  '((order . "field order") (indent . "indentation") (authors . "author names")
+    (prefixes . "name prefixes")
+    (notes . "names near an author note") (surnames . "names with the surname of an author note")
+    (ambiguous . "names that fit several author notes")
+    (files . "attachment paths"))
+  "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
   "The .bib files to lint; a `user-error' says what is wrong when there are none."
@@ -861,40 +1653,54 @@ With APPLY the entries that differ are replaced in the buffer."
     (or files
         (user-error "No readable BibTeX files in `sp-bibtex-files'; run `sp-bibtex-register'"))))
 
-(defun sp-bibtex-lint--job (name files apply done)
-  "Run the lint job NAME over FILES; with APPLY write the changes.
-DONE gets the list of (FILE KEY POSITION PROBLEMS)."
+(defun sp-bibtex-lint--read-file (&optional ask)
+  "The one .bib file to lint.
+It is the file of the current buffer when that is a .bib file, unless ASK is
+non-nil; otherwise it is read with completion over `sp-bibtex-files', with the
+current .bib file as the default."
+  (let* ((current (and buffer-file-name
+                       (string-match-p "\\.bib\\'" buffer-file-name)
+                       buffer-file-name))
+         (file (if (and current (not ask))
+                   current
+                 (completing-read "BibTeX file: " (sp-bibtex-lint--files)
+                                  nil nil nil nil current))))
+    (setq file (expand-file-name file))
+    (unless (file-readable-p file)
+      (user-error "Cannot read %s" file))
+    file))
+
+(defun sp-bibtex-lint--job (name files kinds done)
+  "Run the lint job NAME over FILES for the fixes KINDS, without changing them.
+DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
   (let ((people (condition-case nil (sp-bibtex-people) (error nil)))
         (seen (make-hash-table :test #'equal))
-        (stamp (format-time-string "%Y%m%dT%H%M%S"))
         all)
+    (setq sp-bibtex-lint--library
+          (and (memq 'files kinds) (sp-bibtex-files--library)))
     (sp-async-work-run
      name
-     (list (list (if apply "rewriting BibTeX" "reading BibTeX") (lambda () files)
+     (list (list "reading BibTeX" (lambda () files)
                  (lambda (item job)
                    (let* ((file (if (consp item) (car item) item))
                           (buffer (if (consp item)
                                       (cdr item)
                                     (let ((b (generate-new-buffer " *sp-bibtex-lint*")))
                                       (sp-async-work-on-cleanup job (lambda () (when (buffer-live-p b) (kill-buffer b))))
-                                      (when apply (sp-bibtex-lint--backup file stamp))
                                       (with-current-buffer b
                                         (insert-file-contents file)
                                         (delay-mode-hooks (bibtex-mode))
                                         (goto-char (point-min)))
                                       b))))
                      (with-current-buffer buffer
-                       (let ((result (sp-bibtex--lint-chunk file 100 people apply seen)))
+                       (let ((result (sp-bibtex--lint-chunk file 100 people seen kinds)))
                          (setq all (append all (car result)))
                          (if (cdr result)
                              (sp-async-work-push job (cons file buffer))
-                           (when (and apply (buffer-modified-p))
-                             (write-region (point-min) (point-max) file nil 'silent)
-                             (when-let* ((visiting (find-buffer-visiting file)))
-                               (unless (buffer-modified-p visiting)
-                                 (with-current-buffer visiting (revert-buffer t t t)))))
                            (kill-buffer buffer))))))))
-     :done (lambda (_job) (funcall done all)))))
+     :done (lambda (_job)
+             (setq sp-bibtex-lint--library nil)
+             (funcall done all)))))
 
 (defun sp-bibtex-lint--backup (file stamp)
   "Copy FILE to the STAMP sub-folder of `sp-bibtex-lint-backup-directory'."
@@ -902,70 +1708,609 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS)."
     (make-directory dir t)
     (copy-file file (expand-file-name (file-name-nondirectory file) dir) t)))
 
-(defvar sp-bibtex-lint-report-mode-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map special-mode-map)
-    (define-key map (kbd "RET") #'sp-bibtex-lint-visit)
-    (define-key map (kbd "g") #'sp-bibtex-lint-dryrun)
-    map)
-  "Keymap of `sp-bibtex-lint-report-mode'.")
+(defun sp-bibtex-lint--entry-text (result link &optional lines)
+  "The Org text for the lint RESULT: a heading and its problems, or LINES.
+LINK is the Org link to the entry, or nil."
+  (concat "* " (or link (nth 1 result)) "\n"
+          (mapconcat (lambda (p) (concat "- " p "\n")) (or lines (nth 3 result)) "")))
 
-(define-derived-mode sp-bibtex-lint-report-mode special-mode "BibTeX lint"
-  "Report of `sp-bibtex-lint-dryrun'.
-\\{sp-bibtex-lint-report-mode-map}")
+(defun sp-bibtex-lint--lines (file positions)
+  "The line numbers of the buffer POSITIONS of FILE, in the order of POSITIONS.
+Each position is the start of a line."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let ((last 1) (line 1) (table (make-hash-table :test #'eql)))
+      (dolist (pos (sort (delete-dups (copy-sequence positions)) #'<))
+        (setq pos (min pos (point-max)))
+        (setq line (+ line (count-lines last pos)) last pos)
+        (puthash pos line table))
+      (mapcar (lambda (pos) (or (gethash (min pos (point-max)) table) 1)) positions))))
 
-(defun sp-bibtex-lint--render (results)
-  "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS), in the report buffer."
-  (with-current-buffer (get-buffer-create sp-bibtex-lint--buffer)
-    (sp-bibtex-lint-report-mode)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-convert to rewrite\n"
-                      (length results) (if (= 1 (length results)) "y" "ies")))
-      (dolist (r results)
-        (let ((start (point)))
-          (insert (format "\n* %s  [%s]\n" (nth 1 r) (file-name-nondirectory (nth 0 r))))
-          (dolist (p (nth 3 r)) (insert "  - " p "\n"))
-          (put-text-property start (point) 'sp-bibtex-entry r)))
-      (goto-char (point-min)))
-    (pop-to-buffer (current-buffer))))
+;;;; The report, with one button for each fix
 
-(defun sp-bibtex-lint-visit ()
-  "Visit the BibTeX entry of the section at point."
-  (interactive)
-  (let ((r (or (get-text-property (point) 'sp-bibtex-entry)
-               (user-error "No entry here"))))
-    (find-file-other-window (nth 0 r))
-    (goto-char (nth 2 r))))
+(defun sp-bibtex-lint--button (kind file label count)
+  "The Org link that runs the fix KIND on FILE, labelled LABEL with COUNT entries."
+  (org-link-make-string (format "sp-bibtex-lint:%s:%s" kind file)
+                        (format "%s (%d)" label count)))
+
+(defun sp-bibtex-lint--follow (path &optional _arg)
+  "Follow the link PATH, \"KIND:FILE\", of a button in the report."
+  (unless (string-match "\\`\\([a-z]+\\):\\(.*\\)\\'" path)
+    (user-error "Not a lint button: %s" path))
+  (let ((file (match-string 2 path)))
+    (pcase (match-string 1 path)
+      ("order" (sp-bibtex-lint-fix-order file))
+      ("indent" (sp-bibtex-lint-fix-indent file))
+      ("authors" (sp-bibtex-lint-fix-authors file))
+      ("prefixes" (sp-bibtex-lint-fix-prefixes file))
+      ("files" (sp-bibtex-lint-fix-files file))
+      (other (user-error "Unknown lint button: %s" other)))))
+
+(org-link-set-parameters "sp-bibtex-lint" :follow #'sp-bibtex-lint--follow)
+
+(defun sp-bibtex-lint--count (results kind)
+  "The number of RESULTS that have a rewrite of KIND."
+  (length (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
+
+(defvar sp-bibtex-lint--excluded nil
+  "Entries dropped from the author fixes with `d', as keys \"FILE::ENTRY-KEY\".
+The list lasts for the Emacs session, like the dropped entries of the other lint
+reports.  `u' in the report, or in the batch question, brings an entry back.")
+
+(defun sp-bibtex-lint--entry-key (file key)
+  "The key that drops the BibTeX entry KEY of FILE."
+  (concat (expand-file-name file) "::" key))
+
+(defun sp-bibtex-lint--key-entry (key)
+  "The entry key in the dropped KEY."
+  (substring key (+ 2 (string-search "::" key))))
+
+(defun sp-bibtex-lint--dropped-keys (file)
+  "The dropped keys of the entries of FILE."
+  (let ((prefix (concat (expand-file-name file) "::")))
+    (seq-filter (lambda (k) (string-prefix-p prefix k)) sp-bibtex-lint--excluded)))
+
+(defun sp-bibtex-lint--dropped-p (file result)
+  "Non-nil when the entry of the lint RESULT of FILE was dropped."
+  (member (sp-bibtex-lint--entry-key file (nth 1 result)) sp-bibtex-lint--excluded))
+
+(defun sp-bibtex-lint--undropped (file batch)
+  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE."
+  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item))) batch))
+
+(defun sp-bibtex-lint--key-label (key)
+  "The text of the dropped KEY in the report."
+  (let ((file (substring key 0 (string-search "::" key))))
+    (format "%s in %s" (sp-bibtex-lint--key-entry key) (sp-batch-report-file-link file))))
+
+(defun sp-bibtex-lint--choose (prompt candidates)
+  "Read several of CANDIDATES, separated by commas, with PROMPT."
+  (completing-read-multiple prompt candidates nil t))
+
+(defun sp-bibtex-lint--drop-dialog (file batch)
+  "Ask which entries of BATCH to drop from the author fixes of FILE; return how many."
+  (let ((picked (sp-bibtex-lint--choose
+                 "Drop from the author fixes, for later (comma separated): "
+                 (mapcar (lambda (item) (nth 1 (car item))) (sp-bibtex-lint--undropped file batch)))))
+    (dolist (name picked)
+      (cl-pushnew (sp-bibtex-lint--entry-key file name) sp-bibtex-lint--excluded :test #'equal))
+    (length picked)))
+
+(defun sp-bibtex-lint--restore-dialog (file)
+  "Ask which dropped entries of FILE to bring back; return how many."
+  (let ((picked (sp-bibtex-lint--choose
+                 "Bring back (comma separated): "
+                 (mapcar #'sp-bibtex-lint--key-entry (sp-bibtex-lint--dropped-keys file)))))
+    (dolist (name picked)
+      (setq sp-bibtex-lint--excluded
+            (delete (sp-bibtex-lint--entry-key file name) sp-bibtex-lint--excluded)))
+    (length picked)))
 
 ;;;###autoload
-(defun sp-bibtex-lint-dryrun ()
-  "List what the .bib files of `sp-bibtex-files' break, without changing them.
-It checks the author and editor names (canonical form `Last, First', and
-names one typo away from an author note), the order of the fields
-(`sp-bibtex-field-order') and duplicate keys.  Notes for authors are never made."
-  (interactive)
-  (let ((files (sp-bibtex-lint--files)))
-    (sp-bibtex-lint--job "BibTeX lint" files nil #'sp-bibtex-lint--render)))
+(defun sp-bibtex-lint-restore-dropped (file)
+  "Bring back entries of FILE that were dropped from the author fixes."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (if (null (sp-bibtex-lint--dropped-keys file))
+      (message "Nothing is dropped in %s" (file-name-nondirectory file))
+    (message "%d brought back" (sp-bibtex-lint--restore-dialog file))))
 
+(defun sp-bibtex-lint--section (title kind results pairs file)
+  "The Org section TITLE with the RESULTS that have a rewrite of KIND.
+PAIRS says the line of each result in FILE.  Nothing when there are none."
+  (when-let* ((mine (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
+    (concat
+     (format "\n* %s (%d)\n" title
+             (apply #'+ (mapcar (lambda (r) (length (plist-get (alist-get kind (nth 4 r)) :desc)))
+                                mine)))
+     (mapconcat
+      (lambda (r)
+        (propertize
+         (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
+                 (mapconcat (lambda (d) (concat "- " d "\n"))
+                            (plist-get (alist-get kind (nth 4 r)) :desc) ""))
+         'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
+         'sp-batch-report-file file))
+      mine ""))))
+
+(defun sp-bibtex-lint--render (file results)
+  "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS REWRITES) of FILE, as a report.
+Names with the surname of an author note have sections of their own, so they do
+not bury the typos.  `d' drops an entry from the author fixes and `u' brings it
+back; the dropped ones are listed at the end."
+  (let* ((pairs (cl-mapcar #'cons results
+                           (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
+         (shown (seq-remove (lambda (r) (sp-bibtex-lint--dropped-p file r)) results))
+         (dropped (sp-bibtex-lint--dropped-keys file))
+         (main (seq-filter (lambda (r) (nth 3 r)) shown)))
+    (sp-batch-report-open
+     sp-bibtex-lint--buffer
+     (concat
+      (format "#+title: BibTeX lint of %s\n\n" (file-name-nondirectory file))
+      (format "- %d entr%s with problems in %s.\n"
+              (length main) (if (= 1 (length main)) "y" "ies")
+              (sp-batch-report-file-link file))
+      (format "- %d entr%s with a name that has the surname of an author note (own section below); %d with a name that fits several.\n"
+              (sp-bibtex-lint--count shown 'surnames)
+              (if (= 1 (sp-bibtex-lint--count shown 'surnames)) "y" "ies")
+              (sp-bibtex-lint--count shown 'ambiguous))
+      "- =d= drops an entry from the author fixes for later, =u= brings it back, =A= runs the author fixes.\n"
+      (format "- Fix, in batches of %d (a button runs the fix; the file is copied first):\n"
+              sp-bibtex-lint-batch-size)
+      (format "  - %s\n" (sp-bibtex-lint--button "order" file "field order"
+                                                 (sp-bibtex-lint--count results 'order)))
+      (format "  - %s\n" (sp-bibtex-lint--button "indent" file "indentation, as in bibtex-mode"
+                                                 (sp-bibtex-lint--count results 'indent)))
+      (format "  - %s\n" (sp-bibtex-lint--button "prefixes" file "name prefixes (key=value, misplaced)"
+                                                 (sp-bibtex-lint--count shown 'prefixes)))
+      (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
+                                                 (sp-bibtex-lint--count results 'files)))
+      (format "  - %s\n" (sp-bibtex-lint--button
+                          "authors" file "author names"
+                          (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
+                                                                    '(authors notes surnames)))
+                                              shown))))
+      (mapconcat (lambda (r)
+                   (propertize
+                    (concat "\n" (sp-bibtex-lint--entry-text
+                                  r (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq))))
+                    'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
+                    'sp-batch-report-file file))
+                 main "")
+      (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
+      (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
+      (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
+      (and dropped
+           (concat "\n" (sp-batch-report-dropped-section dropped nil #'sp-bibtex-lint--key-label))))
+     :refresh (lambda (excluded)
+                (setq sp-bibtex-lint--excluded excluded)
+                (sp-bibtex-lint-dryrun file))
+     :excluded sp-bibtex-lint--excluded
+     :apply (lambda (excluded)
+              (setq sp-bibtex-lint--excluded excluded)
+              (sp-bibtex-lint-fix-authors file)))))
 
 ;;;###autoload
-(defun sp-bibtex-lint-convert ()
-  "Rewrite names and field order in the .bib files after one question.
-Each file is copied to `sp-bibtex-lint-backup-directory' first.  Duplicate
-keys and names near an author note are reported, not changed; an entry with a
+(defun sp-bibtex-lint-dryrun (file)
+  "List what the .bib FILE breaks, without changing it.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  It checks the author
+and editor names (canonical form `Last, First', and names one typo away from an
+author note, and, in sections of their own, names with the surname of one
+author note or of several), the order of the fields (`sp-bibtex-field-order'), the indentation
+\(as `bibtex-fill-entry' lays it out), duplicate keys and attachment paths
+\(BibDesk bdsk-file fields, absolute literature paths).  The report has a
+button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
+prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files)
+                       (lambda (results) (sp-bibtex-lint--render file results))))
+
+;;;; Batches
+
+(defun sp-bibtex-lint--show-batch (file kind batch index total all)
+  "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE.
+Entries dropped from the author fixes are left out."
+  (let* ((batch (if (memq kind '(authors prefixes notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
+         (lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
+    (sp-batch-report-show
+     sp-bibtex-lint--batch-buffer
+     (concat
+      (format "#+title: BibTeX %s of %s, batch %d of %d\n\n"
+              (alist-get kind sp-bibtex-lint--kinds) (file-name-nondirectory file) index total)
+      (format "- %d entr%s in this batch, %d in all.\n" (length batch)
+              (if (= 1 (length batch)) "y" "ies") all)
+      (mapconcat (lambda (item)
+                   (let ((r (car item)))
+                     (concat "\n" (sp-bibtex-lint--entry-text
+                                   r (sp-batch-report-file-link file (nth 1 r) (pop lines))
+                                   (plist-get (alist-get kind (nth 4 r)) :desc)))))
+                 batch "")))))
+
+(defun sp-bibtex-lint--ask-batch (file batch index total all kind)
+  "Show BATCH, number INDEX of TOTAL in FILE, and ask what to do with it.
+BATCH is a list of (RESULT BEG END); ALL is the number of entries in every
+batch.  KIND is the fix.  Return ?a to apply, ?g to apply this batch and all the
+later ones without asking again, ?s to skip or ?q to stop.  With ?d
+some entries are dropped from the author fixes for later, with ?u dropped ones
+are brought back; the batch is shown again each time."
+  (let (choice)
+    (while (progn
+             (sp-bibtex-lint--show-batch file kind batch index total all)
+             (setq choice
+                   (read-char-choice
+                    (format "Batch %d of %d (%d entries): [a]pply, [g]lobal (this and all later batches), [s]kip, [d]rop some for later, [u] bring back, [q]uit "
+                            index total (length (sp-bibtex-lint--undropped file batch)))
+                    '(?a ?g ?s ?d ?u ?q)))
+             (pcase choice
+               (?d (sp-bibtex-lint--drop-dialog file batch) t)
+               (?u (sp-bibtex-lint--restore-dialog file) t))))
+    choice))
+
+(defun sp-bibtex-lint--replace (beg end new)
+  "Replace the text between the markers BEG and END with NEW; END ends after it."
+  (goto-char beg)
+  (delete-region beg end)
+  (insert new)
+  (set-marker end (point)))
+
+(defun sp-bibtex-lint--apply-batch (work batch kind)
+  "Rewrite the entries of BATCH in the buffer WORK, for the fix KIND.
+BATCH is a list of (RESULT BEG END) with markers.  An entry whose text is no
+longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
+  (let ((changed 0) (stale 0) moves)
+    (with-current-buffer work
+      (dolist (item batch)
+        (pcase-let* ((`(,r ,beg ,end) item)
+                     (rewrite (alist-get kind (nth 4 r))))
+          (if (not (equal (plist-get rewrite :old) (buffer-substring-no-properties beg end)))
+              (cl-incf stale)
+            (sp-bibtex-lint--replace beg end (plist-get rewrite :new))
+            (setq moves (append moves (plist-get rewrite :moves)))
+            (cl-incf changed)))))
+    ;; The files move once for the batch, before the .bib file is written.
+    (when moves (sp-bibtex-files--move moves))
+    (list changed stale t)))
+
+(defun sp-bibtex-lint--signature (file)
+  "The modification time and size of FILE, to notice that it changed."
+  (let ((attributes (file-attributes file)))
+    (list (file-attribute-modification-time attributes) (file-attribute-size attributes))))
+
+(defun sp-bibtex-lint--save (work file)
+  "Write the buffer WORK to FILE and bring the buffer that visits FILE up to date."
+  (with-current-buffer work
+    (write-region (point-min) (point-max) file nil 'silent))
+  (when-let* ((visiting (find-buffer-visiting file)))
+    (unless (buffer-modified-p visiting)
+      (with-current-buffer visiting (revert-buffer t t t)))))
+
+(defun sp-bibtex-lint--run (file kind results ask apply-fn &optional then whole)
+  "Go through the entries of RESULTS with a fix of KIND for FILE, in batches.
+Batches have `sp-bibtex-lint-batch-size' entries, or with WHOLE all the entries
+are one batch.  ASK is called with (BATCH
+INDEX TOTAL ALL) and returns `skip', `quit', `apply-all' (an answer for this and
+every later batch, which are then not asked) or an answer for APPLY-FN, which is
+called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
+FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
+is written without an answer.  THEN is called when the run was not quit."
+  (let* ((authorial (memq kind '(authors prefixes notes surnames)))
+         (fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
+                                               (not (and authorial (sp-bibtex-lint--dropped-p file r)))))
+                              results))
+         (what (alist-get kind sp-bibtex-lint--kinds))
+         (work (generate-new-buffer " *sp-bibtex-lint-work*"))
+         (stop nil) (global nil))
+    (if (null fixable)
+        (message "BibTeX lint: no %s to fix in %s" what (file-name-nondirectory file))
+      (unwind-protect
+          (let* ((items (with-current-buffer work
+                          (insert-file-contents file)
+                          (delay-mode-hooks (bibtex-mode))
+                          (mapcar (lambda (r)
+                                    (let ((rewrite (alist-get kind (nth 4 r))))
+                                      (list r (copy-marker (plist-get rewrite :start))
+                                            (copy-marker (plist-get rewrite :end)))))
+                                  fixable)))
+                 (batches (seq-partition items (max 1 (if whole (length items) sp-bibtex-lint-batch-size))))
+                 (total (length batches))
+                 (stamp (format-time-string "%Y%m%dT%H%M%S"))
+                 (signature (sp-bibtex-lint--signature file))
+                 (index 0) (changed 0) (skipped 0) (stale 0) (backed-up nil))
+            (while (and batches (not stop))
+              (let* ((batch (pop batches))
+                     (answer (progn
+                               (cl-incf index)
+                               (if global
+                                   'apply
+                                 (funcall ask batch index total (length items))))))
+                (when (eq answer 'apply-all) (setq global t answer 'apply))
+                ;; Entries dropped while the batch was asked are not touched.
+                (when authorial (setq batch (sp-bibtex-lint--undropped file batch)))
+                (pcase (if (and authorial (null batch)) 'skip answer)
+                  ('quit (setq stop t) (cl-incf skipped (length batch)))
+                  ('skip (cl-incf skipped (length batch)))
+                  (_
+                   (when-let* ((visiting (find-buffer-visiting file))
+                               ((buffer-modified-p visiting)))
+                     (user-error "Save %s first" (file-name-nondirectory file)))
+                   (let ((done (funcall apply-fn work batch answer)))
+                     (cl-incf changed (nth 0 done))
+                     (cl-incf stale (nth 1 done))
+                     (when (nth 2 done)
+                       (unless (equal signature (sp-bibtex-lint--signature file))
+                         (user-error "%s changed on disk since it was linted; run the command again"
+                                     (file-name-nondirectory file)))
+                       (unless backed-up
+                         (sp-bibtex-lint--backup file stamp)
+                         (setq backed-up t))
+                       (sp-bibtex-lint--save work file)
+                       (setq signature (sp-bibtex-lint--signature file))))))))
+            (message "BibTeX %s of %s: %d done, %d skipped, %d not reached%s%s"
+                     what (file-name-nondirectory file) changed skipped
+                     (apply #'+ (mapcar #'length batches))
+                     (if (> stale 0) (format ", %d changed since the lint" stale) "")
+                     (if backed-up
+                         (format "; backup in %s" (abbreviate-file-name sp-bibtex-lint-backup-directory))
+                       "")))
+        (kill-buffer work)))
+    (when (and then (not stop)) (funcall then))))
+
+(defun sp-bibtex-lint--review (file kind results &optional then)
+  "Go through the rewrites of KIND in RESULTS for FILE, a batch at a time.
+Each batch is applied, skipped or quit; see `sp-bibtex-lint--run'."
+  (sp-bibtex-lint--run
+   file kind results
+   (lambda (batch index total all)
+     (pcase (sp-bibtex-lint--ask-batch file batch index total all kind)
+       (?a 'apply) (?g 'apply-all) (?s 'skip) (_ 'quit)))
+   (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
+   then))
+
+(defun sp-bibtex-lint--unsaved-check (file)
+  "Signal a `user-error' when the buffer that visits FILE has unsaved changes."
+  (when-let* ((visiting (find-buffer-visiting file))
+              ((buffer-modified-p visiting)))
+    (user-error "Save %s first" (file-name-nondirectory file))))
+
+(defun sp-bibtex-lint--confirm (file kind count)
+  "Ask once whether to apply the fix KIND to COUNT entries of FILE."
+  (yes-or-no-p (format "Fix the %s of %d entr%s in %s (a backup is made first)? "
+                       (alist-get kind sp-bibtex-lint--kinds) count (if (= 1 count) "y" "ies")
+                       (file-name-nondirectory file))))
+
+(defun sp-bibtex-lint--review-whole (file kind results)
+  "Apply the fix KIND in RESULTS to the whole FILE after one confirmation."
+  (sp-bibtex-lint--run
+   file kind results
+   (lambda (batch _index _total _all)
+     (if (sp-bibtex-lint--confirm file kind (length batch)) 'apply 'skip))
+   (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
+   nil t))
+
+(defun sp-bibtex-lint--fix (file kind)
+  "Lint FILE and apply the fix KIND to all of it after one question."
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) (list kind)
+                       (lambda (results) (sp-bibtex-lint--review-whole file kind results))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-order (file)
+  "Put the fields of the entries of the .bib FILE in the order of `sp-bibtex-field-order'.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  All entries are
+fixed at once, after one yes-or-no question; FILE is copied to
+`sp-bibtex-lint-backup-directory' before it is written.  An entry with a
 comment inside is left alone."
-  (interactive)
-  (let ((files (sp-bibtex-lint--files)))
-    (when (seq-find #'buffer-modified-p (delq nil (mapcar #'find-buffer-visiting files)))
-      (user-error "Save the open .bib buffers first"))
-    (when (yes-or-no-p (format "Rewrite names and field order in %d .bib file%s (backups in %s)? "
-                               (length files) (if (cdr files) "s" "")
-                               sp-bibtex-lint-backup-directory))
-      (sp-bibtex-lint--job "BibTeX rewrite" files t
-                           (lambda (results)
-                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-dryrun)"
-                                      (length results) (if (= 1 (length results)) "y" "ies")))))))
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix file 'order))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-indent (file)
+  "Indent every entry of the .bib FILE the way `bibtex-mode' does (`bibtex-fill-entry').
+All entries at once, after one question and a backup, as `sp-bibtex-lint-fix-order' does."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix file 'indent))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-prefixes (file)
+  "Normalise key=value names and misplaced prefixes in the .bib FILE.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Names written as
+`family=Hayek given=Friedrich A., prefix=von useprefix=false' (an old Zotero
+export) become `von Hayek, Friedrich A.', repeated given names are merged and
+the fullest one kept; `Hayek, Friedrich A. von' becomes `von Hayek, Friedrich A.'.
+Names that cannot be read are reported and left alone.  Batches of
+`sp-bibtex-lint-batch-size' entries, each applied (`a'), applied with all later
+ones (`g'), skipped, dropped for later or quit; FILE is copied to
+`sp-bibtex-lint-backup-directory' before the first write."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
+                       (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))
+
+;;;; Author names
+
+(defun sp-bibtex--rename-names (fields cases)
+  "FIELDS with the names of CASES replaced by the names of the author notes.
+CASES are lists (FIELD NAME NOTE-NAME ...); the other names stay as written."
+  (mapcar
+   (lambda (field)
+     (let ((mine (seq-filter (lambda (c) (string-equal-ignore-case (car c) (car field))) cases)))
+       (if-let* (((consp mine))
+                 (unwrapped (sp-bibtex--unwrap (cdr field))))
+           (let ((names (mapcar
+                         (lambda (n)
+                           (if-let* ((hit (seq-find (lambda (m) (equal (nth 1 m) (sp-bibtex-canonical-name n)))
+                                                    mine)))
+                               (nth 2 hit)
+                             n))
+                         (sp-bibtex-split-names (car unwrapped)))))
+             (cons (car field)
+                   (format (if (eq (cdr unwrapped) ?\") "\"%s\"" "{%s}")
+                           (string-join names " and "))))
+         field)))
+   fields))
+
+(defun sp-bibtex-lint--add-alias (file alias)
+  "Add ALIAS to the aliases of the note FILE, with vulpea, and save the note."
+  (require 'vulpea nil t)
+  (unless (fboundp 'vulpea-buffer-alias-add)
+    (user-error "vulpea is not loaded; cannot add the alias %s" alias))
+  (unless (member alias (sp-bibtex--note-aliases file))
+    (with-current-buffer (find-file-noselect file)
+      (when (buffer-modified-p)
+        (user-error "Save %s first" (file-name-nondirectory file)))
+      (vulpea-buffer-alias-add alias)
+      (save-buffer))))
+
+(defun sp-bibtex-lint--ask-notes (file batch index total all &optional kind)
+  "Show BATCH of names near an author note and ask what to do with the names.
+Return ?n to normalise the names in the BibTeX field, ?l to add each as an alias
+of the note, ?e to be asked for each name, ?s to skip or ?q to stop.  With ?d
+some entries are dropped for later, with ?u dropped ones are brought back."
+  (let (choice)
+    (while (progn
+             (sp-bibtex-lint--show-batch file (or kind 'notes) batch index total all)
+             (setq choice
+                   (read-char-choice
+                    (format "Batch %d of %d (%d entries): [n]ormalise in the field, [l] alias on the note, [e]ach name, [s]kip, [d]rop some for later, [u] bring back, [q]uit "
+                            index total (length (sp-bibtex-lint--undropped file batch)))
+                    '(?n ?l ?e ?s ?d ?u ?q)))
+             (pcase choice
+               (?d (sp-bibtex-lint--drop-dialog file batch) t)
+               (?u (sp-bibtex-lint--restore-dialog file) t))))
+    choice))
+
+(defun sp-bibtex-lint--ask-case (case)
+  "Ask what to do with CASE, a list (FIELD NAME NOTE-NAME NOTE-FILE).
+Return ?n to normalise, ?l for an alias, ?s to skip or ?q to stop."
+  (read-char-choice
+   (format "%s is not an author note.  [n]ormalise to %s%s, [s]kip, [q]uit "
+           (nth 1 case) (nth 2 case)
+           (if (nth 3 case) ", [l] add as alias of the note" ""))
+   (if (nth 3 case) '(?n ?l ?s ?q) '(?n ?s ?q))))
+
+(defun sp-bibtex-lint--decide-notes (batch choice &optional kind)
+  "The decisions for BATCH of the fix KIND (default `notes') from CHOICE, or `quit'.
+A decision is a list (ITEM CASE DECISION), DECISION `normalise' or `alias'.
+With ?e each case is asked."
+  (catch 'quit
+    (let (decisions)
+      (dolist (item batch)
+        (dolist (case (plist-get (alist-get (or kind 'notes) (nth 4 (car item))) :cases))
+          (let ((decision (pcase choice
+                            (?n 'normalise)
+                            (?l (and (nth 3 case) 'alias))
+                            (_ (pcase (sp-bibtex-lint--ask-case case)
+                                 (?n 'normalise)
+                                 (?l 'alias)
+                                 (?q (throw 'quit 'quit))
+                                 (_ nil))))))
+            (when decision (push (list item case decision) decisions)))))
+      (nreverse decisions))))
+
+(defun sp-bibtex-lint--apply-notes (work batch decisions &optional kind)
+  "Carry out DECISIONS for BATCH of the fix KIND: rewrite entries in WORK, add aliases.
+Return (CHANGED STALE WROTE)."
+  (let ((changed 0) (stale 0) (wrote nil) aliases)
+    (dolist (d decisions)
+      (when (eq (nth 2 d) 'alias)
+        (push (cons (nth 3 (nth 1 d)) (nth 1 (nth 1 d))) aliases)))
+    (dolist (item batch)
+      (when-let* ((cases (mapcar #'cadr (seq-filter (lambda (d) (and (eq (car d) item)
+                                                                      (eq (nth 2 d) 'normalise)))
+                                                    decisions))))
+        (pcase-let ((`(,r ,beg ,end) item))
+          (with-current-buffer work
+            (if (not (equal (plist-get (alist-get (or kind 'notes) (nth 4 r)) :old)
+                            (buffer-substring-no-properties beg end)))
+                (cl-incf stale)
+              (goto-char beg)
+              (let* ((entry (bibtex-parse-entry))
+                     (fields (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry)))
+                (sp-bibtex-lint--replace
+                 beg end
+                 (sp-bibtex--fill-text
+                  (sp-bibtex--entry-text (cdr (assoc "=type=" entry)) (cdr (assoc "=key=" entry))
+                                         (sp-bibtex--rename-names fields cases)))))
+              (cl-incf changed (length cases))
+              (setq wrote t))))))
+    (dolist (alias (delete-dups aliases))
+      (sp-bibtex-lint--add-alias (car alias) (cdr alias))
+      (cl-incf changed))
+    (when aliases (setq sp-bibtex--people-cache nil))
+    (list changed stale wrote)))
+
+(defun sp-bibtex-lint--review-notes (file kind results &optional then)
+  "Go through the names of the fix KIND in RESULTS for FILE, a batch at a time.
+KIND is `notes' (typos of an author note) or `surnames'.  Each name is
+normalised in the BibTeX field, or added as an alias of the note."
+  (sp-bibtex-lint--run
+   file kind results
+   (lambda (batch index total all)
+     (pcase (sp-bibtex-lint--ask-notes file batch index total all kind)
+       (?s 'skip)
+       (?q 'quit)
+       (choice (sp-bibtex-lint--decide-notes (sp-bibtex-lint--undropped file batch) choice kind))))
+   (lambda (work batch decisions) (sp-bibtex-lint--apply-notes work batch decisions kind))
+   then))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-authors (file)
+  "Normalise the author and editor names of the .bib FILE, in four steps.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  All steps go in
+batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
+0. Key=value names and misplaced prefixes are fixed first, as
+   `sp-bibtex-lint-fix-prefixes' does it.
+1. Names that are not `Last, First' are rewritten, after you apply a batch.
+2. Names one typo away from an author note: for a batch you normalise the name
+   in the BibTeX field to the name of the note, add the name as an alias of the
+   note (a vulpea alias, so the name is known from then on), or are asked for
+   each name.
+3. Names with the surname of one author note and given names that fit the
+   note's (`TW Adorno' and `Theodor Adorno' for `Theodor W. Adorno'; not
+   `Michael Smith' for `John Smith'): the same choices.  A name that fits
+   several notes is reported, never changed.
+Notes for authors are never made."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job
+   "BibTeX lint" (list file) '(prefixes)
+   (lambda (results)
+     (sp-bibtex-lint--review
+      file 'prefixes results
+      (lambda ()
+        (sp-bibtex-lint--job
+         "BibTeX lint" (list file) '(authors)
+         (lambda (results)
+           (sp-bibtex-lint--review
+            file 'authors results
+            (lambda ()
+              (sp-bibtex-lint--job
+               "BibTeX lint" (list file) '(notes)
+               (lambda (results)
+                 (sp-bibtex-lint--review-notes
+                  file 'notes results
+                  (lambda ()
+                    (sp-bibtex-lint--job
+                     "BibTeX lint" (list file) '(surnames)
+                     (lambda (results) (sp-bibtex-lint--review-notes file 'surnames results))))))))))))))))
+
+;;;###autoload
+(defun sp-bibtex-lint-convert (file)
+  "Ask which fix to run on the .bib FILE.
+The fixes are field order, indentation, name prefixes, author names and attachment paths.
+See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
+`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors' and `sp-bibtex-lint-fix-files'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths")
+                          nil t)
+    ("field order" (sp-bibtex-lint-fix-order file))
+    ("indentation" (sp-bibtex-lint-fix-indent file))
+    ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
+    ("author names" (sp-bibtex-lint-fix-authors file))
+    ("attachment paths" (sp-bibtex-lint-fix-files file))))
 
 #+end_src
 
@@ -1203,7 +2548,76 @@ Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers 
 
 Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does not filter library files by extension and will offer any attached file. It used to be a =setq= after the =use-package=.
 
+- =citar= finds the file of an entry from its =file= field, and gave up when the PDF was not at the path the field names (for example BibDesk's =inbox/mac-bibdesk/= folder). It only printed "None of the files for ... exist".
+- =sp-citations-parser-library= is added to =citar-file-parser-functions=:
+  - for each name in the field that does not exist (absolute, or relative to =sp-literature-dir=), it looks for a file of the same name below =sp-literature-dir=;
+  - hidden folders and the backup folder are not searched;
+  - names that exist are left to =citar='s own parsers.
+- =sp-citations--library-index= keeps a table of the file names below =sp-literature-dir=:
+  - built on the first lookup;
+  - rebuilt, at most every =sp-citations-library-index-ttl= seconds (60), when a name is not found.
+- This makes =citar-open=, =citar-get-files= and the PDF column of the query tables find the same files.
+
+
 #+begin_src emacs-lisp -i
+;;;; Citar library lookup
+;; A `file' field names the PDF where BibDesk, or an earlier layout, put it.
+;; When it is not there, look it up by name below the library.
+(require 'ucs-normalize)
+
+(defcustom sp-citations-library-index-ttl 60
+  "Seconds the index of `sp-literature-dir' is kept before a missing file rebuilds it."
+  :type 'integer
+  :group 'sp)
+
+(defvar sp-citations--library-index nil
+  "Cons of the time and a table of file name to the paths below `sp-literature-dir'.")
+
+(defun sp-citations--library-index (&optional rebuild)
+  "Return the table of file names below `sp-literature-dir', built when REBUILD or nil.
+Keys are the lower-case file names; values are lists of absolute paths.
+Hidden folders and the backup folder are skipped."
+  (when (or rebuild (null sp-citations--library-index))
+    (let ((table (make-hash-table :test #'equal))
+          (backup (and (boundp 'sia-citar-library-backup-path)
+                       (file-name-as-directory
+                        (expand-file-name sia-citar-library-backup-path)))))
+      (when (and (stringp sp-literature-dir) (file-directory-p sp-literature-dir))
+        (dolist (file (directory-files-recursively
+                       sp-literature-dir "" nil
+                       (lambda (dir)
+                         (not (or (string-prefix-p "." (file-name-nondirectory dir))
+                                  (equal (file-name-as-directory dir) backup))))))
+          (let ((base (file-name-nondirectory file)))
+            (unless (string-prefix-p "." base)
+              (push file (gethash (downcase (ucs-normalize-NFC-string base)) table))))))
+      (setq sp-citations--library-index (cons (float-time) table))))
+  (cdr sp-citations--library-index))
+
+(defun sp-citations--find-in-library (name)
+  "Return the files below `sp-literature-dir' named like the path NAME.
+The folders of NAME are ignored; the index is rebuilt once when it is older
+than `sp-citations-library-index-ttl' and has no match."
+  (let ((key (downcase (ucs-normalize-NFC-string (file-name-nondirectory name)))))
+    (or (gethash key (sp-citations--library-index))
+        (when (> (- (float-time) (car sp-citations--library-index))
+                 sp-citations-library-index-ttl)
+          (gethash key (sp-citations--library-index t))))))
+
+(defun sp-citations-parser-library (fieldvalue)
+  "Parse the `file' field FIELDVALUE; find the files that are not where it says.
+For `citar-file-parser-functions'.  Each name the default parsers give that
+does not exist, as an absolute path or relative to `sp-literature-dir', is
+searched by its file name below `sp-literature-dir'.  Names that exist are
+left to the other parsers, so this returns only the files it found."
+  (let (found)
+    (dolist (parser '(citar-file--parser-default citar-file--parser-triplet))
+      (when (fboundp parser)
+        (dolist (name (funcall parser fieldvalue))
+          (unless (file-exists-p (expand-file-name name sp-literature-dir))
+            (setq found (append found (sp-citations--find-in-library name)))))))
+    (delete-dups found)))
+
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
@@ -1236,6 +2650,8 @@ Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does no
           (note . ,sp-citar-note)))
 
   :config
+  ;; Find a PDF that is not where its `file' field says.
+  (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (when (display-graphic-p)
     ;; nerd-icons has no octicon PDF/text glyph, so those two use
     ;; FontAwesome; link-external maps to the octicon directly.
@@ -1494,7 +2910,7 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/90][#90]]
   - 🔧 Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed.
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]]
+- [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]
   - ✨ Added the reference hover for =[cite:@key]= links in =sp-citations= (tooltip and Eldoc echo area, =sp-cite-hover-display=).
 - [[https://github.com/siainbuletin/dotfiles/pull/210][#210]]
   - 🔧 Replaced =citar-denote= with =citar-vulpea= in =sp-litnotes= (=ROAM_REFS= property, =citar-vulpea-mode= on) and ✨ added =sp-litnotes-refs= (=sp-litnotes-refs-report= dry run, =sp-litnotes-refs-convert=).
@@ -1517,3 +2933,12 @@ What each pull request changed in this module, newest last; the one-line summary
     - any =citar= error gives no reference instead of a muted error, so the tooltip and the echo area text show the reference or the "not found" message.
   - Tested in Emacs 29.3 in batch with =citar= stubbed (=tests/sp-cite-hover-test.el=)
     - not run in the interactive config.
+- [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]
+  - ✨ Added the attachment paths fix to the =.bib= lint (=sp-bibtex-lint-fix-files=, a button in =sp-bibtex-lint-dryrun=, an entry in =sp-bibtex-lint-convert=).
+    - BibDesk =bdsk-file-N= fields become one =file= field, found by the file name in the bookmark or else by the citekey.
+    - Absolute =~/Documents/literature/= paths become relative to =sp-literature-dir=.
+    - Entries that cannot be resolved keep their fields and are listed.
+  - =sp-bibtex-files-flatten= (off by default) also moves the files to the top of the library.
+  - =sp-bibtex-files-devonthink-tool= makes that move go through =tools/devonthink-move.py=, so DEVONthink records keep their UUID.
+  - Tested in Emacs 29.3 in batch (=tests/sp-bibprocess-lint-test.el=)
+    - not run on the real =.bib= files.

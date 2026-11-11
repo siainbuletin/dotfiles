@@ -1,0 +1,41 @@
+* PR #215: 📝 Design a citation layer for relationship-annotator
+:PROPERTIES:
+:PR_NUMBER: 215
+:URL: https://github.com/siainbuletin/dotfiles/pull/215
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/215][https://github.com/siainbuletin/dotfiles/pull/215]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-31 17:34
+- Merged :: 2026-11-01 14:10
+- Branch :: =215-relationship-annotator-citation-layer= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f9c56ee4117880e4e32d814a5d76c76b3539c200][f9c56ee411]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia*/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Design doc =docs/architecture/relationship-annotator-citation-layer.org=: a switchable layer in =relationship-annotator= that shows possible citations (built from =[cite:@key]= mentions in Org notes, read by a Vulpea extractor), refined one by one into typed relations (=supports=, =opposes=, =defends=, ...), with DEVONthink similarity as a later second layer.
+
+Design only; no code. Follows #209 (DEVONthink design) and #210 (=ROAM_REFS=). The doc ends with four questions to decide before building.
+
+**** Test plan
+:PROPERTIES:
+:CUSTOM_ID: test-plan
+:END:
+- [ ] Read the doc and answer the open questions (roll-up, =is-part-of=, keys without a litnote, where the refined line is written).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/a9894e4b1a5fb7e09558e9fc270aa17199e6017a][a9894e4b1a]] 📝 Design a citation layer for relationship-annotator (Sia Piperea, 2026-10-31 17:34)
+- [[https://github.com/siainbuletin/dotfiles/commit/32a43b0b851bff50d8f63e0ae7de226dca5b26c4][32a43b0b85]] 📝 Changelog: PR number #215 (Sia Piperea, 2026-10-31 17:34)
+- [[https://github.com/siainbuletin/dotfiles/commit/12a45f658f4989fbabd5a4849ebeb110fccd1786][12a45f658f]] 📝 Citation layer design: worked example, key-only nodes, refinement in both places (Sia Piperea, 2026-10-31 17:59)
+- [[https://github.com/siainbuletin/dotfiles/commit/93b2fa5f789eaf238e32050ed0a4dd29f09d40b9][93b2fa5f78]] Merge branch 'main' into 215-relationship-annotator-citation-layer (Sia Piperea, 2026-11-01 14:08)

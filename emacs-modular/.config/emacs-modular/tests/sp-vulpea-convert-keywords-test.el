@@ -60,3 +60,16 @@ With KEEP, do not remove the original keyword lines."
                  "#+title: T\n#+b: 2\n\n- a :: 1\n")))
 
 ;;; sp-vulpea-convert-keywords-test.el ends here
+
+(ert-deftest sp-vulpea-convert-keywords-preview-links-files ()
+  "The preview is a report buffer whose file headings are links."
+  (let ((buffer (save-window-excursion
+                  (sp-vulpea-convert-keywords--show-preview
+                   '(("/tmp/vault/a.org" ("bib-project" . "thesis")))))))
+    (unwind-protect
+        (with-current-buffer buffer
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (string-match-p "^\\* \\[\\[file:/tmp/vault/a\\.org\\]\\[/tmp/vault/a\\.org\\]\\]$"
+                                  (buffer-string)))
+          (should (string-match-p "- bib-project :: thesis" (buffer-string))))
+      (kill-buffer buffer))))

@@ -52,6 +52,9 @@
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
 (require 'sp-litdb)
+(require 'sp-cite-match)
+(require 'sp-reading)
+(require 'sp-see-also)
 
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))

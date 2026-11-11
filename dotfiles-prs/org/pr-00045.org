@@ -1,0 +1,47 @@
+* PR #45: Splash art layers: centred lambda, dashboard banner, Dashboard buffer
+:PROPERTIES:
+:PR_NUMBER: 45
+:URL: https://github.com/siainbuletin/dotfiles/pull/45
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/45][https://github.com/siainbuletin/dotfiles/pull/45]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-21 22:21
+- Merged :: 2026-10-23 13:39
+- Branch :: =45-splash-art-layers= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f207507877e06d0cb3ad7aa9dc2586ca23c67dce][f207507877]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21jZfxe5AmskoMP3AYBnVbr][project thread]]/
+
+Before: one lambda layer with offsets =sp-splash-art-x-offset= (-12) and =sp-splash-art-y-offset=, centred on the menu; the buffer was =*splash*=.
+
+After:
+
+- The lambda is centred vertically in the window (y 0) with x -50, measured from the window centre.
+- A second layer draws the EMACS block-letter banner (banner 3 of the =dashboard= package), 30 columns right of centre and 8 lines above it, so it doesn't cross the lambda in a wide window.
+- Both art files are local plain files in =libraries/images/= (=lambda-splash.txt=, =dashboard-banner-3.txt=, a copy of the package's banner so it can be edited); nothing is read from the =dashboard= package. =sp-splash-art-directory= sets the folder, and the terminal splash reads the lambda from there too.
+- The title, version line and the menu are centred under the banner and start two lines below it (=sp-splash-content-layer=), so they follow the banner when it is moved.
+- Layers live in =sp-splash-art-layers=, =(NAME :file F :x X :y Y :face FACE)=, topmost first. Remove one to hide it. =S-<arrow>= moves the current layer, =TAB= picks the next, =0= resets, =s= copies the =setq= form. This replaces the two offset options from #31/#44.
+- The buffer is now =Dashboard=; =sp-workspaces.el= (Home tab) follows the new name.
+- Docs: =sp-splash.org= "Art layers" section rewritten and =sp-workspaces.org= updated; both tangle to the same text as the =.el=. CHANGELOG entry added.
+
+Merged with current =main=: Sia's direct edit there (x -50, y 10 on the old two-offset options) is superseded by the layers, so the lambda layer keeps y 0 as asked.
+
+Checked in headless Emacs 29.3 (200x50 frame, =nerd-icons-faicon= stubbed): both layers drew behind the text from =libraries/images/=, the menu sat under the banner, =TAB=/=S-<right>= moved a layer, the setq form printed correctly.
+
+Not checked: real GUI look and your themes' colours. With x -50 the lambda is cut off at the left in windows narrower than about 115 columns.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01T2BcMQ3qdNUiW5oZRLQRsG]]
+
+** Commits (5)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f4b82e67a241193058ed3eb6b54f0454902d990c][f4b82e67a2]] Splash art layers (lambda + dashboard banner 3), buffer renamed Dashboard (Claude, 2026-10-21 22:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/3fc0d4c8c170e53f2a26e7aaeaa3762c2cec517e][3fc0d4c8c1]] Centre the splash title and menu under the banner layer (Claude, 2026-10-21 22:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/7eefbe16f0ffb9803435d3646bc4415d016061ff][7eefbe16f0]] Load splash art from libraries/images, no dashboard package lookup (Claude, 2026-10-23 12:27)
+- [[https://github.com/siainbuletin/dotfiles/commit/82ff1d072939303873f973ab8b0b545bffc470e5][82ff1d0729]] Merge origin/main into 45-splash-art-layers (Claude, 2026-10-23 12:28)
+- [[https://github.com/siainbuletin/dotfiles/commit/8a1f7a79f6e2bccb0453cef4977c37d4f5f4a8ca][8a1f7a79f6]] Merge remote-tracking branch 'origin/main' into 45-splash-art-layers (Claude, 2026-10-23 13:36)

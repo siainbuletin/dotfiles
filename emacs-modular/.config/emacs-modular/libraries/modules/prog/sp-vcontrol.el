@@ -20,7 +20,6 @@
   :custom
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 
-
 ;;;; Forge settings
 (use-package forge
   :ensure t

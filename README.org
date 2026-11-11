@@ -20,6 +20,23 @@ Most of the keys in my Emacs are bound differently, so stock advice (=C-w=, =M-w
 
 On my Mac, Claude's pull requests are reviewed and merged with Stow, SourceGit, GitHub's merge button and Forge. The choices are in [[file:emacs-modular/.config/emacs-modular/docs/architecture/macos-review-and-merge.org][macos-review-and-merge.org]]; the reasons are in the decision records in [[file:adr/README.org][adr/]].
 
+** Commit and PR messages start with an emoji
+
+Every commit message and every pull request title starts with an emoji for the kind of change, then a short summary in the imperative.
+
+- ✨ new feature or new behaviour (=✨ Add sp-refile: one command to refile notes=)
+- 🐛 bug fix (=🐛 Fix void-variable when loading sp-org-tag-lint=)
+- 🔧 tooling, refactoring, renames, moves, scripts, CI, build and settings
+- 📝 documentation: READMEs, literate docs, ADRs, design notes, CHANGELOG tidy
+- ⚡ performance (already in use, e.g. caches and deferred loading)
+- 🔥 removing a feature, module or dead code (already in use)
+- A type word after the emoji is optional (=✨ feat:=, =🐛 fix:=, =📝 docs:=, =🔧 refactor:=); the emoji is not.
+- Pick the emoji by what the change does, not by the files it touches. A fix to a doc is 📝; a fix to code is 🐛.
+- If a change is several kinds at once, use the emoji of the main one.
+- The PR title and the merge commit keep the PR title's emoji; the commits inside the PR carry their own.
+- Messages that follow the pattern are left as they are; history on =main= is not rewritten to add emojis.
+- The reasons are in [[file:adr/0026-emoji-prefix-for-commits-and-prs.org][ADR 0026]]; the same rule is in =CLAUDE.md= for Claude.
+
 ** Homelab configuration
 
 Configuration for the services that run on my Synology NAS lives here too, as literate Org files that tangle to the files the NAS needs. Each folder has a script that tangles its Org file and copies the result to the NAS with =scp=; it runs from a shell, or from Emacs with =M-x compile= or =M-x async-shell-command=.
