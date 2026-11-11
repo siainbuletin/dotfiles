@@ -68,6 +68,25 @@ The `Works' tables still use `sp-author-notes-key' only."
   :type 'string
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-organisation-tag "institution"
+  "The extra tag of an author note that is made for an organisation.
+Such a note also gets `sp-author-notes-person-tag', so the Works tables
+and the BibTeX commands treat it like any other author note.  A note
+tagged only with this tag is taken for an author note too."
+  :type 'string
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-organisations nil
+  "Names of authors or editors that are organisations, not people.
+- Each is a name as it is written in the note, e.g. \"Endnotes\".
+- Compared without case or accents.
+- Such a name is never flipped from \"Last, First\" and never matched
+  loosely by last name and initial.
+- A BibTeX name in double braces, `{{Endnotes}}', is an organisation too,
+  and need not be listed."
+  :type '(repeat string)
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-flip-names t
   "Non-nil to read the plain name \"Last, First\" as \"First Last\".
 Only a name with exactly one comma is changed.  The note is looked up and
@@ -353,13 +372,65 @@ Return nil, (fix . CANONICAL) or (suspect . CANONICAL); see `sp-author-notes--ke
           "\\|[\"“]\\([^\"“”]*\\)[\"”]")
   "A link or a quoted name in a value; group 1 is an ID, 3 a Denote identifier, 4 a quoted name.")
 
+(defvar sp-author-notes--braced-organisations (make-hash-table :test #'equal)
+  "Title keys of the names that were written in double braces, like `{{Endnotes}}'.
+BibTeX reads such a name as one unit, so it is an organisation.  The
+braces are lost when the name is cleaned, so the key is remembered here.")
+
+(defun sp-author-notes--braced-p (text)
+  "Non-nil if TEXT is one name in double braces, e.g. `{{Endnotes}}'."
+  (let ((text (string-trim text)))
+    (and (string-prefix-p "{{" text)
+         (string-suffix-p "}}" text)
+         (let ((depth 0) (ok t))
+           ;; The first brace must close at the very end of TEXT.
+           (dotimes (i (1- (length text)))
+             (pcase (aref text i)
+               (?{ (cl-incf depth))
+               (?} (cl-decf depth)))
+             (when (<= depth 0) (setq ok nil)))
+           ok))))
+
+(defun sp-author-notes--split-outside-braces (text separator)
+  "Split TEXT at the regexp SEPARATOR, but not inside braces.
+The pieces are trimmed and the empty ones dropped."
+  (let ((depth 0) (start 0) (pos 0) (len (length text)) out)
+    (while (< pos len)
+      (let ((char (aref text pos)))
+        (cond ((eq char ?{) (cl-incf depth) (cl-incf pos))
+              ((eq char ?}) (setq depth (max 0 (1- depth))) (cl-incf pos))
+              ((and (= depth 0)
+                    (eq (string-match separator text pos) pos)
+                    (> (match-end 0) pos))
+               (push (substring text start pos) out)
+               (setq pos (match-end 0) start pos))
+              (t (cl-incf pos)))))
+    (push (substring text start) out)
+    (seq-remove #'string-empty-p (mapcar #'string-trim (nreverse out)))))
+
+(defun sp-author-notes--organisation-p (name)
+  "Non-nil if NAME is an organisation, not a person.
+That is so when it is in `sp-author-notes-organisations', or was seen in
+double braces."
+  (let ((key (sp-author-notes--title-key
+              (string-trim (replace-regexp-in-string "[{}\"“”]" "" (sp-author-notes-latex-to-unicode name))))))
+    (or (gethash key sp-author-notes--braced-organisations)
+        (seq-some (lambda (org) (equal key (sp-author-notes--title-key org)))
+                  sp-author-notes-organisations))))
+
 (defun sp-author-notes--clean-name (name)
-  "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for."
-  (let* ((name (string-trim (replace-regexp-in-string
+  "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for.
+An organisation (see `sp-author-notes--organisation-p') is never flipped."
+  (let* ((braced (sp-author-notes--braced-p name))
+         (name (string-trim (replace-regexp-in-string
                              "[ \t\n]+" " " (replace-regexp-in-string
                                               "[{}\"“”]" "" (sp-author-notes-latex-to-unicode name)))))
          (parts (split-string name "," t "[ \t]+")))
+    (when braced
+      (puthash (sp-author-notes--title-key name) t sp-author-notes--braced-organisations))
     (if (and sp-author-notes-flip-names
+             (not braced)
+             (not (sp-author-notes--organisation-p name))
              (= (length parts) 2)
              (string-match-p "[[:alpha:]]" (car parts))
              (string-match-p "[[:alpha:]]" (cadr parts)))
@@ -412,6 +483,7 @@ That is so when the last piece has no comma and an earlier one has a
 comma after two words or more: `Ann Lee, Bo Roe, and Cy Poe'.  BibTeX's
 `Lee, Ann and Roe, Bo' is not one, nor is `Lee, Ann and Bo Roe'."
   (and (cdr pieces)
+       (not (seq-some #'sp-author-notes--braced-p pieces))
        (not (string-match-p "," (car (last pieces))))
        (seq-some (lambda (piece)
                    (and (string-match-p "," piece)
@@ -421,13 +493,15 @@ comma after two words or more: `Ann Lee, Bo Roe, and Cy Poe'.  BibTeX's
 (defun sp-author-notes--plain-names (text)
   "The names in TEXT, which has no links or quoted names.
 A stray quote mark is dropped.  Names are separated by `;' or `and' (as
-BibTeX writes them).  Each element is a name, or (:ambiguous RAW NAMES)
+BibTeX writes them), but not inside braces: `{{Marx and Engels Institute}}'
+is one organisation.  Each element is a name, or (:ambiguous RAW NAMES)
 for a piece with more than one comma, or a list with commas that ends in
 `and', which may be one author or several: RAW is the text and NAMES the
 split proposed by `sp-author-notes--comma-proposal'."
   (let (out)
-    (dolist (semi (split-string (replace-regexp-in-string "[\"“”]" "" text) "[ \t]*;[ \t]*" t))
-      (let ((pieces (split-string semi "[ \t]+and[ \t]+" t)))
+    (dolist (semi (sp-author-notes--split-outside-braces
+                   (replace-regexp-in-string "[\"“”]" "" text) "[ \t]*;[ \t]*"))
+      (let ((pieces (sp-author-notes--split-outside-braces semi "[ \t]+and[ \t]+")))
         (if (sp-author-notes--and-list-p pieces)
             (push (list :ambiguous (string-trim semi "[ \t,]+" "[ \t,]+")
                         (mapcar #'sp-author-notes--clean-name
@@ -437,6 +511,8 @@ split proposed by `sp-author-notes--comma-proposal'."
           (dolist (segment pieces)
             (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
               (cond ((string-empty-p segment))
+                    ((sp-author-notes--braced-p segment)
+                     (push (sp-author-notes--clean-name segment) out))
                     ((> (length (split-string segment "," t "[ \t]+")) 2)
                      (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
                     (t (push (sp-author-notes--clean-name segment) out))))))))
@@ -529,18 +605,28 @@ changed, and dropped names get no note.")
   (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
     (sp-author-notes--index-file run file)))
 
+(defun sp-author-notes--person-tags-p (tags)
+  "Non-nil if TAGS has the person tag or the organisation tag."
+  (or (member sp-author-notes-person-tag tags)
+      (member sp-author-notes-organisation-tag tags)))
+
 (defun sp-author-notes--person-p (entry)
-  "Non-nil if the index ENTRY is tagged with `sp-author-notes-person-tag'."
-  (member sp-author-notes-person-tag (plist-get entry :tags)))
+  "Non-nil if the index ENTRY is tagged as an author note.
+That is the tag `sp-author-notes-person-tag' or
+`sp-author-notes-organisation-tag'."
+  (sp-author-notes--person-tags-p (plist-get entry :tags)))
 
 (defun sp-author-notes--create (run name)
-  "Create the author note NAME and register it in RUN.  Return its ID."
+  "Create the author note NAME and register it in RUN.  Return its ID.
+The note of an organisation gets `sp-author-notes-organisation-tag' too."
   (require 'sp-org-link-conversion)
-  (let* ((id (sp-org--write-note name (list sp-author-notes-person-tag)))
+  (let* ((tags (append (list sp-author-notes-person-tag)
+                       (and (sp-author-notes--organisation-p name)
+                            (list sp-author-notes-organisation-tag))))
+         (id (sp-org--write-note name tags))
          (file (car (org-id-find id))))
     (unless file (error "The new note %s has no file" name))
-    (let ((entry (list :file file :id id :title name
-                       :tags (list sp-author-notes-person-tag))))
+    (let ((entry (list :file file :id id :title name :tags tags)))
       (puthash id entry (sp-author-notes--run-by-id run))
       (push entry (gethash (sp-author-notes--title-key name)
                            (sp-author-notes--run-by-title run))))
@@ -1643,12 +1729,14 @@ deleted: they are listed, so you can merge them."
 ;;;; Works table of one author note
 
 (defun sp-author-notes--person-note-p ()
-  "Non-nil if the buffer has `sp-author-notes-person-tag' in its #+filetags:."
+  "Non-nil if the buffer has the person or the organisation tag in its #+filetags:."
   (save-excursion
     (goto-char (point-min))
     (let ((case-fold-search t))
       (re-search-forward
-       (format "^#\\+filetags:.*:%s:" (regexp-quote sp-author-notes-person-tag))
+       (format "^#\\+filetags:.*:\\(?:%s\\|%s\\):"
+               (regexp-quote sp-author-notes-person-tag)
+               (regexp-quote sp-author-notes-organisation-tag))
        nil t))))
 
 (defun sp-author-notes--works-target ()

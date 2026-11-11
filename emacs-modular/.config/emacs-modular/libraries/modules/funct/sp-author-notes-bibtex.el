@@ -55,10 +55,12 @@ of the list that is missing is reported with `message' and skipped."
         readable))))
 
 (defun sp-author-notes-bibtex--split-authors (field)
-  "The names in the BibTeX author FIELD, flipped to First Last, braces removed."
+  "The names in the BibTeX author FIELD, flipped to First Last, braces removed.
+A name in double braces, `{{Endnotes}}', is an organisation: it is kept as
+it is, and an `and' inside it does not split it."
   (mapcar #'sp-author-notes--clean-name
-          (split-string (replace-regexp-in-string "[ \t\n]+" " " field)
-                        "[ \t]+and[ \t]+" t "[ \t]+")))
+          (sp-author-notes--split-outside-braces
+           (replace-regexp-in-string "[ \t\n]+" " " field) "[ \t]+and[ \t]+")))
 
 (defun sp-author-notes-bibtex--parse-some (file limit)
   "Parse the entries of FILE from point in the current buffer, at most LIMIT of them.
@@ -102,19 +104,24 @@ was reached, so that the end of the buffer may not be."
   "How the name AUTHOR matches the title PERSON: `exact', `possible' or nil."
   (let ((p (sp-author-notes--title-key (sp-author-notes--clean-name person)))
         (a (sp-author-notes--title-key author)))
-    (if (equal p a)
-        'exact
+    (cond
+     ((equal p a) 'exact)
+     ;; An organisation matches by its whole name only.
+     ((or (sp-author-notes--organisation-p person)
+          (sp-author-notes--organisation-p author))
+      nil)
+     (t
       (let ((pw (split-string p "[ .]+" t))
             (aw (split-string a "[ .]+" t)))
         (when (and (cdr pw) (cdr aw)
                    (equal (car (last pw)) (car (last aw)))
                    (eq (aref (car pw) 0) (aref (car aw) 0)))
-          'possible)))))
+          'possible))))))
 
 (defun sp-author-notes-bibtex--person-p (head)
   "Non-nil when HEAD, from `sp-author-notes--file-head', is a :person: note."
   (and (plist-get head :title) (plist-get head :id)
-       (member sp-author-notes-person-tag (plist-get head :tags))))
+       (sp-author-notes--person-tags-p (plist-get head :tags))))
 
 (defun sp-author-notes-bibtex--people ()
   "The :person: notes of the vault, as plists from `sp-author-notes--file-head'."
@@ -148,7 +155,7 @@ It is the last word and the first letter of the first word, as
   (let ((words (split-string (sp-author-notes--title-key
                               (sp-author-notes--clean-name name))
                              "[ .]+" t)))
-    (when (cdr words)
+    (when (and (cdr words) (not (sp-author-notes--organisation-p name)))
       (cons (car (last words)) (aref (car words) 0)))))
 
 (defun sp-author-notes-bibtex--index-entry (index entry covered)
@@ -397,7 +404,9 @@ That needs `sp-bibprocess'; without it the answer is always nil."
   (let (best)
     (dolist (form forms best)
       (let ((m (or (sp-author-notes-bibtex--match form author)
-                   (and (sp-author-notes-bibtex--given-compatible-p form author) 'possible))))
+                   (and (not (sp-author-notes--organisation-p form))
+                        (sp-author-notes-bibtex--given-compatible-p form author)
+                        'possible))))
         (cond ((eq m 'exact) (setq best 'exact))
               ((and m (not best)) (setq best m)))))))
 

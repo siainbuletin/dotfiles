@@ -583,3 +583,90 @@
           (should (string-match-p "as 3: Ann Lee | Bo Roe | Cy Poe" text))
           (should (string-match-p "litnotes/a\\.org:6\\]\\]  \"Ann Lee, Bo Roe, and Cy Poe\"" text))
           (should (string-match-p "litnotes/b\\.org:6\\]\\]  Ann Lee" text)))))))
+
+;;;; Organisations
+
+(defmacro sp-author-notes-test--fresh-orgs (&rest body)
+  "Run BODY with no remembered double-braced organisations."
+  (declare (indent 0))
+  `(let ((sp-author-notes--braced-organisations (make-hash-table :test #'equal))
+         (sp-author-notes-organisations nil))
+     ,@body))
+
+(ert-deftest sp-author-notes-test-braced-p ()
+  (should (sp-author-notes--braced-p "{{Endnotes}}"))
+  (should (sp-author-notes--braced-p "  {{Doe, Roe Press}} "))
+  (should-not (sp-author-notes--braced-p "{van Gogh}"))
+  (should-not (sp-author-notes--braced-p "{{A}} and {{B}}"))
+  (should-not (sp-author-notes--braced-p "Endnotes")))
+
+(ert-deftest sp-author-notes-test-split-outside-braces ()
+  (should (equal (sp-author-notes--split-outside-braces
+                  "{{Marx and Engels Institute}} and Ann Lee" "[ \t]+and[ \t]+")
+                 '("{{Marx and Engels Institute}}" "Ann Lee")))
+  (should (equal (sp-author-notes--split-outside-braces "a; {b; c}; d" "[ \t]*;[ \t]*")
+                 '("a" "{b; c}" "d"))))
+
+(ert-deftest sp-author-notes-test-clean-name-organisation ()
+  (sp-author-notes-test--fresh-orgs
+    ;; A person is still flipped, braces around a single word do not matter.
+    (should (equal (sp-author-notes--clean-name "Smith, John") "John Smith"))
+    ;; Double braces keep a comma in the name: it is not "Last, First".
+    (should (equal (sp-author-notes--clean-name "{{Doe, Roe Press}}") "Doe, Roe Press"))
+    (should (sp-author-notes--organisation-p "Doe, Roe Press"))
+    (should (equal (sp-author-notes--clean-name "{{Endnotes}}") "Endnotes"))
+    (should (sp-author-notes--organisation-p "Endnotes"))
+    (should-not (sp-author-notes--organisation-p "John Smith"))
+    ;; The allow-list works without braces, ignoring case and accents.
+    (let ((sp-author-notes-organisations '("Société, Générale")))
+      (should (equal (sp-author-notes--clean-name "Societe, Generale") "Societe, Generale"))
+      (should (sp-author-notes--organisation-p "SOCIÉTÉ, GÉNÉRALE")))))
+
+(ert-deftest sp-author-notes-test-parse-value-organisation ()
+  (sp-author-notes-test--fresh-orgs
+    (should (equal (sp-author-notes--parse-value "{{Endnotes}}")
+                   '((:name "Endnotes"))))
+    (should (equal (sp-author-notes--parse-value "{{Marx and Engels Institute}} and Smith, John")
+                   '((:name "Marx and Engels Institute") (:name "John Smith"))))
+    (should (equal (sp-author-notes--parse-value "{{Doe, Roe, Poe Press}}; Ann Lee")
+                   '((:name "Doe, Roe, Poe Press") (:name "Ann Lee"))))
+    (should (equal (sp-author-notes--parse-value "\"{{Endnotes}}\"")
+                   '((:name "Endnotes"))))))
+
+(ert-deftest sp-author-notes-test-organisation-note-created ()
+  (sp-author-notes-test--fresh-orgs
+    (sp-author-notes-test--with-vault
+      (sp-author-notes-test--write
+       (expand-file-name "litnotes/e.org" vault)
+       ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+       "- pub-author :: {{Doe, Roe Press}}"
+       "- pub-editor :: Smith, John" "")
+      (let ((run (sp-author-notes--run t)))
+        (should (equal (sort (mapcar #'car (sp-author-notes--run-created run)) #'string<)
+                       '("Doe, Roe Press" "John Smith")))
+        (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/e.org" vault))))
+          (should (string-match-p "pub-author :: \\[\\[id:new-[0-9]+\\]\\[Doe, Roe Press\\]\\]" text))
+          (should (string-match-p "pub-editor :: \\[\\[id:new-[0-9]+\\]\\[John Smith\\]\\]" text)))
+        ;; The organisation note has both tags, the person only one.
+        (dolist (created (sp-author-notes--run-created run))
+          (let ((text (sp-author-notes-test--read (nth 2 created))))
+            (if (equal (car created) "Doe, Roe Press")
+                (should (string-match-p "#\\+filetags: :person:institution:" text))
+              (should (string-match-p "#\\+filetags: :person:$" text)))))))))
+
+(ert-deftest sp-author-notes-test-organisation-tag-only-note-is-found ()
+  (sp-author-notes-test--fresh-orgs
+    (sp-author-notes-test--with-vault
+      (sp-author-notes-test--write
+       (expand-file-name "o1.org" vault)
+       ":PROPERTIES:" ":ID: o1" ":END:" "#+title: Endnotes" "#+filetags: :institution:" "")
+      (sp-author-notes-test--write
+       (expand-file-name "litnotes/e.org" vault)
+       ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+       "- pub-author :: {{Endnotes}}" "")
+      (let ((run (sp-author-notes--run t)))
+        (should-not (sp-author-notes--run-created run))
+        (should-not (sp-author-notes--run-tagged run))
+        (should (string-match-p "\\[\\[id:o1\\]\\[Endnotes\\]\\]"
+                                (sp-author-notes-test--read
+                                 (expand-file-name "litnotes/e.org" vault))))))))
