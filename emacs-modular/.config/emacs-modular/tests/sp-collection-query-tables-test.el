@@ -75,6 +75,15 @@
     (should (equal (sp-collec-query-cell (cdr (assoc "b2" sp-collec-query-test-db)) :sections) "1"))
     (should (equal (sp-collec-query-cell paper :sections) ""))))
 
+(ert-deftest sp-collec-query-test-fold-list-of-tags ()
+  (let* ((s1 (list :id "s1" :title "Ch 1" :tags '("booksection") :meta '(("bib-parent" "b1"))))
+         (c1 (list :id "c1" :title "Chapter" :tags '("incollection") :meta '(("bib-parent" "b2"))))
+         (spec '(:fold-tag ("booksection" "incollection")))
+         (out (sp-collec-query--fold (list s1 c1) spec)))
+    ;; both leave the table; only b2 is in the stubbed database
+    (should (equal (mapcar (lambda (n) (plist-get n :id)) out) '("b2")))
+    (should (equal (sp-collec-query-cell (car out) :sections) "1"))))
+
 (ert-deftest sp-collec-query-test-no-fold-tag-changes-nothing ()
   (let ((notes (list (list :id "s1" :tags '("booksection")))))
     (should (eq (sp-collec-query--fold notes nil) notes))))

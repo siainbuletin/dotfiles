@@ -535,18 +535,20 @@ The sort is stable, so notes equal under every key keep their order."
   "Number of folded notes per note object returned by `sp-collec-query-query'.")
 
 (defun sp-collec-query--fold (notes spec)
-  "Return NOTES without the notes tagged :fold-tag of SPEC.
+  "Return NOTES without the notes tagged :fold-tag of SPEC (a tag or a list).
 Each one is counted in `sp-collec-query--folded' on the note its meta key
 :fold-prop links to; that parent is added when NOTES lack it, and is
 dropped from the count when no note has the ID."
-  (if-let* ((tag (plist-get spec :fold-tag)))
+  (if-let* ((tag (plist-get spec :fold-tag))
+            (tags (if (listp tag) tag (list tag))))
       (let* ((prop (or (plist-get spec :fold-prop) "bib-parent"))
-             (kept (seq-remove (lambda (n) (member tag (vulpea-note-tags n))) notes))
+             (folded-p (lambda (n) (seq-intersection tags (vulpea-note-tags n))))
+             (kept (seq-remove folded-p notes))
              (by-id (make-hash-table :test #'equal))
              (counts (make-hash-table :test #'equal)))
         (dolist (n kept) (puthash (vulpea-note-id n) n by-id))
         (dolist (n notes)
-          (when (member tag (vulpea-note-tags n))
+          (when (funcall folded-p n)
             (dolist (id (delete-dups (vulpea-note-meta-get-list n prop 'link)))
               (cl-incf (gethash id counts 0))
               (unless (gethash id by-id)
