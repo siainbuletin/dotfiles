@@ -52,7 +52,7 @@ Yes, as far as I can find. macOS sends a file to "the default app for its type",
 
 ** Hammerspoon
 
-- Hammerspoon cannot be the default for PDFs. Its =hs.urlevent= module registers it for URL schemes (=http=, =https=, =mailto=, its own =hammerspoon://=), not for file types, and its own =Info.plist= does not declare PDFs.
+- Hammerspoon cannot be the default for PDFs. Its =hs.urlevent= module registers it for URL schemes (=http=, =https=, =mailto=, its own =hammerspoon://=), not for file types, and I found nothing in its API that registers it for a file type.
 - What Hammerspoon can do is watch the keyboard and mouse. A =hs.eventtap= or =hs.hotkey= bound only while the Finder is frontmost could catch Cmd-O or a double-click on a selected PDF, run the same lookup and open the result. That is a different mechanism with real costs:
   + It only works in the Finder. Alfred, Mail, a browser's download list and anything else that opens a file with the default app would not be covered.
   + It reacts to input, not to the file being opened, so the PDF has to be recognised from the selection (an AppleScript call to the Finder for each key press) and the original key press has to be swallowed without breaking Return (rename in the Finder), drag selection and so on.
