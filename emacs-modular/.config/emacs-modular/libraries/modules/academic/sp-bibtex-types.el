@@ -24,6 +24,9 @@
     ("book" . "book")
     ("collection" . "collection")
     ("mvcollection" . "collection")
+    ("inreference" . "inreference")
+    ("reference" . "reference")
+    ("mvreference" . "reference")
     ("phdthesis" . "phdthesis")
     ("mastersthesis" . "mastersthesis"))
   "Org tag of a litnote for each BibTeX entry type (compared ignoring case).

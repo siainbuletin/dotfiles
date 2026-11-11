@@ -45,13 +45,23 @@ is a link to the file in the dotfiles repository: a saved view shows up in
      :parent-of "self" :parent-prop "bib-parent"
      :columns (:pages :title "pub-author" "pub-year" :tags :check)
      :sort-by :pages)
+    ("reference-entries"
+     :parent-of "self" :parent-prop "bib-parent"
+     :columns (:pages :title "pub-author" "pub-year" :tags :check)
+     :sort-by :title)
+    ("encyclopedia-articles"
+     :parent-of "self" :parent-prop "bib-parent"
+     :columns (:title "pub-author" "pub-year" :pages :tags :check)
+     :sort-by :title)
     ("bib-parent-mismatches"
      :meta (("bib-parent")) :flagged t
      :columns (:title :tags "bib-parent" :check)
      :sort-by :title))
   "Views that come with the configuration, as (NAME . SPEC).
 \"book-sections\" and \"collection-articles\" list the notes linking to the
-note they are used in (\"self\"), by page, and flag those whose tags do not
+note they are used in (\"self\"), by page; \"reference-entries\" and
+\"encyclopedia-articles\" do the same by title, for the entries of a
+reference work and the articles of an encyclopedia.  All flag those whose tags do not
 fit (see `sp-collec-query-check').  \"bib-parent-mismatches\" lists every
 note in the vault with such a warning.  A saved view with the same name wins.")
 

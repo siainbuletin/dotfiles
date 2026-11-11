@@ -333,12 +333,17 @@ the link opens the PDF at its first page."
      (sp-collec-query--dt-record-uuids note) ", ")))
 
 (defcustom sp-collec-query-check-rules
-  '(("booksection" . "book") ("incollection" . "collection"))
-  "Pairs (CHILD-TAG . PARENT-TAG) that `sp-collec-query-check' enforces.
-A note with CHILD-TAG must link with `sp-collec-query-check-parent-prop'
-to a note with PARENT-TAG, and a note that links to a PARENT-TAG note must
-carry CHILD-TAG."
-  :type '(alist :key-type string :value-type string)
+  '(("booksection" . "book")
+    ("incollection" . "collection")
+    ("inreference" . ("reference" "book"))
+    ("encyclopedia" . ("encyclopedia" "collection")))
+  "Pairs (CHILD-TAG . PARENT-TAGS) that `sp-collec-query-check' enforces.
+PARENT-TAGS is one tag or a list of them.  A note with CHILD-TAG must link
+with `sp-collec-query-check-parent-prop' to a note with one of PARENT-TAGS.
+A note that links to a note with one of those tags must carry a CHILD-TAG
+whose rule lists that tag."
+  :type '(alist :key-type string
+                :value-type (choice string (repeat string)))
   :group 'sp-collec-query)
 
 (defcustom sp-collec-query-check-parent-prop "bib-parent"
@@ -349,26 +354,40 @@ carry CHILD-TAG."
 (defun sp-collec-query-check (note)
   "Return a warning for NOTE when its tags and its parent's do not fit, else \"\".
 The rules are `sp-collec-query-check-rules': a booksection belongs to a
-book, an incollection to a collection, and the other way round."
+book, an incollection to a collection, an inreference to a reference work,
+an encyclopedia article to an encyclopedia or a collection, and the other
+way round."
   (let* ((prop sp-collec-query-check-parent-prop)
          (parent (and-let* ((id (car (vulpea-note-meta-get-list note prop 'link))))
                    (ignore-errors (vulpea-db-get-by-id id))))
          (tags (vulpea-note-tags note))
          (parent-tags (and parent (vulpea-note-tags parent)))
+         (seen nil)
          problems)
     (dolist (rule sp-collec-query-check-rules)
-      (let ((child-tag (car rule)) (parent-tag (cdr rule)))
-        (cond ((member child-tag tags)
-               (cond ((null parent)
-                      (push (format "%s without %s" child-tag prop) problems))
-                     ((not (member parent-tag parent-tags))
-                      (push (format "%s but the parent is not tagged %s"
-                                    child-tag parent-tag)
-                            problems))))
-              ((and parent (member parent-tag parent-tags))
-               (push (format "the parent is a %s but this is not tagged %s"
-                             parent-tag child-tag)
-                     problems)))))
+      (let ((child-tag (car rule))
+            (wanted (ensure-list (cdr rule))))
+        (when (member child-tag tags)
+          (cond ((null parent)
+                 (push (format "%s without %s" child-tag prop) problems))
+                ((not (seq-some (lambda (tag) (member tag parent-tags)) wanted))
+                 (push (format "%s but the parent is not tagged %s"
+                               child-tag (string-join wanted " or "))
+                       problems))))
+        ;; The other way round, once per parent tag.
+        (dolist (parent-tag wanted)
+          (when (and parent (member parent-tag parent-tags)
+                     (not (member parent-tag seen)))
+            (push parent-tag seen)
+            (let ((accepted (delq nil
+                                  (mapcar (lambda (r)
+                                            (and (member parent-tag (ensure-list (cdr r)))
+                                                 (car r)))
+                                          sp-collec-query-check-rules))))
+              (unless (seq-some (lambda (tag) (member tag tags)) accepted)
+                (push (format "the parent is a %s but this is not tagged %s"
+                              parent-tag (string-join accepted " or "))
+                      problems)))))))
     (if problems (concat "⚠ " (string-join (nreverse problems) "; ")) "")))
 
 (defun sp-collec-query-first-page (text)
