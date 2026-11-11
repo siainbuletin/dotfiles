@@ -1,4 +1,5 @@
-# Read by ~/.local/bin/dt-open (shell syntax).
+# Read by DT Open PDF.app: one NAME=value per line, # starts a comment line
+# (not after a value); quotes around a value are optional.
 # App that opens PDFs which are not in a DEVONthink database.
 DT_OPEN_FALLBACK="Preview"
 # 1: start DEVONthink when it is not running, so the lookup can happen. 0: open

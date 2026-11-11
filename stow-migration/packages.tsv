@@ -47,6 +47,9 @@ claude	all	.claude
 # --- macOS only ---
 aerospace	darwin	.config/aerospace
 hammerspoon	darwin	.config/hammerspoon
+devonthink-open	darwin	.local/bin/dt-open-install
+devonthink-open	darwin	.local/share/dt-open
+devonthink-open	darwin	.config/dt-open
 # --- Linux desktop only ---
 i3	linux	.config/i3
 sway	linux	.config/sway

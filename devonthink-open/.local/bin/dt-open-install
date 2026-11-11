@@ -1,6 +1,7 @@
 #!/bin/bash
 # dt-open-install: build "DT Open PDF.app" and make it the default PDF viewer,
-# so that Finder and Alfred open PDFs through dt-open.
+# so that Finder and Alfred open PDFs through it. The app does the DEVONthink
+# lookup itself. macOS only: packages.tsv lists devonthink-open as darwin.
 #
 #   dt-open-install              build, register, set as default for PDFs
 #   dt-open-install --uninstall  put the previous default back, remove the app
@@ -32,7 +33,9 @@ if [ "${1:-}" = --uninstall ]; then
 fi
 
 [ -r "$src" ] || { echo "Missing $src: run stow devonthink-open first." >&2; exit 1; }
-[ -x "$HOME/.local/bin/dt-open" ] || { echo "Missing ~/.local/bin/dt-open: run stow devonthink-open first." >&2; exit 1; }
+# osacompile needs DEVONthink's scripting dictionary to compile the lookup.
+/usr/bin/osascript -e 'path to application id "DNtp"' >/dev/null 2>&1 ||
+  { echo "DEVONthink is not installed (the applet is compiled against its dictionary)." >&2; exit 1; }
 
 # Remember the current default (third line of "duti -x pdf" is the bundle id),
 # unless it is already ours.
