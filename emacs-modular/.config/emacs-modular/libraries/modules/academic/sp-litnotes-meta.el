@@ -874,20 +874,62 @@ The note is in the Vulpea database when this returns."
 (declare-function org-update-dblock "org")
 (declare-function vulpea-db-update-file "vulpea-db")
 
-(defun sp-litnotes-meta--table-view (key)
-  "The built-in view name for the table of the children of KEY."
-  (let ((type (cdr (assoc "=type=" (let ((bibtex-dialect 'biblatex)) ; knows @collection
-                                     (sp-litnotes-meta--entry key))))))
-    (if (sp-bibtex-types-collection-p type)
-        "collection-articles"
-      "book-sections")))
+(defcustom sp-litnotes-meta-parent-views
+  '(("book" . "book-sections")
+    ("collection" . "collection-articles")
+    ("reference" . "reference-entries")
+    ("encyclopedia" . "encyclopedia-articles"))
+  "The table view of a parent note, by the tag of the parent.
+Elements are (PARENT-TAG . VIEW), see `sp-collec-query-views-defaults'.
+The first tag the note carries wins."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-litnotes-meta)
 
-(defun sp-litnotes-meta--ensure-table (key files)
+(defcustom sp-litnotes-meta-chapter-views
+  '(("booksection" . "book-sections")
+    ("incollection" . "collection-articles")
+    ("inreference" . "reference-entries")
+    ("encyclopedia" . "encyclopedia-articles"))
+  "The table view for the children of a parent, by the tag of a child.
+Elements are (CHILD-TAG . VIEW).  The tags are the ones that
+`sp-litnotes-meta-refresh-all-tables' follows from a child to its
+bib-parent; a parent tag that `sp-litnotes-meta-parent-views' knows is
+used before this."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta--table-view (key)
+  "The built-in view name for the table of the children of KEY.
+It follows the BibTeX type of KEY through `sp-bibtex-types-tag' and
+`sp-litnotes-meta-parent-views'; a type they do not know gives
+\"book-sections\"."
+  (let* ((type (cdr (assoc "=type=" (let ((bibtex-dialect 'biblatex)) ; knows @collection
+                                      (sp-litnotes-meta--entry key)))))
+         (tag (sp-bibtex-types-tag type)))
+    (or (cdr (assoc tag sp-litnotes-meta-parent-views))
+        "book-sections")))
+
+(defun sp-litnotes-meta--insert-table-block (view)
+  "Insert a `collection-query-table' block with VIEW above the first heading.
+The current buffer is an Org note; the block is not updated here."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (sp-author-notes--first-heading))
+      (unless (or (eobp) (bolp)) (insert "\n"))
+      (if (eobp)
+          (unless (or (bobp) (bolp)) (insert "\n"))
+        (insert "\n")
+        (forward-line -1))
+      (org-create-dblock (list :name "collection-query-table" :view view)))))
+
+(defun sp-litnotes-meta--ensure-table (key files &optional view)
   "Make the current note show a table of its children, and refresh it.
 KEY is the citation key of the note; FILES the files of the notes just made,
 which are put in the Vulpea database first.  Insert a
-`collection-query-table' block with the view for KEY, above the first
-heading, when the note has none.  Return `inserted', `updated' or nil."
+`collection-query-table' block with VIEW (by default the view for KEY),
+above the first heading, when the note has none.  Return `inserted',
+`updated' or nil."
   (when (derived-mode-p 'org-mode)
     (unless (and (require 'sp-collection-query-tables-org nil t)
                  (fboundp 'sp-collec-query-dblock-update-buffer))
@@ -898,17 +940,8 @@ heading, when the note has none.  Return `inserted', `updated' or nil."
         (dolist (file files)
           (ignore-errors (vulpea-db-update-file file))))
       (unless (sp-collec-query-dblock-has-block-p)
-        (save-excursion
-          (save-restriction
-            (widen)
-            (goto-char (sp-author-notes--first-heading))
-            (unless (or (eobp) (bolp)) (insert "\n"))
-            (if (eobp)
-                (unless (or (bobp) (bolp)) (insert "\n"))
-              (insert "\n")
-              (forward-line -1))
-            (org-create-dblock (list :name "collection-query-table"
-                                     :view (sp-litnotes-meta--table-view key)))))
+        (sp-litnotes-meta--insert-table-block
+         (or view (sp-litnotes-meta--table-view key)))
         (setq how 'inserted))
       (sp-collec-query-dblock-update-buffer)
       (when (and buffer-file-name (not was-modified) (buffer-modified-p))
@@ -986,6 +1019,167 @@ table in the note is created or refreshed afterwards."
   (interactive (list (or (sp-litnotes-meta--buffer-key)
                          (user-error "No citation key in the ROAM_REFS of this buffer"))))
   (sp-litnotes-meta-backfill-children key nil t))
+
+;;;; Refresh the chapter tables of the whole vault
+
+(declare-function vulpea-db-sync-full-scan "vulpea-db-sync")
+(declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-note-meta-get-list "vulpea-note")
+
+(defcustom sp-litnotes-meta-refresh-sync t
+  "Non-nil: `sp-litnotes-meta-refresh-all-tables' syncs the Vulpea database first."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defconst sp-litnotes-meta--refresh-buffer "*litnote tables*")
+
+(defun sp-litnotes-meta--chapter-notes ()
+  "The notes tagged with a key of `sp-litnotes-meta-chapter-views'."
+  (vulpea-db-query-by-tags-some (mapcar #'car sp-litnotes-meta-chapter-views)))
+
+(defun sp-litnotes-meta--parent-view (parent chapters)
+  "The view for the table of the note PARENT, whose CHAPTERS are notes.
+The tags of PARENT decide, see `sp-litnotes-meta-parent-views'; else the
+first tag of a chapter, see `sp-litnotes-meta-chapter-views'."
+  (or (seq-some (lambda (cell)
+                  (and (member (car cell) (vulpea-note-tags parent)) (cdr cell)))
+                sp-litnotes-meta-parent-views)
+      (seq-some (lambda (note)
+                  (seq-some (lambda (cell)
+                              (and (member (car cell) (vulpea-note-tags note)) (cdr cell)))
+                            sp-litnotes-meta-chapter-views))
+                chapters)
+      "book-sections"))
+
+(defun sp-litnotes-meta--table-parents ()
+  "The notes that should show a chapter table, as a plist.
+:PARENTS is a list of (NOTE . CHAPTERS) for every note some chapter points
+at with bib-parent, and for every tagged note of
+`sp-litnotes-meta-parent-views'; :MISSING lists the ids a bib-parent
+names that are not in the database."
+  (let ((by-id (make-hash-table :test #'equal)) order missing)
+    (dolist (chapter (sp-litnotes-meta--chapter-notes))
+      (dolist (id (vulpea-note-meta-get-list chapter "bib-parent" 'link))
+        (let ((parent (and (stringp id) (ignore-errors (vulpea-db-get-by-id id)))))
+          (cond ((null parent)
+                 (cl-pushnew (cons id (vulpea-note-title chapter)) missing :test #'equal))
+                (t (unless (gethash id by-id) (push id order))
+                   (push chapter (gethash id by-id)))))))
+    (let ((parents (mapcar (lambda (id)
+                             (cons (vulpea-db-get-by-id id) (nreverse (gethash id by-id))))
+                           (nreverse order))))
+      ;; tagged notes without chapters count when they have a block
+      (dolist (note (vulpea-db-query-by-tags-some (mapcar #'car sp-litnotes-meta-parent-views)))
+        (unless (gethash (vulpea-note-id note) by-id)
+          (push (list note) parents)))
+      (list :parents (nreverse parents) :missing (nreverse missing)))))
+
+(defun sp-litnotes-meta--refresh-file (file view create)
+  "Update the chapter table in FILE, adding a block with VIEW when CREATE.
+Return `inserted', `changed', `unchanged' or `skipped' (no block and not
+CREATE).  The file is saved when it changed, and its buffer killed when it
+was not open."
+  (let* ((open (find-buffer-visiting file))
+         (buffer (or open (find-file-noselect file))))
+    (unwind-protect
+        (with-current-buffer buffer
+          (unless (and (require 'sp-collection-query-tables-org nil t)
+                       (fboundp 'sp-collec-query-dblock-update-buffer))
+            (user-error "The query table module (sp-collection-query-tables-org) did not load"))
+          (let ((was-modified (buffer-modified-p))
+                (before (buffer-hash))
+                (has-block (sp-collec-query-dblock-has-block-p))
+                (inserted nil))
+            (cond ((and (not has-block) (not create)) 'skipped)
+                  (t (unless has-block
+                       (sp-litnotes-meta--insert-table-block view)
+                       (setq inserted t))
+                     (sp-collec-query-dblock-update-buffer)
+                     (when (and buffer-file-name (not was-modified) (buffer-modified-p))
+                       (save-buffer))
+                     (cond (inserted 'inserted)
+                           ((equal before (buffer-hash)) 'unchanged)
+                           (t 'changed))))))
+      (unless (or open (buffer-modified-p buffer))
+        (kill-buffer buffer)))))
+
+;;;###autoload
+(defun sp-litnotes-meta-refresh-all-tables (&optional dry-run)
+  "Add and refresh the chapter table of every book, collection and the like.
+See the doc for which notes get one.  The Vulpea database is synced first
+when `sp-litnotes-meta-refresh-sync' is non-nil.  With a prefix argument,
+or DRY-RUN, only list what would be added and write nothing.  Show a
+summary in `sp-litnotes-meta--refresh-buffer' and return the plist
+\\(:inserted :changed :unchanged :skipped :failed :missing)."
+  (interactive "P")
+  (when (and sp-litnotes-meta-refresh-sync (not dry-run)
+             (fboundp 'vulpea-db-sync-full-scan))
+    (message "Syncing the Vulpea database...")
+    (vulpea-db-sync-full-scan))
+  (let* ((found (sp-litnotes-meta--table-parents))
+         inserted changed unchanged skipped failed)
+    (dolist (entry (plist-get found :parents))
+      (let* ((parent (car entry))
+             (chapters (cdr entry))
+             (view (sp-litnotes-meta--parent-view parent chapters))
+             (file (vulpea-note-path parent))
+             (label (list (vulpea-note-title parent) file)))
+        (condition-case err
+            (if dry-run
+                (if (and chapters
+                         (not (with-temp-buffer
+                                (insert-file-contents file)
+                                (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+collection-query-table"
+                                                   nil t))))
+                    (push label inserted)
+                  (push label unchanged))
+              (pcase (sp-litnotes-meta--refresh-file file view (and chapters t))
+                ('inserted (push label inserted))
+                ('changed (push label changed))
+                ('unchanged (push label unchanged))
+                (_ (push label skipped))))
+          (error (push (append label (list (error-message-string err))) failed)))))
+    (let ((result (list :inserted (nreverse inserted) :changed (nreverse changed)
+                        :unchanged (nreverse unchanged) :skipped (nreverse skipped)
+                        :failed (nreverse failed) :missing (plist-get found :missing))))
+      (sp-litnotes-meta--show-refresh result dry-run)
+      result)))
+
+(defun sp-litnotes-meta--refresh-lines (heading items)
+  "Org text for HEADING and the (TITLE FILE [NOTE]) ITEMS under it, or nil."
+  (when items
+    (concat (format "* %s (%d)\n" heading (length items))
+            (mapconcat (lambda (item)
+                         (format "- [[file:%s][%s]]%s\n" (nth 1 item) (car item)
+                                 (if (nth 2 item) (format ": %s" (nth 2 item)) "")))
+                       items ""))))
+
+(defun sp-litnotes-meta--show-refresh (result dry-run)
+  "Show RESULT of `sp-litnotes-meta-refresh-all-tables' in a buffer."
+  (with-current-buffer (get-buffer-create sp-litnotes-meta--refresh-buffer)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (format "#+title: Chapter tables%s\n\n" (if dry-run " (dry run, nothing written)" "")))
+      (insert (format "%d added, %d changed, %d unchanged, %d failed\n\n"
+                      (length (plist-get result :inserted)) (length (plist-get result :changed))
+                      (length (plist-get result :unchanged)) (length (plist-get result :failed))))
+      (insert (or (sp-litnotes-meta--refresh-lines (if dry-run "Would get a table" "Table added")
+                                                   (plist-get result :inserted)) "")
+              (or (sp-litnotes-meta--refresh-lines "Table changed" (plist-get result :changed)) "")
+              (or (sp-litnotes-meta--refresh-lines "Failed" (plist-get result :failed)) ""))
+      (when-let* ((missing (plist-get result :missing)))
+        (insert (format "* bib-parent not in the database (%d)\n" (length missing)))
+        (dolist (cell missing)
+          (insert (format "- %s: =%s=\n" (cdr cell) (car cell)))))
+      (delay-mode-hooks (org-mode))
+      (goto-char (point-min))
+      (set-buffer-modified-p nil))
+    (display-buffer (current-buffer)))
+  (message "Chapter tables: %d added, %d changed, %d unchanged%s"
+           (length (plist-get result :inserted)) (length (plist-get result :changed))
+           (length (plist-get result :unchanged))
+           (if (plist-get result :failed)
+               (format ", %d failed" (length (plist-get result :failed))) "")))
 
 (defcustom sp-litnotes-meta-update-changed t
   "Non-nil when the batch also updates pub-* values that differ from the BibTeX entry.

@@ -21,11 +21,14 @@ Literate source for =libraries/modules/academic/sp-bibtex-types.el=.
 | =Article=                        | =:journalarticle:= |
 | =Book=                           | =:book:=           |
 | =Collection=, =MvCollection=     | =:collection:=     |
+| =InReference=                    | =:inreference:=    |
+| =Reference=, =MvReference=        | =:reference:=      |
 | =PhdThesis=                      | =:phdthesis:=      |
 | =MastersThesis=                  | =:mastersthesis:=  |
 | anything else                    | =:text:=           |
 
-- A multi-volume collection is not told apart from a regular collection.
+- A multi-volume collection is not told apart from a regular collection, nor a multi-volume reference work from a reference.
+- =:encyclopedia:= is not a BibTeX type; it is a tag you put on an encyclopedic article yourself (see the rules in =sp-collec-query-check-rules=).
 - =:text:= is the tag of the =base-text= scheme in =sp-vulpea-schemas=; every other tag above has its own scheme that includes =base-text=.
 
 ** Where it is used
@@ -76,6 +79,9 @@ Literate source for =libraries/modules/academic/sp-bibtex-types.el=.
     ("book" . "book")
     ("collection" . "collection")
     ("mvcollection" . "collection")
+    ("inreference" . "inreference")
+    ("reference" . "reference")
+    ("mvreference" . "reference")
     ("phdthesis" . "phdthesis")
     ("mastersthesis" . "mastersthesis"))
   "Org tag of a litnote for each BibTeX entry type (compared ignoring case).

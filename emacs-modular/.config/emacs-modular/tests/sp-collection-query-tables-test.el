@@ -305,3 +305,37 @@
     (insert "[[id:1][x]]")
     (goto-char 5)
     (should-not (sp-collec-query--bib-key-at-point))))
+
+;;;; Check rules
+
+(defun sp-collec-query-test--check (tags parent-tags)
+  "The check of a note with TAGS whose parent has PARENT-TAGS (nil: no parent)."
+  (let ((sp-collec-query-test-db
+         (and parent-tags `(("pid" . (:id "pid" :tags ,parent-tags))))))
+    (sp-collec-query-check
+     (list :id "n" :tags tags :meta (and parent-tags '(("bib-parent" "pid")))))))
+
+(ert-deftest sp-collec-query-test-check-keeps-book-and-collection-rules ()
+  (should (equal (sp-collec-query-test--check '("booksection") '("book")) ""))
+  (should (equal (sp-collec-query-test--check '("incollection") '("collection")) ""))
+  (should (string-match-p "booksection but the parent is not tagged book"
+                          (sp-collec-query-test--check '("booksection") '("collection"))))
+  (should (string-match-p "booksection without bib-parent"
+                          (sp-collec-query-test--check '("booksection") nil)))
+  (should (string-match-p "the parent is a book but this is not tagged booksection"
+                          (sp-collec-query-test--check '("text") '("book")))))
+
+(ert-deftest sp-collec-query-test-check-reference-and-encyclopedia ()
+  ;; inreference: parent reference or book
+  (should (equal (sp-collec-query-test--check '("inreference") '("reference")) ""))
+  (should (equal (sp-collec-query-test--check '("inreference") '("book")) ""))
+  (should (string-match-p "inreference but the parent is not tagged reference or book"
+                          (sp-collec-query-test--check '("inreference") '("collection"))))
+  ;; encyclopedia article: parent encyclopedia or collection
+  (should (equal (sp-collec-query-test--check '("encyclopedia") '("encyclopedia")) ""))
+  (should (equal (sp-collec-query-test--check '("encyclopedia") '("collection")) ""))
+  ;; an incollection and an encyclopedia article both fit a collection
+  (should (equal (sp-collec-query-test--check '("incollection") '("collection")) ""))
+  ;; a note in an encyclopedia must be an encyclopedia article
+  (should (string-match-p "the parent is a encyclopedia but this is not tagged encyclopedia"
+                          (sp-collec-query-test--check '("text") '("encyclopedia")))))
