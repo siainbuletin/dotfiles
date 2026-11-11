@@ -94,6 +94,15 @@
                    "[[id:c9][Essays on X]]"))
     (should (equal (sp-collec-query-cell loose :collection) ""))))
 
+(ert-deftest sp-collec-query-test-parent-of-matches-every-link-of-a-value ()
+  (let ((note (list :id "x" :tags '("incollection")
+                    :meta '(("pub-author" "[[id:a1][Ann]], [[id:a2][Bob]]")))))
+    (should (equal (sp-collec-query--link-ids note "pub-author") '("a1" "a2")))
+    (should (sp-collec-query-note-matches-p note '(:parent-of "a2" :parent-prop "pub-author")))
+    (should-not (sp-collec-query-note-matches-p note '(:parent-of "a3" :parent-prop "pub-author")))
+    (should-not (sp-collec-query-note-matches-p
+                 note '(:parent-of "a2" :parent-prop "pub-author" :except-prop "pub-author")))))
+
 (ert-deftest sp-collec-query-test-no-fold-tag-changes-nothing ()
   (let ((notes (list (list :id "s1" :tags '("booksection")))))
     (should (eq (sp-collec-query--fold notes nil) notes))))
