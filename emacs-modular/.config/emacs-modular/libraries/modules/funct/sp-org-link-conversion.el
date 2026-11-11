@@ -337,6 +337,7 @@ and `[[Target^block]]' link to the note Target."
     (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
              auto manual sp-org--wl-created (- (length pending) manual))))
 
+
 (defun sp-org-wikilinks-dryrun ()
   "Show what `sp-org-wikilinks-convert' would do.  Changes nothing.
 Operates on the active region, or on the whole (accessible) buffer.

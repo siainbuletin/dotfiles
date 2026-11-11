@@ -14,7 +14,7 @@
   :ensure nil
   :defer 1
   :init
-  
+
   ;; auto save
   (setq auto-save-list-file-prefix
         (concat sp-cache-dir "auto-save-list/.saves-"))
@@ -23,7 +23,7 @@
           `((".*" ,auto-save-files-dir t)))
     (when (not (file-exists-p auto-save-files-dir))
       (make-directory auto-save-files-dir t)))
-  
+
   ;; auto-save every file visiting buffer
   ;; see https://emacs.stackexchange.com/q/7729/11934
   (setq-default auto-save-default t)

@@ -585,7 +585,7 @@ folder, stays where it is, and so does one whose target file exists."
         (kill-buffer buffer))
       (make-directory dir t)
       (rename-file old new)
-      (vulpea-db--forget-file old)
+          (vulpea-db--forget-file old)
       (org-id-add-location id new)
       (vulpea-db-update-file new)
       (message "Filed in %s" (abbreviate-file-name dir))

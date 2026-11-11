@@ -107,116 +107,116 @@ An open buffer visiting FILE wins over the file on disk, like the sidebar."
   (defvar p-search-candidate-generators)
   (defvar p-search-prior-templates)
 
-(p-search-def-property
- 'tab-idea 'name
- (lambda (el) (format "%s:%d" (file-name-nondirectory (car el)) (cdr el))))
-(p-search-def-property
- 'tab-idea 'content (lambda (el) (or (gethash el sp-tab-psearch--text) "")))
-(p-search-def-property 'tab-idea 'file-name #'car)
-(p-search-def-property 'tab-idea 'line-offset (lambda (el) (1- (cdr el))))
-(p-search-def-function
- 'tab-idea 'p-search-goto-document (lambda (el) (find-file-other-window (car el))))
+  (p-search-def-property
+   'tab-idea 'name
+   (lambda (el) (format "%s:%d" (file-name-nondirectory (car el)) (cdr el))))
+  (p-search-def-property
+   'tab-idea 'content (lambda (el) (or (gethash el sp-tab-psearch--text) "")))
+  (p-search-def-property 'tab-idea 'file-name #'car)
+  (p-search-def-property 'tab-idea 'line-offset (lambda (el) (1- (cdr el))))
+  (p-search-def-function
+   'tab-idea 'p-search-goto-document (lambda (el) (find-file-other-window (car el))))
 
-(defun sp-tab-psearch--generate (args)
-  "Return the ideas of the inbox as p-search documents.  ARGS are the options."
-  (clrhash sp-tab-psearch--text)
-  (let ((regexp (or (alist-get 'filename-regexp args)
-                    sp-tab-psearch-file-regexp))
-        documents)
-    (dolist (file (sp-tab-psearch--files regexp))
-      (let ((true (file-truename file)))
-        (pcase-dolist (`(,line . ,text) (sp-tab-psearch--file-ideas file))
-          (let ((el (cons true line)))
-            (puthash el text sp-tab-psearch--text)
-            (push (p-search-documentize (list 'tab-idea el)) documents)))))
-    (nreverse documents)))
+  (defun sp-tab-psearch--generate (args)
+    "Return the ideas of the inbox as p-search documents.  ARGS are the options."
+    (clrhash sp-tab-psearch--text)
+    (let ((regexp (or (alist-get 'filename-regexp args)
+                      sp-tab-psearch-file-regexp))
+          documents)
+      (dolist (file (sp-tab-psearch--files regexp))
+        (let ((true (file-truename file)))
+          (pcase-dolist (`(,line . ,text) (sp-tab-psearch--file-ideas file))
+            (let ((el (cons true line)))
+              (puthash el text sp-tab-psearch--text)
+              (push (p-search-documentize (list 'tab-idea el)) documents)))))
+      (nreverse documents)))
 
-(defconst sp-tab-psearch-candidate-generator
-  (p-search-candidate-generator-create
-   :id 'sp-tab-psearch-candidate-generator
-   :name "TAB INBOX"
-   :input-spec '()
-   :options-spec `((filename-regexp . (p-search-infix-regexp
-                                       :key "-f"
-                                       :description "Filename Pattern"
-                                       :default-value ,sp-tab-psearch-file-regexp)))
-   :function #'sp-tab-psearch--generate
-   :lighter-function (lambda (_args) "TabInbox"))
-  "Candidate generator: every idea (line) in `sp-tab-inbox-dir'.")
+  (defconst sp-tab-psearch-candidate-generator
+    (p-search-candidate-generator-create
+     :id 'sp-tab-psearch-candidate-generator
+     :name "TAB INBOX"
+     :input-spec '()
+     :options-spec `((filename-regexp . (p-search-infix-regexp
+                                         :key "-f"
+                                         :description "Filename Pattern"
+                                         :default-value ,sp-tab-psearch-file-regexp)))
+     :function #'sp-tab-psearch--generate
+     :lighter-function (lambda (_args) "TabInbox"))
+    "Candidate generator: every idea (line) in `sp-tab-inbox-dir'.")
 
-(add-to-list 'p-search-candidate-generators sp-tab-psearch-candidate-generator)
+  (add-to-list 'p-search-candidate-generators sp-tab-psearch-candidate-generator)
 
-(defun sp-tab-psearch--vault ()
-  "Return the org-semantic vault the inbox belongs to."
-  (with-temp-buffer
-    (setq default-directory (file-name-as-directory
-                             (expand-file-name sp-tab-inbox-dir)))
-    (org-semantic-vault-or-error)))
+  (defun sp-tab-psearch--vault ()
+    "Return the org-semantic vault the inbox belongs to."
+    (with-temp-buffer
+      (setq default-directory (file-name-as-directory
+                               (expand-file-name sp-tab-inbox-dir)))
+      (org-semantic-vault-or-error)))
 
-(defun sp-tab-psearch--scope (vault)
-  "Return the `dir:' predicate that limits a query to the inbox of VAULT."
-  (let* ((notes (org-semantic-notes-root vault))
-         (here (directory-file-name
-                (file-truename (expand-file-name sp-tab-inbox-dir))))
-         (rel (and (file-in-directory-p here notes)
-                   (file-relative-name here notes))))
-    (unless (and rel (not (equal rel ".")))
-      (user-error "The tab inbox %s is not a subfolder of the org-semantic notes %s"
-                  here notes))
-    (if (string-match-p "[[:space:]]" rel)
-        (format "dir:\"%s\" " rel)
-      (format "dir:%s " rel))))
+  (defun sp-tab-psearch--scope (vault)
+    "Return the `dir:' predicate that limits a query to the inbox of VAULT."
+    (let* ((notes (org-semantic-notes-root vault))
+           (here (directory-file-name
+                  (file-truename (expand-file-name sp-tab-inbox-dir))))
+           (rel (and (file-in-directory-p here notes)
+                     (file-relative-name here notes))))
+      (unless (and rel (not (equal rel ".")))
+        (user-error "The tab inbox %s is not a subfolder of the org-semantic notes %s"
+                    here notes))
+      (if (string-match-p "[[:space:]]" rel)
+          (format "dir:\"%s\" " rel)
+        (format "dir:%s " rel))))
 
-(defun sp-tab-psearch--hits (query)
-  "Return org-semantic's hits for QUERY, inside the inbox, best first."
-  (require 'org-semantic)
-  (let ((vault (sp-tab-psearch--vault)))
-    (org-semantic-hits
-     (org-semantic-search (concat (sp-tab-psearch--scope vault) query)
-                          :vault vault
-                          :k sp-tab-psearch-max-notes
-                          :per-file sp-tab-psearch-passages-per-file
-                          :mode sp-tab-psearch-ranking))))
+  (defun sp-tab-psearch--hits (query)
+    "Return org-semantic's hits for QUERY, inside the inbox, best first."
+    (require 'org-semantic)
+    (let ((vault (sp-tab-psearch--vault)))
+      (org-semantic-hits
+       (org-semantic-search (concat (sp-tab-psearch--scope vault) query)
+                            :vault vault
+                            :k sp-tab-psearch-max-notes
+                            :per-file sp-tab-psearch-passages-per-file
+                            :mode sp-tab-psearch-ranking))))
 
-(defun sp-tab-psearch--semantic-init (prior)
-  "Score the ideas for the semantic PRIOR from org-semantic's ranking."
-  (let ((query (string-trim
-                (or (alist-get 'query-string (p-search-prior-arguments prior))
-                    ""))))
-    (unless (string-empty-p query)
-      (let* ((hits (sp-tab-psearch--hits query))
-             (n (length hits))
-             (i 0))
-        (p-search-set-score prior :default p-search-score-no)
-        (dolist (hit hits)
-          (let* ((file (file-truename (org-semantic-hit-file hit)))
-                 (start (or (org-semantic-hit-start-line hit)
-                            (org-semantic-hit-line hit)))
-                 (end (or (org-semantic-hit-end-line hit) start))
-                 (score (- 0.9 (* 0.35 (/ (float i) (max 1 (1- n)))))))
-            (cl-loop for line from start to end
-                     when (gethash (cons file line) sp-tab-psearch--text)
-                     do (let ((id (list 'tab-idea (cons file line))))
-                          ;; the best hit that holds an idea decides its score
-                          (unless (gethash id (p-search-prior-results prior))
-                            (p-search-set-score prior id score))))
-            (cl-incf i)))))
-    (p-search-prior-complete prior)))
+  (defun sp-tab-psearch--semantic-init (prior)
+    "Score the ideas for the semantic PRIOR from org-semantic's ranking."
+    (let ((query (string-trim
+                  (or (alist-get 'query-string (p-search-prior-arguments prior))
+                      ""))))
+      (unless (string-empty-p query)
+        (let* ((hits (sp-tab-psearch--hits query))
+               (n (length hits))
+               (i 0))
+          (p-search-set-score prior :default p-search-score-no)
+          (dolist (hit hits)
+            (let* ((file (file-truename (org-semantic-hit-file hit)))
+                   (start (or (org-semantic-hit-start-line hit)
+                              (org-semantic-hit-line hit)))
+                   (end (or (org-semantic-hit-end-line hit) start))
+                   (score (- 0.9 (* 0.35 (/ (float i) (max 1 (1- n)))))))
+              (cl-loop for line from start to end
+                       when (gethash (cons file line) sp-tab-psearch--text)
+                       do (let ((id (list 'tab-idea (cons file line))))
+                            ;; the best hit that holds an idea decides its score
+                            (unless (gethash id (p-search-prior-results prior))
+                              (p-search-set-score prior id score))))
+              (cl-incf i)))))
+      (p-search-prior-complete prior)))
 
-(defconst sp-tab-psearch-prior-semantic
-  (p-search-prior-template-create
-   :id 'sp-tab-psearch-prior-semantic
-   :group "tab inbox"
-   :name "semantic query"
-   :required-properties '(file-name)
-   :input-spec '((query-string . (p-search-infix-string
-                                  :key "s"
-                                  :description "Semantic query")))
-   :initialize-function #'sp-tab-psearch--semantic-init
-   :transient-key-string "se")
-  "Prior: ideas that org-semantic ranks high for the query score high.")
+  (defconst sp-tab-psearch-prior-semantic
+    (p-search-prior-template-create
+     :id 'sp-tab-psearch-prior-semantic
+     :group "tab inbox"
+     :name "semantic query"
+     :required-properties '(file-name)
+     :input-spec '((query-string . (p-search-infix-string
+                                    :key "s"
+                                    :description "Semantic query")))
+     :initialize-function #'sp-tab-psearch--semantic-init
+     :transient-key-string "se")
+    "Prior: ideas that org-semantic ranks high for the query score high.")
 
-(add-to-list 'p-search-prior-templates sp-tab-psearch-prior-semantic))
+  (add-to-list 'p-search-prior-templates sp-tab-psearch-prior-semantic))
 
 (defun sp-tab-psearch--preset (query &optional word-query engine)
   "Return the p-search preset for QUERY over the inbox.

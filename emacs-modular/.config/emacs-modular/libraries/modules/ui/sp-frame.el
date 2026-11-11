@@ -10,7 +10,7 @@
 (setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
 
 ;;;; Frame defaults
-;; This setting will ensure that the frame is actually square, which 
+;; This setting will ensure that the frame is actually square, which
 ;; radically changes the appearance on MacOS and brings it closer to a
 ;; Linux experience.
 
