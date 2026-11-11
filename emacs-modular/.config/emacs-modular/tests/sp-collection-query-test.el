@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-test.el --- Tests for query table sorting  -*- lexical-binding: t; -*-
+;;; sp-collection-query-test.el --- Tests for query table sorting  -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -15,7 +15,7 @@
   (defun vulpea-note-meta-get-list (note key &optional _type) (cdr (assoc key (plist-get note :meta)))))
 
 (load (expand-file-name
-       "../libraries/modules/funct/sp-collection-query-tables-core.el"
+       "../libraries/modules/funct/sp-collection-query-core.el"
        (file-name-directory (or load-file-name buffer-file-name)))
       nil t)
 
@@ -112,7 +112,7 @@
 (when noninteractive
   (unless (fboundp 'vulpea-db-query) (defun vulpea-db-query (&rest _) nil))
   (load (expand-file-name
-         "../libraries/modules/funct/sp-collection-query-tables-org.el"
+         "../libraries/modules/funct/sp-collection-query-org.el"
          (file-name-directory (or load-file-name buffer-file-name)))
         nil t))
 

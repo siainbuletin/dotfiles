@@ -1,7 +1,7 @@
-;;; sp-collection-query-tables-book-test.el --- Tests for book section tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-book-test.el --- Tests for book section tables -*- lexical-binding: t; -*-
 
 ;; Run in batch with stubbed Vulpea:
-;;   emacs -Q --batch -l tests/sp-collection-query-tables-book-test.el -f ert-run-tests-batch-and-exit
+;;   emacs -Q --batch -l tests/sp-collection-query-book-test.el -f ert-run-tests-batch-and-exit
 ;; Not tested here: the vulpea-ui widget (needs vui and a sidebar).
 
 (require 'ert)
@@ -25,8 +25,8 @@
   (cdr (assoc key (plist-get note :meta))))
 
 (let ((dir (file-name-directory (or load-file-name buffer-file-name))))
-  (load (expand-file-name "../libraries/modules/funct/sp-collection-query-tables-core.el" dir) nil t)
-  (load (expand-file-name "../libraries/modules/funct/sp-collection-query-tables-book.el" dir) nil t))
+  (load (expand-file-name "../libraries/modules/funct/sp-collection-query-core.el" dir) nil t)
+  (load (expand-file-name "../libraries/modules/funct/sp-collection-query-book.el" dir) nil t))
 
 (setq sp-collec-query-book-test-db
       (mapcar (lambda (n) (cons (plist-get n :id) n))
@@ -98,4 +98,4 @@
     (should (equal (plist-get spec :parent-prop) "bib-parent"))
     (should (eq (plist-get spec :sort-by) :pages))))
 
-;;; sp-collection-query-tables-book-test.el ends here
+;;; sp-collection-query-book-test.el ends here

@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-exc.el --- Query tables as exc grids -*- lexical-binding: t; -*-
+;;; sp-collection-query-exc.el --- Query tables as exc grids -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -15,7 +15,7 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 
 (declare-function exc--show-grid "exc")
 (declare-function exc--show-grid-in-current-buffer "exc")
@@ -25,7 +25,7 @@
 (declare-function exc-set-column-width "exc")
 (declare-function exc-get-cell-at-point "exc")
 (declare-function exc-etaf-goto "exc-etaf")
-(declare-function sp-collec-query-menu "sp-collection-query-tables-menu")
+(declare-function sp-collec-query-menu "sp-collection-query-menu")
 (defvar exc--data-source)
 (defvar exc-calc-sheet-limit)
 (defvar sp-collec-query-menu--spec)
@@ -227,10 +227,10 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
 (defun sp-collec-query-exc-edit-query ()
   "Change this table's query in the menu; running it redraws this buffer."
   (interactive)
-  (require 'sp-collection-query-tables-menu)
+  (require 'sp-collection-query-menu)
   (setq sp-collec-query-menu--spec (copy-tree sp-collec-query-exc--spec)
         sp-collec-query-menu--target (current-buffer))
   (sp-collec-query-menu))
 
-(provide 'sp-collection-query-tables-exc)
-;;; sp-collection-query-tables-exc.el ends here
+(provide 'sp-collection-query-exc)
+;;; sp-collection-query-exc.el ends here

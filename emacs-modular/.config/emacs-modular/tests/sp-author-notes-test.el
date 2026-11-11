@@ -46,7 +46,7 @@
                    ((symbol-function 'require)
                     (let ((orig (symbol-function 'require)))
                       (lambda (feature &rest args)
-                        (if (memq feature '(sp-org-link-conversion sp-collection-query-tables)) t (apply orig feature args))))))
+                        (if (memq feature '(sp-org-link-conversion sp-collection-query)) t (apply orig feature args))))))
            ,@body)
        (delete-directory vault t))))
 

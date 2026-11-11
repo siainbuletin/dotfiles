@@ -30,12 +30,13 @@
 ;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 ;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
 
+
 (defun sp-single-space-after-periods ()
   "Don't assume that sentences should have two spaces after
 periods. This ain't a typewriter."
   (setq sentence-end-double-space nil))
-
-;;;; Useful writing functions
+  
+;;;; Useful writing functions 
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
@@ -55,7 +56,7 @@ periods. This ain't a typewriter."
 
   :commands (org-mode)
   :mode (("\\.org$" . org-mode))
-
+ 
   :bind
   (:map org-mode-map
    ("C-M-k" . org-metaup)
@@ -68,16 +69,16 @@ periods. This ain't a typewriter."
    ("M-H" . org-shiftleft)
    ;; Reorganising notes through vulpea
    ("C-x s t" . sp-refile)
-
+ 
    ;; easily emphasize text
    ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))
    ("s-i" . (lambda () (interactive) (org-emphasize-dwim ?/)))
    ("s-M-`" . org-emphasize-with-verbatim-dwim)
    ("s-M-~" . org-emphasize-with-code-dwim)
-
+   
    ;; better pasting behavior in org-mode
    ("s-v" . org-yank)
-
+   
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
@@ -88,7 +89,7 @@ periods. This ain't a typewriter."
    ;; Footnotes
    ("C-c f n" . org-footnote-new)
    ("C-c f q" . org-footnote-normalize)
-
+   
    ;; Visibility for the markup
    ("C-c l d" . org-toggle-link-display)
 
@@ -217,7 +218,7 @@ periods. This ain't a typewriter."
 (defun sp-org-deadline-highlighting ()
   (add-hook 'after-save-hook #'sp-org-highlight-todays-deadlines nil t)
   (sp-org-highlight-todays-deadlines))
-
+  
 (add-hook 'org-mode-hook #'org-indent-mode)
 
 (setq org-agenda-breadcrumbs-separator " ) ")
@@ -545,6 +546,7 @@ Used as the `url' provider of `thing-at-point' in Org buffers."
 
 (defcustom sp-org-dblock-templates
   '(("Children of this note"
+     :category "Collections"
      :name "collection-query-table"
      :parent-of self
      :columns (:title)
@@ -552,10 +554,28 @@ Used as the `url' provider of `thing-at-point' in Org buffers."
   "Named templates for `sp-org-dblock-insert-template'.
 Each element is (LABEL . PLIST).  PLIST is what `org-create-dblock'
 takes: :name is the dynamic block name and the other keys are its
-parameters.  For a `collection-query-table' block, `:parent-of self'
-means the note the block is in."
+parameters, except :category, the group of the template in the
+completion list (\"Other\" when missing).  For a `collection-query-table'
+block, `:parent-of self' means the note the block is in."
   :type '(alist :key-type (string :tag "Label")
                 :value-type (plist :tag "Dynamic block"))
+  :group 'sp-org-dblock)
+
+(defvar sp-org-dblock-template-functions nil
+  "Functions that return more templates for `sp-org-dblock-insert-template'.
+Each is called with no arguments and returns a list like
+`sp-org-dblock-templates'.  A module adds its own with `add-hook'.")
+
+(defcustom sp-org-dblock-category-order '("Academic" "Collections")
+  "The groups of `sp-org-dblock-insert-template' that come first, in order."
+  :type '(repeat string)
+  :group 'sp-org-dblock)
+
+(defcustom sp-org-dblock-disabled-names '("vulpea-collection")
+  "Dynamic blocks that Org's own insert menu does not offer.
+They are removed from `org-dynamic-blocks'; a block of that name already
+in a note still updates."
+  :type '(repeat string)
   :group 'sp-org-dblock)
 
 (defcustom sp-org-dblock-update-after-insert t
@@ -563,27 +583,79 @@ means the note the block is in."
   :type 'boolean
   :group 'sp-org-dblock)
 
+(defun sp-org-dblock--all-templates ()
+  "All templates: `sp-org-dblock-templates' and those of the template functions."
+  (append sp-org-dblock-templates
+          (apply #'append (mapcar #'funcall sp-org-dblock-template-functions))))
+
+(defun sp-org-dblock--category (template)
+  "The group of TEMPLATE, an element (LABEL . PLIST)."
+  (or (plist-get (cdr template) :category) "Other"))
+
+(defun sp-org-dblock--category-rank (category)
+  "Where CATEGORY comes in `sp-org-dblock-category-order'; later ones get more."
+  (or (seq-position sp-org-dblock-category-order category #'equal)
+      (length sp-org-dblock-category-order)))
+
+(defun sp-org-dblock--completion-table (templates)
+  "A completion table over the labels of TEMPLATES, grouped by category."
+  (let ((groups (make-hash-table :test #'equal)))
+    (dolist (template templates)
+      (puthash (car template) (sp-org-dblock--category template) groups))
+    (lambda (string pred action)
+      (if (eq action 'metadata)
+          `(metadata
+            (category . sp-dblock-template)
+            (group-function
+             . ,(lambda (label transform)
+                  (if transform label (gethash label groups))))
+            (display-sort-function
+             . ,(lambda (labels)
+                  (sort (copy-sequence labels)
+                        (lambda (a b)
+                          (let* ((ca (gethash a groups)) (cb (gethash b groups))
+                                 (ra (sp-org-dblock--category-rank ca))
+                                 (rb (sp-org-dblock--category-rank cb)))
+                            (cond ((/= ra rb) (< ra rb))
+                                  ((not (equal ca cb)) (string< ca cb))
+                                  (t (string< a b)))))))))
+        (complete-with-action action (mapcar #'car templates) string pred)))))
+
 (defun sp-org-dblock-insert-template (label)
   "Insert the dynamic block template LABEL at point.
-LABEL is picked with completion from `sp-org-dblock-templates'.  The
-block is filled in when `sp-org-dblock-update-after-insert' is non-nil,
-and point ends on its #+BEGIN line."
+LABEL is picked with completion, in groups, from the templates (see
+`sp-org-dblock--all-templates').  The block is filled in when
+`sp-org-dblock-update-after-insert' is non-nil, and point ends on its
+#+BEGIN line."
   (interactive
-   (list (completing-read "Dynamic block template: "
-                          (mapcar #'car sp-org-dblock-templates) nil t)))
-  (let ((template (cdr (assoc label sp-org-dblock-templates))))
+   (list (completing-read "Dynamic block: "
+                          (sp-org-dblock--completion-table (sp-org-dblock--all-templates))
+                          nil t)))
+  (let ((template (cdr (assoc label (sp-org-dblock--all-templates)))))
     (unless template
       (user-error "No dynamic block template named %S" label))
     (unless (derived-mode-p 'org-mode)
       (user-error "Dynamic blocks can only be inserted in Org buffers"))
     (unless (bolp) (insert "\n"))
-    (org-create-dblock (copy-tree template))
+    (org-create-dblock
+     (cl-loop for (key value) on template by #'cddr
+              unless (eq key :category)
+              append (list key (copy-tree value))))
     (when sp-org-dblock-update-after-insert
       (org-update-dblock))
     (beginning-of-line)))
 
+(defun sp-org-dblock-hide-disabled (&rest _)
+  "Remove `sp-org-dblock-disabled-names' from Org's insert menu."
+  (when (boundp 'org-dynamic-blocks)
+    (setq org-dynamic-blocks
+          (seq-remove (lambda (cell) (member (car cell) sp-org-dblock-disabled-names))
+                      org-dynamic-blocks))))
+
 (with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template))
+  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template)
+  (sp-org-dblock-hide-disabled)
+  (advice-add 'org-dynamic-block-define :after #'sp-org-dblock-hide-disabled))
 
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

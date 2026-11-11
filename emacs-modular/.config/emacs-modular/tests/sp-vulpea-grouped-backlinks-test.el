@@ -11,7 +11,7 @@
 ;; the module calls are stubbed, with notes as plists.
 (when noninteractive
   (provide 'vulpea)
-  (provide 'sp-collection-query-tables-core)
+  (provide 'sp-collection-query-core)
   (defvar sp-vulpea-grouped-backlinks-test--links nil
     "Alist of (TARGET-ID . LINK-PLISTS) the stubbed database answers with.")
   (defvar sp-vulpea-grouped-backlinks-test--notes nil

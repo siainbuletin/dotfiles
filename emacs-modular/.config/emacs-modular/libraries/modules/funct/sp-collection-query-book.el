@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-book.el --- Section tables for books and collections -*- lexical-binding: t; -*-
+;;; sp-collection-query-book.el --- Section tables for books and collections -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,16 +8,16 @@
 ;; incollection) link back to it with the meta key bib-parent.  The table
 ;; lists those chapters in page order, from their pub-pages meta key.
 ;; The same data feeds the vulpea-ui widget in
-;; `sp-collection-query-tables-book-widget'.
+;; `sp-collection-query-book-widget'.
 
 ;;; Code:
 
 (require 'subr-x)
 (require 'seq)
 (require 'vulpea)
-(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-core)
 
-(declare-function sp-collec-query-open "sp-collection-query-tables")
+(declare-function sp-collec-query-open "sp-collection-query")
 (declare-function org-entry-get "org")
 
 (defgroup sp-collec-query-book nil
@@ -115,7 +115,7 @@ collection is asked for."
     (sp-collec-query-open (sp-collec-query-book-spec book))))
 
 (with-eval-after-load 'vulpea-ui
-  (require 'sp-collection-query-tables-book-widget))
+  (require 'sp-collection-query-book-widget))
 
-(provide 'sp-collection-query-tables-book)
-;;; sp-collection-query-tables-book.el ends here
+(provide 'sp-collection-query-book)
+;;; sp-collection-query-book.el ends here

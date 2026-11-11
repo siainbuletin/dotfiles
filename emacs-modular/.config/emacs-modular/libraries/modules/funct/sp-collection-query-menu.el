@@ -1,4 +1,4 @@
-;;; sp-collection-query-tables-menu.el --- Transient menu to build query table queries -*- lexical-binding: t; -*-
+;;; sp-collection-query-menu.el --- Transient menu to build query table queries -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,11 +13,11 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'transient)
-(require 'sp-collection-query-tables-core)
-(require 'sp-collection-query-tables-views)
-(require 'sp-collection-query-tables-org)
+(require 'sp-collection-query-core)
+(require 'sp-collection-query-views)
+(require 'sp-collection-query-org)
 
-(declare-function sp-collec-query-open "sp-collection-query-tables")
+(declare-function sp-collec-query-open "sp-collection-query")
 
 (defvar sp-collec-query-menu--spec nil
   "The spec the menu is editing.")
@@ -392,7 +392,7 @@ Each next column breaks the ties of those before it.  Add \":desc\" or
   (interactive)
   (call-interactively #'sp-collec-query-view-delete))
 
-;;;###autoload (autoload 'sp-collec-query-menu "sp-collection-query-tables-menu" nil t)
+;;;###autoload (autoload 'sp-collec-query-menu "sp-collection-query-menu" nil t)
 (transient-define-prefix sp-collec-query-menu ()
   "Build, run and save a table of Vulpea notes."
   [:description sp-collec-query-menu--header
@@ -426,5 +426,5 @@ Each next column breaks the ties of those before it.  Add \":desc\" or
      ("i" "Insert as dblock" sp-collec-query-menu-insert)
      ("R" "Reset" sp-collec-query-menu-reset :transient t)]])
 
-(provide 'sp-collection-query-tables-menu)
-;;; sp-collection-query-tables-menu.el ends here
+(provide 'sp-collection-query-menu)
+;;; sp-collection-query-menu.el ends here

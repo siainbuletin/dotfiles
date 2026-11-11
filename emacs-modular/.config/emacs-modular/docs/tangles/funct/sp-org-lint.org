@@ -1689,7 +1689,7 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 
 *Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. The preview and the write are separate jobs. The questions about ambiguous names are asked in this Emacs, in the middle of a slice. As before, a note with unsaved changes in its buffer is saved first when you apply, and the files are copied to the backup folder before they are written.
 
-The block is a query table (see [[file:sp-collection-query-tables.org][sp-collection-query-tables]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
+The block is a query table (see [[file:sp-collection-query.org][sp-collection-query]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
 
 Notes tagged =booksection= are not listed. Their =bib-parent= link points at the =book= note (the schema in =sp-vulpea.org= requires it), and =:fold-tag "booksection"= counts them in the =Sections= column of that book's row, adding the book if it has no =pub-author= of its own. The title links get the emoji of the note's tags from =sp-org-tag-groups= (the Org buffer decorates =id:= links itself), so a =filetags= column is not needed. Blocks that already exist are not changed; add =:fold-tag "booksection" :fold-prop "bib-parent"= and the =:sections= column to them by hand.
 
@@ -2920,7 +2920,7 @@ folder.  A failure is recorded as a problem."
 
 (defun sp-author-notes--table-items (run)
   "The author notes of RUN whose tables are to be filled; nil when that cannot be done."
-  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t)))
       (progn
         (sp-author-notes--problem
          run nil nil "Tables not filled: the query tables and vulpea are not loaded")
@@ -3578,7 +3578,7 @@ deleted: they are listed, so you can merge them."
 The notes are asked for in the Vulpea database with SPEC, default
 `sp-author-notes-works-spec', for the ID in the buffer text, so the buffer
 does not need to visit a file."
-  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+  (when (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
     (save-excursion
       (goto-char (point-min))
       (when (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" nil t)
@@ -3656,7 +3656,7 @@ Return the message to show."
          (result (car (sp-author-notes--process-file
                        run file #'sp-author-notes--works-pass))))
     (when apply
-      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t))
+      (if (and (fboundp 'vulpea-db-query) (require 'sp-collection-query nil t))
           (sp-author-notes--populate run file)
         (sp-author-notes--problem
          run file nil "Table not filled: the query tables and vulpea are not loaded")))

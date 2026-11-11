@@ -57,5 +57,49 @@
       (org-mode)
       (should-error (sp-org-dblock-insert-template "nope") :type 'user-error))))
 
+;;;; Groups and sources
+
+(defvar org-dynamic-blocks)
+
+(ert-deftest sp-org-dblock-category-is-not-a-block-parameter ()
+  (let ((sp-org-dblock-templates '(("T" :category "Academic" :name "sp-test-block" :n 2)))
+        (sp-org-dblock-template-functions nil)
+        (sp-org-dblock-test--calls nil))
+    (with-temp-buffer
+      (org-mode)
+      (sp-org-dblock-insert-template "T")
+      (should (string-match-p "#\\+BEGIN: sp-test-block :n 2\n" (buffer-string)))
+      (should-not (string-match-p "category" (buffer-string))))))
+
+(ert-deftest sp-org-dblock-template-functions-add-templates ()
+  (let ((sp-org-dblock-templates nil)
+        (sp-org-dblock-template-functions
+         (list (lambda () '(("From function" :category "Collections" :name "sp-test-block")))))
+        (sp-org-dblock-test--calls nil))
+    (with-temp-buffer
+      (org-mode)
+      (sp-org-dblock-insert-template "From function")
+      (should (string-match-p "#\\+BEGIN: sp-test-block" (buffer-string))))))
+
+(ert-deftest sp-org-dblock-completion-groups-and-orders ()
+  (let* ((sp-org-dblock-category-order '("Academic" "Collections"))
+         (templates '(("zeta" :category "Other") ("album" :category "Collections")
+                      ("book" :category "Academic") ("alpha")))
+         (table (sp-org-dblock--completion-table templates))
+         (meta (cdr (funcall table "" nil 'metadata)))
+         (group (cdr (assq 'group-function meta)))
+         (sort-fn (cdr (assq 'display-sort-function meta))))
+    (should (equal (funcall group "book" nil) "Academic"))
+    (should (equal (funcall group "alpha" nil) "Other"))
+    (should (equal (funcall group "book" t) "book"))
+    (should (equal (funcall sort-fn '("zeta" "alpha" "album" "book"))
+                   '("book" "album" "alpha" "zeta")))))
+
+(ert-deftest sp-org-dblock-hide-disabled-blocks ()
+  (let ((org-dynamic-blocks '(("clocktable" . x) ("vulpea-collection" . y)))
+        (sp-org-dblock-disabled-names '("vulpea-collection")))
+    (sp-org-dblock-hide-disabled)
+    (should (equal org-dynamic-blocks '(("clocktable" . x))))))
+
 (provide 'sp-org-base-dblock-test)
 ;;; sp-org-base-dblock-test.el ends here
