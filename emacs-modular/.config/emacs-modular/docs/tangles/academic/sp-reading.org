@@ -115,13 +115,11 @@ Nil means the root of the database."
   "The AppleScript that lists UUID and name of every PDF in the database."
   (format "tell application id \"DNtp\"
   set theRecords to search \"kind:pdf\" in root of database %s
-  set theUuids to uuid of every item of theRecords
-  set theNames to name of every item of theRecords
-  set AppleScript's text item delimiters to linefeed
   set theOut to {}
-  repeat with i from 1 to count of theUuids
-    set end of theOut to (item i of theUuids) & tab & (item i of theNames)
+  repeat with r in theRecords
+    set end of theOut to (uuid of r as text) & tab & (name of r as text)
   end repeat
+  set AppleScript's text item delimiters to linefeed
   return theOut as text
 end tell"
           (sp-reading--quote sp-reading-database)))
@@ -271,4 +269,4 @@ The module provides =sp-reading=.
 - Unknown until tried:
   - whether =search "kind:pdf"= returns every PDF in nested groups;
   - the exact wording of the =index path ... to= command and of =get record at=;
-  - whether =uuid of every item of= works on a search result.
+  - (fixed 2026-11-12) =uuid of every item of= on a search result returned object references (=content id … of database id …=), so the script now loops over the records and reads =uuid of r= and =name of r=.

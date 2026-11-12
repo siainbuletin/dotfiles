@@ -61,13 +61,11 @@ Nil means the root of the database."
   "The AppleScript that lists UUID and name of every PDF in the database."
   (format "tell application id \"DNtp\"
   set theRecords to search \"kind:pdf\" in root of database %s
-  set theUuids to uuid of every item of theRecords
-  set theNames to name of every item of theRecords
-  set AppleScript's text item delimiters to linefeed
   set theOut to {}
-  repeat with i from 1 to count of theUuids
-    set end of theOut to (item i of theUuids) & tab & (item i of theNames)
+  repeat with r in theRecords
+    set end of theOut to (uuid of r as text) & tab & (name of r as text)
   end repeat
+  set AppleScript's text item delimiters to linefeed
   return theOut as text
 end tell"
           (sp-reading--quote sp-reading-database)))
