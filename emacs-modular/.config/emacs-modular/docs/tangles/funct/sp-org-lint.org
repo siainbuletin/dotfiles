@@ -5030,8 +5030,8 @@ Sets the title of each literature note to a short reference built from =pub-auth
 - Editors (collections, proceedings):
   - =pub-author= is used first; =pub-editor= only when the note has no =pub-author=.
   - Several editors are read and shortened like several authors (=A and B=, =A, B and C=, =A, B et al.=).
-  - The title looks the same as for an author (=Smith (2014) Title=); no =(ed.)= marker by default.
-  - =sp-litnotes-titles-editor-suffix= (e.g. =" (ed.)"=) adds a marker after the names, for editors only.
+  - Editors get the marker =(ed.)= after the names (=Smith (ed.) (2014) Title=); authors never do.
+  - =sp-litnotes-titles-editor-suffix= is the marker (default =" (ed.)"=); set it to nil for titles that look the same as for an author (=Smith (2014) Title=).
   - With BibTeX on, the entry's =editor= field is used when neither the note nor the entry has authors.
   - An ambiguous =pub-author= does not fall back to =pub-editor=.
 - Failed and left alone: notes without an =:ID:= drawer; without =pub-title=, without =pub-author= and =pub-editor=, or with an ambiguous author, without =pub-year= (the title); with no citation key, a key whose file exists, or a key two notes share (the rename only).
@@ -5112,10 +5112,10 @@ Those links are reported, not changed; =id:= links keep working."
   "With this many authors or more, the title lists the first two and `et al.'."
   :type 'integer)
 
-(defcustom sp-litnotes-titles-editor-suffix nil
+(defcustom sp-litnotes-titles-editor-suffix " (ed.)"
   "Text put after the names in the title when they are editors, or nil.
 The names come from `pub-editor' only when the note has no `pub-author'.
-For example \" (ed.)\" gives \"Smith (ed.) (2014) Title\"; nil gives
+\" (ed.)\" gives \"Smith (ed.) (2014) Title\"; nil gives
 \"Smith (2014) Title\", as for an author."
   :type '(choice (const :tag "No marker" nil) string))
 
