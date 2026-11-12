@@ -114,7 +114,7 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 ** Tests
 
-- The create and open commands have 5 tests in the same file.
+- The create and open commands have 9 tests in the same file.
 - =emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L tests -l tests/sp-notes-test.el -f ert-run-tests-batch-and-exit=
 
 * Create and open notes
@@ -134,7 +134,14 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
     - =sp-notes-create= binds the variable to the base around =vulpea-create=, so vulpea never sees nil.
   - =:tags= are the tags asked for; =:properties= carries =:CREATED:=.
   - The advice below adds =:CREATED:= afterwards if the vulpea version did not write it.
-- Folder: =sp-notes-create-folder=.
+- Where: asked first (=sp-notes-create--destinations=), like the groups of =sp-find-note=.
+  - =Notes= is the notes root; then one entry =Writing: NAME= for each Projectile project below =sp-writing-projects= (=sp-note-origin-writing-roots=, from =sp-org-tag-groups=).
+  - With no writing project the question is skipped.
+  - In a writing project the file name is asked too (=sp-notes-create--project-file=).
+    - The suggestion is the slug of the title plus =.org=; subfolders are allowed.
+    - A name outside the project is refused; a name without extension gets =.org=.
+    - The tag folder does not apply; the tags are still set.
+- Folder (notes root only): =sp-notes-create-folder=.
   - With tags: the filing folder of the tags (same rules as the filing).
   - Without tags: the top of the root, as =sp-notes-filing-mode= leaves it.
 
@@ -155,7 +162,9 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 ** =sp-notes-open= (=SPC n o=)
 
-- A =completing-read= over every org file under the root, subfolders included.
+- A =completing-read= over every org file under the root, subfolders included, and under the other roots of =sp-notes-open--roots=:
+  - each writing project (=Writing: NAME/=)
+  - the config folders in =sp-notes-open-config-dirs= (=docs= and =adr=; =Config: DIR/=)
   - Not listed: dot folders, =ltximg/=, =attach/=, =data/= (=sp-notes-open-exclude-regexp=).
   - The inbox, area, log and workbook folders are listed; only the filing skips them.
 - Each candidate is the relative file name; beside it:
@@ -255,6 +264,54 @@ where vulpea resolves the template; the name part follows
            "./" (file-relative-name (sp-notes-create-folder tags) (sp-notes-create-base)))
           "${timestamp}_${slug}.org"))
 
+;; Writing projects: the Projectile projects below `sp-writing-projects'.
+(declare-function sp-note-origin-writing-roots "sp-org-tag-groups")
+(defvar sp-writing-projects)
+
+(defun sp-notes-create--project-name (root)
+  "The name of the writing project ROOT: its path relative to `sp-writing-projects'."
+  (directory-file-name
+   (file-relative-name root (expand-file-name sp-writing-projects))))
+
+(defun sp-notes-create--destinations ()
+  "Alist (LABEL . ROOT) of where `sp-notes-create' can put a note.
+The first is \"Notes\", the notes root; then one entry per writing project
+\(`sp-note-origin-writing-roots'), labelled \"Writing: NAME\"."
+  (cons (cons "Notes" (sp-notes-create-base))
+        (when (and (bound-and-true-p sp-writing-projects)
+                   (fboundp 'sp-note-origin-writing-roots))
+          (mapcar (lambda (root)
+                    (cons (format "Writing: %s" (sp-notes-create--project-name root))
+                          root))
+                  (sort (sp-note-origin-writing-roots) #'string<)))))
+
+(defun sp-notes-create--read-destination (destinations)
+  "Ask for one of DESTINATIONS, an alist (LABEL . ROOT), and return its entry.
+With only the notes root there is nothing to ask."
+  (if (null (cdr destinations))
+      (car destinations)
+    (let ((label (completing-read "Create in: " (mapcar #'car destinations) nil t
+                                  nil nil (caar destinations))))
+      (assoc label destinations))))
+
+(defun sp-notes-create--slug (title)
+  "TITLE as a file-name slug: lower case, other characters as hyphens."
+  (let ((slug (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))))
+    (string-trim slug "-+" "-+")))
+
+(defun sp-notes-create--project-file (root title)
+  "Read the file name of a new note TITLE in the writing project ROOT.
+The answer is relative to ROOT and may have subfolders; the suggestion is
+the slug of TITLE.  The name gets \".org\" when it has no extension."
+  (let* ((default (concat (sp-notes-create--slug title) ".org"))
+         (file (read-file-name (format "File in %s: " (file-name-nondirectory
+                                                       (directory-file-name root)))
+                               root nil nil default))
+         (relative (file-relative-name (expand-file-name file root) root)))
+    (when (string-prefix-p ".." relative)
+      (user-error "The file is outside the project"))
+    (if (file-name-extension relative) relative (concat relative ".org"))))
+
 (defun sp-notes-ensure-created (file)
   "Add :CREATED: to the file-level drawer of FILE when it has none.
 If a buffer visits FILE, it is edited (and left unsaved) so that Emacs does
@@ -297,7 +354,10 @@ vulpea version writes the properties it is given.  Returns NOTE."
 - :CREATED: (`sp-org-created-stamp') is passed as a property; the advice on
   `vulpea-create' (below) adds it if the file lacks it.
 - The file goes into the folder its tags file it under (`sp-notes-create-folder').
-- A note with that title (any case) in the vulpea database is reported first."
+- A note with that title (any case) in the vulpea database is reported first.
+- Where it goes is asked (`sp-notes-create--destinations'): the notes root, or
+  a writing project, in which case the file name is asked too and the tag
+  folder does not apply."
   (interactive (list (read-string "New note title: ")))
   (require 'sp-org-link-conversion)
   (require 'vulpea)
@@ -307,11 +367,14 @@ vulpea version writes the properties it is given.  Returns NOTE."
                (sp-vulpea-notes-with-title title)
                (not (y-or-n-p (format "A note titled \"%s\" exists.  Create another? " title))))
       (user-error "Aborted"))
-    (let* ((tags (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))
+    (let* ((destination (sp-notes-create--read-destination (sp-notes-create--destinations)))
+           (project-root (and (not (equal (car destination) "Notes")) (cdr destination)))
+           (project-file (and project-root (sp-notes-create--project-file project-root title)))
+           (tags (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))
            ;; Pin the base directory, so a nil `vulpea-default-notes-directory'
            ;; cannot reach `file-name-as-directory' inside vulpea.
-           (vulpea-default-notes-directory (sp-notes-create-base))
-           (note (vulpea-create title (sp-notes-create-file-template tags)
+           (vulpea-default-notes-directory (or project-root (sp-notes-create-base)))
+           (note (vulpea-create title (or project-file (sp-notes-create-file-template tags))
                                 :tags tags
                                 :properties (list (cons "CREATED" (sp-org-created-stamp)))))
            (file (vulpea-note-path note)))
@@ -377,9 +440,33 @@ vulpea version writes the properties it is given.  Returns NOTE."
         (puthash file (cons mtime info) sp-notes-open--cache)
         info))))
 
-(defun sp-notes-open--files ()
-  "The org files under the root that `sp-notes-open' lists."
-  (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root))))
+(defcustom sp-notes-open-config-dirs '("docs" "adr")
+  "Folders of `user-emacs-directory' whose org files `sp-notes-open' lists."
+  :type '(repeat string)
+  :group 'sp-notes-filing)
+
+(defun sp-notes-open--roots ()
+  "Alist (PREFIX . DIRECTORY) of the folders `sp-notes-open' lists.
+- PREFIX is nil for the notes root, \"Writing: NAME\" for a writing project
+  \(`sp-note-origin-writing-roots') and \"Config: DIR\" for each of
+  `sp-notes-open-config-dirs'."
+  (append
+   (list (cons nil sp-notes-filing-root))
+   (when (and (bound-and-true-p sp-writing-projects)
+              (fboundp 'sp-note-origin-writing-roots))
+     (mapcar (lambda (root)
+               (cons (format "Writing: %s" (sp-notes-create--project-name root)) root))
+             (sort (sp-note-origin-writing-roots) #'string<)))
+   (delq nil
+         (mapcar (lambda (dir)
+                   (let ((path (expand-file-name dir user-emacs-directory)))
+                     (and (file-directory-p path)
+                          (cons (format "Config: %s" dir) path))))
+                 sp-notes-open-config-dirs))))
+
+(defun sp-notes-open--files (&optional dir)
+  "The org files under DIR (default: the notes root) that `sp-notes-open' lists."
+  (let ((root (file-name-as-directory (expand-file-name (or dir sp-notes-filing-root)))))
     (seq-filter
      (lambda (f)
        (let ((rel (file-relative-name f root)))
@@ -389,13 +476,18 @@ vulpea version writes the properties it is given.  Returns NOTE."
      (directory-files-recursively root "\\.org\\'"))))
 
 (defun sp-notes-open--candidates ()
-  "Alist (RELATIVE-NAME . PLIST) for the notes, newest first.
+  "Alist (NAME . PLIST) for the notes of `sp-notes-open--roots', newest first.
+NAME is the file relative to its root, with the prefix of the root in front
+unless it is the notes root.
 The plist is `sp-notes-open--info' plus :file."
-  (let* ((root (file-name-as-directory (expand-file-name sp-notes-filing-root)))
-         (items (mapcar (lambda (f)
-                          (cons (file-relative-name f root)
-                                (append (list :file f) (sp-notes-open--info f))))
-                        (sp-notes-open--files))))
+  (let* ((items (cl-loop
+                 for (prefix . dir) in (sp-notes-open--roots)
+                 for root = (file-name-as-directory (expand-file-name dir))
+                 append (mapcar (lambda (f)
+                                  (cons (concat (and prefix (concat prefix "/"))
+                                                (file-relative-name f root))
+                                        (append (list :file f) (sp-notes-open--info f))))
+                                (sp-notes-open--files dir)))))
     (sort items (lambda (a b) (string> (plist-get (cdr a) :created)
                                        (plist-get (cdr b) :created))))))
 
@@ -410,7 +502,7 @@ The plist is `sp-notes-open--info' plus :file."
 
 ;;;###autoload
 (defun sp-notes-open ()
-  "Pick a note from all the subfolders of the notes root and open it.
+  "Pick a note from the notes root, the writing projects and the config and open it.
 Like `denote-open': each candidate is a file name, with the creation date,
 the tags and the title beside it, newest first.  The date is :CREATED:, else
 the id in the file name, else the modification time."
@@ -873,3 +965,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
   - ✨ The =sp-notes-filing-dryrun= report is an =sp-batch-report-mode= buffer: each note to move is an Org link, and the report has Per folder and Moves sections.
     - =C-c C-c= still applies the plan, =g= makes the report again.
+- [[https://github.com/siainbuletin/dotfiles/pull/397][#397]]
+  - ✨ =sp-notes-create= asks where the note goes: the notes root or a Projectile writing project, and for a writing project the file name (subfolders allowed, no tag folder).
+  - ✨ =sp-notes-open= also lists the org files of the writing projects and of the =docs= and =adr= folders of the config.
+  - 🔧 =sp-insert-note= and =sp-select-note= group their candidates like =sp-find-note= (macro =sp-org-tag-groups--with-origin-groups=); =sp-note-origin--writing-roots= is now public as =sp-note-origin-writing-roots=.
+  - Not run in Emacs (none in the container); 4 new ERT tests.
