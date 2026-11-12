@@ -86,6 +86,7 @@ With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-gro
    + The =M-o n i= of the removed =org-node= module (=org-node-insert-link=) is gone, so the key is free.
 
 =M-x sp-find-note= is the same for finding a note: it runs =vulpea-find= with the emoji and the tag column, then visits the note.
+- It first calls =sp-vulpea-start-autosync= (no-op when =vulpea-db-autosync-mode= is on), so the picker sees changes to the notes.
 - It takes the keywords of =vulpea-find=; a title that does not exist offers to create the note, as there.
 - =M-o f= is bound to it globally, in place of =vulpea-find= (the binding was removed from =sp-vulpea-base=).
 - The notes are in groups by where their file lives (see "Where a note lives"): the notes folder, one group per Projectile project below =sp-writing-projects=, other writing files, the config.
@@ -1120,6 +1121,8 @@ ARGS are the keywords of `vulpea-find'.  Typing a title that does not
 exist offers to create the note, as `vulpea-find' does.
 The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
+  ;; Make sure autosync is on, so the picker sees changes (no-op if already on).
+  (when (fboundp 'sp-vulpea-start-autosync) (sp-vulpea-start-autosync))
   (sp-org-tag-groups--with-tag-column
     (sp-org-tag-groups--with-origin-groups
       (apply #'vulpea-find args))))
