@@ -60,8 +60,9 @@ end tell"
   (let (records)
     (dolist (line (split-string text "\n" t))
       (let ((parts (split-string line "\t")))
-        (when (= (length parts) 3)
-          (push (list :uuid (nth 0 parts) :location (nth 1 parts) :name (nth 2 parts))
+        (when (>= (length parts) 3)
+          (push (list :uuid (nth 0 parts) :location (nth 1 parts) :name (nth 2 parts)
+                      :kind (nth 3 parts) :pages (nth 4 parts))
                 records))))
     (nreverse records)))
 

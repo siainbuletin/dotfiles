@@ -68,7 +68,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 * The record list
 
 - A record is a plist: =:uuid=, =:location= (its DEVONthink group, such as =/Inbox/=) and =:name=.
+  - Search results (=sp-devonthink-search=) also carry =:kind= and =:pages=.
 - The script prints one line per record: UUID, location, name, separated by tabs.
+  - A line may carry two more fields, kind and page count; they are optional.
 - The candidate is the record name; a name used twice gets its location added, so every candidate is unique.
 
 #+begin_src emacs-lisp
@@ -102,8 +104,9 @@ end tell"
   (let (records)
     (dolist (line (split-string text "\n" t))
       (let ((parts (split-string line "\t")))
-        (when (= (length parts) 3)
-          (push (list :uuid (nth 0 parts) :location (nth 1 parts) :name (nth 2 parts))
+        (when (>= (length parts) 3)
+          (push (list :uuid (nth 0 parts) :location (nth 1 parts) :name (nth 2 parts)
+                      :kind (nth 3 parts) :pages (nth 4 parts))
                 records))))
     (nreverse records)))
 
