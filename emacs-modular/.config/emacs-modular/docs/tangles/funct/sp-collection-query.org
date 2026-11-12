@@ -3432,14 +3432,13 @@ collection is asked for."
 ** Loading the widget
 
 - The widget file loads once =vulpea-ui= has, so the table works without the sidebar.
-
-#+begin_src emacs-lisp -i
-(with-eval-after-load 'vulpea-ui
-  (require 'sp-collection-query-book-widget))
-#+end_src
+- =provide= comes first: the widget requires this feature, and when =vulpea-ui= is already loaded the =with-eval-after-load= body runs at once, which would be a recursive =require=.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-collection-query-book)
+
+(with-eval-after-load 'vulpea-ui
+  (require 'sp-collection-query-book-widget))
 ;;; sp-collection-query-book.el ends here
 #+end_src
 
