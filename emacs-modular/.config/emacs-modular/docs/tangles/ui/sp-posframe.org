@@ -71,7 +71,38 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
 - =vertico-posframe-fallback-mode= is =vertico-buffer-mode=, used in a terminal, where child frames do not exist.
 - =vertico-posframe-size-function= is =sp-posframe-get-size=: the width is always =sp-posframe-width-fraction= (0.75) of the parent frame, for every command including the file pickers, so it does not follow the length of the prompt or the candidates (#144, brought back in #163). Width, minimum width and maximum width are all set to that number, and nothing else is changed: the height is the package's own and fits Vertico's =vertico-count= (13, set in =sp-completion=).
 
+=sp-posframe-enabled= and =sp-posframe-toggle= turn the posframe off and on.
+
+- =sp-posframe-enabled= is a =defcustom=, default =t=.
+  - =t=: =vertico-posframe-mode= is on, the minibuffer is centred in a child frame.
+  - =nil=: the mode is off, the minibuffer is in the normal place at the bottom of the frame.
+- Setting it through Customize or =setopt= applies at once: its =:set= function calls =vertico-posframe-mode= with 1 or -1. No restart.
+- =M-x sp-posframe-toggle= flips it for the current session.
+  - It changes the variable, so it does not survive a restart; set =sp-posframe-enabled= in the config to keep a choice.
+- At start-up the =:config= of =use-package vertico-posframe= reads the variable, so =nil= starts with no posframe.
+- While it is off, =sp-posframe-width-fraction= and the border padding do nothing (they only affect the posframe).
+- Prompts that are already open keep the frame they started in; the change shows from the next prompt.
+
 #+begin_src emacs-lisp -i
+(defcustom sp-posframe-enabled t
+  "Non-nil shows the minibuffer in a centred posframe.
+Nil shows it in the normal place, at the bottom of the frame. Setting it
+through Customize or `setopt' applies at once; use `sp-posframe-toggle' to
+flip it in a running Emacs."
+  :type 'boolean
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'vertico-posframe-mode)
+           (vertico-posframe-mode (if value 1 -1))))
+  :group 'minibuffer)
+
+(defun sp-posframe-toggle ()
+  "Toggle the centred minibuffer posframe, in this Emacs session only.
+To keep the choice, set `sp-posframe-enabled' in your configuration."
+  (interactive)
+  (setopt sp-posframe-enabled (not sp-posframe-enabled))
+  (message "Minibuffer posframe %s" (if sp-posframe-enabled "on" "off")))
+
 (defcustom sp-posframe-width-fraction 0.75
   "Fraction of the parent frame's width that the posframe always occupies."
   :type 'float
@@ -102,7 +133,7 @@ height is left to `vertico-posframe-get-size'."
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
 
   :config
-  (vertico-posframe-mode 1))
+  (vertico-posframe-mode (if sp-posframe-enabled 1 -1)))
 #+end_src
 
 The =require= of =sp-completion= before =use-package vertico-posframe= makes Elpaca queue =vertico= first. Otherwise it queued =vertico= as a dependency of =vertico-posframe= (this module loads before =sp-minibuffer=, which is what requires =sp-completion=) and warned =vertico previously queued as dependency of: (vertico-posframe)= when =sp-completion= ordered it later.
@@ -288,3 +319,6 @@ What each pull request changed in this module, newest last; the one-line summary
   - Follows #197 and #199.
   - Docs updated in the four module docs.
   - Not run in Emacs on the Mac: the recipes were checked against the upstream repositories' file layouts only.
+- Switch to turn the posframe off (this PR)
+  - ✨ Added =sp-posframe-enabled= and =sp-posframe-toggle=: with the posframe off, the minibuffer shows at the bottom of the frame, live.
+  - Not run in Emacs on the Mac.

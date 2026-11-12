@@ -8,6 +8,25 @@
 
 ;;; Code:
 
+(defcustom sp-posframe-enabled t
+  "Non-nil shows the minibuffer in a centred posframe.
+Nil shows it in the normal place, at the bottom of the frame. Setting it
+through Customize or `setopt' applies at once; use `sp-posframe-toggle' to
+flip it in a running Emacs."
+  :type 'boolean
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'vertico-posframe-mode)
+           (vertico-posframe-mode (if value 1 -1))))
+  :group 'minibuffer)
+
+(defun sp-posframe-toggle ()
+  "Toggle the centred minibuffer posframe, in this Emacs session only.
+To keep the choice, set `sp-posframe-enabled' in your configuration."
+  (interactive)
+  (setopt sp-posframe-enabled (not sp-posframe-enabled))
+  (message "Minibuffer posframe %s" (if sp-posframe-enabled "on" "off")))
+
 (defcustom sp-posframe-width-fraction 0.75
   "Fraction of the parent frame's width that the posframe always occupies."
   :type 'float
@@ -38,7 +57,7 @@ height is left to `vertico-posframe-get-size'."
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
 
   :config
-  (vertico-posframe-mode 1))
+  (vertico-posframe-mode (if sp-posframe-enabled 1 -1)))
 
 (defun sp-posframe--match-border ()
   "Give the posframe border the background colour of the posframe itself.
