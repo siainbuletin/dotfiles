@@ -54,6 +54,7 @@
 (require 'sp-litdb)
 (require 'sp-cite-match)
 (require 'sp-reading)
+(require 'sp-devonthink)
 (require 'sp-see-also)
 
 (use-package asoc
