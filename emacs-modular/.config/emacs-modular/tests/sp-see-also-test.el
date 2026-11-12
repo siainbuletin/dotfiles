@@ -463,6 +463,19 @@
         (should (> (buffer-size) 0))))
       (kill-buffer "*see-also*"))))
 
+(ert-deftest sp-see-also-view-concept-by-name-picks-by-title ()
+  (let (args shown)
+    (cl-letf (((symbol-function 'sp-select-note)
+               (lambda (&rest a) (setq args a) 'a-note))
+              ((symbol-function 'vulpea-note-id)
+               (lambda (n) (and (eq n 'a-note) "c-one")))
+              ((symbol-function 'sp-see-also-show-concept)
+               (lambda (id) (setq shown id))))
+      (sp-see-also-show-concept-by-name)
+      (should (equal shown "c-one"))
+      (should (plist-get (cdr args) :grouped))
+      (should (plist-get (cdr args) :require-match)))))
+
 (ert-deftest sp-see-also-view-concept-groups-by-litnote ()
   (sp-see-also-test--with-vault
     (sp-see-also-test--write root "view.org" sp-see-also-test--note)

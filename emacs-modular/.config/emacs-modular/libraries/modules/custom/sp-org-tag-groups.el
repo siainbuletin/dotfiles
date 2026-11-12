@@ -708,16 +708,33 @@ property of the note."
          (vulpea-select-cache nil))
      ,@body))
 
-(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
+(defmacro sp-org-tag-groups--with-origin-groups (&rest body)
+  "Run BODY with the `vulpea-note' candidates in groups by where their file lives.
+See `sp-note-origin'."
+  (declare (indent 0))
+  `(let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
+          (completion-category-overrides
+           (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
+                               (display-sort-function . ,#'sp-note-origin-sort)
+                               ,@old)
+                 completion-category-overrides)))
+     ,@body))
+
+(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases grouped)
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
-INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'."
+INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'.
+When GROUPED is non-nil the notes are in groups, as in `sp-find-note'."
   (sp-org-tag-groups--with-tag-column
-    (vulpea-select-from prompt
-                        (vulpea-db-query filter-fn)
-                        :require-match require-match
-                        :initial-prompt initial-prompt
-                        :expand-aliases expand-aliases)))
+    (let ((select (lambda ()
+                    (vulpea-select-from prompt
+                                        (vulpea-db-query filter-fn)
+                                        :require-match require-match
+                                        :initial-prompt initial-prompt
+                                        :expand-aliases expand-aliases))))
+      (if grouped
+          (sp-org-tag-groups--with-origin-groups (funcall select))
+        (funcall select)))))
 
 (defun sp-insert-note (&rest args)
   "Insert a link to a note chosen with the emoji and the tag column.
@@ -735,12 +752,7 @@ exist offers to create the note, as `vulpea-find' does.
 The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
-           (completion-category-overrides
-            (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
-                                (display-sort-function . ,#'sp-note-origin-sort)
-                                ,@old)
-                  completion-category-overrides)))
+    (sp-org-tag-groups--with-origin-groups
       (apply #'vulpea-find args))))
 
 ;; My own key for it, instead of `vulpea-find'.
