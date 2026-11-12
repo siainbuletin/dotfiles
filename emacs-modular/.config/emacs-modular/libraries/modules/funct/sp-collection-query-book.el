@@ -114,8 +114,8 @@ collection is asked for."
                   (string-join sp-collec-query-book-tags " or ")))
     (sp-collec-query-open (sp-collec-query-book-spec book))))
 
+(provide 'sp-collection-query-book)
+
 (with-eval-after-load 'vulpea-ui
   (require 'sp-collection-query-book-widget))
-
-(provide 'sp-collection-query-book)
 ;;; sp-collection-query-book.el ends here
