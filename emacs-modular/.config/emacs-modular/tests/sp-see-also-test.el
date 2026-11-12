@@ -399,6 +399,67 @@
       (should (null (plist-get file-level :heading)))
       (should (equal (plist-get file-level :snippet) "Plain text File level.")))))
 
+(defconst sp-see-also-test--meta-note
+  (sp-see-also-test--text
+   ":PROPERTIES:"
+   ":ID: file-id"
+   ":END:"
+   "#+title: Litnote with meta lines"
+   "- seealso :: [[id:m-file][File meta]], [[id:m-file2][Second]]"
+   "* Entry with an id"
+   ":PROPERTIES:"
+   ":ID: entry-id"
+   ":END:"
+   "-SeeAlso::[[id:m-entry][Entry meta]]"
+   "Body [[id:m-plain][Plain]]."
+   "** Child without id"
+   "+ seealso :: [[id:m-child][Child meta]]"
+   "- seealsoX :: [[id:m-other][Another key]]"
+   "** See also"
+   "- seealso :: [[id:m-dup][Inside a section]]"
+   "#+begin_src org"
+   "- seealso :: [[id:m-src][Skipped]]"
+   "#+end_src"
+   "# - seealso :: [[id:m-comment][Commented]]"))
+
+(ert-deftest sp-see-also-meta-lines-are-section-mentions ()
+  (with-temp-buffer
+    (insert sp-see-also-test--meta-note)
+    (let ((mentions (sp-see-also-mentions-in-buffer)))
+      (should (equal (mapcar (lambda (m) (plist-get m :id)) mentions)
+                     '("m-file" "m-file2" "m-entry" "m-child" "m-dup")))
+      (should (cl-every (lambda (m) (eq (plist-get m :where) 'section)) mentions))
+      (should (equal (plist-get (car mentions) :snippet) "File meta, Second")))))
+
+(ert-deftest sp-see-also-meta-lines-scope-is-their-own-heading ()
+  (with-temp-buffer
+    (insert sp-see-also-test--meta-note)
+    (let ((mentions (sp-see-also-mentions-in-buffer)))
+      (should (null (plist-get (nth 0 mentions) :heading-id)))
+      (should (null (plist-get (nth 0 mentions) :heading)))
+      (should (equal (plist-get (nth 2 mentions) :heading) "Entry with an id"))
+      (should (equal (plist-get (nth 2 mentions) :heading-id) "entry-id"))
+      (should (equal (plist-get (nth 3 mentions) :heading) "Child without id"))
+      (should (equal (plist-get (nth 3 mentions) :heading-id) "entry-id"))
+      ;; Under a See also heading the scope is the parent, as before.
+      (should (equal (plist-get (nth 4 mentions) :heading) "Entry with an id")))))
+
+(ert-deftest sp-see-also-meta-lines-are-optional-for-the-parser ()
+  (with-temp-buffer
+    (insert sp-see-also-test--meta-note)
+    (should (null (sp-see-also-parse-buffer)))
+    (should (= (length (sp-see-also-parse-buffer nil t)) 5))))
+
+(ert-deftest sp-see-also-meta-lines-reach-the-dashboards ()
+  (sp-see-also-test--with-vault
+    (let* ((file (sp-see-also-test--write root "meta.org" sp-see-also-test--meta-note))
+           (concepts (sp-see-also-concepts-for-file file))
+           (usage (sp-see-also-concept-usage "m-entry")))
+      (should (member "m-file" (mapcar (lambda (c) (plist-get c :id)) concepts)))
+      (should (= (length usage) 1))
+      (should (equal (plist-get (car usage) :id) "file-id"))
+      (should (eq (plist-get (car (plist-get (car usage) :mentions)) :where) 'section)))))
+
 (ert-deftest sp-see-also-section-links-are-optional-for-the-parser ()
   (with-temp-buffer
     (insert sp-see-also-test--section-note)
