@@ -158,7 +158,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 
 ** Consequences
 
-- Modules: =sp-devonthink= (this file), =sp-devonthink-tags=, =sp-devonthink-browse=, =sp-devonthink-search=; scripts =tools/devonthink-to-litdb.py=, =tools/devonthink-reading.py=, =tools/devonthink-move.py=; litdb search in =sp-litdb=.
+- Modules: =sp-devonthink= (this file), =sp-devonthink-tags=, =sp-devonthink-browse=, =sp-devonthink-search=, =sp-devonthink-highlights=, =sp-devonthink-sync=; scripts =tools/devonthink-to-litdb.py=, =tools/devonthink-reading.py=, =tools/devonthink-move.py=; litdb search in =sp-litdb=.
 - litdb is an engine only for pages with highlights; the index stays in the hundreds of thousands of chunks at most (estimate, to measure after the first run).
 - The record-to-litnote link needs a custom metadata field and an org-protocol or URL handler on macOS.
 - Tags and the unread flag stay in DEVONthink; read status stays in the litnote.
@@ -171,12 +171,12 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 | 1 | core: =devonthink:= link, =#+devonthink:= keyword, open from note | #414 (this module) |
 | 2 | browse and tags | #415 |
 | 3 | search front end, similar records, preview | #418 |
-| 4 | highlights into the litnote | next |
-| 5 | sync report, guarded backfill, record-side link | after the probes below |
+| 4 | highlights into the litnote | #420 (=sp-devonthink-highlights=) |
+| 5 | sync report, guarded backfill, record-side link | #421 (=sp-devonthink-sync=); the record-side link is written but needs the probes below |
 
 ** Open questions
 
-- To probe on the Mac before step 5:
+- To probe on the Mac before writing record links (=sp-devonthink-sync-probe-field= does the first one):
   - what the =litnote= custom metadata field can store (type URL, length), and whether DEVONthink opens an =emacsclient=/org-protocol URL from it;
   - how to register the URL handler on macOS (an app, or =org-protocol= through =emacsclient.desktop= equivalents) and where its setup should live in the repo.
 - AppleScript written from the dictionary and not yet run (each module doc lists its own):
