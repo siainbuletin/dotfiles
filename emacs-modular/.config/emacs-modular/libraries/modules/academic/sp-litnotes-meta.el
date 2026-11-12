@@ -926,19 +926,93 @@ It follows the BibTeX type of KEY through `sp-bibtex-types-tag' and
     (or (cdr (assoc tag sp-litnotes-meta-parent-views))
         "book-sections")))
 
-(defun sp-litnotes-meta--insert-table-block (view)
-  "Insert a `collection-query-table' block with VIEW above the first heading.
-The current buffer is an Org note; the block is not updated here."
+(defconst sp-litnotes-meta-sections-heading "Sections"
+  "Title of the heading the chapter table block sits under.")
+
+(defconst sp-litnotes-meta--block-regexp
+  "^[ \t]*#\\+BEGIN:[ \t]+collection-query-table"
+  "Start of a chapter table block.")
+
+(defun sp-litnotes-meta--sections-regexp ()
+  "Regexp of the Sections heading line."
+  (format "^\\* %s[ \t]*$" (regexp-quote sp-litnotes-meta-sections-heading)))
+
+(defun sp-litnotes-meta--table-state ()
+  "How far the current note is from having its table, as a symbol.
+`complete': a block, not above the first heading, or the Sections
+heading is there too.  `no-heading': a block above the first heading and
+no Sections heading.  `no-block': the Sections heading without a block.
+`none': neither."
   (save-excursion
     (save-restriction
       (widen)
-      (goto-char (sp-author-notes--first-heading))
-      (unless (or (eobp) (bolp)) (insert "\n"))
-      (if (eobp)
-          (unless (or (bobp) (bolp)) (insert "\n"))
-        (insert "\n")
-        (forward-line -1))
-      (org-create-dblock (list :name "collection-query-table" :view view)))))
+      (let* ((case-fold-search nil)
+             (block (progn (goto-char (point-min))
+                           (and (re-search-forward sp-litnotes-meta--block-regexp nil t)
+                                (match-beginning 0))))
+             (heading (progn (goto-char (point-min))
+                             (re-search-forward (sp-litnotes-meta--sections-regexp) nil t))))
+        (cond ((and block (or heading (>= block (sp-author-notes--first-heading)))) 'complete)
+              (block 'no-heading)
+              (heading 'no-block)
+              (t 'none))))))
+
+(defun sp-litnotes-meta--insert-block-here (view)
+  "Insert the block with VIEW at point, with a blank line after it.
+Point ends on the line after the block."
+  (let ((start (point)))
+    (insert "\n")
+    (goto-char start)
+    (org-create-dblock (list :name "collection-query-table" :view view))
+    (goto-char start)
+    (re-search-forward "^[ \t]*#\\+END")
+    (forward-line 1)
+    (unless (or (eobp) (looking-at-p "[ \t]*$"))
+      (insert "\n"))))
+
+(defun sp-litnotes-meta--insert-table-block (view)
+  "Put a `collection-query-table' block with VIEW under a Sections heading.
+The current buffer is an Org note; the block is not updated here.  Safe to
+repeat, it only adds what is missing:
+- no heading and no block: both go above the first heading;
+- a block above the first heading, no heading: the heading goes above it;
+- the heading without a block: the block goes right under it;
+- anything else is left alone.
+Each part is set off by a blank line.  Return `inserted' when a block was
+added, `heading' when only the heading was, nil when nothing changed."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let ((case-fold-search nil))
+        (pcase (sp-litnotes-meta--table-state)
+          ('no-heading
+           (goto-char (point-min))
+           (re-search-forward sp-litnotes-meta--block-regexp)
+           (beginning-of-line)
+           (unless (or (bobp) (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))
+             (insert "\n"))
+           (insert (format "* %s\n\n" sp-litnotes-meta-sections-heading))
+           'heading)
+          ('no-block
+           (goto-char (point-min))
+           (re-search-forward (sp-litnotes-meta--sections-regexp))
+           (forward-line 1)
+           (let ((blank nil))
+             (while (and (not (eobp)) (looking-at-p "[ \t]*$"))
+               (setq blank t)
+               (forward-line 1))
+             (unless blank (insert "\n")))
+           (sp-litnotes-meta--insert-block-here view)
+           'inserted)
+          ('none
+           (goto-char (sp-author-notes--first-heading))
+           (unless (or (eobp) (bolp)) (insert "\n"))
+           (unless (or (bobp) (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))
+             (insert "\n"))
+           (insert (format "* %s\n\n" sp-litnotes-meta-sections-heading))
+           (sp-litnotes-meta--insert-block-here view)
+           (when (eobp) (insert "\n"))
+           'inserted))))))
 
 (defun sp-litnotes-meta--ensure-table (key files &optional view)
   "Make the current note show a table of its children, and refresh it.
@@ -956,9 +1030,8 @@ above the first heading, when the note has none.  Return `inserted',
       (when (fboundp 'vulpea-db-update-file)
         (dolist (file files)
           (ignore-errors (vulpea-db-update-file file))))
-      (unless (sp-collec-query-dblock-has-block-p)
-        (sp-litnotes-meta--insert-table-block
-         (or view (sp-litnotes-meta--table-view key)))
+      (when (eq 'inserted (sp-litnotes-meta--insert-table-block
+                           (or view (sp-litnotes-meta--table-view key))))
         (setq how 'inserted))
       (sp-collec-query-dblock-update-buffer)
       (when (and buffer-file-name (not was-modified) (buffer-modified-p))
@@ -1105,6 +1178,7 @@ names that are not in the database."
 
 (defun sp-litnotes-meta--refresh-file (file view create)
   "Update the chapter table in FILE, adding a block with VIEW when CREATE.
+A missing Sections heading is added too, also above an existing block.
 Return `inserted', `changed', `unchanged' or `skipped' (no block and not
 CREATE).  The file is saved when it changed, and its buffer killed when it
 was not open."
@@ -1117,11 +1191,10 @@ was not open."
             (user-error "The query table module (sp-collection-query-org) did not load"))
           (let ((was-modified (buffer-modified-p))
                 (before (buffer-hash))
-                (has-block (sp-collec-query-dblock-has-block-p))
+                (state (sp-litnotes-meta--table-state))
                 (inserted nil))
-            (cond ((and (not has-block) (not create)) 'skipped)
-                  (t (unless has-block
-                       (sp-litnotes-meta--insert-table-block view)
+            (cond ((and (memq state '(none no-block)) (not create)) 'skipped)
+                  (t (when (eq 'inserted (sp-litnotes-meta--insert-table-block view))
                        (setq inserted t))
                      (sp-collec-query-dblock-update-buffer)
                      (when (and buffer-file-name (not was-modified) (buffer-modified-p))
@@ -1157,13 +1230,13 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
              (label (list (vulpea-note-title parent) file)))
         (condition-case err
             (if dry-run
-                (if (and (or chapters all-parents)
-                         (not (with-temp-buffer
-                                (insert-file-contents file)
-                                (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+collection-query-table"
-                                                   nil t))))
-                    (push label inserted)
-                  (push label unchanged))
+                (pcase (with-temp-buffer
+                         (insert-file-contents file)
+                         (sp-litnotes-meta--table-state))
+                  ((and (or 'none 'no-block) (guard (or chapters all-parents)))
+                   (push label inserted))
+                  ('no-heading (push label changed))
+                  (_ (push label unchanged)))
               (pcase (sp-litnotes-meta--refresh-file file view (and (or chapters all-parents) t))
                 ('inserted (push label inserted))
                 ('changed (push label changed))
@@ -1181,8 +1254,11 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
   "Give every book, collection, reference and encyclopedia litnote its chapter table.
 Like `sp-litnotes-meta-refresh-all-tables', but a litnote tagged with one of
 `sp-litnotes-meta-parent-tags' gets the block even before it has a chapter
-note, so the table is there when the first chapter is added.  With a prefix
-argument, or DRY-RUN, only list the notes that would get one."
+note, so the table is there when the first chapter is added.  The block sits
+under a `* Sections' heading, with a blank line before and after it.  Safe
+to run again: it completes the notes that lack the heading and/or the block,
+and leaves the others alone.  With a prefix argument, or DRY-RUN, only list
+the notes that would get one."
   (interactive "P")
   (sp-litnotes-meta-refresh-all-tables dry-run t))
 
@@ -1206,7 +1282,8 @@ argument, or DRY-RUN, only list the notes that would get one."
                       (length (plist-get result :unchanged)) (length (plist-get result :failed))))
       (insert (or (sp-litnotes-meta--refresh-lines (if dry-run "Would get a table" "Table added")
                                                    (plist-get result :inserted)) "")
-              (or (sp-litnotes-meta--refresh-lines "Table changed" (plist-get result :changed)) "")
+              (or (sp-litnotes-meta--refresh-lines (if dry-run "Would get a Sections heading" "Table changed")
+                                                   (plist-get result :changed)) "")
               (or (sp-litnotes-meta--refresh-lines "Failed" (plist-get result :failed)) ""))
       (when-let* ((missing (plist-get result :missing)))
         (insert (format "* bib-parent not in the database (%d)\n" (length missing)))
