@@ -254,7 +254,7 @@ Two authors are \"A and B\", three \"A, B and C\"; with
     (format "%s%s (%s) %s" authors
             (if (and sp-litnotes-titles--editors-p sp-litnotes-titles-editor-suffix)
                 sp-litnotes-titles-editor-suffix
-              "")
+              " (ed.)")
             year title)))
 
 ;;;; From BibTeX
