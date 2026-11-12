@@ -386,14 +386,14 @@
                 (status (name) (plist-get (cl-find name plans :test #'string=
                                                    :key (lambda (p) (file-name-nondirectory (plist-get p :file))))
                                           :title-status)))
-        (should (equal (new "ed.org") "Lee and Roe (2014) Essays"))
+        (should (equal (new "ed.org") "Lee and Roe (ed.) (2014) Essays"))
         (should (equal (new "both.org") "Kant (1781) Critique"))
         (should (eq (status "amb.org") 'ambiguous-author))
-        (let ((sp-litnotes-titles-editor-suffix " (ed.)"))
+        (let ((sp-litnotes-titles-editor-suffix nil))
           (should (equal (plist-get (sp-litnotes-titles--plan
                                      (sp-litnotes-titles--parse (expand-file-name "ed.org" dir)))
                                     :new-title)
-                         "Lee and Roe (ed.) (2014) Essays"))
+                         "Lee and Roe (2014) Essays"))
           (should (equal (plist-get (sp-litnotes-titles--plan
                                      (sp-litnotes-titles--parse (expand-file-name "both.org" dir)))
                                     :new-title)
