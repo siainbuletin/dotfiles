@@ -172,6 +172,13 @@ matches the template: title and authors 2, year and citekey 1, tags 3."
   :type '(repeat integer)
   :group 'sp)
 
+(defcustom sp-citations-column-max-widths '(nil nil nil 45 nil)
+  "Widest each `*' column of `citar-templates' may be, in order; nil is no limit.
+The default limits the citekey to 45 columns; a longer key is cut.  Keys
+that long should be shortened in the BibTeX files."
+  :type '(repeat (choice (const :tag "No limit" nil) integer))
+  :group 'sp)
+
 (defun sp-citations--candidate-width ()
   "Return the columns a `citar' candidate may fill.
 That is the share of the frame the posframe takes while `vertico-posframe-mode'
@@ -242,6 +249,9 @@ when the templates have no `*' column."
            (setq sample (or sample preform)
                  naturals (if naturals (cl-mapcar #'max naturals values) values))))
        preformatted))
+    (when (and naturals (= (length naturals) (length sp-citations-column-max-widths)))
+      (setq naturals (cl-mapcar (lambda (natural limit) (if limit (min natural limit) natural))
+                                naturals sp-citations-column-max-widths)))
     (if (null naturals)
         (funcall original)
       (let* ((citar--entries (citar-cache--entries bibs))

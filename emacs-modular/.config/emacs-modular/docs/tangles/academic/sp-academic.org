@@ -2568,7 +2568,7 @@ Candidate widths (=sp-citations--format-candidates=, around =citar--format-candi
 - =sp-citations-candidate-margin= (2) columns are kept free at the right.
 - the width of each column is fitted to the longest value among all entries (=sp-citations--fit-widths=):
   - =sp-citations-column-priorities= (=2 2 1 1 3=) orders the columns: citekey and year first, then title and authors, then tags;
-  - the citekey column takes the width of the longest key, so a key is never cut while the room lasts; the longest key of the bibliography repository (2026-11-12, 15,129 keys) is 77 characters, the next 61, 57 and 56, and 99% are 44 or less;
+  - the citekey column takes the width of the longest key, up to 45 columns (=sp-citations-column-max-widths=, one limit per column, nil for none): the longest key of the bibliography repository (2026-11-12, 15,129 keys) is 77 characters, the next 61, 57 and 56, and 99% are 44 or less, so a longer key is cut and should be shortened (a separate check flags them in the BibTeX files);
   - in one priority, a column narrower than an equal share keeps its full width, and the others share the rest, the widest taking the remainder;
   - a column that is empty for every entry is left out with the three spaces before it.
 - the columns line up in any font: nothing is padded with spaces, and the three spaces before each column are one space stretched to the column where it starts (=sp-citations--assemble=); only an entry whose text is wider than its column can push the next one.
@@ -2716,6 +2716,13 @@ matches the template: title and authors 2, year and citekey 1, tags 3."
   :type '(repeat integer)
   :group 'sp)
 
+(defcustom sp-citations-column-max-widths '(nil nil nil 45 nil)
+  "Widest each `*' column of `citar-templates' may be, in order; nil is no limit.
+The default limits the citekey to 45 columns; a longer key is cut.  Keys
+that long should be shortened in the BibTeX files."
+  :type '(repeat (choice (const :tag "No limit" nil) integer))
+  :group 'sp)
+
 (defun sp-citations--candidate-width ()
   "Return the columns a `citar' candidate may fill.
 That is the share of the frame the posframe takes while `vertico-posframe-mode'
@@ -2786,6 +2793,9 @@ when the templates have no `*' column."
            (setq sample (or sample preform)
                  naturals (if naturals (cl-mapcar #'max naturals values) values))))
        preformatted))
+    (when (and naturals (= (length naturals) (length sp-citations-column-max-widths)))
+      (setq naturals (cl-mapcar (lambda (natural limit) (if limit (min natural limit) natural))
+                                naturals sp-citations-column-max-widths)))
     (if (null naturals)
         (funcall original)
       (let* ((citar--entries (citar-cache--entries bibs))
