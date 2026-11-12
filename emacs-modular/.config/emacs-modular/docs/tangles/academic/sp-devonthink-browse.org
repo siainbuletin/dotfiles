@@ -27,9 +27,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 * Header and options
 
-- =sp-devonthink-browse-query= is the DEVONthink search that lists the records.
-  - The default =kind:pdf= matches what =sp-reading= already uses.
-  - Another query, for example =kind:pdf tags:thesis=, narrows the browser.
+- =sp-devonthink-browse-name-regexp= says which records are listed: a JavaScript regular expression tested on the record name.
+  - The default =\\.pdf$= lists the PDFs, which is what =sp-reading= uses.
+  - Another expression, for example =^okane= , narrows the browser.
 
 #+begin_src emacs-lisp
 ;;; sp-devonthink-browse.el --- Browse the DEVONthink database from Emacs -*- lexical-binding: t; -*-
@@ -46,6 +46,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
+(require 'json)
 (require 'sp-reading)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
@@ -60,8 +61,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
   "Browse the DEVONthink database from Emacs."
   :group 'sp-devonthink)
 
-(defcustom sp-devonthink-browse-query "kind:pdf"
-  "The DEVONthink search whose records `sp-devonthink-browse' lists."
+(defcustom sp-devonthink-browse-name-regexp "\\.pdf$"
+  "JavaScript regular expression (case-insensitive) that a record name must match.
+The default lists the PDFs, whose names are citekeys."
   :type 'string :group 'sp-devonthink-browse)
 #+end_src
 
@@ -69,6 +71,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 - A record is a plist: =:uuid=, =:location= (its DEVONthink group, such as =/Inbox/=) and =:name=.
   - Search results (=sp-devonthink-search=) also carry =:kind= and =:pages=.
+- The script is JavaScript for Automation and reads each field of all records in one call (a loop over a search result failed with error -1728 in AppleScript).
 - The script prints one line per record: UUID, location, name, separated by tabs.
   - A line may carry two more fields, kind and page count; they are optional.
 - The candidate is the record name; a name used twice gets its location added, so every candidate is unique.
@@ -83,18 +86,19 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
   "Candidate string to record, for the current list.")
 
 (defun sp-devonthink-browse--script ()
-  "The AppleScript that lists UUID, location and name of the records to browse."
-  (format "tell application id \"DNtp\"
-  set theRecords to search %s in root of database %s
-  set theOut to {}
-  repeat with r in theRecords
-    set end of theOut to (uuid of r as text) & tab & (location of r as text) & tab & (name of r as text)
-  end repeat
-  set AppleScript's text item delimiters to linefeed
-  return theOut as text
-end tell"
-          (sp-reading--quote sp-devonthink-browse-query)
-          (sp-reading--quote sp-reading-database)))
+  "The JavaScript for Automation that lists UUID, location and name of the records to browse.
+The fields of all records are read in bulk; AppleScript could not read them from a
+list of records (-1728)."
+  (format "const app = Application(\"DEVONthink\");
+const c = app.databases.byName(%s).contents;
+const ids = c.uuid(), names = c.name(), locations = c.location();
+const wanted = new RegExp(%s, \"i\");
+const out = [];
+for (let i = 0; i < ids.length; i++)
+  if (wanted.test(names[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
+out.join(\"\\n\");"
+          (json-encode-string sp-reading-database)
+          (json-encode-string sp-devonthink-browse-name-regexp)))
 
 (defun sp-devonthink-browse--parse (text)
   "The list of record plists read from TEXT (see the script)."
@@ -125,7 +129,7 @@ end tell"
   "Read the records from DEVONthink again."
   (interactive)
   (setq sp-devonthink-browse--records
-        (sp-devonthink-browse--parse (sp-reading--osascript (sp-devonthink-browse--script))))
+        (sp-devonthink-browse--parse (sp-reading--jxa (sp-devonthink-browse--script))))
   (message "sp-devonthink: %d records" (length sp-devonthink-browse--records))
   sp-devonthink-browse--records)
 
@@ -257,5 +261,5 @@ Use Embark on a candidate for the other actions."
 
 - See the testing steps in the pull request that added this file.
 - Unknown until tried:
-  - whether =location of r= and =path of= work on a record as written (the script loops over the records: reading =uuid of every item= returned object references in =sp-reading=);
+  - whether =c.location()= (bulk read) and =path of= work as written;
   - the time of the first listing of 15,000 records.

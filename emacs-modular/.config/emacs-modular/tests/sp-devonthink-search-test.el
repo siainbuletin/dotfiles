@@ -8,8 +8,10 @@
 
 (ert-deftest sp-devonthink-search-script-quotes-the-query ()
   (let ((script (sp-devonthink-search--script "\"value form\" kind:pdf")))
-    (should (string-match-p "search \"\\\\\"value form\\\\\" kind:pdf\" in root of database \"literature\"" script))
-    (should (string-match-p "items 1 thru 50" script))))
+    (should (string-match-p "app.search(\"\\\\\"value form\\\\\" kind:pdf\", {in: db.root()})" script))
+    (should (string-match-p "slice(0, 50)" script))
+    (should (string-match-p "r.pageCount()" script))
+    (should-not (string-match-p "every item" script))))
 
 (ert-deftest sp-devonthink-search-parse-and-annotate ()
   (let* ((records (sp-devonthink-browse--parse sp-devonthink-search-test--text))
@@ -27,13 +29,13 @@
 
 (ert-deftest sp-devonthink-search-choose-opens-the-hit ()
   (let (opened)
-    (cl-letf (((symbol-function 'sp-reading--osascript)
+    (cl-letf (((symbol-function 'sp-reading--jxa)
                (lambda (_) sp-devonthink-search-test--text))
               ((symbol-function 'completing-read) (lambda (&rest _) "smith-2017-x.pdf"))
               ((symbol-function 'sp-reading--open-url) (lambda (url) (setq opened url))))
       (sp-devonthink-search--choose "script" "p: "))
     (should (equal opened "x-devonthink-item://U1"))
-    (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) "")))
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "")))
       (should-error (sp-devonthink-search--choose "script" "p: ") :type 'user-error))))
 
 (ert-deftest sp-devonthink-search-engine-litdb-sets-mode ()
@@ -47,14 +49,13 @@
     (should (eq mode 'vector))))
 
 (ert-deftest sp-devonthink-search-similar-and-preview-scripts ()
-  (should (string-match-p "compare record theRecord to database \"literature\""
+  (should (string-match-p "app.compare({record: app.getRecordWithUuid(\"U1\"), to: db})"
                           (sp-devonthink-search--similar-script "U1")))
-  (should (string-match-p "get record with uuid \"U1\"" (sp-devonthink-search--preview-script "U1")))
-  (should (string-match-p "text 1 thru 3000" (sp-devonthink-search--preview-script "U1"))))
+  (should (string-match-p "getRecordWithUuid(\"U1\").plainText().slice(0, 3000)" (sp-devonthink-search--preview-script "U1"))))
 
 (ert-deftest sp-devonthink-search-preview-buffer ()
   (sp-devonthink-browse--make-candidates (sp-devonthink-browse--parse sp-devonthink-search-test--text))
-  (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) "Some text"))
+  (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "Some text"))
             ((symbol-function 'display-buffer) #'ignore))
     (sp-devonthink-preview "smith-2017-x.pdf"))
   (with-current-buffer "*devonthink preview*"

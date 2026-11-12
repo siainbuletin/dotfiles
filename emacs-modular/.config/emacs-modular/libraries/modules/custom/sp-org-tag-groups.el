@@ -813,6 +813,8 @@ ARGS are the keywords of `vulpea-find'.  Typing a title that does not
 exist offers to create the note, as `vulpea-find' does.
 The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
+  ;; Make sure autosync is on, so the picker sees changes (no-op if already on).
+  (when (fboundp 'sp-vulpea-start-autosync) (sp-vulpea-start-autosync))
   (sp-org-tag-groups--with-tag-column
     (sp-org-tag-groups--with-origin-groups
       (apply #'vulpea-find args))))
