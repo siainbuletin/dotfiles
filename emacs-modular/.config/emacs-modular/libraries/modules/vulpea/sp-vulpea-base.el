@@ -43,11 +43,11 @@
 ;; note, the dashboard included, starts nothing.
 (setq vulpea-db-sync-scan-on-enable 'background)
 
-(defcustom sp-vulpea-autosync-delay 30
+(defcustom sp-vulpea-autosync-delay 10
   "Idle seconds after start-up before `vulpea-db-autosync-mode' is turned on.
-The first scan parses every changed file on the main thread, which makes
-Emacs unresponsive on a large vault, so it waits until Emacs has been idle."
-  :type 'integer
+The scan runs in the background (see `vulpea-db-sync-scan-on-enable'), so a
+short wait is enough: it only lets start-up finish and Emacs become usable."
+  :type 'number
   :group 'spcustom)
 
 ;; Vulpea builds a candidate cache of every note for `vulpea-find' and
@@ -57,17 +57,33 @@ Emacs unresponsive on a large vault, so it waits until Emacs has been idle."
 ;; cache is built at the first `vulpea-find' or `vulpea-insert', which pauses once.
 (setq vulpea-select-cache-prewarm nil)
 
-(defun sp-vulpea-start-autosync ()
-  "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
-  (let ((started (float-time)))
-    (message "[vulpea] starting autosync; changed files are indexed in the background...")
-    (vulpea-db-autosync-mode +1)
-    (message "[vulpea] autosync started in %.2fs" (- (float-time) started))))
+(defvar sp-vulpea--autosync-timer nil
+  "Idle timer that will call `sp-vulpea-start-autosync', or nil.")
 
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (run-with-idle-timer sp-vulpea-autosync-delay nil
-                                #'sp-vulpea-start-autosync)))
+(defun sp-vulpea-start-autosync ()
+  "Turn on `vulpea-db-autosync-mode' once, if it is not on yet.
+The vault is scanned in the background.  Safe to call any number of times."
+  (when (timerp sp-vulpea--autosync-timer)
+    (cancel-timer sp-vulpea--autosync-timer))
+  (setq sp-vulpea--autosync-timer nil)
+  (unless (bound-and-true-p vulpea-db-autosync-mode)
+    (let ((started (float-time)))
+      (message "[vulpea] starting autosync; changed files are indexed in the background...")
+      (vulpea-db-autosync-mode +1)
+      (message "[vulpea] autosync started in %.2fs" (- (float-time) started)))))
+
+(defun sp-vulpea-schedule-autosync ()
+  "Start `sp-vulpea-start-autosync' after `sp-vulpea-autosync-delay' idle seconds."
+  (unless (or (bound-and-true-p vulpea-db-autosync-mode)
+              (timerp sp-vulpea--autosync-timer))
+    (setq sp-vulpea--autosync-timer
+          (run-with-idle-timer sp-vulpea-autosync-delay nil
+                               #'sp-vulpea-start-autosync))))
+
+;; Init is over when `after-init-time' is set; then the hook has already run.
+(if after-init-time
+    (sp-vulpea-schedule-autosync)
+  (add-hook 'emacs-startup-hook #'sp-vulpea-schedule-autosync))
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 
