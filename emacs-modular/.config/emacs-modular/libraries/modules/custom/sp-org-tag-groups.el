@@ -637,6 +637,23 @@ The longest come first, so a project inside a project wins."
                      projectile-known-projects))
             (lambda (a b) (> (length a) (length b)))))))
 
+(defun sp-note-origin--notes-title (path)
+  "The group title for PATH below `sp-notes-dir': \"Notes\", or \"Notes → Sub\".
+Sub is the folder of the note inside `sp-notes-dir', the one the filing by
+tag chose (`sp-notes-filing-folder'): each component capitalized, hyphens
+as spaces, components joined by \" → \".  A note at the top is just \"Notes\"."
+  (let* ((dir (file-name-directory (file-relative-name
+                                    (expand-file-name path)
+                                    (expand-file-name sp-notes-dir))))
+         (parts (and dir (not (string= dir "./"))
+                     (split-string (directory-file-name dir) "/" t))))
+    (mapconcat #'identity
+               (cons "Notes"
+                     (mapcar (lambda (part)
+                               (capitalize (replace-regexp-in-string "-" " " part)))
+                             parts))
+               " → ")))
+
 (defvar sp-note-origin--cache nil
   "Cons of the project list the cache was made for, and a hash table.
 The table maps a file name to its origin; it is dropped when
@@ -645,7 +662,8 @@ The table maps a file name to its origin; it is dropped when
 (defun sp-note-origin (path)
   "Where the note file PATH lives, as a cons of a rank and a group title.
 The rank orders the groups in the selector:
-- 0 \"Notes\": below `sp-notes-dir'.
+- 0 \"Notes\": below `sp-notes-dir'; a note in a subfolder is \"Notes → Sub\",
+  e.g. \"Notes → People\" (`sp-note-origin--notes-title').
 - 1 \"Writing: NAME\": in the Projectile project NAME below `sp-writing-projects'.
 - 2 \"Writing\": below `sp-writing-projects', but in no Projectile project.
 - 3 \"Config\": below `user-emacs-directory'.
@@ -660,7 +678,7 @@ The rank orders the groups in the selector:
            (cond
             ((null path) (cons 4 "Other"))
             ((sp-note-origin--under-p path (bound-and-true-p sp-notes-dir))
-             (cons 0 "Notes"))
+             (cons 0 (sp-note-origin--notes-title path)))
             ((sp-note-origin--under-p path (bound-and-true-p sp-writing-projects))
              (if-let* ((root (seq-find (lambda (root)
                                          (string-prefix-p root (expand-file-name path)))
@@ -709,10 +727,10 @@ property of the note."
      ,@body))
 
 (defmacro sp-org-tag-groups--with-origin-groups (&rest body)
-  "Run BODY with the notes in groups by where their file lives.
-The groups are those of `sp-note-origin': the notes folder, one per writing
-project, other writing files, the config.  Every note picker of the
-`sp-' family uses it, so the candidates look the same in all of them."
+  "Run BODY with the `vulpea-note' candidates in groups by where their file lives.
+The groups are those of `sp-note-origin': the notes folder (one group per
+subfolder), one per writing project, other writing files, the config.
+The pickers of the `sp-' family use it, so the candidates look the same."
   (declare (indent 0))
   `(let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
           (completion-category-overrides
@@ -722,18 +740,22 @@ project, other writing files, the config.  Every note picker of the
                  completion-category-overrides)))
      ,@body))
 
-(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
+(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases (grouped t))
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
 INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'.
-The notes are in groups by where their file lives, see `sp-note-origin'."
+GROUPED, non-nil by default, puts the notes in groups as in `sp-find-note';
+pass nil for a flat list."
   (sp-org-tag-groups--with-tag-column
-    (sp-org-tag-groups--with-origin-groups
-      (vulpea-select-from prompt
-                          (vulpea-db-query filter-fn)
-                          :require-match require-match
-                          :initial-prompt initial-prompt
-                          :expand-aliases expand-aliases))))
+    (let ((select (lambda ()
+                    (vulpea-select-from prompt
+                                        (vulpea-db-query filter-fn)
+                                        :require-match require-match
+                                        :initial-prompt initial-prompt
+                                        :expand-aliases expand-aliases))))
+      (if grouped
+          (sp-org-tag-groups--with-origin-groups (funcall select))
+        (funcall select)))))
 
 (defun sp-insert-note (&rest args)
   "Insert a link to a note chosen with the emoji and the tag column.

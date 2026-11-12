@@ -1141,6 +1141,19 @@ heading, with one entry for each mention."
              (dolist (m (plist-get entry :mentions))
                (sp-see-also-view--entry file m (or (plist-get m :heading) "file"))))))))))
 
+;;;###autoload
+(defun sp-see-also-show-concept-by-name ()
+  "Pick a note by its title and show where it is mentioned in see-also footnotes.
+Like `sp-see-also-show-concept', but the note is chosen in the minibuffer
+with the groups of `sp-find-note' (notes, writing projects, config), not
+taken from the entry at point, and no ID is typed."
+  (interactive)
+  (and-let* ((note (if (fboundp 'sp-select-note)
+                       (sp-select-note "Concept: " :require-match t :grouped t)
+                     (vulpea-select "Concept" :require-match t)))
+             (id (vulpea-note-id note)))
+    (sp-see-also-show-concept id)))
+
 (with-eval-after-load 'vulpea-ui
   (condition-case err
       (require 'sp-see-also-widget)

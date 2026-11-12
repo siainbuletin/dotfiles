@@ -85,6 +85,9 @@
 (ert-deftest sp-org-tag-groups-origin-groups ()
   (sp-org-tag-groups-test--with-dirs
     (should (equal (sp-note-origin "/tmp/t/notes/a.org") '(0 . "Notes")))
+    (should (equal (sp-note-origin "/tmp/t/notes/people/a.org") '(0 . "Notes → People")))
+    (should (equal (sp-note-origin "/tmp/t/notes/objects/films/a.org") '(0 . "Notes → Objects → Films")))
+    (should (equal (sp-note-origin "/tmp/t/notes/docs-emacs/a.org") '(0 . "Notes → Docs emacs")))
     (should (equal (sp-note-origin "/tmp/t/writing/book/ch1/a.org") '(1 . "Writing: book")))
     (should (equal (sp-note-origin "/tmp/t/writing/paper/a.org") '(1 . "Writing: paper")))
     (should (equal (sp-note-origin "/tmp/t/writing/loose/a.org") '(2 . "Writing")))
@@ -112,6 +115,19 @@
                        '("a" "aaaa" "bk" "bbb" "ccc" "zzz")))
         (should (equal (sp-note-origin-group (nth 1 cands) nil) "Writing: paper"))
         (should (eq (sp-note-origin-group (nth 1 cands) t) (nth 1 cands)))))))
+
+(ert-deftest sp-org-tag-groups-origin-sort-notes-subgroups ()
+  "Notes at the top come first, then the subfolders alphabetically."
+  (sp-org-tag-groups-test--with-dirs
+    (cl-letf (((symbol-function 'vulpea-select-candidate-path)
+               (lambda (c) (get-text-property 0 'path c))))
+      (let* ((mk (lambda (title path) (propertize title 'path path)))
+             (cands (list (funcall mk "p" "/tmp/t/notes/people/a.org")
+                          (funcall mk "l" "/tmp/t/notes/litnotes/a.org")
+                          (funcall mk "top" "/tmp/t/notes/a.org"))))
+        (should (equal (mapcar (lambda (c) (cdr (sp-note-origin (get-text-property 0 'path c))))
+                               (sp-note-origin-sort cands))
+                       '("Notes" "Notes → Litnotes" "Notes → People")))))))
 
 (provide 'sp-org-tag-groups-test)
 ;;; sp-org-tag-groups-test.el ends here
