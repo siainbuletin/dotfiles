@@ -3179,10 +3179,14 @@ Exact emoji cells (=sp-citations--emoji-cell=):
 
 Candidate layout widths (=sp-citations--layout=, from the display):
 
-- the widths are worked out when the module loads, for the posframe in half of the display (a tile of AeroSpace): =sp-citations--half-frame-columns=.
-  - the width of a tile is half of the display less the AeroSpace gaps (8 outside on each side, 8 between: 24 in all);
-  - minus the internal border of the frame on both sides (=internal-border-width=, 30);
-  - times =sp-posframe-width-fraction= (0.75), divided by the width of one character of the =default= face (=frame-char-width=; the base face is 150, Aporetic Sans Mono).
+- the columns come from the frame Emacs has on the screen (=sp-citations--frame-columns=), not from an assumed size of the display:
+  - =frame-width= of the selected frame (its parent when a child frame is selected), which Emacs works out in characters of the =default= face (base height 150, Aporetic Sans Mono) from the pixel width of the frame less its borders;
+  - times =sp-posframe-width-fraction= (0.75) while the posframe is on in a graphical frame, as =sp-posframe-get-size= does, so the layout has the same width as the posframe;
+  - so an AeroSpace tile, a maximized frame, or any other size, gives its own columns.
+- the widths follow the frame (=sp-citations--apply-layout=):
+  - it runs before =citar-select-ref= and =citar-select-refs=, which every command that asks for a reference goes through (=citar-open=, =citar-insert-citation=, =citar-create-note=);
+  - the columns are compared with the ones of the last time, and only when they differ are the templates set again and =citar-refresh= called (the candidates are cached), so a command in a frame that did not change size costs nothing;
+  - the first refresh after a resize is as slow as any refresh of the bibliography.
 - =sp-citations-layout-columns= sets the columns by hand; nil takes them from the display.
 - 27 columns are fixed (=sp-citations-layout-overhead=): the margin, the Vertico mark and the four indicators, the type emoji, the year and the separators.
 - the rest is shared like this:
@@ -3191,7 +3195,7 @@ Candidate layout widths (=sp-citations--layout=, from the display):
   - the title takes what is left;
   - the tags are shown only with 110 columns of room or more (22 columns).
 - a citekey is only whole (45) from about 110 columns in all; below that the key is cut first, to 16 at the least: 80 columns give a key of 22, 90 give 30, 104 give 42.
-- after a change of font size, frame or posframe width, run =M-x sp-citations-fit-layout=: it works the widths out again and refreshes the candidates.
+- =M-x sp-citations-fit-layout= works the widths out again whatever the frame, and clears the emoji cells; use it after a change of font size or =sp-posframe-width-fraction=, which the check on the columns does not see.
 
 The notes path was written inside =:custom= once, which expects pairs of variable and value, so use-package tried to customise variables literally named when and setq and neither was ever applied.
 
@@ -3380,15 +3384,17 @@ pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
 
 ;;;; Citar layout
 ;; The widths in `citar-templates' are numbers, so they are worked out here from the
-;; columns that fit in half of the screen (a tiled window of AeroSpace), at the size of
-;; the `default' face.  The citekey is shown in full (45) when it fits; the authors and
-;; the title share what is left, and the tags only come back on a wide display.
+;; columns of the frame Emacs has on the screen, as the posframe takes them, at the size
+;; of the `default' face.  They are worked out again when the frame has changed size
+;; since the last time (a tile of AeroSpace, then a maximized frame), each time a
+;; command asks for a reference.  The citekey is shown in full (45) when it fits; the
+;; authors and the title share what is left, and the tags only come back on a wide frame.
 (defvar sp-posframe-width-fraction)
 
 (defcustom sp-citations-layout-columns nil
-  "Columns the `citar' candidates may take, or nil to work them out from the display.
-Nil means the posframe in half of the display: see `sp-citations--half-frame-columns'."
-  :type '(choice (const :tag "From the display" nil) integer)
+  "Columns the `citar' candidates may take, or nil to work them out from the frame.
+Nil means the columns of the posframe: see `sp-citations--frame-columns'."
+  :type '(choice (const :tag "From the frame" nil) integer)
   :group 'sp)
 
 (defconst sp-citations-layout-overhead 27
@@ -3396,17 +3402,19 @@ Nil means the posframe in half of the display: see `sp-citations--half-frame-col
 That is 2 for the margin, 11 for the Vertico mark and the four indicators, 3 for the
 type emoji, 1 after it, 4 for the year and 6 for the separators (two columns each).")
 
-(defun sp-citations--half-frame-columns ()
-  "Return the columns of the posframe in half of the display, at the current font.
-AeroSpace gives a tile the half of the width left by its gaps (8 on each side and 8
-between), the frame loses its internal border on both sides, and the posframe takes
-`sp-posframe-width-fraction' of that.  Without a graphical display it is 60."
-  (if (display-graphic-p)
-      (let* ((half (/ (- (display-pixel-width) 24) 2.0))
-             (inner (- half (* 2 (or (frame-parameter nil 'internal-border-width) 0)))))
-        (floor (* (if (boundp 'sp-posframe-width-fraction) sp-posframe-width-fraction 0.75)
-                  (/ inner (frame-char-width)))))
-    60))
+(defun sp-citations--frame-columns ()
+  "Return the columns the `citar' candidates have, from the frame on the screen.
+It is `frame-width' of the selected frame (the parent when a child frame is selected),
+which Emacs counts in characters of the `default' face from the pixel width of the
+frame, less its borders.  While the posframe is on in a graphical frame it takes
+`sp-posframe-width-fraction' of that, as `sp-posframe-get-size' does; otherwise the
+whole width."
+  (let* ((frame (or (frame-parameter nil 'parent-frame) (selected-frame)))
+         (width (frame-width frame)))
+    (if (and (bound-and-true-p vertico-posframe-mode) (display-graphic-p frame)
+             (boundp 'sp-posframe-width-fraction))
+        (round (* sp-posframe-width-fraction width))
+      width)))
 
 (defun sp-citations--layout (&optional columns)
   "Return the widths of the `citar' columns for COLUMNS as a plist.
@@ -3414,7 +3422,7 @@ The keys are :author, :title, :key and :tags.  The citekey takes up to 45 column
 never leaves the title under 20 and the authors under 10, and not under 16 itself;
 the title takes what is left after the authors, a fifth of the room (10 to 30).  Tags
 get 20 columns once the room is 110 columns or more."
-  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--half-frame-columns)))
+  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--frame-columns)))
          (room (max 0 (- columns sp-citations-layout-overhead)))
          (tags (if (>= room 110) 22 0))
          (room (- room tags))
@@ -3434,14 +3442,31 @@ get 20 columns once the room is 110 columns or more."
                                      'face 'sp-citar-key)
                          (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
 
+(defvar sp-citations--applied-columns nil
+  "Columns the widths of `citar-templates' were last worked out for.")
+
+(defun sp-citations--apply-layout (&optional force)
+  "Work the `citar' widths out for the frame as it is now, if the columns changed.
+With FORCE the widths are always worked out again.  The candidates of `citar' are
+cached, so `citar-refresh' is called when the templates change, and only then."
+  (let ((columns (or sp-citations-layout-columns (sp-citations--frame-columns))))
+    (when (or force (not (equal columns sp-citations--applied-columns)))
+      (setq sp-citations--applied-columns columns)
+      (setq citar-templates (append (sp-citations--layout-templates columns)
+                                    (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+      (when (fboundp 'citar-refresh) (citar-refresh)))))
+
+(defun sp-citations--before-select (&rest _)
+  "Advice before the commands that ask for a reference: fit the widths to the frame."
+  (sp-citations--apply-layout))
+
 (defun sp-citations-fit-layout ()
-  "Work the `citar' column widths out again from the display, and refresh the candidates.
-Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
+  "Work the `citar' column widths out again from the frame, and refresh the candidates.
+This is done on its own when the frame changed size; run it after changing the font
+size or `sp-posframe-width-fraction', which it does not notice."
   (interactive)
   (clrhash sp-citations--cell-cache)
-  (setq citar-templates (append (sp-citations--layout-templates)
-                                (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
-  (when (fboundp 'citar-refresh) (citar-refresh)))
+  (sp-citations--apply-layout t))
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -3479,6 +3504,9 @@ Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
   (sp-citations-setup-indicators)
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
+  (setq sp-citations--applied-columns (or sp-citations-layout-columns (sp-citations--frame-columns)))
+  (advice-add 'citar-select-ref :before #'sp-citations--before-select)
+  (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
          (("C-c w b o" . citar-open))
