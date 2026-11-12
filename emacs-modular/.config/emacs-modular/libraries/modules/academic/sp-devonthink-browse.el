@@ -12,6 +12,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
+(require 'json)
 (require 'sp-reading)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
@@ -26,8 +27,9 @@
   "Browse the DEVONthink database from Emacs."
   :group 'sp-devonthink)
 
-(defcustom sp-devonthink-browse-query "kind:pdf"
-  "The DEVONthink search whose records `sp-devonthink-browse' lists."
+(defcustom sp-devonthink-browse-name-regexp "\\.pdf$"
+  "JavaScript regular expression (case-insensitive) that a record name must match.
+The default lists the PDFs, whose names are citekeys."
   :type 'string :group 'sp-devonthink-browse)
 
 ;;;; The record list
@@ -39,18 +41,19 @@
   "Candidate string to record, for the current list.")
 
 (defun sp-devonthink-browse--script ()
-  "The AppleScript that lists UUID, location and name of the records to browse."
-  (format "tell application id \"DNtp\"
-  set theRecords to search %s in root of database %s
-  set theOut to {}
-  repeat with r in theRecords
-    set end of theOut to (uuid of r as text) & tab & (location of r as text) & tab & (name of r as text)
-  end repeat
-  set AppleScript's text item delimiters to linefeed
-  return theOut as text
-end tell"
-          (sp-reading--quote sp-devonthink-browse-query)
-          (sp-reading--quote sp-reading-database)))
+  "The JavaScript for Automation that lists UUID, location and name of the records to browse.
+The fields of all records are read in bulk; AppleScript could not read them from a
+list of records (-1728)."
+  (format "const app = Application(\"DEVONthink\");
+const c = app.databases.byName(%s).contents;
+const ids = c.uuid(), names = c.name(), locations = c.location();
+const wanted = new RegExp(%s, \"i\");
+const out = [];
+for (let i = 0; i < ids.length; i++)
+  if (wanted.test(names[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
+out.join(\"\\n\");"
+          (json-encode-string sp-reading-database)
+          (json-encode-string sp-devonthink-browse-name-regexp)))
 
 (defun sp-devonthink-browse--parse (text)
   "The list of record plists read from TEXT (see the script)."
@@ -80,7 +83,7 @@ end tell"
   "Read the records from DEVONthink again."
   (interactive)
   (setq sp-devonthink-browse--records
-        (sp-devonthink-browse--parse (sp-reading--osascript (sp-devonthink-browse--script))))
+        (sp-devonthink-browse--parse (sp-reading--jxa (sp-devonthink-browse--script))))
   (message "sp-devonthink: %d records" (length sp-devonthink-browse--records))
   sp-devonthink-browse--records)
 
