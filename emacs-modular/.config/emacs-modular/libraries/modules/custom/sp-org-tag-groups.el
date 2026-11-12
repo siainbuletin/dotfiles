@@ -24,8 +24,45 @@
   :group 'org
   :prefix "sp-org-tag-groups-")
 
+(defcustom sp-org-tag-groups-bibtex-types
+  '(("article"         "☕️" "journalarticle")
+    ("book"            "📚️" "book")
+    ("booklet"         "📔️" "text")
+    ("collection"      "📚️" "collection")
+    ("proceedings"     "🏛️" "proceedings")
+    ("inbook"          "📖️" "booksection")
+    ("incollection"    "🖇️" "incollection")
+    ("inproceedings"   "🗂️" "inproceedings")
+    ("manual"          "🗝️" "manual")
+    ("mastersthesis"   "👨🏻‍🎓" "mastersthesis")
+    ("misc"            "🕰️" "text")
+    ("phdthesis"       "💼" "phdthesis")
+    ("techreport"      "🛠️" "report")
+    ("unpublished"     "🪶" "manuscript"))
+  "The BibTeX entry types, each with its emoji and the Org tag of its litnote.
+Each element is (TYPE EMOJI TAG), TYPE and TAG strings without colons.  The
+rules of `sp-org-tag-groups-rules' for these tags come from here (the first type
+of a tag gives the emoji of the tag), and the `citar' candidates show the emoji
+of the TYPE of each entry."
+  :type '(repeat (list (string :tag "BibTeX type") (string :tag "Emoji") (string :tag "Org tag")))
+  :group 'spcustom)
+
+(defcustom sp-org-tag-groups-bibtex-type-fallback "📄️"
+  "The emoji of an entry type that `sp-org-tag-groups-bibtex-types' does not list."
+  :type 'string
+  :group 'spcustom)
+
+(defun sp-org-tag-groups--type-rules ()
+  "The rules of the tags of `sp-org-tag-groups-bibtex-types', one for each tag."
+  (let (seen rules)
+    (dolist (type sp-org-tag-groups-bibtex-types)
+      (unless (member (nth 2 type) seen)
+        (push (nth 2 type) seen)
+        (push (list (nth 2 type) :emoji (nth 1 type)) rules)))
+    (nreverse rules)))
+
 (defcustom sp-org-tag-groups-rules
-  '(("project"            :emoji "🚀")
+  `(("project"            :emoji "🚀")
     ("@home"              :emoji "🏠")
     ("@uni"               :emoji "🎓")
     ("@computer"          :emoji "💻")
@@ -39,7 +76,9 @@
     ("@waiting"           :emoji "⏳")
     ("deep"               :emoji "🧠")
     ("shallow"            :emoji "🪶")
-    (("@writing" "deep")  :emoji "🖋️" :face (:foreground "orchid")))
+    (("@writing" "deep")  :emoji "🖋️" :face (:foreground "orchid"))
+    ;; The litnote tags of the BibTeX entry types: `sp-org-tag-groups-bibtex-types'.
+    ,@(sp-org-tag-groups--type-rules))
   "Rules that decorate tags.
 Each rule is (KEY . PLIST).  KEY is a tag, or a list of tags that must
 all be present.  PLIST may have :emoji, :face, :position (`prefix' or
