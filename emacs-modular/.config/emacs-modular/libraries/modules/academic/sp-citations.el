@@ -123,13 +123,60 @@ left to the other parsers, so this returns only the files it found."
 (defconst sp-citations-indicator-cell 2
   "Columns of one indicator, the width of an emoji.")
 
+;; An emoji is not drawn as wide as its `string-width' says: the width of the glyph
+;; comes from the emoji font, and a variation selector (U+FE0F) or a ZWJ sequence changes
+;; it again.  So each emoji is put in a cell whose width is measured in pixels, in the
+;; font in use, and padded to a whole number of character cells with a `display' space.
+;; The pad is relative, so it does not depend on where the line starts on the screen.
+(defvar sp-citations--cell-cache (make-hash-table :test 'equal)
+  "Cells made by `sp-citations--emoji-cell', by emoji, columns, character width and font.")
+
+(defun sp-citations--pixel-cells-p ()
+  "Non-nil when widths can be measured in pixels: a graphical frame."
+  (and (display-graphic-p) (fboundp 'string-pixel-width)))
+
+(defun sp-citations--build-cell (emoji cells)
+  "Return EMOJI shown in CELLS character cells, measured in pixels.
+The string is CELLS spaces, so its `string-width' is CELLS whatever the emoji is; its
+`display' property is the emoji, made smaller if it is wider than the cells, then a
+space that takes the pixels left.  `citar' therefore never pads or cuts it."
+  (let* ((target (* cells (frame-char-width)))
+         (glyph emoji)
+         (factor 1.0)
+         (width (string-pixel-width glyph)))
+    (dotimes (_ 2)
+      (when (> width target)
+        (setq factor (* factor 0.98 (/ (float target) width))
+              glyph (propertize emoji 'face `(:height ,factor))
+              width (string-pixel-width glyph))))
+    (propertize (make-string cells ?\s)
+                'display (concat glyph (propertize " " 'display
+                                                   `(space :width (,(max 0 (- target width)))))))))
+
+(defun sp-citations--emoji-cell (emoji cells)
+  "Return EMOJI in a cell of CELLS columns, exact in pixels on a graphical display.
+On a terminal it is the emoji and spaces up to CELLS columns."
+  (if (not (sp-citations--pixel-cells-p))
+      (concat emoji (make-string (max 1 (- cells (string-width emoji))) ?\s))
+    (let ((key (list emoji cells (frame-char-width)
+                     (face-attribute 'default :family nil t)
+                     (face-attribute 'default :height nil t))))
+      (or (gethash key sp-citations--cell-cache)
+          (puthash key (sp-citations--build-cell emoji cells) sp-citations--cell-cache)))))
+
+(defun sp-citations--blank-cell (cells)
+  "Return a blank of CELLS character cells, exact in pixels on a graphical display."
+  (if (sp-citations--pixel-cells-p)
+      (propertize (make-string cells ?\s)
+                  'display `(space :width (,(* cells (frame-char-width)))))
+    (make-string cells ?\s)))
+
 (defun sp-citations-setup-indicators ()
   "Set `citar-indicators' to the link, file, note and cited emoji."
   (cl-flet ((indicator (symbol function tag)
               (citar-indicator-create
                :symbol symbol :padding ""
-               :emptysymbol (propertize (make-string sp-citations-indicator-cell ?\s)
-                                        'display `(space :width ,sp-citations-indicator-cell))
+               :emptysymbol (make-string sp-citations-indicator-cell ?\s)
                :function function :tag tag)))
     (setq citar-indicators
           (list (indicator "\U0001F33F️" #'citar-has-links "has:links")   ; link
@@ -140,12 +187,14 @@ left to the other parsers, so this returns only the files it found."
 (defun sp-citations--indicator-symbols (candidate)
   "Return the indicators of CANDIDATE, ended by one space.
 Replaces `citar--make-indicator-symbols'.  Its padding is the last character of each
-indicator, so it cannot be empty."
+indicator, so it cannot be empty.  Each indicator is a cell of
+`sp-citations-indicator-cell' columns, measured in pixels."
   (concat (mapconcat
            (lambda (indicator)
              (if (string-match-p (citar-indicator-tag indicator) candidate)
-                 (citar-indicator-symbol indicator)
-               (citar-indicator-emptysymbol indicator)))
+                 (sp-citations--emoji-cell (citar-indicator-symbol indicator)
+                                           sp-citations-indicator-cell)
+               (sp-citations--blank-cell sp-citations-indicator-cell)))
            citar-indicators "")
           " "))
 
@@ -154,17 +203,83 @@ indicator, so it cannot be empty."
 (defvar sp-org-tag-groups-bibtex-type-fallback)
 
 (defun sp-citations--type-emoji (type)
-  "Return the emoji of the BibTeX entry TYPE, and a space, for the type column.
+  "Return the emoji of the BibTeX entry TYPE in a cell of 3 columns, for the type column.
 The emoji come from `sp-org-tag-groups-bibtex-types'; a type that is not in it,
-or the module not being loaded, gives the fallback emoji.  The space leaves
-room if the emoji is drawn wider than its width says.  Used as the `etype'
-transform of `citar-display-transform-functions'."
-  (concat (or (and (boundp 'sp-org-tag-groups-bibtex-types)
-                   (nth 1 (assoc (downcase (or type "")) sp-org-tag-groups-bibtex-types)))
-              (and (boundp 'sp-org-tag-groups-bibtex-type-fallback)
-                   sp-org-tag-groups-bibtex-type-fallback)
-              "\U0001F4C4\uFE0F")
-          " "))
+or the module not being loaded, gives the fallback emoji.  The cell is measured in
+pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
+`citar-display-transform-functions'."
+  (sp-citations--emoji-cell
+   (or (and (boundp 'sp-org-tag-groups-bibtex-types)
+            (nth 1 (assoc (downcase (or type "")) sp-org-tag-groups-bibtex-types)))
+       (and (boundp 'sp-org-tag-groups-bibtex-type-fallback)
+            sp-org-tag-groups-bibtex-type-fallback)
+       "\U0001F4C4\uFE0F")
+   3))
+
+;;;; Citar layout
+;; The widths in `citar-templates' are numbers, so they are worked out here from the
+;; columns that fit in half of the screen (a tiled window of AeroSpace), at the size of
+;; the `default' face.  The citekey is shown in full (45) when it fits; the authors and
+;; the title share what is left, and the tags only come back on a wide display.
+(defvar sp-posframe-width-fraction)
+
+(defcustom sp-citations-layout-columns nil
+  "Columns the `citar' candidates may take, or nil to work them out from the display.
+Nil means the posframe in half of the display: see `sp-citations--half-frame-columns'."
+  :type '(choice (const :tag "From the display" nil) integer)
+  :group 'sp)
+
+(defconst sp-citations-layout-overhead 27
+  "Columns the template spends besides authors, title, citekey and tags.
+That is 2 for the margin, 11 for the Vertico mark and the four indicators, 3 for the
+type emoji, 1 after it, 4 for the year and 6 for the separators (two columns each).")
+
+(defun sp-citations--half-frame-columns ()
+  "Return the columns of the posframe in half of the display, at the current font.
+AeroSpace gives a tile the half of the width left by its gaps (8 on each side and 8
+between), the frame loses its internal border on both sides, and the posframe takes
+`sp-posframe-width-fraction' of that.  Without a graphical display it is 60."
+  (if (display-graphic-p)
+      (let* ((half (/ (- (display-pixel-width) 24) 2.0))
+             (inner (- half (* 2 (or (frame-parameter nil 'internal-border-width) 0)))))
+        (floor (* (if (boundp 'sp-posframe-width-fraction) sp-posframe-width-fraction 0.75)
+                  (/ inner (frame-char-width)))))
+    60))
+
+(defun sp-citations--layout (&optional columns)
+  "Return the widths of the `citar' columns for COLUMNS as a plist.
+The keys are :author, :title, :key and :tags.  The citekey takes up to 45 columns, but
+never leaves the title under 20 and the authors under 10, and not under 16 itself;
+the title takes what is left after the authors, a fifth of the room (10 to 30).  Tags
+get 20 columns once the room is 110 columns or more."
+  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--half-frame-columns)))
+         (room (max 0 (- columns sp-citations-layout-overhead)))
+         (tags (if (>= room 110) 22 0))
+         (room (- room tags))
+         (author (max 10 (min 30 (round (* 0.2 room)))))
+         (key (max 16 (min 45 (- room author 20))))
+         (title (max 20 (- room author key))))
+    (list :author author :title title :key key :tags (max 0 (- tags 2)))))
+
+(defun sp-citations--layout-templates (&optional columns)
+  "Return the `main' and `suffix' entries of `citar-templates' for COLUMNS."
+  (let* ((layout (sp-citations--layout columns))
+         (tags (plist-get layout :tags)))
+    `((main . ,(format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
+                       (plist-get layout :author) (plist-get layout :title)))
+      (suffix . ,(concat "  "
+                         (propertize (format "${=key= id:%d}" (plist-get layout :key))
+                                     'face 'sp-citar-key)
+                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
+
+(defun sp-citations-fit-layout ()
+  "Work the `citar' column widths out again from the display, and refresh the candidates.
+Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
+  (interactive)
+  (clrhash sp-citations--cell-cache)
+  (setq citar-templates (append (sp-citations--layout-templates)
+                                (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+  (when (fboundp 'citar-refresh) (citar-refresh)))
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -192,10 +307,7 @@ transform of `citar-display-transform-functions'."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . "${=type=:3%etype} ${author editor:30}   ${year issued date:4}   ${title:60}")
-          (suffix . ,(concat "   "
-                             (propertize "${=key= id:45}" 'face 'sp-citar-key)
-                             "   ${tags keywords:*}"))
+        `(,@(sp-citations--layout-templates)
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
           (note . ,sp-citar-note)))
 
