@@ -428,5 +428,53 @@
                              (sp-see-also-concepts-for-file file))
                      '("n"))))))
 
+(ert-deftest sp-see-also-view-shows-headings-and-clickable-entries ()
+  (sp-see-also-test--with-vault
+    (let* ((file (sp-see-also-test--write root "view.org" sp-see-also-test--note))
+           (visited nil))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-see-also-visit)
+                 (lambda (f pos) (setq visited (cons f pos)))))
+        (sp-see-also-show file)
+       (with-current-buffer "*see-also*"
+        (should (derived-mode-p 'sp-see-also-view-mode))
+        (goto-char (point-min))
+        (search-forward "Concept one")
+        (should (eq (get-text-property (match-beginning 0) 'face)
+                    'sp-see-also-file-heading))
+        (search-forward "Intro with a reminder")
+        (should (memq 'sp-see-also-match
+                      (ensure-list (get-text-property (match-beginning 0) 'face))))
+        (push-button (match-beginning 0))
+        (should (equal (car visited) (expand-file-name file)))
+        (should (integerp (cdr visited)))
+        ;; TAB folds the context of the entry and folds it open again
+        (sp-see-also-view-toggle)
+        (should (sp-see-also-view--fold-at (point)))
+        (sp-see-also-view-toggle)
+        (should-not (sp-see-also-view--fold-at (point)))
+        ;; n and p walk the headings
+        (goto-char (point-min))
+        (sp-see-also-view-next)
+        (should (> (point) (point-min)))
+        (sp-see-also-view-previous)
+        (should (= (point) (point-min)))
+        (revert-buffer)
+        (should (> (buffer-size) 0))))
+      (kill-buffer "*see-also*"))))
+
+(ert-deftest sp-see-also-view-concept-groups-by-litnote ()
+  (sp-see-also-test--with-vault
+    (sp-see-also-test--write root "view.org" sp-see-also-test--note)
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-see-also-show-concept "c-one"))
+    (with-current-buffer "*see-also-concept*"
+      (goto-char (point-min))
+      (search-forward "Litnote on X")
+      (should (eq (get-text-property (match-beginning 0) 'face)
+                  'sp-see-also-file-heading))
+      (should (search-forward "Prose under a question" nil t)))
+    (kill-buffer "*see-also-concept*")))
+
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here
