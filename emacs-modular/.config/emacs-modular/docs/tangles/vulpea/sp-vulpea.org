@@ -1151,7 +1151,7 @@ Introduces the next module.
 
 *** Grouped backlinks
 
-Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain mentions versus groups named after the meta property the link appears in (for example all notes that list this person under =pub-author=).
+Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain mentions (split into regular notes, litnotes and writing projects) versus groups named after the meta property the link appears in (for example all notes that list this person under =pub-author=).
 
 #+begin_src emacs-lisp -i
 (require 'sp-vulpea-grouped-backlinks)
@@ -2317,8 +2317,12 @@ note is saved, except one with unsaved changes, which is skipped."
 
 This module shows the backlinks of a Vulpea note, split into groups, in an Org buffer (=-org-detached=) or in a sidebar that follows the main note (=-sidebar=).
 
-- A link in ordinary prose goes into a Mentions group.
+- A link in ordinary prose goes into the Mentions section, which has one subsection per kind of source note:
+  - Notes: regular notes (tagged =concept= or =zettel=; any note that is not one of the other two kinds also lands here).
+  - Litnotes: notes tagged =litnote=.
+  - Writing projects: files below =sp-writing-projects=, which wins over the tags.
 - A link on a Vulpea meta line of the form =- KEY :: [[id:...]]= goes into a group named after that key.
+- The blocks (sections and Mentions subsections) are separated by =sp-vulpea-grouped-backlinks-block-padding= blank lines (default 2) in every view.
 - Example: notes listing someone under =pub-author= appear in their own group, not mixed in with notes that merely mention the person.
 
 Dependencies and open points:
@@ -2333,7 +2337,8 @@ The commentary at the top of the module says:
 #+begin_quote
 What this does: for a given note, finds every other note linking
 to it, and sorts each link into either "Mentions" (a plain inline
-or body-text [[id:...]] link) or a group named after the meta
+or body-text [[id:...]] link, split by the kind of note it sits in:
+regular notes, litnotes, writing projects) or a group named after the meta
 property it was found in -- e.g. a note with
   - pub-author :: [[id:...][Christopher Arthur]]
 contributes to a "pub-author" group when you look at Christopher
@@ -2358,7 +2363,8 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;; What this does: for a given note, finds every other note linking
 ;; to it, and sorts each link into either "Mentions" (a plain inline
-;; or body-text [[id:...]] link) or a group named after the meta
+;; or body-text [[id:...]] link, split by the kind of note it sits in:
+;; regular notes, litnotes, writing projects) or a group named after the meta
 ;; property it was found in -- e.g. a note with
 ;;   - pub-author :: [[id:...][Christopher Arthur]]
 ;; contributes to a "pub-author" group when you look at Christopher
@@ -2400,6 +2406,35 @@ The sidebar reuses three functions of =vulpea-ui=. The package is not required a
 
 ** Classifying backlinks
 
+*** Shared settings and mention kinds
+
+- =sp-vulpea-grouped-backlinks-block-padding=: blank lines between two blocks; default 2. The Org buffer, the sidebar and the widget all read it.
+- =sp-vulpea-grouped-backlinks-mention-kinds=: the kinds of source note a mention can come from, in the order they are shown.
+- =sp-vulpea-grouped-backlinks--mentions-prefix=: the group name of a mention is this prefix plus its kind, e.g. =Mentions / Litnotes=.
+- =sp-writing-projects= is declared here; it is defined in =sp-globals=.
+
+#+begin_src emacs-lisp -i
+(defvar sp-writing-projects)
+
+(defgroup sp-vulpea-grouped-backlinks nil
+  "Vulpea backlinks grouped by meta property."
+  :group 'vulpea)
+
+(defcustom sp-vulpea-grouped-backlinks-block-padding 2
+  "Number of blank lines between two blocks of grouped backlinks.
+A block is a section (\"Mentions\", a meta key) or one of the
+subsections of \"Mentions\".  Every view reads this."
+  :type 'natnum
+  :group 'sp-vulpea-grouped-backlinks)
+
+(defconst sp-vulpea-grouped-backlinks--mentions-prefix "Mentions / "
+  "Prefix of the group names of plain mentions, before the kind of source.")
+
+(defconst sp-vulpea-grouped-backlinks-mention-kinds
+  '("Notes" "Litnotes" "Writing projects")
+  "Kinds of source note a mention can come from, in display order.")
+#+end_src
+
 *** Meta key at a position
 
 =sp-vulpea-grouped-backlinks--meta-key-at= opens the source file (visiting it if needed), goes to the link's position and checks whether that line is a description-list item with a =KEY ::= tag. It returns the key, or nil when the link is in plain prose.
@@ -2419,21 +2454,52 @@ entry) rather than a structured meta property."
         nil))))
 #+end_src
 
+*** Kind of a mention
+
+=sp-vulpea-grouped-backlinks--mention-kind= decides which Mentions subsection a source note belongs to.
+
+- =sp-vulpea-grouped-backlinks--writing-p= is true when the source file is below =sp-writing-projects= (the same test the origin groups of =sp-find-note= use for the writing projects).
+- Writing projects: the file is in a writing project; this wins over the tags.
+- Litnotes: the note is tagged =litnote=.
+- Notes: everything else, which is the regular notes tagged =concept= or =zettel=; untagged notes are shown there too, so no mention is dropped.
+
+The two functions are in the block of the next section.
+
 *** Grouping the links
 
 =sp-vulpea-grouped-backlinks-classify= groups the backlinks of an ID.
 
 - Asks the Vulpea database for every link pointing at the ID.
 - For each link, looks up the source note and the meta key at the link's position.
-- Collects notes in a hash table under the key or under Mentions.
+- Collects notes in a hash table under the key, or under =Mentions / KIND= for a plain link.
 - Returns an alist of group name and deduplicated notes.
 - The long docstring (which contains a blank line, hence two units) records the assumption that each link is a plist with =:source= and =:pos=.
 - If the real shape differs, those two =plist-get= calls are what to change.
 
 #+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks--writing-p (path)
+  "Non-nil when the file PATH is below `sp-writing-projects'."
+  (and path
+       (bound-and-true-p sp-writing-projects)
+       (string-prefix-p (file-name-as-directory
+                         (expand-file-name sp-writing-projects))
+                        (expand-file-name path))))
+
+(defun sp-vulpea-grouped-backlinks--mention-kind (note)
+  "Return the kind of source NOTE is, one of `sp-vulpea-grouped-backlinks-mention-kinds'.
+- \"Writing projects\": its file is below `sp-writing-projects'.
+- \"Litnotes\": it is tagged `litnote'.
+- \"Notes\": anything else, i.e. the regular notes (tagged `concept' or
+  `zettel', or not tagged at all)."
+  (cond ((sp-vulpea-grouped-backlinks--writing-p (vulpea-note-path note))
+         "Writing projects")
+        ((member "litnote" (vulpea-note-tags note)) "Litnotes")
+        (t "Notes")))
+
 (defun sp-vulpea-grouped-backlinks-classify (id)
   "Return an alist of (GROUP . NOTES) for every note linking to ID.
-GROUP is \"Mentions\" for a plain inline/body link, or the
+GROUP is \"Mentions / KIND\" for a plain inline/body link (KIND from
+`sp-vulpea-grouped-backlinks--mention-kind'), or the
 meta-property key name (e.g. \"pub-author\") for a link found on
 a \"- KEY :: [[id:...]]\" line -- see `sp-vulpea-grouped-backlinks--meta-key-at'.
 NOTES is a deduplicated list of `vulpea-note' structs: the source
@@ -2454,7 +2520,10 @@ need adjusting."
              (source-note (and source-id (vulpea-db-get-by-id source-id))))
         (when (and source-note pos)
           (let* ((key (sp-vulpea-grouped-backlinks--meta-key-at (vulpea-note-path source-note) pos))
-                 (group (or key "Mentions")))
+                 (group (or key
+                            (concat sp-vulpea-grouped-backlinks--mentions-prefix
+                                    (sp-vulpea-grouped-backlinks--mention-kind
+                                     source-note)))))
             (puthash group (cons source-note (gethash group groups)) groups)))))
     (let (result)
       (maphash
@@ -2472,15 +2541,74 @@ need adjusting."
 =sp-vulpea-grouped-backlinks-sorted= returns the groups of an ID in the order every view shows them.
 
 - Calls =sp-vulpea-grouped-backlinks-classify=.
-- Sorts the groups by name, so =Mentions= comes before lower-case keys such as =pub-author=.
-- Used by the Org buffer, the sidebar and (later) the widget, so they cannot disagree.
+- Puts the mention groups first, in the order of =sp-vulpea-grouped-backlinks-mention-kinds=, then the meta-key groups by name.
+- =sp-vulpea-grouped-backlinks-sections= folds the groups into sections, the shape the views draw:
+  - A section is =(TITLE . SUBGROUPS)=, with SUBGROUPS an alist of =(LABEL . NOTES)=.
+  - Mentions is one section with a subgroup per kind.
+  - A meta key is a section with one subgroup whose label is nil (a flat list of notes).
+- =sp-vulpea-grouped-backlinks-section-count= is the number of notes in a section.
+- =sp-vulpea-grouped-backlinks--padding= is the blank lines between two blocks.
+- Used by the Org buffer, the sidebar and the widget, so they cannot disagree.
 
 #+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks--rank (group)
+  "Return the sort rank of the group name GROUP.
+Mention groups come first, in `sp-vulpea-grouped-backlinks-mention-kinds'
+order; the meta-key groups follow."
+  (if (string-prefix-p sp-vulpea-grouped-backlinks--mentions-prefix group)
+      (or (seq-position sp-vulpea-grouped-backlinks-mention-kinds
+                        (string-remove-prefix
+                         sp-vulpea-grouped-backlinks--mentions-prefix group))
+          0)
+    (length sp-vulpea-grouped-backlinks-mention-kinds)))
+
 (defun sp-vulpea-grouped-backlinks-sorted (id)
-  "Return the groups of notes linking to ID, sorted by group name.
-See `sp-vulpea-grouped-backlinks-classify' for the shape."
+  "Return the groups of notes linking to ID, in display order.
+Mention groups come first (see `sp-vulpea-grouped-backlinks--rank'), the
+meta-key groups after them sorted by name.  See
+`sp-vulpea-grouped-backlinks-classify' for the shape."
   (sort (sp-vulpea-grouped-backlinks-classify id)
-        (lambda (a b) (string< (car a) (car b)))))
+        (lambda (a b)
+          (let ((ra (sp-vulpea-grouped-backlinks--rank (car a)))
+                (rb (sp-vulpea-grouped-backlinks--rank (car b))))
+            (if (= ra rb)
+                (string< (car a) (car b))
+              (< ra rb))))))
+
+(defun sp-vulpea-grouped-backlinks--fold-sections (groups)
+  "Fold the sorted GROUPS into sections, a list of (TITLE . SUBGROUPS).
+SUBGROUPS is an alist of (LABEL . NOTES).  The mention groups become one
+\"Mentions\" section with a subgroup per kind of source note; each
+meta-key group is a section with one subgroup whose LABEL is nil."
+  (let (mentions sections)
+    (dolist (group groups)
+      (if (string-prefix-p sp-vulpea-grouped-backlinks--mentions-prefix
+                           (car group))
+          (push (cons (string-remove-prefix
+                       sp-vulpea-grouped-backlinks--mentions-prefix (car group))
+                      (cdr group))
+                mentions)
+        (push (list (car group) (cons nil (cdr group))) sections)))
+    (append (when mentions (list (cons "Mentions" (nreverse mentions))))
+            (nreverse sections))))
+
+(defun sp-vulpea-grouped-backlinks-sections (id)
+  "Return the backlinks of ID as sections, the shape every view draws.
+See `sp-vulpea-grouped-backlinks--fold-sections'."
+  (sp-vulpea-grouped-backlinks--fold-sections
+   (sp-vulpea-grouped-backlinks-sorted id)))
+
+(defun sp-vulpea-grouped-backlinks-section-count (section)
+  "Return the number of notes in SECTION, over all its subgroups."
+  (apply #'+ (mapcar (lambda (sub) (length (cdr sub))) (cdr section))))
+
+(defun sp-vulpea-grouped-backlinks--flat-p (section)
+  "Non-nil when SECTION has no subsections, only a list of notes."
+  (null (car (cadr section))))
+
+(defun sp-vulpea-grouped-backlinks--padding ()
+  "Return the blank lines that separate two blocks, as a string."
+  (make-string (max 0 sp-vulpea-grouped-backlinks-block-padding) ?\n))
 #+end_src
 
 ** Displaying the result
@@ -2494,15 +2622,22 @@ See `sp-vulpea-grouped-backlinks-classify' for the shape."
 - Follow-up commands (a sidebar that follows the note, a =vulpea-ui= widget) are planned as separate commands.
 
 - Prompts for a note with =sp-collec-query-select-note= when none is given.
-- Fills a buffer named after the note, in =org-mode=, with a top heading, one subheading per group (sorted alphabetically, with its count), and an =id:= link to each source note so =org-open-at-point= works on them.
+- Fills a buffer named after the note, in =org-mode=, with a top heading, one subheading per section (Mentions first, then the meta keys, each with its count), a third-level heading per kind of source under Mentions, blank lines between blocks, and an =id:= link to each source note so =org-open-at-point= works on them.
 - Shows the buffer with =display-buffer=.
 - No key is bound to it in this file.
 
 #+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks--insert-org-notes (notes)
+  "Insert one Org list item with an `id:' link for each of NOTES."
+  (dolist (n notes)
+    (insert (format "- %s\n"
+                    (org-link-make-string (concat "id:" (vulpea-note-id n))
+                                           (vulpea-note-title n))))))
+
 (defun sp-vulpea-grouped-backlinks-org-detached (&optional note)
-  "Show backlinks to NOTE, grouped into \"Mentions\" plus one section
-per meta-property key they were found under (see
-`sp-vulpea-grouped-backlinks-sorted'). Prompts for NOTE, via
+  "Show backlinks to NOTE, grouped into \"Mentions\" (a subsection per kind
+of source note) plus one section per meta-property key they were found
+under (see `sp-vulpea-grouped-backlinks-sections'). Prompts for NOTE, via
 `sp-collec-query-select-note' (tag-annotated completion), if not given.
 
 Each entry is a real, clickable [[id:...][Title]] link back to
@@ -2511,21 +2646,31 @@ the note that made the reference -- opened in `org-mode' so
 conversion report."
   (interactive)
   (let* ((note (or note (sp-collec-query-select-note "Show backlinks for: ")))
-         (groups (sp-vulpea-grouped-backlinks-sorted (vulpea-note-id note))))
+         (sections (sp-vulpea-grouped-backlinks-sections (vulpea-note-id note))))
     (with-current-buffer (get-buffer-create
                            (format "*vulpea backlinks: %s*" (vulpea-note-title note)))
       (erase-buffer)
       (org-mode)
       (insert (format "* Backlinks to %s\n\n" (vulpea-note-title note)))
-      (if (null groups)
+      (if (null sections)
           (insert "No backlinks found.\n")
-        (dolist (group groups)
-          (insert (format "** %s (%d)\n" (car group) (length (cdr group))))
-          (dolist (n (cdr group))
-            (insert (format "- %s\n"
-                            (org-link-make-string (concat "id:" (vulpea-note-id n))
-                                                   (vulpea-note-title n)))))
-          (insert "\n")))
+        (let ((padding (sp-vulpea-grouped-backlinks--padding))
+              (first-section t))
+          (dolist (section sections)
+            (unless first-section (insert padding))
+            (setq first-section nil)
+            (insert (format "** %s (%d)\n" (car section)
+                            (sp-vulpea-grouped-backlinks-section-count section)))
+            (if (sp-vulpea-grouped-backlinks--flat-p section)
+                (sp-vulpea-grouped-backlinks--insert-org-notes
+                 (cdr (cadr section)))
+              (let ((first-sub t))
+                (dolist (sub (cdr section))
+                  (unless first-sub (insert padding))
+                  (setq first-sub nil)
+                  (insert (format "*** %s (%d)\n" (car sub) (length (cdr sub))))
+                  (sp-vulpea-grouped-backlinks--insert-org-notes
+                   (cdr sub))))))))
       (goto-char (point-min))
       (display-buffer (current-buffer)))))
 #+end_src
@@ -2548,10 +2693,6 @@ The user options of the sidebar.
 - =sp-vulpea-grouped-backlinks-sidebar-size=: fraction of the frame (default 0.33).
 
 #+begin_src emacs-lisp -i
-(defgroup sp-vulpea-grouped-backlinks nil
-  "Vulpea backlinks grouped by meta property."
-  :group 'vulpea)
-
 (defcustom sp-vulpea-grouped-backlinks-sidebar-follow t
   "Non-nil means the sidebar follows the note in the main window.
 Nil keeps the note it shows (pinned) until it is toggled back or the
@@ -2615,7 +2756,8 @@ widget always follows."
 =sp-vulpea-grouped-backlinks-sidebar--render= draws the groups of NOTE in the current buffer.
 
 - Two header lines: the title, and whether the sidebar follows or is pinned.
-- One line per group with its count, then one button per note.
+- One line per section with its count, then one button per note; under Mentions, one indented line per kind of source, with the buttons one level deeper.
+- Blocks are separated by =sp-vulpea-grouped-backlinks-block-padding= blank lines.
 - A button opens the note in the main window with =vulpea-ui-visit-note=.
 - Point goes to the top, as in the =vulpea-ui= sidebar.
 
@@ -2625,10 +2767,28 @@ widget always follows."
   (require 'vulpea-ui)
   (vulpea-ui-visit-note (button-get button 'sp-note)))
 
+(defun sp-vulpea-grouped-backlinks-sidebar--insert-heading (title count indent)
+  "Insert the line \"TITLE (COUNT)\", indented by INDENT columns."
+  (insert (make-string indent ?\s)
+          (propertize (format "%s (%d)" title count)
+                      'face 'font-lock-keyword-face)
+          "\n"))
+
+(defun sp-vulpea-grouped-backlinks-sidebar--insert-notes (notes indent)
+  "Insert one button per note of NOTES, indented by INDENT columns."
+  (dolist (n notes)
+    (insert (make-string indent ?\s))
+    (insert-text-button
+     (or (vulpea-note-title n) "(untitled)")
+     'action #'sp-vulpea-grouped-backlinks-sidebar--visit
+     'follow-link t
+     'sp-note n)
+    (insert "\n")))
+
 (defun sp-vulpea-grouped-backlinks-sidebar--render (note)
   "Draw the grouped backlinks of NOTE in the current buffer."
   (let ((inhibit-read-only t)
-        (groups (sp-vulpea-grouped-backlinks-sorted (vulpea-note-id note))))
+        (sections (sp-vulpea-grouped-backlinks-sections (vulpea-note-id note))))
     (erase-buffer)
     (setq sp-vulpea-grouped-backlinks-sidebar--note note)
     (insert (propertize (format "Backlinks to %s" (vulpea-note-title note))
@@ -2639,21 +2799,28 @@ widget always follows."
                           "pinned (f: follow)")
                         'face 'shadow)
             "\n\n")
-    (if (null groups)
+    (if (null sections)
         (insert "No backlinks found.\n")
-      (dolist (group groups)
-        (insert (propertize (format "%s (%d)" (car group) (length (cdr group)))
-                            'face 'font-lock-keyword-face)
-                "\n")
-        (dolist (n (cdr group))
-          (insert "  ")
-          (insert-text-button
-           (or (vulpea-note-title n) "(untitled)")
-           'action #'sp-vulpea-grouped-backlinks-sidebar--visit
-           'follow-link t
-           'sp-note n)
-          (insert "\n"))
-        (insert "\n")))
+      (let ((padding (sp-vulpea-grouped-backlinks--padding))
+            (first-section t))
+        (dolist (section sections)
+          (unless first-section (insert padding))
+          (setq first-section nil)
+          (sp-vulpea-grouped-backlinks-sidebar--insert-heading
+           (car section)
+           (sp-vulpea-grouped-backlinks-section-count section)
+           0)
+          (if (sp-vulpea-grouped-backlinks--flat-p section)
+              (sp-vulpea-grouped-backlinks-sidebar--insert-notes
+               (cdr (cadr section)) 2)
+            (let ((first-sub t))
+              (dolist (sub (cdr section))
+                (unless first-sub (insert padding))
+                (setq first-sub nil)
+                (sp-vulpea-grouped-backlinks-sidebar--insert-heading
+                 (car sub) (length (cdr sub)) 2)
+                (sp-vulpea-grouped-backlinks-sidebar--insert-notes
+                 (cdr sub) 4)))))))
     (goto-char (point-min))))
 #+end_src
 
@@ -2825,7 +2992,8 @@ This module adds the grouped backlinks to the =vulpea-ui= sidebar as a widget.
 - It is registered like the Link inbox widgets of =sp-tab-inbox=: a =vui= component, and a call to =vulpea-ui-register-widget=.
 - The widget shows the note =vulpea-ui= is showing (=use-vulpea-ui-note=), so it follows the main note with the rest of that sidebar.
 - The follow switch of the separate =sp-vulpea-grouped-backlinks-sidebar= does not apply to it.
-- It reuses =sp-vulpea-grouped-backlinks-sorted=, so it shows the same groups as the Org view and the sidebar.
+- It reuses =sp-vulpea-grouped-backlinks-sections=, so it shows the same sections as the Org view and the sidebar.
+- Under Mentions it shows one indented block per kind of source; blocks are separated by blank lines (=sp-vulpea-grouped-backlinks-block-padding=).
 
 Settings of the registration:
 
@@ -2869,40 +3037,69 @@ Loads =vulpea-ui= and =vui= (for the component macros) and the grouping module.
 
 - Does nothing when no note is shown.
 - Computes the groups in =vui-use-memo=, keyed on the note: an idle refresh reuses them, and a refresh with cache invalidation (=vulpea-ui-sidebar-refresh=) computes them again.
-- The count in the title is the number of notes over all groups, so a note listed under two groups counts twice.
-- Each group is its name and count, then one =vulpea-ui-note-link= per note, indented.
+- The count in the title is the number of notes over all sections, so a note listed under two sections counts twice.
+- Each block is its name and count, then one =vulpea-ui-note-link= per note, indented.
 - A note link opens the note in the main window.
 
 #+begin_src emacs-lisp -i
+(defun sp-vulpea-grouped-backlinks-widget--pad (blocks)
+  "Return BLOCKS with blank lines between them (`sp-vulpea-grouped-backlinks--padding')."
+  (let (out)
+    (dolist (block blocks)
+      (when out
+        (dotimes (_ (max 0 sp-vulpea-grouped-backlinks-block-padding))
+          (push (vui-text "") out)))
+      (push block out))
+    (nreverse out)))
+
+(defun sp-vulpea-grouped-backlinks-widget--block (title notes)
+  "Return a heading TITLE with its count, and a link to each of NOTES under it."
+  (vui-vstack
+   (vui-text (format "%s (%d)" title (length notes))
+             :face 'font-lock-keyword-face)
+   (apply #'vui-vstack
+          :indent 2
+          (mapcar (lambda (n)
+                    (vui-component 'vulpea-ui-note-link :note n))
+                  notes))))
+
+(defun sp-vulpea-grouped-backlinks-widget--section (section)
+  "Return the block of SECTION: a flat group, or a heading over its subsections."
+  (if (sp-vulpea-grouped-backlinks--flat-p section)
+      (sp-vulpea-grouped-backlinks-widget--block
+       (car section) (cdr (cadr section)))
+    (vui-vstack
+     (vui-text (format "%s (%d)" (car section)
+                       (sp-vulpea-grouped-backlinks-section-count section))
+               :face 'font-lock-keyword-face)
+     (apply #'vui-vstack
+            :indent 2
+            (sp-vulpea-grouped-backlinks-widget--pad
+             (mapcar (lambda (sub)
+                       (sp-vulpea-grouped-backlinks-widget--block
+                        (car sub) (cdr sub)))
+                     (cdr section)))))))
+
 (vui-defcomponent sp-vulpea-grouped-backlinks-widget ()
   "Backlinks of the current note, grouped by meta property."
   :render
   (let ((note (use-vulpea-ui-note)))
     (when note
-      (let ((groups (vui-use-memo (note)
-                      (sp-vulpea-grouped-backlinks-sorted
-                       (vulpea-note-id note)))))
+      (let ((sections (vui-use-memo (note)
+                        (sp-vulpea-grouped-backlinks-sections
+                         (vulpea-note-id note)))))
         (vui-component 'vulpea-ui-widget
           :title "Grouped backlinks"
-          :count (apply #'+ (mapcar (lambda (g) (length (cdr g))) groups))
+          :count (apply #'+ (mapcar #'sp-vulpea-grouped-backlinks-section-count
+                                    sections))
           :children
           (lambda ()
-            (if (null groups)
+            (if (null sections)
                 (vui-text "No backlinks")
               (apply #'vui-vstack
-                     (mapcar
-                      (lambda (group)
-                        (vui-vstack
-                         (vui-text (format "%s (%d)" (car group)
-                                           (length (cdr group)))
-                                   :face 'font-lock-keyword-face)
-                         (apply #'vui-vstack
-                                :indent 2
-                                (mapcar (lambda (n)
-                                          (vui-component 'vulpea-ui-note-link
-                                                         :note n))
-                                        (cdr group)))))
-                      groups)))))))))
+                     (sp-vulpea-grouped-backlinks-widget--pad
+                      (mapcar #'sp-vulpea-grouped-backlinks-widget--section
+                              sections))))))))))
 #+end_src
 
 *** Registration
