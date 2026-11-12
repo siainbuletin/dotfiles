@@ -1,0 +1,2 @@
+# Keeps the Finder's .DS_Store files out of $HOME.
+\.DS_Store
