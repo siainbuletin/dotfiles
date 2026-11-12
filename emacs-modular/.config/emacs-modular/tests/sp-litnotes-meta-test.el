@@ -279,7 +279,7 @@
                                '("doe2015chapter" "roe2016chapter")))
                 (should (equal (reverse made) '("doe2015chapter" "roe2016chapter")))
                 (should (string-match-p
-                         "#\\+BEGIN: collection-query-table :view \"book-sections\"\n\n#\\+END:\n\n\\* H"
+                         "#\\+BEGIN: collection-query-table :view \"book-sections\"\n#\\+END:\n\n\\* H"
                          (buffer-string)))
                 (should (= updates 1))
                 ;; a second run finds nothing left, keeps one block and refreshes it
@@ -1373,47 +1373,192 @@
               (should-not (plist-get (sp-litnotes-meta-add-all-tables) :inserted)))))
       (delete-directory dir t))))
 
-(ert-deftest sp-litnotes-meta-insert-table-block-is-resumable ()
-  (let ((head ":PROPERTIES:\n:ID: x\n:END:\n#+title: T\n\n"))
-    (cl-flet ((run (text)
-                (with-temp-buffer
-                  (insert text)
-                  (delay-mode-hooks (org-mode))
-                  (let ((first (sp-litnotes-meta--insert-table-block "book-sections"))
-                        (once (buffer-string))
-                        (second (sp-litnotes-meta--insert-table-block "book-sections")))
-                    (list first once second (buffer-string)))))
-              (count (re-s str)
-                (let ((n 0) (i 0))
-                  (while (string-match re-s str i) (setq n (1+ n) i (match-end 0)))
-                  n)))
-      ;; nothing yet: heading and block, above the first heading
-      (pcase-let ((`(,first ,once ,second ,final) (run (concat head "* H\n"))))
-        (should (eq first 'inserted))
-        (should (null second))
-        (should (equal once final))
-        (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN: collection-query-table.*\n\n#\\+END:\n\n\\* H\n"
-                                final)))
-      ;; no headings at all
-      (pcase-let ((`(,first ,_ ,second ,final) (run head)))
-        (should (eq first 'inserted))
-        (should (null second))
-        (should (= 1 (count "^\\* Sections" final))))
-      ;; a block from an earlier run, no heading: only the heading is added
-      (pcase-let ((`(,first ,_ ,second ,final)
-                   (run (concat head "#+BEGIN: collection-query-table :view \"book-sections\"\n\n#+END:\n\n* H\n"))))
-        (should (eq first 'heading))
-        (should (null second))
-        (should (= 1 (count "#\\+BEGIN:" final)))
-        (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN:" final)))
-      ;; the heading without a block: the block goes under it
-      (pcase-let ((`(,first ,_ ,second ,final) (run (concat head "* Sections\n\n* H\n"))))
-        (should (eq first 'inserted))
-        (should (null second))
-        (should (= 1 (count "^\\* Sections" final)))
-        (should (= 1 (count "#\\+BEGIN:" final))))
-      ;; a block under another heading is left alone
-      (pcase-let ((`(,first ,_ ,_ ,final)
-                   (run (concat head "* H\n#+BEGIN: collection-query-table :view \"x\"\n#+END:\n"))))
-        (should (null first))
-        (should (= 0 (count "^\\* Sections" final)))))))
+(defconst sp-litnotes-meta-test--head ":PROPERTIES:\n:ID: x\n:END:\n#+title: T\n\n")
+
+(defconst sp-litnotes-meta-test--book-sections
+  '(:parent-of "self" :parent-prop "bib-parent"
+    :columns (:pages :title "pub-author" :tags :check) :sort-by :pages)
+  "The spec of the view \"book-sections\", for tests that cannot load the views module.")
+
+(defmacro sp-litnotes-meta-test--with-views (&rest body)
+  "Run BODY with a stub of the views module that knows \"book-sections\"."
+  (declare (indent 0))
+  `(progn
+     (provide 'sp-collection-query-views)
+     (cl-letf (((symbol-function 'sp-collec-query-views-names) (lambda () '("book-sections")))
+               ((symbol-function 'sp-collec-query-views-get)
+                (lambda (name) (and (equal name "book-sections") sp-litnotes-meta-test--book-sections)))
+               ((symbol-function 'sp-collec-query-spec-normalize) #'identity))
+       ,@body)))
+
+(defun sp-litnotes-meta-test--normalize (text &optional create)
+  "Normalize the tables of the note TEXT twice; return (ACTIONS FINAL SECOND-ACTIONS)."
+  (sp-litnotes-meta-test--with-views
+    (with-temp-buffer
+      (insert text)
+      (let* ((first (sp-litnotes-meta--normalize-tables "book-sections" create))
+             (once (buffer-string))
+             (second (sp-litnotes-meta--normalize-tables "book-sections" create)))
+        (should (equal once (buffer-string)))
+        (list (mapcar #'car first) once (mapcar #'car second))))))
+
+(defun sp-litnotes-meta-test--count (regexp string)
+  (let ((n 0) (i 0))
+    (while (string-match regexp string i) (setq n (1+ n) i (match-end 0)))
+    n))
+
+(ert-deftest sp-litnotes-meta-normalize-tables-is-resumable ()
+  (let ((head sp-litnotes-meta-test--head))
+    ;; nothing yet: heading and block, above the first heading
+    (pcase-let ((`(,first ,final ,second)
+                 (sp-litnotes-meta-test--normalize (concat head "* H\n") t)))
+      (should (equal first '(inserted heading)))
+      (should-not second)
+      (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN: collection-query-table :view \"book-sections\"\n#\\+END:\n\n\\* H\n"
+                              final)))
+    ;; without CREATE nothing is added
+    (should (equal (car (sp-litnotes-meta-test--normalize (concat head "* H\n"))) nil))
+    ;; no headings at all
+    (pcase-let ((`(,first ,final ,second) (sp-litnotes-meta-test--normalize head t)))
+      (should (equal first '(inserted heading)))
+      (should-not second)
+      (should (= 1 (sp-litnotes-meta-test--count "^\\* Sections" final))))
+    ;; a block above the first heading, no heading: only the heading is added
+    (pcase-let ((`(,first ,final ,second)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "#+BEGIN: collection-query-table :view \"book-sections\"\n\n#+END:\n\n* H\n"))))
+      (should (equal first '(heading)))
+      (should-not second)
+      (should (= 1 (sp-litnotes-meta-test--count "#\\+BEGIN:" final)))
+      (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN:" final)))
+    ;; the heading without a block: the block goes at the start of its content
+    (pcase-let ((`(,first ,final ,second)
+                 (sp-litnotes-meta-test--normalize (concat head "* Sections\nsome text\n\n* H\n") t)))
+      (should (equal first '(inserted)))
+      (should-not second)
+      (should (= 1 (sp-litnotes-meta-test--count "^\\* Sections" final)))
+      (should (string-match-p "\\* Sections\n\n#\\+BEGIN:.*\n#\\+END:\n\nsome text\n" final)))))
+
+(ert-deftest sp-litnotes-meta-normalize-tables-moves-blocks-under-sections ()
+  (let ((head sp-litnotes-meta-test--head)
+        (block "#+BEGIN: collection-query-table :view \"book-sections\"\n| old\n#+END:\n"))
+    ;; under another heading, no Sections heading: moved to a new one above the first heading
+    (pcase-let ((`(,first ,final ,second)
+                 (sp-litnotes-meta-test--normalize (concat head "* H\ntext\n" block "more\n"))))
+      (should (equal first '(moved heading)))
+      (should-not second)
+      (should (string-match-p (concat "\n\n\\* Sections\n\n" (regexp-quote block) "\n\\* H\ntext\nmore\n") final))
+      (should (= 1 (sp-litnotes-meta-test--count "#\\+BEGIN:" final))))
+    ;; an existing Sections heading is reused, not duplicated, the block goes first
+    (pcase-let ((`(,first ,final ,second)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "* H\n" block "\n* Sections\nIntro\n\n* Z\n"))))
+      (should (equal first '(moved)))
+      (should-not second)
+      (should (= 1 (sp-litnotes-meta-test--count "^\\* Sections" final)))
+      (should (string-match-p (concat "\\* H\n\n\\* Sections\n\n" (regexp-quote block) "\nIntro\n\n\\* Z\n") final)))
+    ;; after text under Sections: moved to the start of the content
+    (pcase-let ((`(,first ,final ,_)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "* Sections\nIntro\n\n" block "\n* Z\n"))))
+      (should (equal first '(moved)))
+      (should (string-match-p (concat "\\* Sections\n\n" (regexp-quote block) "\nIntro\n\n\\* Z\n") final)))
+    ;; a property drawer under the heading stays first
+    (pcase-let ((`(,first ,final ,_)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "* Sections\n:PROPERTIES:\n:X: 1\n:END:\nIntro\n" block))))
+      (should (equal first '(moved)))
+      (should (string-match-p (concat "\\* Sections\n:PROPERTIES:\n:X: 1\n:END:\n\n"
+                                      (regexp-quote block) "\nIntro\n")
+                              final)))
+    ;; already first under Sections: untouched
+    (let ((text (concat head "* Sections\n\n" block "\n* Z\n")))
+      (pcase-let ((`(,first ,final ,_) (sp-litnotes-meta-test--normalize text)))
+        (should-not first)
+        (should (equal final text))))
+    ;; a block that is no chapter table stays where it is
+    (let ((text (concat head "* H\n#+BEGIN: collection-query-table :tags (\"x\")\n#+END:\n")))
+      (pcase-let ((`(,first ,final ,_) (sp-litnotes-meta-test--normalize text)))
+        (should-not first)
+        (should (equal final text))))))
+
+(ert-deftest sp-litnotes-meta-normalize-tables-migrates-old-blocks ()
+  (let ((head sp-litnotes-meta-test--head))
+    ;; the old name, with other parameters kept
+    (pcase-let ((`(,first ,final ,_)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "* H\n#+BEGIN: vulpea-table :tags (\"x\")\n#+END:\n"))))
+      (should (equal first '(migrated)))
+      (should (string-match-p "#\\+BEGIN: collection-query-table :tags (\"x\")" final))
+      (should-not (string-match-p "vulpea-table" final)))
+    ;; parameters equal to a view become :view NAME
+    (pcase-let ((`(,first ,final ,_)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "#+BEGIN: vulpea-table :parent-of \"self\" :parent-prop \"bib-parent\" "
+                          ":columns (:pages :title \"pub-author\" :tags :check) :sort-by :pages\n#+END:\n\n* H\n"))))
+      (should (equal first '(migrated heading)))
+      (should (string-match-p "#\\+BEGIN: collection-query-table :view \"book-sections\"\n" final))
+      (should-not (string-match-p ":columns" final)))
+    ;; a table of the note itself, written otherwise, gets the view of the note
+    (pcase-let ((`(,first ,final ,_)
+                 (sp-litnotes-meta-test--normalize
+                  (concat head "#+BEGIN: collection-query-table :parent-of \"x\" :columns (:title)\n#+END:\n\n* H\n"))))
+      (should (equal first '(migrated heading)))
+      (should (string-match-p "\\* Sections\n\n#\\+BEGIN: collection-query-table :view \"book-sections\"\n" final)))
+    ;; a block of another note, or with a view and overrides, is kept as it is
+    (let ((text (concat head "* H\n#+BEGIN: collection-query-table :parent-of \"other\" :columns (:title)\n#+END:\n"
+                        "#+BEGIN: collection-query-table :view \"book-sections\" :sort-by :title\n#+END:\n")))
+      (pcase-let ((`(,first ,final ,_) (sp-litnotes-meta-test--normalize text)))
+        (should (equal first '(moved heading)))
+        (should (string-match-p ":parent-of \"other\" :columns (:title)" final))
+        (should (string-match-p ":view \"book-sections\" :sort-by :title" final))))))
+
+(ert-deftest sp-litnotes-meta-refresh-all-tables-previews-and-backs-up ()
+  (let* ((dir (make-temp-file "sp-meta-fix" t))
+         (sp-litnotes-meta-backup-directory (expand-file-name "backups/" dir))
+         (file (expand-file-name "old.org" dir))
+         (original (concat sp-litnotes-meta-test--head
+                           "* H\ntext\n#+BEGIN: vulpea-table :view \"book-sections\"\n#+END:\n"))
+         (db `(("x" . (:id "x" :title "Old book" :tags ("litnote" "book") :path ,file)))))
+    (unwind-protect
+        (progn
+          (with-temp-file file (insert original))
+          (provide 'sp-collection-query-org)
+          (cl-letf (((symbol-function 'vulpea-note-id) (lambda (n) (plist-get n :id)))
+                    ((symbol-function 'vulpea-note-title) (lambda (n) (plist-get n :title)))
+                    ((symbol-function 'vulpea-note-tags) (lambda (n) (plist-get n :tags)))
+                    ((symbol-function 'vulpea-note-path) (lambda (n) (plist-get n :path)))
+                    ((symbol-function 'vulpea-note-meta-get-list) (lambda (&rest _) nil))
+                    ((symbol-function 'vulpea-db-get-by-id) (lambda (id) (cdr (assoc id db))))
+                    ((symbol-function 'vulpea-db-sync-full-scan) #'ignore)
+                    ((symbol-function 'vulpea-db-query-by-tags-some)
+                     (lambda (tags) (seq-filter (lambda (n) (seq-intersection tags (plist-get n :tags)))
+                                                (mapcar #'cdr db))))
+                    ((symbol-function 'sp-collec-query-dblock-update-buffer) #'ignore)
+                    ((symbol-function 'display-buffer) #'ignore))
+            ;; the preview lists the repair and writes nothing, not even a backup
+            (let ((result (sp-litnotes-meta-add-all-tables t)))
+              (should (equal (mapcar #'car (plist-get result :changed)) '("Old book")))
+              (should (string-match-p "moved" (nth 2 (car (plist-get result :changed)))))
+              (should (string-match-p "vulpea-table" (nth 2 (car (plist-get result :changed)))))
+              (should-not (plist-get result :backup))
+              (should (equal original (with-temp-buffer (insert-file-contents file) (buffer-string))))
+              (should-not (file-exists-p sp-litnotes-meta-backup-directory))
+              (with-current-buffer sp-litnotes-meta--refresh-buffer
+                (should (string-match-p "Would be fixed" (buffer-string)))))
+            ;; the run fixes it after copying the note
+            (let ((result (sp-litnotes-meta-add-all-tables)))
+              (should (equal (mapcar #'car (plist-get result :changed)) '("Old book")))
+              (let ((backups (directory-files-recursively sp-litnotes-meta-backup-directory "old\\.org\\'")))
+                (should (= 1 (length backups)))
+                (should (equal original (with-temp-buffer (insert-file-contents (car backups))
+                                                          (buffer-string)))))
+              (should (string-match-p
+                       "\n\n\\* Sections\n\n#\\+BEGIN: collection-query-table :view \"book-sections\"\n#\\+END:\n\n\\* H\ntext\n"
+                       (with-temp-buffer (insert-file-contents file) (buffer-string)))))
+            ;; run again: nothing to do, nothing copied
+            (let ((result (sp-litnotes-meta-add-all-tables)))
+              (should-not (plist-get result :changed))
+              (should-not (plist-get result :inserted))
+              (should-not (plist-get result :backup)))))
+      (delete-directory dir t))))
