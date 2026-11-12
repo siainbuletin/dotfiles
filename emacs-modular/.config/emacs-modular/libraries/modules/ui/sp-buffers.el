@@ -23,15 +23,42 @@
   (ibuffer-default-shrink-to-minimum-size nil)
   (ibuffer-formats
         '((mark modified read-only locked " "
-                (name 30 30 :left :elide)
+                (name 36 36 :left :elide)
                 " "
                 (size 9 -1 :right)
                 " "
-                (mode 16 16 :left :elide)
+                (mode 18 18 :left :elide)
                 " " filename-and-process)
           (mark " "
-                (name 16 -1)
-                " " filename))))
+                (name 24 24 :left :elide)
+                " " filename)))
+  ;; Group the list as soon as ibuffer opens, otherwise the saved groups
+  ;; below are defined but never applied.
+  :hook (ibuffer-mode . sp-buffers-activate-filter-groups))
+
+(defun sp-buffers-activate-filter-groups ()
+  "Switch the current ibuffer to the \"Main\" saved filter groups."
+  (when (assoc "Main" ibuffer-saved-filter-groups)
+    (ibuffer-switch-to-saved-filter-groups "Main")))
+
+;; `nerd-icons-ibuffer-mode' (enabled in sp-icons) replaces `ibuffer-formats'
+;; with its own list, so the column widths have to be set here as well.
+(with-eval-after-load 'nerd-icons-ibuffer
+  (setopt nerd-icons-ibuffer-formats
+          '((mark modified read-only locked " "
+                  (icon 2 2 :left :elide)
+                  " "
+                  (name 36 36 :left :elide)
+                  " "
+                  (size-h 9 -1 :right)
+                  " "
+                  (mode+ 18 18 :left :elide)
+                  " " filename-and-process+)
+            (mark " "
+                  (icon 2 2 :left :elide)
+                  " "
+                  (name 24 24 :left :elide)
+                  " " filename-and-process+))))
 
 (setq ibuffer-saved-filter-groups
       '(("Main"
@@ -54,8 +81,7 @@
                    (name . "^\\*info\\*$")
                    (name . "^\\*scratch\\*$")
                    (name . "^\\*Backtrace\\*$")
-                   (name . "^\\*Messages\\*$")))))
-         )
+                   (name . "^\\*Messages\\*$"))))))
 
 ;; nerd-icons-ibuffer is already called in sp-icons.el
 
