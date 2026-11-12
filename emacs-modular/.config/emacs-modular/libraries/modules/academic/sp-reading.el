@@ -11,6 +11,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'seq)
+(require 'json)
 
 (declare-function citar-get-files "citar")
 
@@ -45,6 +46,14 @@ Nil means the root of the database."
         (error "osascript failed: %s" (string-trim (buffer-string))))
       (string-trim-right (buffer-string) "\n"))))
 
+(defun sp-reading--jxa (script)
+  "Run the JavaScript for Automation SCRIPT and return its output without the final newline."
+  (with-temp-buffer
+    (let ((status (call-process "osascript" nil t nil "-l" "JavaScript" "-e" script)))
+      (unless (eql status 0)
+        (error "osascript failed: %s" (string-trim (buffer-string))))
+      (string-trim-right (buffer-string) "\n"))))
+
 (defvar sp-reading-index nil
   "Hash table from citekey to DEVONthink UUID, or nil before the first refresh.")
 
@@ -58,23 +67,22 @@ Nil means the root of the database."
     table))
 
 (defun sp-reading--listing-script ()
-  "The AppleScript that lists UUID and name of every PDF in the database."
-  (format "tell application id \"DNtp\"
-  set theRecords to search \"kind:pdf\" in root of database %s
-  set theOut to {}
-  repeat with r in theRecords
-    set end of theOut to (uuid of r as text) & tab & (name of r as text)
-  end repeat
-  set AppleScript's text item delimiters to linefeed
-  return theOut as text
-end tell"
-          (sp-reading--quote sp-reading-database)))
+  "The JavaScript for Automation that lists UUID and name of every PDF in the database.
+It reads the fields of all records in bulk, as `tools/devonthink-to-litdb.py' does."
+  (format "const app = Application(\"DEVONthink\");
+const c = app.databases.byName(%s).contents;
+const ids = c.uuid(), names = c.name();
+const out = [];
+for (let i = 0; i < ids.length; i++)
+  if (names[i].toLowerCase().endsWith(\".pdf\")) out.push(ids[i] + \"\\t\" + names[i]);
+out.join(\"\\n\");"
+          (json-encode-string sp-reading-database)))
 
 (defun sp-reading-refresh ()
   "Read the citekeys and UUIDs of the PDFs in DEVONthink into `sp-reading-index'."
   (interactive)
   (setq sp-reading-index
-        (sp-reading--parse-listing (sp-reading--osascript (sp-reading--listing-script))))
+        (sp-reading--parse-listing (sp-reading--jxa (sp-reading--listing-script))))
   (message "sp-reading: %d PDFs in %s" (hash-table-count sp-reading-index) sp-reading-database)
   sp-reading-index)
 
