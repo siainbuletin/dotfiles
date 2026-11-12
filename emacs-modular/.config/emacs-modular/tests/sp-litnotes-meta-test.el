@@ -1234,3 +1234,89 @@
                 (should-not (plist-get again :changed))
                 (should (= (length (plist-get again :unchanged)) 4))))))
       (delete-directory dir t))))
+
+;;;; The batch converges: items that never cleared from the report
+
+(defconst sp-litnotes-meta-test--accent-bib
+  "@book{bz2022,
+  author = {Bazin, Andr{\\'e} and Mau, S{\\o}ren},
+  title = {T},
+  year = {2022},
+}
+@book{plain2022,
+  author = {Bazin, Andre and Mau, Soren},
+  title = {T},
+  year = {2022},
+}
+")
+
+(defun sp-litnotes-meta-test--plan (text key &optional overwrite)
+  "The plan of the note TEXT for the BibTeX entry KEY."
+  (with-temp-buffer
+    (insert text)
+    (sp-litnotes-meta--plan-buffer (sp-litnotes-meta--entry key) overwrite
+                                   (make-hash-table :test #'equal))))
+
+(ert-deftest sp-litnotes-meta-accent-only-difference-is-no-change ()
+  "A link text that differs from the BibTeX name only by accents or case is not an update."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--accent-bib
+    (dolist (case '(("bz2022" . "[[id:a][Andre Bazin]], [[id:b][soren mau]]")
+                    ("plain2022" . "[[id:a][André Bazin]], [[id:b][Søren Mau]]")))
+      (let ((plan (sp-litnotes-meta-test--plan
+                   (format "#+title: x\n#+filetags: :litnote:book:\n\n- pub-author :: %s\n- pub-title :: T\n- pub-year :: 2022\n" (cdr case))
+                   (car case) t)))
+        (should-not (plist-get plan :replace))
+        (should-not (sp-litnotes-meta--actionable-p (append '(:status ok) plan)))))
+    ;; a really different name is still an update
+    (let ((plan (sp-litnotes-meta-test--plan
+                 "#+title: x\n#+filetags: :litnote:book:\n\n- pub-author :: [[id:a][Andre Bazen]], [[id:b][Soren Mau]]\n- pub-title :: T\n- pub-year :: 2022\n"
+                 "bz2022" t)))
+      (should (assoc "pub-author" (plist-get plan :replace))))))
+
+(ert-deftest sp-litnotes-meta-crossref-without-entry-is-not-planned ()
+  "A crossref that has neither a note nor a BibTeX entry gives no bib-parent fill and no order."
+  (sp-litnotes-meta-test--with-bib
+      "@incollection{ch, author = {Doe, Jane}, title = {Ch}, year = {2020}, crossref = {gone-}}\n"
+    (let ((plan (sp-litnotes-meta-test--plan
+                 "#+title: x\n#+filetags: :litnote:incollection:\n\n- pub-author :: [[id:a][Jane Doe]]\n- pub-title :: Ch\n- pub-year :: 2020\n"
+                 "ch")))
+      (should-not (assoc "bib-parent" (plist-get plan :fill)))
+      (should (equal (plist-get plan :no-parent) "gone-"))
+      (should-not (plist-get plan :order))
+      (should-not (sp-litnotes-meta--actionable-p (append '(:status ok) plan)))
+      (should (string-match-p "gone-" (sp-litnotes-meta--batch-report-text
+                                       (list (append '(:file "/x/ch.org" :key "ch" :status ok) plan))
+                                       nil))))))
+
+(ert-deftest sp-litnotes-meta-covered-keys-with-colon ()
+  "A key with a colon, as in marx1966cartea-i:-, is found in the notes."
+  (let* ((dir (make-temp-file "sp-meta-notes" t))
+         (sp-author-notes-litnotes-directory dir))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "m.org" dir)
+            (insert ":PROPERTIES:\n:ID: m\n:ROAM_REFS: @marx1966cartea-i:-\n:END:\n#+title: M\n\n"))
+          (with-temp-file (expand-file-name "n.org" dir)
+            (insert ":PROPERTIES:\n:ID: n\n:ROAM_REFS: cite:plain2020key\n:END:\n#+title: N\n\n"))
+          (let ((covered (sp-author-notes-bibtex--covered)))
+            (should (gethash "marx1966cartea-i:-" covered))
+            (should (gethash "plain2020key" covered))))
+      (delete-directory dir t))))
+
+(ert-deftest sp-litnotes-meta-fill-survives-a-failing-parent ()
+  "An error while linking the parent does not lose the other lines; it is listed."
+  (sp-litnotes-meta-test--with-parents sp-litnotes-meta-test--parent-bib
+    (note "ch1.org" ":PROPERTIES:\n:ID: id-ch1\n:ROAM_REFS: @ch1\n:END:\n#+title: x\n#+filetags: :litnote:\n\n")
+    (let ((sp-litnotes-meta--errors nil))
+      (cl-letf (((symbol-function 'sp-litnotes-meta--parent-value)
+                 (lambda (_entry) (error "boom"))))
+        (should (member "pub-author" (sp-litnotes-meta-fill "ch1"))))
+      (should (string-match-p "boom" (car sp-litnotes-meta--errors)))
+      (let ((text (sp-litnotes-meta-test--read dir "ch1.org")))
+        (should (string-match-p "- pub-author ::" text))
+        (should-not (string-match-p "bib-parent" text)))
+      (should-not (buffer-modified-p (find-buffer-visiting (expand-file-name "ch1.org" dir)))))))
+
+(ert-deftest sp-litnotes-meta-convert-lists-failures ()
+  (let ((sp-litnotes-meta--errors '("a.org: unsaved")))
+    (should (string-match-p "a\\.org: unsaved" (sp-litnotes-meta--batch-report-text nil nil)))))

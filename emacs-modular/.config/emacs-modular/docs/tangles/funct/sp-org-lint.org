@@ -3897,7 +3897,13 @@ was reached, so that the end of the buffer may not be."
     (let ((text (concat (file-name-nondirectory file) "\n"
                         (buffer-substring (point-min) (sp-author-notes--first-heading)))))
       (dolist (word (split-string text "[^[:alnum:]_.-]+" t))
-        (unless (gethash word table) (puthash word file table))))))
+        (unless (gethash word table) (puthash word file table)))
+      ;; Keys may hold a colon (marx1966cartea-i:-), which splits them above.
+      ;; `cite:' and `@' in front of a key are not part of it.
+      (dolist (word (split-string text "[^[:alnum:]_.:-]+" t))
+        (let ((key (replace-regexp-in-string "\\`\\(?:cite:\\)?@?" "" word)))
+          (when (and (string-match-p "[[:alnum:]_.-]:[[:alnum:]_.-]" key) (not (gethash key table)))
+            (puthash key file table)))))))
 
 (defun sp-author-notes-bibtex--covered ()
   "A hash table: every word in the head or the file name of a litnote to its file.

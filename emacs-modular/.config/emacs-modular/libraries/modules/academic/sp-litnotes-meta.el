@@ -291,6 +291,16 @@ A parent that has no crossref, the normal case, gives nil."
     ;; means a loop (it is in CHAIN already), which counts, a self-reference too.
     (and (or (cdr chain) ref) (nreverse chain))))
 
+(defvar sp-litnotes-meta--errors nil
+  "Messages about what failed in the last convert, newest first.
+The convert command clears it; the report lists it.")
+
+(defun sp-litnotes-meta--note-error (format-string &rest args)
+  "Say what failed and keep it for the report."
+  (let ((text (apply #'format format-string args)))
+    (push text sp-litnotes-meta--errors)
+    (message "sp-litnotes-meta: %s" text)))
+
 (defun sp-litnotes-meta--make-parent-note (ref)
   "Make the literature note of the crossref'd key REF; return (ID . TITLE), or nil.
 The note is made by `sp-litnotes-meta-create-function' (the way the backfill
@@ -319,7 +329,7 @@ so REF has no crossref of its own."
                 (puthash ref target sp-litnotes-meta--made-parents))
               (message "Made the parent note %s" ref)
               target)))
-      (error (message "sp-litnotes-meta: parent %s: %s" ref (error-message-string err))
+      (error (sp-litnotes-meta--note-error "parent %s: %s" ref (error-message-string err))
              nil)))))
 
 (defvar sp-litnotes-meta--allow-chain nil
@@ -475,7 +485,14 @@ without OVERWRITE.  A crossref'd entry without a note gets one (see
                            (sp-litnotes-meta--differs-p (car spec) entry)))
               (when-let* ((value (if-let* ((preset (assoc (car spec) sp-litnotes-meta--preset)))
                                      (cdr preset)
-                                   (funcall (cdr spec)))))
+                                   ;; One failing line must not lose the others.
+                                   (condition-case err
+                                       (funcall (cdr spec))
+                                     (error (sp-litnotes-meta--note-error
+                                             "%s of %s: %s" (car spec)
+                                             (file-name-nondirectory file)
+                                             (error-message-string err))
+                                            nil)))))
                 (cond ((not has)
                        (when (sp-litnotes-meta--set (car spec) value)
                          (push (car spec) changed)))
@@ -1244,12 +1261,31 @@ is for the convert step."
     ("pub-pages" (sp-litnotes-meta--pages entry))
     ("bib-parent" (sp-litnotes-meta--field entry "crossref"))))
 
+(defconst sp-litnotes-meta--person-keys '("pub-author" "pub-editor")
+  "The meta lines whose value is links to person notes.")
+
 (defun sp-litnotes-meta--differs-p (key entry)
   "Non-nil when the meta line KEY of the current buffer differs from ENTRY.
-Only a value the entry has counts; the note's links are compared as their text."
+Only a value the entry has counts; the note's links are compared as their text.
+The names of the people are compared without accents, case and extra spaces: the
+link text is the title of the person note, which may spell the name another
+way than BibTeX (Andre or André), and the write keeps the link, so an exact
+comparison would list the same update on every run."
   (when-let* ((value (sp-litnotes-meta--preview-value key entry)))
-    (not (equal (sp-litnotes-titles--clean (or (sp-litnotes-meta--buffer-meta key) ""))
-                value))))
+    (let ((old (sp-litnotes-titles--clean (or (sp-litnotes-meta--buffer-meta key) ""))))
+      (not (if (member key sp-litnotes-meta--person-keys)
+               (equal (sp-author-notes--title-key old) (sp-author-notes--title-key value))
+             (equal old value))))))
+
+(defun sp-litnotes-meta--parent-linkable-p (entry covered)
+  "Non-nil when the bib-parent of ENTRY can be written: its note exists or would be made.
+COVERED is the table of `sp-author-notes-bibtex--covered'.  A crossref whose key
+has no note and no BibTeX entry (a typo, a truncated key) cannot be linked."
+  (when-let* ((ref (sp-litnotes-meta--field entry "crossref")))
+    (or (when-let* ((file (gethash ref covered))
+                    (head (sp-author-notes--file-head file)))
+          (and (plist-get head :id) t))
+        (and sp-litnotes-meta-create-parent (sp-litnotes-meta--entry ref) t))))
 
 (defun sp-litnotes-meta--missing-parents (entry covered)
   "The crossref key of ENTRY as a list when it has a BibTeX entry but no note, else nil.
@@ -1269,14 +1305,22 @@ the default keys (project, status, relevance, priority) the note lacks,
 :new-parents lists the crossref key when it would get a new note (see
 `sp-litnotes-meta--missing-parents'; COVERED is the table of existing notes,
 read when nil), :old holds the current value of each :replace key, :chain is a crossref chain deeper than two levels (see
-`sp-litnotes-meta--crossref-chain'; bib-parent is not planned then), :tag
+`sp-litnotes-meta--crossref-chain'; bib-parent is not planned then), :no-parent
+is the crossref key when it has neither a note nor a BibTeX entry (bib-parent is
+not planned then either, so the note does not stay in the report), :tag
 is (add . TAG) or (mismatch FOUND . EXPECTED), or nil, and :unquote is
 \(OLD . NEW) when the pub-title has quotes around all of it and is not replaced
 anyway, else nil."
   (let* ((chain (sp-litnotes-meta--crossref-chain entry))
+         (covered (and (not chain)
+                       (sp-litnotes-meta--field entry "crossref")
+                       (not (sp-litnotes-meta--has-value-p "bib-parent"))
+                       (or covered (sp-author-notes-bibtex--covered))))
+         (unlinkable (and covered (not (sp-litnotes-meta--parent-linkable-p entry covered))))
+         (no-parent (and unlinkable (sp-litnotes-meta--field entry "crossref")))
          fill replace old missing tag new-parents unquote)
     (dolist (key sp-litnotes-meta--bib-keys)
-      (when-let* (((not (and chain (equal key "bib-parent"))))
+      (when-let* (((not (and (equal key "bib-parent") (or chain unlinkable))))
                   (value (sp-litnotes-meta--preview-value key entry)))
         (cond
          ((not (sp-litnotes-meta--has-value-p key))
@@ -1290,8 +1334,7 @@ anyway, else nil."
                 (new (sp-litnotes-meta--unquote raw)))
       (setq unquote (cons raw new)))
     (when (and sp-litnotes-meta-create-parent (assoc "bib-parent" fill))
-      (setq new-parents (sp-litnotes-meta--missing-parents
-                         entry (or covered (sp-author-notes-bibtex--covered)))))
+      (setq new-parents (sp-litnotes-meta--missing-parents entry covered)))
     (dolist (key sp-litnotes-meta--default-keys)
       (unless (sp-litnotes-meta--has-value-p key) (push key missing)))
     (let* ((expected (sp-bibtex-types-entry-tag entry))
@@ -1301,7 +1344,7 @@ anyway, else nil."
             ((not (member expected known)) (setq tag (cons 'mismatch (cons known expected))))))
     (list :fill (nreverse fill) :replace (nreverse replace) :old (nreverse old)
           :missing (nreverse missing) :new-parents new-parents :chain chain :tag tag
-          :unquote unquote
+          :unquote unquote :no-parent no-parent
           :order (and sp-litnotes-meta-order-meta
                       (let ((old (sp-vulpea-meta-order-block-keys)))
                         (not (sp-vulpea-meta-order-sorted-p
@@ -1384,14 +1427,16 @@ The .bib files are read once for all of them."
          (no-entry (seq-filter (lambda (p) (eq (plist-get p :status) 'no-entry)) plans))
          (mismatch (seq-filter (lambda (p) (eq (car (plist-get p :tag)) 'mismatch)) ok))
          (parents (sp-litnotes-meta--planned-parents todo))
-         (chains (seq-filter (lambda (p) (plist-get p :chain)) ok)))
+         (chains (seq-filter (lambda (p) (plist-get p :chain)) ok))
+         (orphans (seq-filter (lambda (p) (plist-get p :no-parent)) ok)))
     (with-temp-buffer
       (insert (format "Litnote meta fill: %d notes tagged %s%s\n\n"
                       (length plans) sp-litnotes-meta-batch-tag
                       (if overwrite ", updating pub-* values that differ from the .bib" "")))
-      (insert (format "- To change: %d\n- Already complete: %d\n- Quoted pub-title: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n\n"
+      (insert (format "- To change: %d\n- Already complete: %d\n- Quoted pub-title: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n- Crossref without a note or a BibTeX entry: %d\n- Problems in the last convert: %d\n\n"
                       (length listed) (- (length ok) (length todo)) (length quoted)
-                      (length no-key) (length no-entry) (length parents) (length chains)))
+                      (length no-key) (length no-entry) (length parents) (length chains)
+                      (length orphans) (length sp-litnotes-meta--errors)))
       (insert "* To change\n")
       (dolist (plan listed)
         (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)))
@@ -1424,6 +1469,12 @@ The .bib files are read once for all of them."
       (dolist (plan chains)
         (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)
                         (string-join (plist-get plan :chain) " -> "))))
+      (insert "\n* Crossref without a note or a BibTeX entry (bib-parent left empty; fix the crossref key in the .bib file)\n")
+      (dolist (plan orphans)
+        (insert (format "- %s: crossref %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :no-parent))))
+      (insert "\n* Problems in the last convert\n")
+      (dolist (err (reverse sp-litnotes-meta--errors))
+        (insert (format "- %s\n" err)))
       (insert "\n* Left empty (asked once by the convert command, or filled by hand)\n")
       (dolist (key sp-litnotes-meta--default-keys)
         (let ((lacking (seq-filter (lambda (p) (member key (plist-get p :missing))) ok)))
@@ -1597,7 +1648,8 @@ After the run the report is shown again with what is still left.  EXCLUDED
 lists notes (files) to leave out; the report's \\`A' passes the ones dropped
 with \\`d'.  Return an alist of file to the lines changed (or the error)."
   (interactive "P")
-  (setq sp-litnotes-meta--excluded excluded)
+  (setq sp-litnotes-meta--excluded excluded
+        sp-litnotes-meta--errors nil)
   (let* ((overwrite (or overwrite sp-litnotes-meta-update-changed))
          (plans (sp-litnotes-meta--batch-plans overwrite))
          (todo (seq-filter #'sp-litnotes-meta--actionable-p
@@ -1622,7 +1674,10 @@ with \\`d'.  Return an alist of file to the lines changed (or the error)."
                          (push (cons (plist-get plan :file)
                                      (condition-case err
                                          (sp-litnotes-meta--apply-plan plan stamp overwrite)
-                                       (error (error-message-string err))))
+                                       (error (sp-litnotes-meta--note-error
+                                               "%s: %s" (file-name-nondirectory (plist-get plan :file))
+                                               (error-message-string err))
+                                              (error-message-string err))))
                                results))
                        :label "Litnote meta fill"
                        :describe #'sp-litnotes-meta--describe-plan)))
