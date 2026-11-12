@@ -218,15 +218,17 @@ pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
 
 ;;;; Citar layout
 ;; The widths in `citar-templates' are numbers, so they are worked out here from the
-;; columns that fit in half of the screen (a tiled window of AeroSpace), at the size of
-;; the `default' face.  The citekey is shown in full (45) when it fits; the authors and
-;; the title share what is left, and the tags only come back on a wide display.
+;; columns of the frame Emacs has on the screen, as the posframe takes them, at the size
+;; of the `default' face.  They are worked out again when the frame has changed size
+;; since the last time (a tile of AeroSpace, then a maximized frame), each time a
+;; command asks for a reference.  The citekey is shown in full (45) when it fits; the
+;; authors and the title share what is left, and the tags only come back on a wide frame.
 (defvar sp-posframe-width-fraction)
 
 (defcustom sp-citations-layout-columns nil
-  "Columns the `citar' candidates may take, or nil to work them out from the display.
-Nil means the posframe in half of the display: see `sp-citations--half-frame-columns'."
-  :type '(choice (const :tag "From the display" nil) integer)
+  "Columns the `citar' candidates may take, or nil to work them out from the frame.
+Nil means the columns of the posframe: see `sp-citations--frame-columns'."
+  :type '(choice (const :tag "From the frame" nil) integer)
   :group 'sp)
 
 (defconst sp-citations-layout-overhead 27
@@ -234,17 +236,19 @@ Nil means the posframe in half of the display: see `sp-citations--half-frame-col
 That is 2 for the margin, 11 for the Vertico mark and the four indicators, 3 for the
 type emoji, 1 after it, 4 for the year and 6 for the separators (two columns each).")
 
-(defun sp-citations--half-frame-columns ()
-  "Return the columns of the posframe in half of the display, at the current font.
-AeroSpace gives a tile the half of the width left by its gaps (8 on each side and 8
-between), the frame loses its internal border on both sides, and the posframe takes
-`sp-posframe-width-fraction' of that.  Without a graphical display it is 60."
-  (if (display-graphic-p)
-      (let* ((half (/ (- (display-pixel-width) 24) 2.0))
-             (inner (- half (* 2 (or (frame-parameter nil 'internal-border-width) 0)))))
-        (floor (* (if (boundp 'sp-posframe-width-fraction) sp-posframe-width-fraction 0.75)
-                  (/ inner (frame-char-width)))))
-    60))
+(defun sp-citations--frame-columns ()
+  "Return the columns the `citar' candidates have, from the frame on the screen.
+It is the text width of the selected frame (the parent when a child frame is selected)
+in pixels, divided by the pixel width of a character of the `default' face, so a change
+of font size shows at once, before the frame has been resized.  While the posframe is on in a graphical frame it takes
+`sp-posframe-width-fraction' of that, as `sp-posframe-get-size' does; otherwise the
+whole width."
+  (let* ((frame (or (frame-parameter nil 'parent-frame) (selected-frame)))
+         (width (floor (frame-text-width frame) (frame-char-width frame))))
+    (if (and (bound-and-true-p vertico-posframe-mode) (display-graphic-p frame)
+             (boundp 'sp-posframe-width-fraction))
+        (round (* sp-posframe-width-fraction width))
+      width)))
 
 (defun sp-citations--layout (&optional columns)
   "Return the widths of the `citar' columns for COLUMNS as a plist.
@@ -252,7 +256,7 @@ The keys are :author, :title, :key and :tags.  The citekey takes up to 45 column
 never leaves the title under 20 and the authors under 10, and not under 16 itself;
 the title takes what is left after the authors, a fifth of the room (10 to 30).  Tags
 get 20 columns once the room is 110 columns or more."
-  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--half-frame-columns)))
+  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--frame-columns)))
          (room (max 0 (- columns sp-citations-layout-overhead)))
          (tags (if (>= room 110) 22 0))
          (room (- room tags))
@@ -272,14 +276,54 @@ get 20 columns once the room is 110 columns or more."
                                      'face 'sp-citar-key)
                          (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
 
+(defvar sp-citations--applied-state nil
+  "What the widths of `citar-templates' were last worked out for.
+A list of the columns, the width of a character, and the family and height of the
+`default' face: the emoji cells depend on the font as well as on the columns.")
+
+(defun sp-citations--repreformat ()
+  "Format the cached `citar' candidates again.
+`citar' keeps each candidate as a pre-formatted string, made when the bibliography is
+read or when the format string changes, and the emoji cells of the type column are in
+it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
+  (when (and (boundp 'citar-cache--bibliographies)
+             (fboundp 'citar-cache--preformat-bibliography))
+    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+             citar-cache--bibliographies)))
+
+(defun sp-citations--apply-layout (&optional force)
+  "Work the `citar' widths out for the frame and font as they are now, if they changed.
+With FORCE the widths are always worked out again.  `citar' formats the candidates
+again by itself when the templates change; when only the font changed (the emoji cells)
+the cached candidates are formatted again here."
+  (let* ((columns (or sp-citations-layout-columns (sp-citations--frame-columns)))
+         (state (list columns (frame-char-width)
+                      (face-attribute 'default :family nil t)
+                      (face-attribute 'default :height nil t))))
+    (when (or force (not (equal state sp-citations--applied-state)))
+      (setq sp-citations--applied-state state)
+      (clrhash sp-citations--cell-cache)
+      (let* ((templates (sp-citations--layout-templates columns))
+             (same (and (equal-including-properties (cdr (assq 'main templates))
+                                                    (cdr (assq 'main citar-templates)))
+                        (equal-including-properties (cdr (assq 'suffix templates))
+                                                    (cdr (assq 'suffix citar-templates))))))
+        (setq citar-templates (append templates
+                                      (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+        (when same (sp-citations--repreformat))))))
+
+(defun sp-citations--before-select (&rest _)
+  "Advice before the commands that ask for a reference: fit the widths to the frame."
+  (sp-citations--apply-layout))
+
 (defun sp-citations-fit-layout ()
-  "Work the `citar' column widths out again from the display, and refresh the candidates.
-Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
+  "Work the `citar' column widths out again from the frame and the font.
+This is done on its own, before a command that asks for a reference, when the frame
+or the font changed; this command forces it, and the cached candidates are formatted
+again."
   (interactive)
-  (clrhash sp-citations--cell-cache)
-  (setq citar-templates (append (sp-citations--layout-templates)
-                                (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
-  (when (fboundp 'citar-refresh) (citar-refresh)))
+  (sp-citations--apply-layout t)
+  (message "citar layout: %S columns" (car sp-citations--applied-state)))
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -317,6 +361,8 @@ Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
   (sp-citations-setup-indicators)
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
+    (advice-add 'citar-select-ref :before #'sp-citations--before-select)
+  (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
          (("C-c w b o" . citar-open))
