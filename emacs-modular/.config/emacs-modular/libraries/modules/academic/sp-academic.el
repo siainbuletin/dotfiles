@@ -58,6 +58,7 @@
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
 (require 'sp-devonthink-search)
+(require 'sp-devonthink-highlights)
 (require 'sp-see-also)
 
 (use-package asoc
