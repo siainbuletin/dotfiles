@@ -136,6 +136,58 @@ A tag in no group of =sp-org-tag-groups-alist= is allowed (ADR 0020). =sp-org-ta
 
 The rule tags should be tags that exist. =M-x sp-org-tag-groups-check-rules= lists the tags in the rules that are not in =org-tag-alist= or =org-tag-persistent-alist=, so the alist can stay the single registry of tags and this module only decorates what is registered there.
 
+** Literature note tags
+
+Each BibTeX entry type has an emoji and the Org tag of its litnote. The list is =sp-org-tag-groups-bibtex-types=, a list of =(TYPE EMOJI TAG)=.
+
+| BibTeX type | Emoji | Org tag | Note |
+|-
+| =article= | ☕️ | =:journalarticle:= |  |
+| =book= | 📚️ | =:book:= | same emoji as =collection= |
+| =booklet= | 📔️ | =:text:= | =:text:= is shared with =misc=; a tag has one emoji, so it shows 📔️ (the first of the two) |
+| =collection= | 📚️ | =:collection:= | same emoji as =book= |
+| =proceedings= | 🏛️ | =:proceedings:= | new tag, registered in the =literature= group |
+| =inbook= | 📖️ | =:booksection:= | the tag is =:booksection:= (the name of the Emacs side), not =:inbook:=; same emoji as the task tag =@reading= |
+| =incollection= | 🖇️ | =:incollection:= |  |
+| =inproceedings= | 🗂️ | =:inproceedings:= | new tag, registered in the =literature= group |
+| =manual= | 🗝️ | =:manual:= | new tag, registered in the =literature= group |
+| =mastersthesis= | 👨🏻‍🎓 | =:mastersthesis:= |  |
+| =misc= | 🕰️ | =:text:= | =:text:= is shared with =booklet=; in =citar= it keeps its own emoji, in Org the tag shows the emoji of =booklet= |
+| =phdthesis= | 💼 | =:phdthesis:= |  |
+| =techreport= | 🛠️ | =:report:= | the tag is =:report:=, new, registered in the =literature= group |
+| =unpublished= | 🪶 | =:manuscript:= | the tag is =:manuscript:=, new, registered in the =literature= group; same emoji as the task tag =shallow= |
+
+How it is used:
+
+- the rules of =sp-org-tag-groups-rules= for these tags come from the list (=sp-org-tag-groups--type-rules=, one rule for each tag, the first type of a tag wins), so a litnote shows the emoji of its tag in the modeline, on links and in the selector;
+- the =citar= candidates (=sp-citations=) show the emoji of the /type/ of each entry in front of the title, so =misc= and =booklet= keep their own emoji there;
+- a type that is not in the list gets =sp-org-tag-groups-bibtex-type-fallback=, 📄️.
+- the new tags =proceedings=, =inproceedings=, =manual=, =report= and =manuscript= are in the =literature= group of =sp-org-tag-registry.el=, so =sp-org-tag-groups-check-rules= and =sp-org-tag-lint= accept them.
+
+*** Where the tags differ from BibTeX, and how to unify them
+
+Differences from the standard BibTeX types:
+
+- the names of four tags are not the type: =article= is =:journalarticle:=, =inbook= is =:booksection:=, =techreport= is =:report:= and =unpublished= is =:manuscript:=. They follow the item types of Zotero, not BibTeX.
+- =booklet= and =misc= share =:text:=, so the tag cannot tell them apart and has one emoji.
+- =book= and =collection= share 📚️, so they look the same in =citar=.
+- =inbook= and =incollection= are two tags for a part of a book. In BibTeX =inbook= is a part without a title of its own and =incollection= has one, but both are chapters for a reader.
+- BibTeX types outside the list have no tag and no emoji: =online=, =thesis= (BibLaTeX, for =phdthesis= and =mastersthesis=), =report= (BibLaTeX name of =techreport=), =conference= (alias of =inproceedings=), =masterthesis= (alias of =mastersthesis=), =patent=, =periodical=, =reference= and =inreference= (the last two have tags in =sp-bibtex-types=), and the multi-volume types (=mvbook=, =mvcollection= and so on).
+- some emoji are already the emoji of a task tag: 📖️ is =@reading=, 🪶 is =shallow=, and 🎓️ is =@uni= and also the "cited" mark of the =citar= candidates (the mastersthesis and phdthesis emoji contains it too). In the modeline a litnote and a task heading can then look alike.
+- =sp-bibtex-types-tag-alist= (the table that gives the tag of a new litnote) does not know =booklet=, =misc=, =proceedings=, =inproceedings=, =manual=, =techreport=, =unpublished= or =inbook=: they all fall to =:text:=, so a litnote of an =inproceedings= entry would not get =:inproceedings:=. The tags and emoji here are ready, but the notes are not tagged by them yet.
+- =sp-litnotes-refs= goes the other way (litnote tag to BibTeX type for stub entries) and gives =misc= to every tag it does not list, so =:proceedings:= and the others become =misc= stubs.
+- =thesis=, =chapter= and =litnote= are tags in the unsorted group that overlap with the above.
+
+What can be done:
+
+- pick one vocabulary for the tags. The least work is to keep the Zotero-like names and make =sp-bibtex-types-tag-alist= the one table: add =inbook= to =booksection=, =techreport= to =report=, =unpublished= to =manuscript=, =proceedings=, =inproceedings= and =manual=, and have =sp-litnotes-refs= read the same table.
+- give =misc= (and =booklet=) a tag of its own, =:misc:= and =:booklet:=, if the emoji should differ in Org as in =citar=; each needs a schema in =sp-vulpea-schemas= that includes =base-text=.
+- give =collection= another emoji (🗃️ is free), or accept that the two look alike and read the title column.
+- merge =inbook= and =incollection= into =:booksection:= (and =chapter=) if the difference is not used; the emoji can stay different in =citar=, where it follows the type.
+- map the BibLaTeX aliases to the same row: =report= to =techreport=, =thesis= to =phdthesis= (or ask), =conference= to =inproceedings=, =masterthesis= to =mastersthesis=; one more row each in the list, with the same emoji and tag.
+- move =thesis= and =chapter= into the =literature= group (or make them the parent tags of =phdthesis= and =mastersthesis=, =booksection= and =incollection=), so a search for one finds all.
+- change an emoji that clashes with a task tag, or give the task tag another; =sp-org-tag-groups-check-rules= only checks that tags exist, not that emoji are unique.
+
 ** Fonts
 
 The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=) picks Apple Color Emoji, or Noto Color Emoji on a Linux machine without it.
@@ -179,8 +231,45 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
   :group 'org
   :prefix "sp-org-tag-groups-")
 
+(defcustom sp-org-tag-groups-bibtex-types
+  '(("article"         "☕️" "journalarticle")
+    ("book"            "📚️" "book")
+    ("booklet"         "📔️" "text")
+    ("collection"      "📚️" "collection")
+    ("proceedings"     "🏛️" "proceedings")
+    ("inbook"          "📖️" "booksection")
+    ("incollection"    "🖇️" "incollection")
+    ("inproceedings"   "🗂️" "inproceedings")
+    ("manual"          "🗝️" "manual")
+    ("mastersthesis"   "👨🏻‍🎓" "mastersthesis")
+    ("misc"            "🕰️" "text")
+    ("phdthesis"       "💼" "phdthesis")
+    ("techreport"      "🛠️" "report")
+    ("unpublished"     "🪶" "manuscript"))
+  "The BibTeX entry types, each with its emoji and the Org tag of its litnote.
+Each element is (TYPE EMOJI TAG), TYPE and TAG strings without colons.  The
+rules of `sp-org-tag-groups-rules' for these tags come from here (the first type
+of a tag gives the emoji of the tag), and the `citar' candidates show the emoji
+of the TYPE of each entry."
+  :type '(repeat (list (string :tag "BibTeX type") (string :tag "Emoji") (string :tag "Org tag")))
+  :group 'spcustom)
+
+(defcustom sp-org-tag-groups-bibtex-type-fallback "📄️"
+  "The emoji of an entry type that `sp-org-tag-groups-bibtex-types' does not list."
+  :type 'string
+  :group 'spcustom)
+
+(defun sp-org-tag-groups--type-rules ()
+  "The rules of the tags of `sp-org-tag-groups-bibtex-types', one for each tag."
+  (let (seen rules)
+    (dolist (type sp-org-tag-groups-bibtex-types)
+      (unless (member (nth 2 type) seen)
+        (push (nth 2 type) seen)
+        (push (list (nth 2 type) :emoji (nth 1 type)) rules)))
+    (nreverse rules)))
+
 (defcustom sp-org-tag-groups-rules
-  '(("project"            :emoji "🚀")
+  `(("project"            :emoji "🚀")
     ("@home"              :emoji "🏠")
     ("@uni"               :emoji "🎓")
     ("@computer"          :emoji "💻")
@@ -194,7 +283,9 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
     ("@waiting"           :emoji "⏳")
     ("deep"               :emoji "🧠")
     ("shallow"            :emoji "🪶")
-    (("@writing" "deep")  :emoji "🖋️" :face (:foreground "orchid")))
+    (("@writing" "deep")  :emoji "🖋️" :face (:foreground "orchid"))
+    ;; The litnote tags of the BibTeX entry types: `sp-org-tag-groups-bibtex-types'.
+    ,@(sp-org-tag-groups--type-rules))
   "Rules that decorate tags.
 Each rule is (KEY . PLIST).  KEY is a tag, or a list of tags that must
 all be present.  PLIST may have :emoji, :face, :position (`prefix' or

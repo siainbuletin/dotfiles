@@ -155,6 +155,23 @@ stretched to a fixed column, whatever the width the emoji is drawn with."
           (propertize " " 'display
                       `(space :align-to ,(sp-citations--indicator-block-width)))))
 
+;;;; Citar entry types
+(defvar sp-org-tag-groups-bibtex-types)
+(defvar sp-org-tag-groups-bibtex-type-fallback)
+
+(defun sp-citations--type-emoji (type)
+  "Return the emoji of the BibTeX entry TYPE, and a space, for the type column.
+The emoji come from `sp-org-tag-groups-bibtex-types'; a type that is not in it,
+or the module not being loaded, gives the fallback emoji.  The space leaves
+room if the emoji is drawn wider than its width says.  Used as the `etype'
+transform of `citar-display-transform-functions'."
+  (concat (or (and (boundp 'sp-org-tag-groups-bibtex-types)
+                   (nth 1 (assoc (downcase (or type "")) sp-org-tag-groups-bibtex-types)))
+              (and (boundp 'sp-org-tag-groups-bibtex-type-fallback)
+                   sp-org-tag-groups-bibtex-type-fallback)
+              "\U0001F4C4\uFE0F")
+          " "))
+
 ;;;; Citar candidate widths
 ;; `citar' gives every `*' column of the template an equal share of the frame width, so a
 ;; short column leaves blanks and a long one is cut.  Here the columns are sized from
@@ -165,14 +182,14 @@ stretched to a fixed column, whatever the width the emoji is drawn with."
   :type 'integer
   :group 'sp)
 
-(defcustom sp-citations-column-priorities '(2 2 1 1 3)
+(defcustom sp-citations-column-priorities '(1 2 2 1 1 3)
   "Priority of each `*' column of `citar-templates', in order: lower comes first.
 The columns of one priority share what the lower priorities left.  The default
-matches the template: title and authors 2, year and citekey 1, tags 3."
+matches the template: entry type, year and citekey 1, title and authors 2, tags 3."
   :type '(repeat integer)
   :group 'sp)
 
-(defcustom sp-citations-column-max-widths '(nil nil nil 45 nil)
+(defcustom sp-citations-column-max-widths '(nil nil nil nil 45 nil)
   "Widest each `*' column of `citar-templates' may be, in order; nil is no limit.
 The default limits the citekey to 45 columns; a longer key is cut.  Keys
 that long should be shortened in the BibTeX files."
@@ -305,7 +322,7 @@ when the templates have no `*' column."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . "${title:*}   ${author editor:*}   ${year issued date:*}")
+        `((main . "${=type=:*%etype} ${title:*}   ${author editor:*}   ${year issued date:*}")
           (suffix . ,(concat "   "
                              (propertize "${=key= id:*}" 'face 'sp-citar-key)
                              "   ${tags keywords:*}"))
@@ -316,6 +333,7 @@ when the templates have no `*' column."
   ;; Find a PDF that is not where its `file' field says.
   (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (sp-citations-setup-indicators)
+  (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
   (advice-add 'citar--format-candidates :around #'sp-citations--format-candidates)
 
