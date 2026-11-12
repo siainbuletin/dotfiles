@@ -1,0 +1,24 @@
+#+title: 0027 The citekey joins BibTeX, litnote and DEVONthink; the UUID is derived from it
+#+date: 2026-11-12
+#+status: accepted
+
+* Context
+- A paper exists in three places: a BibTeX entry, a litnote in the vault, and a PDF record in DEVONthink.
+- All three already carry the citekey: the entry key, the note's =ROAM_REFS= (or older =#+reference:=), and the PDF file name =KEY.pdf= in =~/Documents/literature/= and in DEVONthink.
+- DEVONthink needs its own identifier (the record UUID) to link to a record and a page.
+
+* Decision
+- The citekey is the key that joins the three; no second identifier is typed by hand.
+- The DEVONthink UUID is derived from the citekey (record named =KEY.pdf=) and cached in =sp-reading-index=.
+- A litnote may store the UUID in a =#+devonthink:= keyword, so the link survives a rename and is faster; the citekey lookup is the fallback.
+- The UUID is never put in the BibTeX =file= field.
+
+* Alternatives considered
+- *UUID in the BibTeX =file= field*: =citar=, =helm-bibtex= and =org-ref= read that field as paths; a second kind of value would break them.
+- *UUID as the only key*: it cannot be typed or read, and it breaks when a record is re-imported.
+- *Denote file name as the note key*: Denote is being removed ([[file:0024-remove-denote-file-notes-by-tag.org][ADR 0024]]); the note's =:ID:= is the stable part.
+
+* Consequences
+- Renaming a PDF in DEVONthink or a key in BibTeX breaks the lookup until the keyword is rewritten (the sync report finds these).
+- Records whose names are not citekeys are found by name or by browsing, not by key.
+- Implemented by =sp-reading= (cache) and =sp-devonthink= (link and keyword).

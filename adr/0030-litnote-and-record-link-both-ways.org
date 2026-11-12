@@ -1,0 +1,22 @@
+#+title: 0030 Link a litnote and its DEVONthink record in both directions
+#+date: 2026-11-12
+#+status: proposed (Emacs side done, record side not built)
+
+* Context
+- Without a link in both places, either the PDF or the litnote can be orphaned.
+- A link into a litnote must use the note's =:ID:=, not a file name ([[file:0024-remove-denote-file-notes-by-tag.org][ADR 0024]]).
+- DEVONthink cannot open an Org ID link by itself.
+
+* Decision
+- Emacs side: a =#+devonthink: UUID= keyword in the litnote, and a =devonthink:UUID::PAGE= Org link type (page counted from 1).
+- Record side (proposed): a custom metadata field of type URL named =litnote=, whose value is an =emacsclient=/org-protocol URL that Emacs resolves with =org-id-open=.
+- Fallback if the URL handler is not acceptable: a file path to the litnote, which DEVONthink opens in the default =.org= editor.
+- A sync report comes first and the writer second: nothing is written without a confirmation, and every changed note is copied to a backup folder under =sp-var-dir=.
+
+* Alternatives considered
+- *The URL field of the record*: one click, but it is meant for the document's source and may already be used.
+- *An annotation or comment*: visible, but free text that is easy to overwrite.
+
+* Consequences
+- The record side needs a metadata field created in DEVONthink and a URL handler registered on macOS; both are outside the repository and are the weakest part.
+- The backfill touches about 1,255 notes and thousands of records, so it always shows the plan first.

@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-litdb.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-litdb.el=. It is the Emacs side of an index of the pages you highlighted in DEVONthink PDFs; the index is built by =tools/devonthink-to-litdb.py= and searched through =tools/litdb-query.py=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]].
+Literate source for =libraries/modules/academic/sp-litdb.el=. It is the Emacs side of an index of the pages you highlighted in DEVONthink PDFs; the index is built by =tools/devonthink-to-litdb.py= and searched through =tools/litdb-query.py=. Design: [[file:sp-devonthink.org][DEVONthink and Emacs (sp-devonthink.org)]].
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.

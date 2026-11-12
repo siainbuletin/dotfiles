@@ -2,14 +2,197 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink.el=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (sections "Highlights and pages" and "The two-way link", Emacs side).
+Literate source for =libraries/modules/academic/sp-devonthink.el=. It also holds the design of the whole DEVONthink and Emacs integration (section "Design"); the sibling modules link here.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 - Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-test.el=; the AppleScript was not run (see the end of this file).
 
-* What it is for
+* Design
+
+- This section replaces the old design document =docs/architecture/devonthink-emacs-integration.org= (proposed in #209, 2026-10-31).
+- The decisions that matter most are in the ADRs; this section keeps the reasoning, the probes and the open questions next to the code.
+  - [[file:../../../../../../adr/0027-citekey-joins-bibtex-litnote-and-devonthink.org][ADR 0027]]: the citekey joins BibTeX, litnote and DEVONthink.
+  - [[file:../../../../../../adr/0028-devonthink-only-through-its-scripting-interface.org][ADR 0028]]: DEVONthink only through its scripting interface.
+  - [[file:../../../../../../adr/0029-litdb-indexes-only-highlighted-pages.org][ADR 0029]]: litdb indexes only the highlighted pages.
+  - [[file:../../../../../../adr/0030-litnote-and-record-link-both-ways.org][ADR 0030]]: the two-way litnote and record link (proposed).
+  - [[file:../../../../../../adr/0031-reading-database-for-sync.org][ADR 0031]]: the small =reading= database for syncing.
+- The probes quoted below were read from the live =literature= database with =osascript= on 2026-10-31; what was not probed is marked.
+
+** Goal
+
+- Use DEVONthink as the store for PDFs and Emacs as the place where you read about them, kept in step.
+- Search the database from Emacs: by words (DEVONthink search, "see also") and by meaning (litdb).
+- Land on the right /page/ of the right PDF from a search result, a citation or a highlight.
+- Browse the database tree from Emacs and set tags there.
+- Keep a two-way link between a PDF in DEVONthink and its litnote, so neither is orphaned.
+- Fit the existing =sp-academic= pipeline (citekey file names, the BibTeX =file= field, =citar=) and replace none of it.
+- Keep the index small: only documents you have read, or have highlights in, are indexed page by page.
+
+** What was already there
+
+- Bibliography pipeline (=sp-academic=):
+  - =.bib= files are under =~/Documents/bibliography/=, registered by =sp-bibtex-register= and shared with Org, =citar=, =org-ref= and =helm-bibtex=;
+  - PDFs are under =~/Documents/literature/= (=citar-library-paths=), keys follow =bibtex-generate-autokey= (=smithjones-2017-atten-all=);
+  - =sp-bibprocess= already audits attachments: files with no entry and entries with no file.
+- Litnotes:
+  - =~/notes/litnotes/= holds 1,255 notes; the citekey is in =ROAM_REFS= (older notes: =#+reference:=);
+  - notes carry =read-status= and =read-priority= metadata, so =read-status= is the natural "is this read" switch;
+  - the vault is moving to ID-based vulpea notes and Denote is being removed, so a link must use the note's =:ID:=.
+- DEVONthink, as probed:
+  - databases: =Global Inbox= and =literature= (the thesis PDFs, 68 GB); =emails=, =technical-documents= and =writing-projects= packages exist in =~/Databases= but are not open;
+  - =literature= has 15,812 records; the first 2,000 are almost all PDFs; file names are already citekeys (=harrison-2010-therborn-post-marx.pdf=);
+  - the unread flag is not maintained (15,668 unread), so it cannot be the read/unread switch on its own;
+  - about 1,100 records have a non-zero annotation count; for the one PDF compared it equalled the highlight annotations stored in the file, so it marks the documents worth indexing;
+  - the PDFs are /indexed/ files (path in =~/Documents/literature/=), so text and highlights can be read from the file with PyMuPDF; DEVONthink's plain text has no page breaks, which is why pages come from the file;
+  - no custom metadata fields and one tag.
+- litdb:
+  - =litdb index DIR= uses each file's path as the record identity and =litdb open= hands it to the browser as a path; neither knows about DEVONthink;
+  - =add_source(source, text, extra)= is the entry point that matters: one row with an embedding, an FTS5 row and a JSON =extra=; =source= is unique, so reruns do not duplicate;
+  - one row is one document, so a page-level hit needs one row per page, with the page in the source string.
+
+** The key that joins everything
+
+- The citekey is in every system: the BibTeX key, the PDF file name, the litnote's =ROAM_REFS=.
+- The DEVONthink UUID is the one new piece of data; it is derived from the citekey, never typed ([[file:../../../../../../adr/0027-citekey-joins-bibtex-litnote-and-devonthink.org][ADR 0027]]).
+
+#+begin_example
+citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.pdf)
+          ├── litnote (ROAM_REFS: @KEY, :ID:)
+          └── DEVONthink record (filename KEY.pdf, UUID)   ← the new link
+#+end_example
+
+- =sp-reading= owns the cache =sp-reading-index= of =(citekey . uuid)=, rebuilt by one =osascript= call; this module reuses it.
+
+** Search from Emacs
+
+- DEVONthink search is the first run and the default; litdb is an optional second step.
+- Tested: a one-word search returned 1,455 hits in about half a second (including the =osascript= start-up); =compare= ("see also") returned 40 similar records for the first hit.
+- The concordance is not in the scripting dictionary that was checked, so it is not promised from Emacs.
+  - Its two uses are covered by search operators (passed through as typed) and by see-also.
+  - Open the record in DEVONthink to use the concordance itself.
+
+| Engine | Good for | Where it runs |
+|--------+----------+---------------|
+| DEVONthink search | exact words, phrases, operators, "see also" | in DEVONthink, called by =osascript= |
+| litdb (full text and vector) | "what did I read about X", by meaning | a local libSQL file, called as a subprocess |
+
+- DEVONthink search needs nothing indexed; litdb is the only part that costs space.
+- Both return the same record (citekey, UUID, page) and the front end opens it the same way.
+
+** What goes into litdb
+
+- Three tiers, decided per record by a script that is safe to rerun ([[file:../../../../../../adr/0029-litdb-indexes-only-highlighted-pages.org][ADR 0029]]).
+
+| Tier | Which records | Rows in litdb |
+|------+---------------+---------------|
+| 1 | records with annotations (about 1,100) or whose litnote has a =read-status= other than unread | one row per page that has a highlight or note, plus the highlight text; the other pages' text in one document row |
+| 2 | everything else | nothing; found by DEVONthink search |
+| 3 | (optional later) records marked "index fully" | one row per page |
+
+- Why not index everything: about 15.8k PDFs of about 200 pages in 1000-character chunks is millions of chunks (a rough estimate, not measured), for documents that are mostly unread.
+- The two signals that can decide tier 1 are the annotation count and =read-status=; the script takes the union.
+- Row format:
+  - =source=: the record's item URL; the same with =?page=N= for a page row (counted from 0, as DEVONthink's highlight export writes it);
+  - =extra= (JSON): citekey, title, UUID, page, kind (=page=, =highlight=, =document=), annotation date, and the record's modification date so a rerun can skip unchanged records.
+- =tools/devonthink-to-litdb.py= runs with litdb's own Python, lists records through JXA, reads plain text from DEVONthink and calls =add_source=.
+  - The first run is slow (it imports =sentence_transformers= and encodes every chunk); that is a delay, not a crash.
+  - It must run from the directory where =litdb init= ran (=litdb.toml= lives there).
+- A result with a DEVONthink URL is opened with the macOS =open= command from Emacs, not by =litdb open=; litdb itself is not patched.
+
+** Links, highlights and pages
+
+- The =devonthink:UUID::PAGE= Org link is defined in this module (see "The =devonthink:= link" below).
+- Highlights from DEVONthink (=extract_record_highlights= in the DEVONthink MCP) can be pulled into the litnote under a "Highlights" heading, each with the link.
+  - The flow is one way (DEVONthink to Emacs), so the litnote text is never overwritten.
+
+** Browsing and tags
+
+- =sp-devonthink-browse= completes over the records, grouped by DEVONthink group, with Embark actions: open, PDF, litnote, link, tags.
+- Tags are read and written only through the scripting interface ([[file:../../../../../../adr/0028-devonthink-only-through-its-scripting-interface.org][ADR 0028]]).
+  - The prompt completes from existing tags but does not require a match, so a new topic keyword can be typed.
+  - A tag that does not exist yet is marked =(new)= in a confirmation, so a typo does not create a stray tag unnoticed.
+  - Several tags can be set on all marked records at once.
+- The =literature= database has one tag that holds several keywords joined by commas; a one-off command splits it after a preview.
+- Tags are not mirrored into the litnote (two copies drift).
+  - Later option: mirror a small fixed set (for example =read=) into =read-status=.
+
+** The record-to-litnote link
+
+- Emacs side: the =#+devonthink:= keyword; =sp-devonthink-open-from-note= opens the record (keyword first, then the citekey).
+- DEVONthink side ([[file:../../../../../../adr/0030-litnote-and-record-link-both-ways.org][ADR 0030]]):
+
+| Where in the record | For | Against |
+|---------------------+-----+---------|
+| URL field | one click in DEVONthink | meant for the document's source; may already be used |
+| custom metadata field (=litnote=) | clean, searchable (=litnote:*=), no clash | must be created first; invisible unless the column is on |
+| annotation or comment | visible in the inspector | free text; easy to overwrite |
+
+- Recommended: a custom metadata field of type URL named =litnote=, holding an =emacsclient= (org-protocol) URL that Emacs resolves with =org-id-open=.
+- Fallback: a file path to the litnote, opened by DEVONthink in the default =.org= editor.
+- Sync: =sp-devonthink-sync= is a report first, a writer second.
+  - The report lists PDFs with no litnote, litnotes with no PDF, PDFs whose name is not a citekey in any registered =.bib=, and litnotes whose =#+devonthink:= UUID points nowhere.
+  - A dry run prints the plan; nothing is written without a confirmation; each changed note is copied to a backup folder under =sp-var-dir=.
+
+** The =reading= database (sync budget)
+
+- Added 2026-11-07; decision in [[file:../../../../../../adr/0031-reading-database-for-sync.org][ADR 0031]]; full documentation in [[file:devonthink-reading.org][devonthink-reading.org]].
+- =literature= (about 65 GB) stays on the Mac; a small =reading= database syncs (the NAS WebDAV store has room for about 20 GB).
+- =tools/devonthink-reading.py= has two actions, both dry runs unless =--apply= is given:
+  - =create=: makes =~/Databases/reading.dtBase2= with one group per selected =.bib= file, or opens it;
+  - =send=: moves into =reading= every PDF whose citekey has a litnote with a selected =read-status= (default =to-be-read=) and is in a selected =.bib= file; with =--return=, moves records that no longer match back.
+- The rule joins on the citekey; statuses and =.bib= files can be changed with =--status= and =--bib=, or =~/.config/devonthink-reading/config.json=.
+- =send= refuses to go over =budget_gb= (default 20); origins are in =~/.local/state/devonthink-reading/origins.json=.
+- =--json= (before the action) prints the plan for an Emacs command later.
+- Tests: =python3 -m unittest tests/test_devonthink_reading.py= (DEVONthink faked).
+
+** Alternatives considered
+
+- Index every record page by page in litdb: too large; DEVONthink already covers unread documents.
+- Move the PDFs out of DEVONthink into a plain folder: loses highlights, concordance and "see also".
+- Read the database package from Emacs: packages must not be touched as files.
+- Use the DEVONthink MCP from Emacs: it is a tool for Claude, not for a running Emacs.
+- A UUID in the BibTeX =file= field: =citar=, =helm-bibtex= and =org-ref= expect paths there.
+- Mirror all DEVONthink tags into the litnotes: two copies drift.
+
+** Consequences
+
+- Modules: =sp-devonthink= (this file), =sp-devonthink-tags=, =sp-devonthink-browse=, =sp-devonthink-search=; scripts =tools/devonthink-to-litdb.py=, =tools/devonthink-reading.py=, =tools/devonthink-move.py=; litdb search in =sp-litdb=.
+- litdb is an engine only for pages with highlights; the index stays in the hundreds of thousands of chunks at most (estimate, to measure after the first run).
+- The record-to-litnote link needs a custom metadata field and an org-protocol or URL handler on macOS.
+- Tags and the unread flag stay in DEVONthink; read status stays in the litnote.
+
+** Status and order of work
+
+| Step | What | Where |
+|------+------+-------|
+| done | litdb index of highlighted pages, litdb search, citekey→UUID cache, open at a page, =reading= database, move through DEVONthink | =sp-litdb=, =sp-reading=, =tools/= |
+| 1 | core: =devonthink:= link, =#+devonthink:= keyword, open from note | #414 (this module) |
+| 2 | browse and tags | #415 |
+| 3 | search front end, similar records, preview | #418 |
+| 4 | highlights into the litnote | next |
+| 5 | sync report, guarded backfill, record-side link | after the probes below |
+
+** Open questions
+
+- To probe on the Mac before step 5:
+  - what the =litnote= custom metadata field can store (type URL, length), and whether DEVONthink opens an =emacsclient=/org-protocol URL from it;
+  - how to register the URL handler on macOS (an app, or =org-protocol= through =emacsclient.desktop= equivalents) and where its setup should live in the repo.
+- AppleScript written from the dictionary and not yet run (each module doc lists its own):
+  - =current page= and =selected text= of the front =think window=, and whether the page is 0- or 1-based (=sp-devonthink-store-page-offset=);
+  - listing tags (=tags group of database=), =lookup records with tags=, =set tags of=;
+  - =location of=, =kind of=, =page count of=, =path of= on search results, =compare record … to database …=, =plain text of= on a large record;
+  - whether the =citar-embark= keymap is called =citar-embark-map= in the installed version.
+- =devonthink-reading.py=: whether moving an /indexed/ record between databases leaves its file in =~/Documents/literature/= (run =send --apply --limit 1=).
+- litdb: the real index size after the first run (the estimates above are not measured); run time of the first indexing.
+- vulpea metadata: =vulpea-mcp= does not expose metadata, so tools outside Emacs cannot read =read-status=; =devonthink-reading.py= parses the file itself.
+- Whether a fixed set of DEVONthink tags should later mirror into =read-status= (and which).
+- Tier 3 ("index fully"): how a record is marked, and when it is worth the space.
+- Which of the other =~/Databases= packages (=emails=, =technical-documents=, =writing-projects=) should ever be searched from Emacs (the module reads one database, =sp-reading-database=).
+- Terminal Emacs: keys are GUI-only for now, as in the rest of the configuration.
+
+* What this module is for
 
 - Link a place in a DEVONthink PDF from Org, and open it from Org.
 - Link a litnote to its DEVONthink record, and open the record from the note.

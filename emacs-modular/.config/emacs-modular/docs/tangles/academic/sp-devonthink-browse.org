@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-browse.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (section "Browsing the database and setting tags").
+Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "Browsing the database and setting tags").
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.

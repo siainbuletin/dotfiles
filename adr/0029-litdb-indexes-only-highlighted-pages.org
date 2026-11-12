@@ -1,0 +1,25 @@
+#+title: 0029 litdb indexes only the highlighted pages; DEVONthink search is the default
+#+date: 2026-11-12
+#+status: accepted
+
+* Context
+- Searching by meaning (litdb) needs an index of chunks with embeddings; indexing 15.8k PDFs page by page is on the order of millions of chunks (an estimate, not measured).
+- Most documents are unread. DEVONthink already searches their words well and needs no index.
+- DEVONthink's unread flag is not maintained (15,668 records are unread), so it cannot decide what to index.
+
+* Decision
+- DEVONthink search is the default engine; it needs nothing indexed.
+- litdb is a second, optional engine for searching by meaning.
+- Tier 1 is indexed page by page: records with annotations (about 1,100) or whose litnote has a =read-status= other than unread; the union of both signals decides.
+- Tier 2 (everything else) is not indexed. Tier 3, records marked "index fully", is an optional later step.
+- Row =source= is the record's item URL, with =?page=N= (counted from 0) for a page row.
+
+* Alternatives considered
+- *Index everything page by page*: too large for documents that are mostly unread.
+- *Use the unread flag as the switch*: it is not kept up to date.
+- *Index whole documents only*: no page to land on.
+
+* Consequences
+- A word in an unread document is found by DEVONthink search but not by a meaning search.
+- A rerun skips records whose modification date did not change.
+- Implemented by =tools/devonthink-to-litdb.py=, =sp-litdb= and =sp-devonthink-search=.

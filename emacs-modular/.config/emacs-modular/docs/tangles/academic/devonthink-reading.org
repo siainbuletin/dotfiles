@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:python :tangle ../../../tools/devonthink-reading.py :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =tools/devonthink-reading.py= and its tests, =tests/test_devonthink_reading.py=. Every line of both files lives in the =python= blocks below, in order. The script blocks tangle to the tool (the =#+PROPERTY= line above); the blocks under [[*Tests][Tests]] tangle to the test file. Design and context: [[file:../../architecture/devonthink-emacs-integration.org::*The =reading= database (sync budget)][DEVONthink and Emacs, "The reading database"]].
+Literate source for =tools/devonthink-reading.py= and its tests, =tests/test_devonthink_reading.py=. Every line of both files lives in the =python= blocks below, in order. The script blocks tangle to the tool (the =#+PROPERTY= line above); the blocks under [[*Tests][Tests]] tangle to the test file. Design and context: [[file:sp-devonthink.org::*The =reading= database (sync budget)][DEVONthink and Emacs, "The reading database"]].
 
 To tangle: =C-c C-v t= in this buffer, or from =.config/emacs-modular=:
 

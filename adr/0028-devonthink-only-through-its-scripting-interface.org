@@ -1,0 +1,24 @@
+#+title: 0028 Emacs reaches DEVONthink only through its scripting interface
+#+date: 2026-11-12
+#+status: accepted
+
+* Context
+- The =literature= database is about 65 GB with 15,812 records; its PDFs are /indexed/ files in =~/Documents/literature/=.
+- Emacs needs to search, browse, tag and open records.
+- A DEVONthink database is a package: editing it as files corrupts it.
+
+* Decision
+- All access goes through DEVONthink's scripting interface, called with =osascript= from Emacs (and JXA from the Python tools).
+- Emacs never reads or writes the database package.
+- The DEVONthink MCP is not used from Emacs; it stays a tool for Claude while building and testing.
+- Scripts are plain strings in the modules, built with =sp-reading--quote=, so their text can be tested.
+
+* Alternatives considered
+- *Read the package from Emacs*: unsafe and unsupported.
+- *DEVONthink MCP from Emacs*: each call needs a client; it is made for Claude, not for a running Emacs.
+- *Move the PDFs to a plain folder that Emacs and litdb use directly*: loses highlights, the concordance and "see also".
+
+* Consequences
+- macOS only, and every call pays the =osascript= start-up (about half a second).
+- The AppleScript was written from the dictionary and must be tried on the Mac; each module doc lists what is untested.
+- Tags stay in DEVONthink only; there is no copy in the litnote (nothing to drift).
