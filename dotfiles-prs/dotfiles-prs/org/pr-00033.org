@@ -1,0 +1,21 @@
+* PR #33: 🔧 Revert "Revert "Rename the module to relationship-annotator and port discourse-graphs logic""
+:PROPERTIES:
+:PR_NUMBER: 33
+:URL: https://github.com/siainbuletin/dotfiles/pull/33
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/33][https://github.com/siainbuletin/dotfiles/pull/33]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-21 16:49
+- Merged :: 2026-10-21 16:49
+- Branch :: =revert-32-revert-19-claude/relationship-annotator= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/dada1bfc2e8bc1d0af83f699f5622f6a3d926757][dada1bfc2e]]
+
+** Description
+Reverts siainbuletin/dotfiles#32
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/5da2c65fe12b87a0bbf63c96526761c05e62e69e][5da2c65fe1]] Revert "Revert "Rename the module to relationship-annotator and port discourse-graphs logic"" (Sia Piperea, 2026-10-21 16:48)

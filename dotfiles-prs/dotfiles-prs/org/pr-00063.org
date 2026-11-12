@@ -1,0 +1,59 @@
+* PR #63: 🔧 Put every defcustom in the spcustom group
+:PROPERTIES:
+:PR_NUMBER: 63
+:URL: https://github.com/siainbuletin/dotfiles/pull/63
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/63][https://github.com/siainbuletin/dotfiles/pull/63]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 13:22
+- Merged :: 2026-10-24 17:21
+- Branch :: =63-spconfig-group= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/4dc5920820664af328fa8f265de0870755c2aa2b][4dc5920820]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21FANbbmtTGssJ4V3eYGsXB][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- =early-init.el= defines =(defgroup spcustom …)= first. It takes over the old =sia-lambda= group (same docstring and link), which is gone.
+- Every =defcustom= in =early-init.el=, =init.el=, =ox-cmake-ide.el= and =libraries/modules/= (except =cloned/=) uses =:group 'spcustom=; where there was no =:group=, one is added. The same change is made in the literate docs under =docs/tangles/=.
+- =tools/set-defcustom-group.py= (a new top-level =tools/= folder, next to =libraries/=) does the rewrite and is safe to re-run (=--check= only lists files that would change).
+- =CHANGELOG.org= entry under a new "Configuration options" set.
+
+**** Not changed
+:PROPERTIES:
+:CUSTOM_ID: not-changed
+:END:
+- =libraries/modules/cloned/= (vendored libraries) keeps its own groups.
+- =docs/tangles/sp-appearance-overview.org= and =sp-vulpea-split-old.org=, which tangle nothing real.
+- The now-empty =defgroup=s (=sp-split=, =sp-splash=, =sp-trails=, ...) are left for a later cleanup.
+
+**** Open PRs that will need the group
+:PROPERTIES:
+:CUSTOM_ID: open-prs-that-will-need-the-group
+:END:
+These add defcustoms: #60, #58, #62, #50, #49, #48, #45, #43, #39, #36, #25, #23, #12. Run the script on each after rebasing. #59 and #61 touch the same files and may conflict.
+
+**** Checks
+:PROPERTIES:
+:CUSTOM_ID: checks
+:END:
+=tools/set-defcustom-group.py --check= exits 0. Each changed =defcustom= in a =.el= file also appears verbatim in its doc. Emacs is not available in the container, so tangling and loading were not run.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01SsZftVhBAfzorjaixvEW5r]]
+
+** Commits (6)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f2f5211d5045074965907cc52064688f307b5ee7][f2f5211d50]] Put every defcustom in the spconfig group (Claude, 2026-10-23 13:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/98271b38ef878ddfb0c1759a4184ee43994fed51][98271b38ef]] Rename spconfig to spcustom and fold sia-lambda into it (Claude, 2026-10-23 13:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/a1605840466fb4173a46ce4ae061c3bd18c3520a][a160584046]] CHANGELOG: describe the spcustom group (Claude, 2026-10-23 13:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/3e51928eb0977c77b6ba7be72875c43938ec6897][3e51928eb0]] Move set-defcustom-group.py to a top-level tools/ folder (Claude, 2026-10-23 15:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/23dc6ee7feb6c2cadc22fe25f514232ea48a29fa][23dc6ee7fe]] Fix default root of set-defcustom-group.py after the move (Claude, 2026-10-23 15:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/84c7ab647a7451711dd6634b25547681021158f9][84c7ab647a]] Merge main into 63-spconfig-group (Claude, 2026-10-24 17:20)

@@ -1,0 +1,21 @@
+* PR #135: ✨ New feature: add `supersonic.el` for Navidrome
+:PROPERTIES:
+:PR_NUMBER: 135
+:URL: https://github.com/siainbuletin/dotfiles/pull/135
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/135][https://github.com/siainbuletin/dotfiles/pull/135]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-26 22:33
+- Merged :: 2026-10-26 22:33
+- Branch :: =140-subsonic-client= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5d9db4bc7ef76bd56f9d4201527c0cc772e4d065][5d9db4bc7e]]
+
+** Description
+First testing version of Navidrome in Emacs. Should be tested with the local URL to see if it really works.
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/0c0bd4ecd7f7ee5f4a6eee663b9dcb8a3961747a][0c0bd4ecd7]] New feature: add `supersonic.el` for Navidrome (Sia Piperea, 2026-10-26 22:31)

@@ -1,0 +1,63 @@
+* PR #355: ✨ Make the crossref parent note in sp-litnotes-meta-fill when missing
+:PROPERTIES:
+:PR_NUMBER: 355
+:URL: https://github.com/siainbuletin/dotfiles/pull/355
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/355][https://github.com/siainbuletin/dotfiles/pull/355]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-09 15:56
+- Merged :: 2026-11-09 16:08
+- Branch :: =354-crossref-parent-meta-fill= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5517e1aed02852944ce2f8a1b2d0b65b48a562bd][5517e1aed0]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW29V3UomkqehSCVSRkTj1Bkq][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+Improves #280: when the =crossref='ed entry has no literature note, =bib-parent= is no longer left out. The note is made and linked.
+
+- The parent is matched by its citation key (the =ROAM_REFS= key), never by title.
+- A missing parent is made without asking, by =sp-litnotes-meta-create-function=, the same path =sp-litnotes-meta-backfill-children= and =-all-children= use:
+  - =vulpea-create= with an ID, =:CREATED:=, =ROAM_REFS=, the =litnote= tag and the BibTeX type tag (=sp-bibtex-types=)
+  - filled from its own BibTeX entry, given a plain title, and put in the Vulpea database
+- =sp-litnotes-meta-fill= (single) and =sp-litnotes-meta-fill-all-convert= (batch from #348) both do this.
+- Batch: each missing parent is made once, however many notes cross-reference it (=sp-litnotes-meta--made-parents=). It is counted in the one-time questions and in the final message.
+- Dry run: new "Parent notes to make" section (each parent once, with the notes that link it), a count line, and "(new note)" on the =bib-parent= lines.
+- Deep chains are flagged and avoided:
+  - A normal crossref is =child -> parent= and the parent has no crossref. =child -> parent -> grandparent= (loops and self-references included) is flagged.
+  - For such a note the fill and the batch convert nothing: no =bib-parent=, no parent note, even if the parent already has a note.
+  - The dry run has a count line and a section "Crossref chains deeper than two levels" listing each chain; the single command prints a message.
+  - New =M-x sp-litnotes-meta-fill-deep-chain= converts one flagged note on purpose: it shows the chain, asks once, fills the note and links or makes its direct parent. The parent is filled by the normal rules, so a loop is cut there. There is no batch version.
+- A parent key with no BibTeX entry is left out with a message.
+- =sp-litnotes-meta-offer-parent= became =sp-litnotes-meta-create-parent= (default t, old name kept as an obsolete alias). Set it to nil to get the old "leave it out" behaviour. The =y-or-n-p= question and the =citar-create-note= route are gone.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- 37 tests in =tests/sp-litnotes-meta-test.el= pass in Emacs 29 (the old "offer to create" test was replaced by new ones):
+  - parent made silently and filled, linked, not made again on a second run
+  - existing parent not made; option off leaves the line out
+  - deep chains (loop, self-reference, parent with a note) make nothing; detection of one-hop chains
+  - the dry run lists a parent once for two children and flags a chain; the convert makes a parent once and converts nothing for a chain
+  - =sp-litnotes-meta-fill-deep-chain=: declined, converted (makes =b= then =c=), loop cut at the parent, refuses a normal note
+- Literate doc =docs/tangles/academic/sp-litnotes-meta.org= updated as bullet lists; it tangles to the committed =.el=.
+- Not run on the real vault or in Emacs 31.
+
+No CHANGELOG edits, per the nightly-tidy rule.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiD5W4k4UTcudsexBjX]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/3a7020336188ee3ae5c9c2ed0227f9a5629d8ea3][3a70203361]] Make the missing crossref parent note in sp-litnotes-meta-fill (Claude, 2026-11-09 15:55)
+- [[https://github.com/siainbuletin/dotfiles/commit/1b6c1822cf95eeb3e2be3eb5d781e27b7994cb2a][1b6c1822cf]] Flag crossref chains deeper than two levels and skip them (Claude, 2026-11-09 16:04)

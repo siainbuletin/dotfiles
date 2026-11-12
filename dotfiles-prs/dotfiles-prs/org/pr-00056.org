@@ -1,0 +1,42 @@
+* PR #56: 📝 Condense nested Provide subsections and document the Provide convention
+:PROPERTIES:
+:PR_NUMBER: 56
+:URL: https://github.com/siainbuletin/dotfiles/pull/56
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/56][https://github.com/siainbuletin/dotfiles/pull/56]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 12:10
+- Merged :: 2026-10-23 12:23
+- Branch :: =provide-nested-sections= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/9d5ce437c3361cd15ab19aa3849cb35ab0338f66][9d5ce437c3]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2RiZDVd8Fb6BcQM4DoVrfQ5][project thread]]/
+
+Follows #55 (merged), which this was stacked on; the base is now =main=.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- The 36 provide subsections that sit inside topical sections (after #52 handled the top-level ones) now have the heading =Provide=, a one-line summary and one source block. In =sp-magit-style=, "Hooks, and provide" becomes "Hooks" plus a separate =Provide=. =sp-relationship-annotator= is left alone: its provide entry belongs to a line-by-line walkthrough.
+- =docs/main.org= gets a "Writing the Provide section of a module doc" section with the convention.
+- The review guide (project file) gets the same rule as a checklist.
+
+**** Verification
+:PROPERTIES:
+:CUSTOM_ID: verification
+:END:
+Tangling every doc before and after produces identical =.el= files under =libraries/modules/=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01ACbiw1tHxZUgAEj5duertR]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/14a4d92e6e0a9237fb6dec09a02cd4a51edb7b3d][14a4d92e6e]] Condense nested Provide subsections; document the Provide convention (Claude, 2026-10-23 12:10)
+- [[https://github.com/siainbuletin/dotfiles/commit/955207d8446e9d0b0e47153e3a54f69d07b5ebf0][955207d844]] CHANGELOG: add PR number (Claude, 2026-10-23 12:10)

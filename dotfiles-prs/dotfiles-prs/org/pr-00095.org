@@ -1,0 +1,30 @@
+* PR #95: 🔧 Pick Alacritty's shell per OS; sketch cross-platform setup
+:PROPERTIES:
+:PR_NUMBER: 95
+:URL: https://github.com/siainbuletin/dotfiles/pull/95
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/95][https://github.com/siainbuletin/dotfiles/pull/95]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 14:06
+- Merged :: 2026-10-25 14:09
+- Branch :: =95-alacritty-shell-per-os= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/67097953dd4a30aa55c17906db86574e8bc5a652][67097953dd]]
+- Labels :: documentation, correction
+
+** Description
+/Requested by *Sia*/
+
+Before: Alacritty's config hard-coded =/usr/bin/fish=, which does not exist on macOS, and there was no plan for other systems.
+
+After: =alacritty.toml= imports =shell.toml=, which yadm links from =shell.toml##os.Darwin= (Homebrew fish), =##os.Linux= (=/usr/bin/fish=) or =##os.Windows= (=pwsh=). The link is git-ignored. ADR 0019 holds the cross-platform sketch (detection switches and clone steps for macOS, Linux and Windows/PowerShell).
+
+How: yadm alternates pick the file by OS name. The Windows route (no yadm, bare clone plus a script) is only sketched, not tried. Run =yadm alt= after pulling.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/ea6a0b3610942957524ef09ae673618f8dba1445][ea6a0b3610]] Pick Alacritty's shell per OS with yadm alternates (Sia Piperea, 2026-10-25 14:05)

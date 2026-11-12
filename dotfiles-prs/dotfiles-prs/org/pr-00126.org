@@ -1,0 +1,38 @@
+* PR #126: 📝 Put PR numbers first in the CHANGELOG and file merged PRs in their feature sets
+:PROPERTIES:
+:PR_NUMBER: 126
+:URL: https://github.com/siainbuletin/dotfiles/pull/126
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/126][https://github.com/siainbuletin/dotfiles/pull/126]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-26 13:19
+- Merged :: 2026-10-26 18:50
+- Branch :: =126-changelog-pr-numbers-first= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/af321bda086aa6cae8c32f5fee794670d7267bd0][af321bda08]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NkrtdVQB7ta1ft5gbxAUVr][project thread]]/
+
+Before: =* Open pull requests= held 32 entries, 30 of them already merged, in no clear order; every entry ended with its PR link.
+
+After:
+
+- Every bullet in the file starts with its PR link and author, then the text (=[#N] (Claude) Added ...=). The intro line says so.
+- The merged PRs left =Open pull requests=: the dashboard, start-up and module-docs ones joined their existing sets, and five new sets (mode line, mini-frame, themes, note tags, BibTeX) were added, each with its merge-date range (UTC), ordered by dependency then number.
+- =Open pull requests= now lists only the open #79 and #125 (#125 was missing).
+- Wrong numbers fixed: sp themes #97 (was #103), sp-env #101 (was #102), sp-fetch-academic #92 and #118 (was #119).
+
+The file has no per-date headings since it was regrouped by feature, so "merge dates" are the date range under each set title.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01XHLFVQytr7NYz1hjyos2a1]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/84ff3383b1e07f07cfb0e7a89f22450347ec9ae5][84ff3383b1]] Put the PR number first in the CHANGELOG open pull requests, grouped by feature (Claude, 2026-10-26 13:19)
+- [[https://github.com/siainbuletin/dotfiles/commit/1a4100d678b85bf040af7805707bd2831c8a9b9c][1a4100d678]] Move merged PRs into their feature sets and put PR numbers first in every entry (Claude, 2026-10-26 13:59)
+- [[https://github.com/siainbuletin/dotfiles/commit/ce037db54aadb79b29365f9f2e5dbead92a58541][ce037db54a]] Merge branch 'main' into 126-changelog-pr-numbers-first (Sia Piperea, 2026-10-26 18:49)

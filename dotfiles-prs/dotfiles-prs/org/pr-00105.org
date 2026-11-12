@@ -1,0 +1,51 @@
+* PR #105: 📝 Note-tag registry, tag lint and tag prompt for new notes
+:PROPERTIES:
+:PR_NUMBER: 105
+:URL: https://github.com/siainbuletin/dotfiles/pull/105
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/105][https://github.com/siainbuletin/dotfiles/pull/105]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 14:59
+- Merged :: 2026-10-25 15:15
+- Branch :: =105-org-tag-registry= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/8b88f4b9d1d65aadf314a3c43d47d4c1b422aec2][8b88f4b9d1]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2GXSKz152TKYLU2Up3YFrPV][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- *Registry:* =sp-org-tag-registry.el= holds the note tags in =org-tag-persistent-alist=. The task tags stay in =org-tag-alist= (=sp-org-taskman-extra=).
+- *=M-x sp-org-tag-add=:* inserts a tag above a marker line in the registry file, saves it and runs =load-file=, so it works without restarting. It asks first if the tag is close to a registered one (typo guard).
+- *=M-x sp-org-tag-lint=:* scans the vault (vulpea db, else =~/notes=) and reports unregistered tags in =#+filetags:= and on headings, with the likely typo, plus notes with no =#+filetags:= (for =sp-tag-emoji=). =RET= visits, =a= registers, =g= reruns. =sp-org-tag-lint-buffer= does one file.
+- *=sp-org-create-note-and-link=* and *wikilink conversion:* both ask for at least one note tag (unknown ones can be registered on the spot) and write =#+filetags:=.
+- *=sp-split-leave-parents=:* binds =org-use-tag-inheritance= to the new =sp-split-inherit-tags= (nil), only while it runs.
+
+**** Notes
+:PROPERTIES:
+:CUSTOM_ID: notes
+:END:
+- The registry file is data, not tangled from a doc, because the command edits it. It is documented in =docs/tangles/funct/sp-org-tag-lint.org=.
+- Tangling =sp-vulpea.org= also moved two =defcustom=s in the split module from group =spcustom= to =sp-split=, which is what the doc already said.
+- #106 is stacked on this PR (it renames the split module).
+
+**** Testing
+:PROPERTIES:
+:CUSTOM_ID: testing
+:END:
+10 ERT tests (=tests/sp-org-tag-lint-test.el=) pass headless in Emacs 29.3, and =sp-org--write-note= was checked with tags. Not run against the real vault, vulpea or a GUI.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01BZJ5xQsEdMUBRHcJfgXvPb]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/c801685e866ed3047ffb316244646bacce2079c0][c801685e86]] Add the note-tag registry, sp-org-tag-lint and tag prompts (Claude, 2026-10-25 14:59)
+- [[https://github.com/siainbuletin/dotfiles/commit/aa4e6127162e61814c855d457c54975682691875][aa4e612716]] Ask for a note tag when wikilink conversion creates a note (Claude, 2026-10-25 15:12)
+- [[https://github.com/siainbuletin/dotfiles/commit/6ba1a1251ec32b9b7d2b67fdb6f9e6bdcdd8033a][6ba1a1251e]] Merge remote-tracking branch 'origin/main' into 105-org-tag-registry (Claude, 2026-10-25 15:12)

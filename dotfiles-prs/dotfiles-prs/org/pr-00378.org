@@ -1,0 +1,44 @@
+* PR #378: ✨ Add :collection column for incollection works in the author table
+:PROPERTIES:
+:PR_NUMBER: 378
+:URL: https://github.com/siainbuletin/dotfiles/pull/378
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/378][https://github.com/siainbuletin/dotfiles/pull/378]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-11 10:52
+- Merged :: 2026-11-11 11:12
+- Branch :: =claude/project-thread-fzht3a= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/3ab1422bafad74267643010619de8c8fbf76c38f][3ab1422baf]]
+- Labels :: correction, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW28UshuPex7Q74iy2gXh676H][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- New =:collection= column for query tables: the title (=#+title:=) of the note that the =bib-parent= link points at, linked to it. Empty without a parent.
+- The default Works and Edited works specs get the column after =:title=. =incollection= notes stay independent rows (not folded); =booksection= still folds into its book.
+- =:fold-tag= also accepts a list of tags (small generalisation, tested).
+- Docs and tests updated.
+
+**** Notes
+:PROPERTIES:
+:CUSTOM_ID: notes
+:END:
+- Existing blocks are not rewritten: add =:collection= to their =:columns= by hand.
+- Not yet explained: why =incollection= notes did not show up in the table at all. The query matches on =pub-author=, so I need a sample note from the vault to confirm.
+- No CHANGELOG edit (nightly tidy owns it). Tested in Emacs 29.3 with stubs, not on the real vault.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiD49hEeJCwd214jHzL]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/a521b3b3e05c452f4d53a9d88855d42b2eb1ff16][a521b3b3e0]] Fold incollection chapters under their collection in the author works table (Claude, 2026-11-11 10:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/ac670d526597bb3c5bb14b49249644073c704144][ac670d5265]] Show incollection chapters as own rows with a :collection column (Claude, 2026-11-11 10:57)

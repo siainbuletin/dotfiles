@@ -1,0 +1,1489 @@
+{
+    "_links": {
+        "comments": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/issues/2/comments"
+        },
+        "commits": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2/commits"
+        },
+        "html": {
+            "href": "https://github.com/siainbuletin/dotfiles/pull/2"
+        },
+        "issue": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/issues/2"
+        },
+        "review_comment": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/comments{/number}"
+        },
+        "review_comments": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2/comments"
+        },
+        "self": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2"
+        },
+        "statuses": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/7aa279595d288c7e7a04399ad5186556ee8cf20b"
+        }
+    },
+    "active_lock_reason": null,
+    "additions": 29821,
+    "assignee": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    },
+    "assignees": [
+        {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    ],
+    "author_association": "OWNER",
+    "auto_merge": null,
+    "base": {
+        "label": "siainbuletin:main",
+        "ref": "main",
+        "repo": {
+            "allow_forking": true,
+            "archive_url": "https://api.github.com/repos/siainbuletin/dotfiles/{archive_format}{/ref}",
+            "archived": false,
+            "assignees_url": "https://api.github.com/repos/siainbuletin/dotfiles/assignees{/user}",
+            "blobs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/blobs{/sha}",
+            "branches_url": "https://api.github.com/repos/siainbuletin/dotfiles/branches{/branch}",
+            "clone_url": "https://github.com/siainbuletin/dotfiles.git",
+            "collaborators_url": "https://api.github.com/repos/siainbuletin/dotfiles/collaborators{/collaborator}",
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/comments{/number}",
+            "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits{/sha}",
+            "compare_url": "https://api.github.com/repos/siainbuletin/dotfiles/compare/{base}...{head}",
+            "contents_url": "https://api.github.com/repos/siainbuletin/dotfiles/contents/{+path}",
+            "contributors_url": "https://api.github.com/repos/siainbuletin/dotfiles/contributors",
+            "created_at": "2025-11-03T05:53:26Z",
+            "default_branch": "main",
+            "deployments_url": "https://api.github.com/repos/siainbuletin/dotfiles/deployments",
+            "description": "Cross-platform dotfiles managed with GNU Stow (MacOS, Linux, hopefully Windows).",
+            "disabled": false,
+            "downloads_url": "https://api.github.com/repos/siainbuletin/dotfiles/downloads",
+            "events_url": "https://api.github.com/repos/siainbuletin/dotfiles/events",
+            "fork": false,
+            "forks": 0,
+            "forks_count": 0,
+            "forks_url": "https://api.github.com/repos/siainbuletin/dotfiles/forks",
+            "full_name": "siainbuletin/dotfiles",
+            "git_commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits{/sha}",
+            "git_refs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/refs{/sha}",
+            "git_tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/tags{/sha}",
+            "git_url": "git://github.com/siainbuletin/dotfiles.git",
+            "has_discussions": false,
+            "has_downloads": false,
+            "has_issues": true,
+            "has_pages": false,
+            "has_projects": true,
+            "has_pull_requests": true,
+            "has_wiki": false,
+            "homepage": "",
+            "hooks_url": "https://api.github.com/repos/siainbuletin/dotfiles/hooks",
+            "html_url": "https://github.com/siainbuletin/dotfiles",
+            "id": 1088549576,
+            "is_template": false,
+            "issue_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments{/number}",
+            "issue_events_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/events{/number}",
+            "issues_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues{/number}",
+            "keys_url": "https://api.github.com/repos/siainbuletin/dotfiles/keys{/key_id}",
+            "labels_url": "https://api.github.com/repos/siainbuletin/dotfiles/labels{/name}",
+            "language": "Emacs Lisp",
+            "languages_url": "https://api.github.com/repos/siainbuletin/dotfiles/languages",
+            "license": null,
+            "merges_url": "https://api.github.com/repos/siainbuletin/dotfiles/merges",
+            "milestones_url": "https://api.github.com/repos/siainbuletin/dotfiles/milestones{/number}",
+            "mirror_url": null,
+            "name": "dotfiles",
+            "node_id": "R_kgDOQOHyyA",
+            "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
+            "open_issues": 4,
+            "open_issues_count": 4,
+            "owner": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "private": false,
+            "pull_request_creation_policy": "all",
+            "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
+            "pushed_at": "2026-11-11T23:03:12Z",
+            "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
+            "size": 110836,
+            "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
+            "stargazers_count": 0,
+            "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
+            "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/{sha}",
+            "subscribers_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscribers",
+            "subscription_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscription",
+            "svn_url": "https://github.com/siainbuletin/dotfiles",
+            "tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/tags",
+            "teams_url": "https://api.github.com/repos/siainbuletin/dotfiles/teams",
+            "topics": [],
+            "trees_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees{/sha}",
+            "updated_at": "2026-11-11T22:50:22Z",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles",
+            "visibility": "public",
+            "watchers": 0,
+            "watchers_count": 0,
+            "web_commit_signoff_required": false
+        },
+        "sha": "472fbfb401db64158dcd884546cf959236f4be1f",
+        "user": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    },
+    "body": "<!-- claude-projects-attribution: {\"github_login\":\"siainbuletin\"} -->\n_Requested by **Sia** · [project thread](https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2GSdfx2LDjjW1ejiT3SruTH)_\n\nBefore: the modules in `.config/emacs-modular/libraries/modules/` existed only as `.el` files, and most had no documentation.\n\nAfter: `docs/tangles/` has a canonical `sp-*.org` file for each of the 127 modules. Each one holds the module's full source, in order, in `emacs-lisp` blocks, with headings and prose explaining every block. Tangling a doc (`C-c C-v t`) regenerates its module.\n\n**How**\n- Each file sets `#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/<category>/<module>.el :comments no :padline yes :noweb no`, so tangling rewrites the real module file. Nothing tangles unless you run it, because no file sets `auto_tangle`.\n- The code was copied by a script, not retyped. Blocks are split only at single blank lines, so `:padline yes` restores each original blank line. Lines starting with `*` or `#+` are comma-escaped. Blocks use `-i` and start at column 0, so indentation survives whatever `org-src-preserve-indentation` is set to.\n- 14 modules already had an older doc under the same name, for example `sp-faces.org`. Those older docs are renamed to `<name>-old.org` with their contents unchanged, and the new docs take the plain name.\n- `lem-dashboard.el` gets `sp-lem-dashboard.org`.\n- Third-party code under `libraries/modules/cloned/` is not included.\n- Five modules are empty .el files: `sp-syslinux`, `sp-instant-messenger`, `sp-mail`, `sp-music-comp` and `sp-vulpea-ext-back`. Their docs are literate skeletons with these parts:\n  - a file header\n  - a Configuration section to fill in\n  - a `:tangle no` Sandbox for trying settings\n  - a `provide` form\n\n  Tangling one of these writes a valid module that loads, replacing the empty file.\n- Commits: there is one commit per module category, then one for the `-old` renames and one for the empty-module skeletons.\n\n**Round-trip check** (Emacs 29.3 / Org 9.6, tangled into a scratch copy and compared with `cmp`)\n- 44 modules come back byte-for-byte identical.\n- 78 differ only by a final newline. Their `.el` files have no newline at the end, and Org always ends a tangled file with one.\n- `sp-org-archive.el` also loses two trailing spaces on its last line.\n- All five skeletons tangle to modules that load in `emacs -Q`.\n\nNo `.el` file is changed by this PR. Against `main`, 127 files are added and 14 are modified; the modified ones are the canonical names that now hold the new docs.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+    "changed_files": 142,
+    "closed_at": "2026-10-19T19:21:07Z",
+    "comment_data": [],
+    "comment_regular_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/2/comments",
+    "commit_data": [
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f45bd25955a959ebad40f816ea8b82bbef9e5808/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the academic modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/academic.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "2dea21e501a30789a66ae031d1a711f4c38809a5",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/2dea21e501a30789a66ae031d1a711f4c38809a5"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/f45bd25955a959ebad40f816ea8b82bbef9e5808",
+                "verification": {
+                    "payload": "tree 2dea21e501a30789a66ae031d1a711f4c38809a5\nparent e6420d6f11557732628b74353dc208fc3157bab4\nauthor Claude <noreply@anthropic.com> 1792365870 +0000\ncommitter Claude <noreply@anthropic.com> 1792365870 +0000\n\nAdd literate docs for the academic modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/academic.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQKsQdebw\np22odLnRROdeD6VIO87Xupdhk8D5eTNaUYSKstvXRD7NZqT6znCiUC8paoT5lV2g4U5Iy15vAxeo\nmwA=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/f45bd25955a959ebad40f816ea8b82bbef9e5808",
+            "node_id": "C_kwDOQOHyyNoAKGY0NWJkMjU5NTVhOTU5ZWJhZDQwZjgxNmVhOGI4MmJiZWY5ZTU4MDg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/e6420d6f11557732628b74353dc208fc3157bab4",
+                    "sha": "e6420d6f11557732628b74353dc208fc3157bab4",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/e6420d6f11557732628b74353dc208fc3157bab4"
+                }
+            ],
+            "sha": "f45bd25955a959ebad40f816ea8b82bbef9e5808",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f45bd25955a959ebad40f816ea8b82bbef9e5808"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/10c17fe36face6b580c47f9c33bf211672d4b5eb/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the base modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/base.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "8baa544e0088f48da85fdd4c99ecba188be70280",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/8baa544e0088f48da85fdd4c99ecba188be70280"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/10c17fe36face6b580c47f9c33bf211672d4b5eb",
+                "verification": {
+                    "payload": "tree 8baa544e0088f48da85fdd4c99ecba188be70280\nparent f45bd25955a959ebad40f816ea8b82bbef9e5808\nauthor Claude <noreply@anthropic.com> 1792365870 +0000\ncommitter Claude <noreply@anthropic.com> 1792365870 +0000\n\nAdd literate docs for the base modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/base.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQPu8CUd8\ns0ZPyAZeJkdQlYw9aK4En54jytQc0JwG3Ek3cHPboA5zQ2hF7VwxslwHWG6uYrzGLCA/TlcySkO1\nUAA=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/10c17fe36face6b580c47f9c33bf211672d4b5eb",
+            "node_id": "C_kwDOQOHyyNoAKDEwYzE3ZmUzNmZhY2U2YjU4MGM0N2Y5YzMzYmYyMTE2NzJkNGI1ZWI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/f45bd25955a959ebad40f816ea8b82bbef9e5808",
+                    "sha": "f45bd25955a959ebad40f816ea8b82bbef9e5808",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f45bd25955a959ebad40f816ea8b82bbef9e5808"
+                }
+            ],
+            "sha": "10c17fe36face6b580c47f9c33bf211672d4b5eb",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/10c17fe36face6b580c47f9c33bf211672d4b5eb"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the env modules\n\n5 Org files in docs/tangles, one per module in libraries/modules/env.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "aebff73028da7c554d577969758c227854832e0a",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/aebff73028da7c554d577969758c227854832e0a"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f",
+                "verification": {
+                    "payload": "tree aebff73028da7c554d577969758c227854832e0a\nparent 10c17fe36face6b580c47f9c33bf211672d4b5eb\nauthor Claude <noreply@anthropic.com> 1792365870 +0000\ncommitter Claude <noreply@anthropic.com> 1792365870 +0000\n\nAdd literate docs for the env modules\n\n5 Org files in docs/tangles, one per module in libraries/modules/env.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQICV1Gka\nSAR3EJ3nE/UkBAd8+h7iqR5NRejGM6MWe4n1n14Lhfbf1R8Q0fu6ef56jPXXqVSucJ3kkD1P9gmf\nygs=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f",
+            "node_id": "C_kwDOQOHyyNoAKGJhMmYwMmI2OWM1NjZjMmJiYzNjYzNhZWFkZjM5MDVlNjZiYTRjNGY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/10c17fe36face6b580c47f9c33bf211672d4b5eb",
+                    "sha": "10c17fe36face6b580c47f9c33bf211672d4b5eb",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/10c17fe36face6b580c47f9c33bf211672d4b5eb"
+                }
+            ],
+            "sha": "ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/445a20abb7c50260507c01130e63aa724e40e971/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the funct modules\n\n11 Org files in docs/tangles, one per module in libraries/modules/funct.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "b1351b6d3976d34167a198d6a53cf0e71b79ee0a",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/b1351b6d3976d34167a198d6a53cf0e71b79ee0a"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/445a20abb7c50260507c01130e63aa724e40e971",
+                "verification": {
+                    "payload": "tree b1351b6d3976d34167a198d6a53cf0e71b79ee0a\nparent ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f\nauthor Claude <noreply@anthropic.com> 1792365870 +0000\ncommitter Claude <noreply@anthropic.com> 1792365870 +0000\n\nAdd literate docs for the funct modules\n\n11 Org files in docs/tangles, one per module in libraries/modules/funct.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQIM4Oqpi\nfRS7fZ4NlrHVUNu5pubuBQ99srOrLSfaYnBv+WE8XQkl4VI0fF5FLG6Ruqd5LeaoO8Rk/7XYOutI\nWwA=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/445a20abb7c50260507c01130e63aa724e40e971",
+            "node_id": "C_kwDOQOHyyNoAKDQ0NWEyMGFiYjdjNTAyNjA1MDdjMDExMzBlNjNhYTcyNGU0MGU5NzE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f",
+                    "sha": "ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ba2f02b69c566c2bbc3cc3aeadf3905e66ba4c4f"
+                }
+            ],
+            "sha": "445a20abb7c50260507c01130e63aa724e40e971",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/445a20abb7c50260507c01130e63aa724e40e971"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/a46ce722588564644876135905ef04b7b7edc5e7/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:30Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the media modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/media.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "fc920d66039f356f08302b2c91dd13e6759d6aff",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/fc920d66039f356f08302b2c91dd13e6759d6aff"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/a46ce722588564644876135905ef04b7b7edc5e7",
+                "verification": {
+                    "payload": "tree fc920d66039f356f08302b2c91dd13e6759d6aff\nparent 445a20abb7c50260507c01130e63aa724e40e971\nauthor Claude <noreply@anthropic.com> 1792365870 +0000\ncommitter Claude <noreply@anthropic.com> 1792365870 +0000\n\nAdd literate docs for the media modules\n\n10 Org files in docs/tangles, one per module in libraries/modules/media.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQMlYhCEv\nag8b1dLHoCADc4ZutYvEp+OOfegfFy3EfVN309mptXUwfinmSBiHLpYoBNdMGlj4dwXvYWDB6GMC\n0wQ=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/a46ce722588564644876135905ef04b7b7edc5e7",
+            "node_id": "C_kwDOQOHyyNoAKGE0NmNlNzIyNTg4NTY0NjQ0ODc2MTM1OTA1ZWYwNGI3YjdlZGM1ZTc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/445a20abb7c50260507c01130e63aa724e40e971",
+                    "sha": "445a20abb7c50260507c01130e63aa724e40e971",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/445a20abb7c50260507c01130e63aa724e40e971"
+                }
+            ],
+            "sha": "a46ce722588564644876135905ef04b7b7edc5e7",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/a46ce722588564644876135905ef04b7b7edc5e7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b12bc723ce67e544b594384adccc2b32d3d1d02f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the prog modules\n\n16 Org files in docs/tangles, one per module in libraries/modules/prog.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "930e381af9d993bbec31e210215ee9fbe8ed2efa",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/930e381af9d993bbec31e210215ee9fbe8ed2efa"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/b12bc723ce67e544b594384adccc2b32d3d1d02f",
+                "verification": {
+                    "payload": "tree 930e381af9d993bbec31e210215ee9fbe8ed2efa\nparent a46ce722588564644876135905ef04b7b7edc5e7\nauthor Claude <noreply@anthropic.com> 1792365871 +0000\ncommitter Claude <noreply@anthropic.com> 1792365871 +0000\n\nAdd literate docs for the prog modules\n\n16 Org files in docs/tangles, one per module in libraries/modules/prog.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQKS7pd5+\nnCiyQyuxDloV23AawGwy66zr/0cFN/hy6N07jYHMfN5F1gRDhMFJ+WcM+4ms+obOQ7ToxiHs2TjM\nOQs=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/b12bc723ce67e544b594384adccc2b32d3d1d02f",
+            "node_id": "C_kwDOQOHyyNoAKGIxMmJjNzIzY2U2N2U1NDRiNTk0Mzg0YWRjY2MyYjMyZDNkMWQwMmY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/a46ce722588564644876135905ef04b7b7edc5e7",
+                    "sha": "a46ce722588564644876135905ef04b7b7edc5e7",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/a46ce722588564644876135905ef04b7b7edc5e7"
+                }
+            ],
+            "sha": "b12bc723ce67e544b594384adccc2b32d3d1d02f",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b12bc723ce67e544b594384adccc2b32d3d1d02f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/17b31b10de9314db505d823ee4ecce2891f7f4e9/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the text modules\n\n31 Org files in docs/tangles, one per module in libraries/modules/text.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "e6676bcedd21b0f6eb0a0b77763b440fbd9f0f03",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/e6676bcedd21b0f6eb0a0b77763b440fbd9f0f03"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/17b31b10de9314db505d823ee4ecce2891f7f4e9",
+                "verification": {
+                    "payload": "tree e6676bcedd21b0f6eb0a0b77763b440fbd9f0f03\nparent b12bc723ce67e544b594384adccc2b32d3d1d02f\nauthor Claude <noreply@anthropic.com> 1792365871 +0000\ncommitter Claude <noreply@anthropic.com> 1792365871 +0000\n\nAdd literate docs for the text modules\n\n31 Org files in docs/tangles, one per module in libraries/modules/text.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQCbXpK6e\n4zMs/PmSTTfll0482hTfu/K0BW5O9OUDl0Y4rDXY7Y061yBWM/rT6TtU7dTDrIeS7VCpVaDXRYG3\nFA4=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/17b31b10de9314db505d823ee4ecce2891f7f4e9",
+            "node_id": "C_kwDOQOHyyNoAKDE3YjMxYjEwZGU5MzE0ZGI1MDVkODIzZWU0ZWNjZTI4OTFmN2Y0ZTk",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/b12bc723ce67e544b594384adccc2b32d3d1d02f",
+                    "sha": "b12bc723ce67e544b594384adccc2b32d3d1d02f",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b12bc723ce67e544b594384adccc2b32d3d1d02f"
+                }
+            ],
+            "sha": "17b31b10de9314db505d823ee4ecce2891f7f4e9",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/17b31b10de9314db505d823ee4ecce2891f7f4e9"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/0b83c56ef5036c4ced6da3072eca963388eb250f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the tooling modules\n\n20 Org files in docs/tangles, one per module in libraries/modules/tooling.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "3fb867c72b30f0c9c27e9bcf763dad2eb471eb04",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/3fb867c72b30f0c9c27e9bcf763dad2eb471eb04"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/0b83c56ef5036c4ced6da3072eca963388eb250f",
+                "verification": {
+                    "payload": "tree 3fb867c72b30f0c9c27e9bcf763dad2eb471eb04\nparent 17b31b10de9314db505d823ee4ecce2891f7f4e9\nauthor Claude <noreply@anthropic.com> 1792365871 +0000\ncommitter Claude <noreply@anthropic.com> 1792365871 +0000\n\nAdd literate docs for the tooling modules\n\n20 Org files in docs/tangles, one per module in libraries/modules/tooling.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQCCFPJa4\n8W1s7LY59dejhaVH5iAtltU/IKsr2jp5fvm8XWruJrsEsP+Ctl4bdOZ3X6Y3XDDauxGhQhrHwZvc\n4Qw=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/0b83c56ef5036c4ced6da3072eca963388eb250f",
+            "node_id": "C_kwDOQOHyyNoAKDBiODNjNTZlZjUwMzZjNGNlZDZkYTMwNzJlY2E5NjMzODhlYjI1MGY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/17b31b10de9314db505d823ee4ecce2891f7f4e9",
+                    "sha": "17b31b10de9314db505d823ee4ecce2891f7f4e9",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/17b31b10de9314db505d823ee4ecce2891f7f4e9"
+                }
+            ],
+            "sha": "0b83c56ef5036c4ced6da3072eca963388eb250f",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/0b83c56ef5036c4ced6da3072eca963388eb250f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-18T23:24:31Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Add literate docs for the ui modules\n\n14 Org files in docs/tangles, one per module in libraries/modules/ui.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "ad8f7d096b33e96b684768427cc1305140e78d1a",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/ad8f7d096b33e96b684768427cc1305140e78d1a"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e",
+                "verification": {
+                    "payload": "tree ad8f7d096b33e96b684768427cc1305140e78d1a\nparent 0b83c56ef5036c4ced6da3072eca963388eb250f\nauthor Claude <noreply@anthropic.com> 1792365871 +0000\ncommitter Claude <noreply@anthropic.com> 1792365871 +0000\n\nAdd literate docs for the ui modules\n\n14 Org files in docs/tangles, one per module in libraries/modules/ui.\nEach holds the module's full source in emacs-lisp blocks with prose\nannotations; tangling it regenerates the module file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQP4WL2y7\nAaso1JDKyzvKijzn2uSHj98Mx8g6snnPR+lHVqyiAbNh/6vkenP0VnEz20KFI/gepuYwx6yt0nl7\n5A8=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-18T23:24:43Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e",
+            "node_id": "C_kwDOQOHyyNoAKGYyYWNhOWM1Y2MzZWQyODc3MTFlYWVhYTdmZTBhYzI0NDYyYWVhM2U",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/0b83c56ef5036c4ced6da3072eca963388eb250f",
+                    "sha": "0b83c56ef5036c4ced6da3072eca963388eb250f",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/0b83c56ef5036c4ced6da3072eca963388eb250f"
+                }
+            ],
+            "sha": "f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ce4f5afd0d1615ff810e58294b7b5566c0979d41/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-19T16:21:06Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-19T16:21:06Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Rename the older docs to -old and make the new module docs canonical\n\nThe 14 docs that already existed in docs/tangles with a module's name\nare now <name>-old.org, and the new literate docs take the plain\n<name>.org names instead of the -module suffix.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "4d188fc0a0ed576b80a98b32e7ba2e4160771e60",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/4d188fc0a0ed576b80a98b32e7ba2e4160771e60"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/ce4f5afd0d1615ff810e58294b7b5566c0979d41",
+                "verification": {
+                    "payload": "tree 4d188fc0a0ed576b80a98b32e7ba2e4160771e60\nparent f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e\nauthor Claude <noreply@anthropic.com> 1792426866 +0000\ncommitter Claude <noreply@anthropic.com> 1792426866 +0000\n\nRename the older docs to -old and make the new module docs canonical\n\nThe 14 docs that already existed in docs/tangles with a module's name\nare now <name>-old.org, and the new literate docs take the plain\n<name>.org names instead of the -module suffix.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQL8FqTaW\nvUJcWlo2+mqBdaGegwMiJzFAmwetSxfPkDJUvMIrw1yYupBGQ9MYAk/HSSV0FLwd1wIgCt4XYCFV\n7Qw=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-19T16:21:45Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/ce4f5afd0d1615ff810e58294b7b5566c0979d41",
+            "node_id": "C_kwDOQOHyyNoAKGNlNGY1YWZkMGQxNjE1ZmY4MTBlNTgyOTRiN2I1NTY2YzA5NzlkNDE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e",
+                    "sha": "f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f2aca9c5cc3ed287711eaeaa7fe0ac24462aea3e"
+                }
+            ],
+            "sha": "ce4f5afd0d1615ff810e58294b7b5566c0979d41",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ce4f5afd0d1615ff810e58294b7b5566c0979d41"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/237543c7d3d4acef84d14f603b39c4661f29e22f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-19T16:21:42Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-19T16:21:42Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Turn the docs for the 5 empty modules into literate skeletons\n\nsp-syslinux, sp-instant-messenger, sp-mail, sp-music-comp and\nsp-vulpea-ext-back now have a file header, a Configuration section to\nfill in, a :tangle no Sandbox for trying settings, and a provide form.\nTangling one writes a valid, loadable module in place of the empty file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "993dadd3d5449065daf2d604e3bdc6592a6f987a",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/993dadd3d5449065daf2d604e3bdc6592a6f987a"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/237543c7d3d4acef84d14f603b39c4661f29e22f",
+                "verification": {
+                    "payload": "tree 993dadd3d5449065daf2d604e3bdc6592a6f987a\nparent ce4f5afd0d1615ff810e58294b7b5566c0979d41\nauthor Claude <noreply@anthropic.com> 1792426902 +0000\ncommitter Claude <noreply@anthropic.com> 1792426902 +0000\n\nTurn the docs for the 5 empty modules into literate skeletons\n\nsp-syslinux, sp-instant-messenger, sp-mail, sp-music-comp and\nsp-vulpea-ext-back now have a file header, a Configuration section to\nfill in, a :tangle no Sandbox for trying settings, and a provide form.\nTangling one writes a valid, loadable module in place of the empty file.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQH8ct04U\nBjWFo3qwU+i5VNk8GegDxj/vDP7AY/uSVDrAGpPRAlSQKwFo4M9Pe7zsdN15YIUQ4QnNwL5aNioG\nEQY=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-19T16:21:45Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/237543c7d3d4acef84d14f603b39c4661f29e22f",
+            "node_id": "C_kwDOQOHyyNoAKDIzNzU0M2M3ZDNkNGFjZWY4NGQxNGY2MDNiMzljNDY2MWYyOWUyMmY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/ce4f5afd0d1615ff810e58294b7b5566c0979d41",
+                    "sha": "ce4f5afd0d1615ff810e58294b7b5566c0979d41",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/ce4f5afd0d1615ff810e58294b7b5566c0979d41"
+                }
+            ],
+            "sha": "237543c7d3d4acef84d14f603b39c4661f29e22f",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/237543c7d3d4acef84d14f603b39c4661f29e22f"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/de2d5e1232cdd45f19245c8743f16bb9680f20b7/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-19T18:32:26Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-19T18:32:26Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge main into the docs branch\n\nmain changed sp-vulpea-split.org and added sp-tab-inbox.org. Following\nthe -old convention, main's versions of both are kept as\nsp-vulpea-split-old.org and sp-tab-inbox-old.org, and the new literate\ndocs stay canonical.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "11df57ce70d14b5d259e2386e9b07b99e20f073b",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/11df57ce70d14b5d259e2386e9b07b99e20f073b"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/de2d5e1232cdd45f19245c8743f16bb9680f20b7",
+                "verification": {
+                    "payload": "tree 11df57ce70d14b5d259e2386e9b07b99e20f073b\nparent 237543c7d3d4acef84d14f603b39c4661f29e22f\nparent 472fbfb401db64158dcd884546cf959236f4be1f\nauthor Claude <noreply@anthropic.com> 1792434746 +0000\ncommitter Claude <noreply@anthropic.com> 1792434746 +0000\n\nMerge main into the docs branch\n\nmain changed sp-vulpea-split.org and added sp-tab-inbox.org. Following\nthe -old convention, main's versions of both are kept as\nsp-vulpea-split-old.org and sp-tab-inbox-old.org, and the new literate\ndocs stay canonical.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQOVJgBb3\nic6FexblTqgCc1Y0VwzZgxQTZDxGKRhsH1svuY/Cy3DYs5C8TMPYSqdF0IXE9t0YiawsbUqeYDCk\n/wo=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-19T18:39:53Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/de2d5e1232cdd45f19245c8743f16bb9680f20b7",
+            "node_id": "C_kwDOQOHyyNoAKGRlMmQ1ZTEyMzJjZGQ0NWYxOTI0NWM4NzQzZjE2YmI5NjgwZjIwYjc",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/237543c7d3d4acef84d14f603b39c4661f29e22f",
+                    "sha": "237543c7d3d4acef84d14f603b39c4661f29e22f",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/237543c7d3d4acef84d14f603b39c4661f29e22f"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/472fbfb401db64158dcd884546cf959236f4be1f",
+                    "sha": "472fbfb401db64158dcd884546cf959236f4be1f",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/472fbfb401db64158dcd884546cf959236f4be1f"
+                }
+            ],
+            "sha": "de2d5e1232cdd45f19245c8743f16bb9680f20b7",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/de2d5e1232cdd45f19245c8743f16bb9680f20b7"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/7aa279595d288c7e7a04399ad5186556ee8cf20b/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-10-19T18:39:50Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-10-19T18:39:50Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Update the docs for the 12 modules that changed on main\n\nsp-ai, sp-dired, sp-env, sp-org-agenda, sp-org-base,\nsp-org-taskman-extra, sp-org-time, sp-semantic, sp-tab-inbox,\nsp-terminal, sp-vcontrol and sp-vulpea-org-ql now carry main's code,\nwith the prose updated for what changed. Tangling still reproduces\nevery module (exactly, or up to a missing final newline).\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR",
+                "tree": {
+                    "sha": "653d6bd3b515f3c30ef1191cd142070bef2c0c95",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/653d6bd3b515f3c30ef1191cd142070bef2c0c95"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/7aa279595d288c7e7a04399ad5186556ee8cf20b",
+                "verification": {
+                    "payload": "tree 653d6bd3b515f3c30ef1191cd142070bef2c0c95\nparent de2d5e1232cdd45f19245c8743f16bb9680f20b7\nauthor Claude <noreply@anthropic.com> 1792435190 +0000\ncommitter Claude <noreply@anthropic.com> 1792435190 +0000\n\nUpdate the docs for the 12 modules that changed on main\n\nsp-ai, sp-dired, sp-env, sp-org-agenda, sp-org-base,\nsp-org-taskman-extra, sp-org-time, sp-semantic, sp-tab-inbox,\nsp-terminal, sp-vcontrol and sp-vulpea-org-ql now carry main's code,\nwith the prose updated for what changed. Tangling still reproduces\nevery module (exactly, or up to a missing final newline).\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Nr4oCmN46jwdq66nKHUjRR\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQDLQx3I6\nZrizewITbB5eYOWRnWp5r0YzLrjy3w30i1XrKzXUqMLOKFq7nB2WtadJ6YqYJ7UA4CbN4BHiaw/p\nygI=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-10-19T18:39:53Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/7aa279595d288c7e7a04399ad5186556ee8cf20b",
+            "node_id": "C_kwDOQOHyyNoAKDdhYTI3OTU5NWQyODhjN2U3YTA0Mzk5YWQ1MTg2NTU2ZWU4Y2YyMGI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/de2d5e1232cdd45f19245c8743f16bb9680f20b7",
+                    "sha": "de2d5e1232cdd45f19245c8743f16bb9680f20b7",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/de2d5e1232cdd45f19245c8743f16bb9680f20b7"
+                }
+            ],
+            "sha": "7aa279595d288c7e7a04399ad5186556ee8cf20b",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/7aa279595d288c7e7a04399ad5186556ee8cf20b"
+        }
+    ],
+    "commits": 13,
+    "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2/commits",
+    "created_at": "2026-10-18T23:25:14Z",
+    "deletions": 2091,
+    "diff_url": "https://github.com/siainbuletin/dotfiles/pull/2.diff",
+    "draft": true,
+    "head": {
+        "label": "siainbuletin:claude/project-thread-an4kyf",
+        "ref": "claude/project-thread-an4kyf",
+        "repo": {
+            "allow_forking": true,
+            "archive_url": "https://api.github.com/repos/siainbuletin/dotfiles/{archive_format}{/ref}",
+            "archived": false,
+            "assignees_url": "https://api.github.com/repos/siainbuletin/dotfiles/assignees{/user}",
+            "blobs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/blobs{/sha}",
+            "branches_url": "https://api.github.com/repos/siainbuletin/dotfiles/branches{/branch}",
+            "clone_url": "https://github.com/siainbuletin/dotfiles.git",
+            "collaborators_url": "https://api.github.com/repos/siainbuletin/dotfiles/collaborators{/collaborator}",
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/comments{/number}",
+            "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits{/sha}",
+            "compare_url": "https://api.github.com/repos/siainbuletin/dotfiles/compare/{base}...{head}",
+            "contents_url": "https://api.github.com/repos/siainbuletin/dotfiles/contents/{+path}",
+            "contributors_url": "https://api.github.com/repos/siainbuletin/dotfiles/contributors",
+            "created_at": "2025-11-03T05:53:26Z",
+            "default_branch": "main",
+            "deployments_url": "https://api.github.com/repos/siainbuletin/dotfiles/deployments",
+            "description": "Cross-platform dotfiles managed with GNU Stow (MacOS, Linux, hopefully Windows).",
+            "disabled": false,
+            "downloads_url": "https://api.github.com/repos/siainbuletin/dotfiles/downloads",
+            "events_url": "https://api.github.com/repos/siainbuletin/dotfiles/events",
+            "fork": false,
+            "forks": 0,
+            "forks_count": 0,
+            "forks_url": "https://api.github.com/repos/siainbuletin/dotfiles/forks",
+            "full_name": "siainbuletin/dotfiles",
+            "git_commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits{/sha}",
+            "git_refs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/refs{/sha}",
+            "git_tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/tags{/sha}",
+            "git_url": "git://github.com/siainbuletin/dotfiles.git",
+            "has_discussions": false,
+            "has_downloads": false,
+            "has_issues": true,
+            "has_pages": false,
+            "has_projects": true,
+            "has_pull_requests": true,
+            "has_wiki": false,
+            "homepage": "",
+            "hooks_url": "https://api.github.com/repos/siainbuletin/dotfiles/hooks",
+            "html_url": "https://github.com/siainbuletin/dotfiles",
+            "id": 1088549576,
+            "is_template": false,
+            "issue_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments{/number}",
+            "issue_events_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/events{/number}",
+            "issues_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues{/number}",
+            "keys_url": "https://api.github.com/repos/siainbuletin/dotfiles/keys{/key_id}",
+            "labels_url": "https://api.github.com/repos/siainbuletin/dotfiles/labels{/name}",
+            "language": "Emacs Lisp",
+            "languages_url": "https://api.github.com/repos/siainbuletin/dotfiles/languages",
+            "license": null,
+            "merges_url": "https://api.github.com/repos/siainbuletin/dotfiles/merges",
+            "milestones_url": "https://api.github.com/repos/siainbuletin/dotfiles/milestones{/number}",
+            "mirror_url": null,
+            "name": "dotfiles",
+            "node_id": "R_kgDOQOHyyA",
+            "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
+            "open_issues": 4,
+            "open_issues_count": 4,
+            "owner": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "private": false,
+            "pull_request_creation_policy": "all",
+            "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
+            "pushed_at": "2026-11-11T23:03:12Z",
+            "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
+            "size": 110836,
+            "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
+            "stargazers_count": 0,
+            "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
+            "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/{sha}",
+            "subscribers_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscribers",
+            "subscription_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscription",
+            "svn_url": "https://github.com/siainbuletin/dotfiles",
+            "tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/tags",
+            "teams_url": "https://api.github.com/repos/siainbuletin/dotfiles/teams",
+            "topics": [],
+            "trees_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees{/sha}",
+            "updated_at": "2026-11-11T22:50:22Z",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles",
+            "visibility": "public",
+            "watchers": 0,
+            "watchers_count": 0,
+            "web_commit_signoff_required": false
+        },
+        "sha": "7aa279595d288c7e7a04399ad5186556ee8cf20b",
+        "user": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    },
+    "html_url": "https://github.com/siainbuletin/dotfiles/pull/2",
+    "id": 4913732170,
+    "issue_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/2",
+    "labels": [],
+    "locked": false,
+    "maintainer_can_modify": false,
+    "merge_commit_sha": "416aef6e4ff1db913a7bdd7a2101a70137c578d3",
+    "mergeable": null,
+    "mergeable_state": "unknown",
+    "merged": true,
+    "merged_at": "2026-10-19T19:21:07Z",
+    "merged_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    },
+    "milestone": null,
+    "node_id": "PR_kwDOQOHyyM8AAAABJOGaSg",
+    "number": 2,
+    "patch_url": "https://github.com/siainbuletin/dotfiles/pull/2.patch",
+    "rebaseable": null,
+    "requested_reviewers": [],
+    "requested_teams": [],
+    "review_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/comments{/number}",
+    "review_comments": 0,
+    "review_comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2/comments",
+    "review_data": [],
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/7aa279595d288c7e7a04399ad5186556ee8cf20b",
+    "title": "📝 Add literate Org docs for every module in emacs-modular",
+    "updated_at": "2026-11-11T22:57:59Z",
+    "url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/2",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    }
+}

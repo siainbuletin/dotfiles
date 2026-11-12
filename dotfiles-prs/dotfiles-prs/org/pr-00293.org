@@ -1,0 +1,31 @@
+* PR #293: 📝 Stow docs: pulling changes, conflict error, STALE=ok
+:PROPERTIES:
+:PR_NUMBER: 293
+:URL: https://github.com/siainbuletin/dotfiles/pull/293
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/293][https://github.com/siainbuletin/dotfiles/pull/293]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-05 18:44
+- Merged :: 2026-11-05 18:45
+- Branch :: =293-stow-docs= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/728049867129fdc8915a132fed62c189721dc501][7280498671]]
+
+** Description
+/Requested by *Sia*/
+
+Documents what went wrong when =stow -R emacs-modular= was run before =cutover=.
+
+- README: how to get pulled changes into Emacs (=git pull= in =~/dotfiles=, =stow -R= only when files are added or removed).
+- README: the "cannot stow ... neither a link nor a directory" error, its cause, and why not to use plain =stow=, =--adopt= or =yadm pull=.
+- =migrate.sh=: ~STALE=ok~ lets =dryrun=/=cutover= continue when home files are only older copies of repo files; the old versions still go to the backup.
+
+No CHANGELOG edit (nightly routine owns it).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/29bd3c85bcfd405ae2ca4e5cc22d8418a4075bf5][29bd3c85bc]] Document pulling changes under Stow, the conflict error, and STALE=ok (Sia Piperea, 2026-11-05 18:43)

@@ -1,0 +1,26 @@
+* PR #307: 📝 Convert the Stow migration README to Org
+:PROPERTIES:
+:PR_NUMBER: 307
+:URL: https://github.com/siainbuletin/dotfiles/pull/307
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/307][https://github.com/siainbuletin/dotfiles/pull/307]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-07 19:20
+- Merged :: 2026-11-07 19:50
+- Branch :: =307-stow-readme-org= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/91aed6c8d67896b93e24f00f88b2fcc795073723][91aed6c8d6]]
+- Labels :: documentation
+
+** Description
+/Requested by *Sia*/
+
+Converts =stow-migration/README.md= to =README.org= (pandoc, then property drawers and title cleaned by hand) and updates the three references: =migrate.sh= header, ADR 0023, and =sp-vcontrol.org=. Content is unchanged. No CHANGELOG edit (nightly routine owns it).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/569f439379e94a7d832566d6855f80206e97c732][569f439379]] Convert stow-migration README to Org and update references (Sia Piperea, 2026-11-07 19:20)

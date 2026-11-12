@@ -1,0 +1,44 @@
+* PR #48: ✨ Splash menu: nested agendas in boxes, no Mail or Projects
+:PROPERTIES:
+:PR_NUMBER: 48
+:URL: https://github.com/siainbuletin/dotfiles/pull/48
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/48][https://github.com/siainbuletin/dotfiles/pull/48]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-21 22:34
+- Merged :: 2026-10-23 13:39
+- Branch :: =48-splash-agendas= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5af0101b17e76b1b7fb8a9ace77228dd533f427e][5af0101b17]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21jZfxe5AmskoMP3AYBnVbr][project thread]]/
+
+Stacked on #45 (merge #45 first and GitHub retargets this to =main=).
+
+Before: the menu was a flat list (Agenda, Config, Mail, Notes, Projects) and =wawawewa= was centred on the window.
+
+After:
+
+- The menu is =sp-splash-menu=, a list of blocks, each drawn in a box of lines (=sp-splash-box-face=, inherits =shadow=) centred under the banner. Agenda is a block with nested rows: *General agenda* (=a=), *Thesis* (=t=), *Issues* (=i=), *Deadlines* (=d=). Config (=c=) and Notes (=n=) are single-row boxes.
+- Each agenda has a variable for its files: =sp-splash-agenda-general-files=, =-thesis-files=, =-issues-files=, =-deadlines-files=. While one is nil it uses =org-agenda-files=; General with nil keeps opening the agenda workspace. Deadlines shows only deadlines in the next =sp-splash-deadlines-days= (30).
+- Mail and Projects (rows, keys =m=/=p= and their commands) are removed.
+- =wawawewa= is italic and centred on the lambda (=sp-splash-footer-layer=), so it sits near the art.
+- =sp-splash.org= updated in step (new "Splash menu" section, agendas section); it tangles to the same text as the =.el=. CHANGELOG entry added.
+
+Not in this PR: the sidebar for writing projects and the issue tracker (own thread), and the theme colour framework (next PR).
+
+Checked in headless Emacs 29.3 (200x50, =nerd-icons-faicon= stubbed): three boxes under the banner with the nested agenda, footer under the lambda, and the deadlines command listed a test deadline 3 days ahead. Not checked: a real GUI frame with nerd icons and your fonts (box characters need a font with box drawing).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01T2BcMQ3qdNUiW5oZRLQRsG]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/3b605d4e5d2bdc020f32bccab4821dd688983aba][3b605d4e5d]] Splash menu: boxed blocks, nested agendas with file variables, italic footer under the lambda (Claude, 2026-10-21 22:34)
+- [[https://github.com/siainbuletin/dotfiles/commit/cbb0d5117cfa8e7c81fb95e53371733170e083c2][cbb0d5117c]] Merge 45-splash-art-layers into 48-splash-agendas (Claude, 2026-10-23 12:28)
+- [[https://github.com/siainbuletin/dotfiles/commit/8a57d6cb57fd5a792c787f42efd47414a93400d8][8a57d6cb57]] Splash: no scrolling or marking, TAB moves between buttons (Claude, 2026-10-23 12:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/c9c20d2d996fb1481bc1651b18c37dbae0a69bfd][c9c20d2d99]] Merge 45-splash-art-layers into 48-splash-agendas (Claude, 2026-10-23 13:36)

@@ -1,0 +1,46 @@
+* PR #35: 📝 Document the macOS stack for reviewing AI-made changes
+:PROPERTIES:
+:PR_NUMBER: 35
+:URL: https://github.com/siainbuletin/dotfiles/pull/35
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/35][https://github.com/siainbuletin/dotfiles/pull/35]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-21 17:01
+- Merged :: 2026-10-21 17:08
+- Branch :: =35-macos-ai-changes-stack= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/acbf449b7c726e9c1889ef1740511c5bf8a0ed95][acbf449b7c]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CHiDwgQt3zHhvwRCXabv3x][project thread]]/
+
+*Before:* the top-level =README.org= only described the Arch Linux machines. Nothing in the repo said how I review, merge and resolve conflicts on the many AI-made PRs, or why.
+
+*After:* a new section "Reviewing and merging AI-made changes on macOS" in =README.org= (which is the repo's front page) with:
+
+- the stack: yadm, fish, SourceGit on the plain clone =~/src/dotfiles-test=, =gh= and the merge button, Forge and code-review (=sp-vcontrol=), =sp-magit-style=, and =emacs-pr= / =sp-sandbox=;
+- how =sp-vc-ai-workbench= fits (worktrees shared with Magit and SourceGit; it is still commented out in =init.el= and has never been loaded);
+- seven rules from the #18 to #22 stack: number-prefixed branches, merge on GitHub so PRs show Merged, no rebasing stacked branches after the parent merges, merge the parent into the child, keep both sides in =CHANGELOG.org=, mine/theirs, and trying a PR with =emacs-pr=;
+- a table of the alternatives (Graphite, git-branchless, jj, lazygit, GitKraken, Sublime Merge, Fork, Meld, VS Code merge editor, GitHub Desktop, Magit ediff, smerge-mode, consult-gh, magit-stack) with pros, cons and why SourceGit was chosen.
+
+=CHANGELOG.org= has an entry under Open pull requests.
+
+*Project files (to complete or correct this by hand):* the files Claude keeps for this project are in the project's shared folder, [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2][open the project]]. The ones this section draws on:
+
+- =yadm/sourcegit-merge-conflicts.md=: SourceGit merge and conflict steps, and what could not be verified
+- =yadm/stacked-pr-conflicts.md=: merge order for the stack, CHANGELOG conflicts, the squash-merged-parent case
+- =yadm/worktrees-with-magit.md= and =yadm/magit-merge-and-docs-branch.md=: worktrees and branch work on the yadm repo
+- =module-docs/review-guide.md=: Forge setup, token, and recipes for your own PRs with Magit and =gh=
+- =emacs-sandbox/emacs-pr.fish=: the sandbox function
+
+*Not verified:* I wrote this in a Linux container. No SourceGit button name, =gh= command, ediff wrapper or the workbench module was run on the Mac; tool details come from project docs and my own knowledge and untried items are marked /untested/ in the text. I could not confirm that =magit-stack= exists as a maintained package, and the table says so. The existing =CHANGELOG.org= already has repeated =** Changed= headings under Open pull requests from earlier conflict merges; I left them alone.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_015WpxMsqdEyLFUmgXrKUQvi]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/7b24f4b624c3a2088a26c5c0dc1618598ba84790][7b24f4b624]] Document the macOS stack for reviewing AI-made changes in README.org (Claude, 2026-10-21 17:01)

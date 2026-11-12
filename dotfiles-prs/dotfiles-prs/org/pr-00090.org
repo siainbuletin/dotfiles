@@ -1,0 +1,52 @@
+* PR #90: ✨ Overhaul sp-academic BibTeX setup: one key scheme, one bibliography list
+:PROPERTIES:
+:PR_NUMBER: 90
+:URL: https://github.com/siainbuletin/dotfiles/pull/90
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/90][https://github.com/siainbuletin/dotfiles/pull/90]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-24 20:39
+- Merged :: 2026-10-24 21:06
+- Branch :: =90-bibtex-keys-and-citar= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/2cced3836d1912af9c31a4664cce6368333dbacf][2cced3836d]]
+- Labels :: enhancement
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW26wAfLRRbhSQHUmjT3byNkC][project thread]]/
+
+Cleans up plain-BibTeX handling in the academic modules (=sp-academic.org= is canonical; the =.el= files were tangled from it).
+
+*Citation keys: =smithjones-2017-atten-all=.* Your settings: year length 4, =-= between name, year and title words, 2 title words (stretch 1) of at most 5 letters. Your later edit in the =.el= (first two authors, ignore list gains "Is", "the", "a") is kept and the doc now matches it; "On" and "on" are also ignored; keys are lower case and ASCII (=Müller= → =muller=). Before, the options were set twice with different values and =biblio= entries kept whatever the service returned. Now:
+
+- all =bibtex-autokey-*= options live in one =use-package bibtex= block in =sp-bibprocess=;
+- =biblio-bibtex-use-autokey= gives inserted entries the same key;
+- =bibtex-search-entry-globally= + =bibtex-files= check keys across all registered files.
+
+*One folder option.* =sp-bibliography-dir= (in =sp-paths=) is the only one and now defaults to =~/Documents/bibliography=. =sp-bibtex-dir= (a copy of it) and the unused =sp-bibliography= are removed, no aliases. =sp-org-export= read =sp-bibliography= for pandoc; =sp-cite-to-org= / =sp-cite-to-markdown= now pass one =--bibliography= flag per registered =.bib= file. Existing =.bib= files must move to the new folder (or set =SP_BIBLIOGRAPHY_DIR=).
+
+*One bibliography list.* =sp-bibtex-register= also sets =org-ref-default-bibliography=, =bibtex-completion-bibliography= and =bibtex-files= (previously a hard-coded list of seven files in =sp-academic=, =master.bib= only for org-ref). The file regexp is fixed.
+
+*Citar fixes* (both were bugs):
+
+- =citar-bibliography= / =org-cite-global-bibliography= were set from =sp-bibliography= (nil), so Citar loaded with an empty bibliography. They now use =sp-bibtex-files=.
+- =citar-library-paths= was commented out; it is now =sp-literature-dir=. The extensions and separator moved to =sp-citations=; the =(setq citar-library-file-extensions nil)= it overrode is gone.
+- The =citar-symbols= =when= form and the =citar-notes-paths= =setq= sat inside =:custom= and never applied; they moved to =:config= / a proper entry (notes path falls back to =sp-notes-dir=).
+
+*Also:* removed the verbatim repeated block in =sp-bibprocess=; the =defcustom=s in =sp-academic= come before the =require=s; =citar-org-node= uses an Elpaca recipe instead of =:vc=; =H-b= moved into the =bibtex= block. The doc has "Citation keys" and "Settings worth knowing" sections.
+
+*Checked* (Emacs 29.3, batch): the key function (=smithjones-2017-atten-all=, =hegel-1807-phanom-geist=, =mullerjones-2020-origin-species=); =sp-bibtex-register= and =sp--pandoc-bibliography-args= on a temp directory; the edited files read without errors; docs tangle to the =.el= byte for byte (own tangler). =tools/set-defcustom-group.py --check= only reports =sp-collection-query-tables*.el=, which this PR does not touch. *Not run:* the whole configuration, Citar/org-cite with real =.bib= files, =biblio= insertion, pandoc, the Elpaca recipe for =citar-org-node=.
+
+*Overlap:* #87 also moves the three =defcustom=s to the top of =sp-academic= and will conflict in that hunk.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01HNdCfPPQBnsznsDyobvCof]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/8f998c4ec573b4a407c63f7e193ffb729c978ee2][8f998c4ec5]] Normalise BibTeX keys and register one list of .bib files (Claude, 2026-10-24 20:38)
+- [[https://github.com/siainbuletin/dotfiles/commit/2cc37e0eef3a4dcabc29ac1eafdbab78bdbc80d1][2cc37e0eef]] Use the requested autokey pattern: name-year-title words with hyphens (Claude, 2026-10-24 20:56)
+- [[https://github.com/siainbuletin/dotfiles/commit/ebd9345a95131f98b2a64f22edb5dba1e4001ac9][ebd9345a95]] fix: Adjust bibtex autokey generation rules (Sia Piperea, 2026-10-24 21:06)

@@ -1,0 +1,43 @@
+* PR #119: ✨ Size the mini-frame to Vertico's candidates, centre it and add padding
+:PROPERTIES:
+:PR_NUMBER: 119
+:URL: https://github.com/siainbuletin/dotfiles/pull/119
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/119][https://github.com/siainbuletin/dotfiles/pull/119]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-26 09:25
+- Merged :: 2026-10-26 11:51
+- Branch :: =120-mini-frame-ten-results= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/8ceefd6391f2e8f553da00089e1d885a2fa8f8ca][8ceefd6391]]
+- Labels :: bugfix
+
+** Description
+/Requested by *Sia*/
+
+*Cause of the long grey box:* =sp-mini-frame= set =mini-frame-resize= to =not-set= and gave the frame no height, so it kept the default frame height while Vertico showed only its candidates.
+
+*Changes in =sp-mini-frame=:*
+
+- No count of its own: the frame uses Vertico's normal =vertico-count= (from =sp-completion=). Nothing is set locally for the mini-frame.
+- The frame starts at one line and is *fitted to its content* (=mini-frame-resize= is now =t=), with a maximum of prompt + =vertico-count= candidates (+ the dotted divider line for =M-x=).
+- *Centred* horizontally (as before) and vertically for its largest size: =top= is computed in pixels as (parent height - largest frame height) / 2; the frame grows downward from there.
+- *Padding of 4 pixels* (=sp-mini-frame-padding=) in the frame's own background colour; =sp-mini-frame-border-color= gives it a colour for an outline. The border faces are now set on every showing (mini-frame sets them only when it makes the frame). =M-x= loses its one-pixel foreground border because the border is now the padding.
+
+*Not tested* (no Emacs in the container; =.el= paren-checked only): the height fitting with Vertico's candidate overlay (=vertico-resize=), the vertical centring on a real display, and the padding colour after a theme change. If the frame is one line too tall or short, adjust =sp-mini-frame--lines=.
+
+*Note:* =CHANGELOG.org= on =main= already has an entry numbered #119 (=sp-fetch-academic=) while that change merged as #118; this PR's entry uses its own number.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01MfEFZ7KDkwwcifErLfjf4X]]
+
+** Commits (5)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/324bff9adf3d45dbaf43e176db12af07da671c05][324bff9adf]] Limit the mini-frame to ten candidates, centre it and add padding (Claude, 2026-10-26 09:24)
+- [[https://github.com/siainbuletin/dotfiles/commit/67e1932b3ca7bb54de6289619c7c9ef95cddb65d][67e1932b3c]] Number the mini-frame entry #119 (Claude, 2026-10-26 09:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/7473e4d1fb4322a78c8d4bd290ee976a0a4fe4d0][7473e4d1fb]] Number the mini-frame entry #120 (#119 is taken by another change) (Claude, 2026-10-26 09:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/2fcc5339d83069da63725c6594e30e6bfff64bb0][2fcc5339d8]] Number the mini-frame entry #119, the number GitHub gave the PR (Claude, 2026-10-26 09:26)
+- [[https://github.com/siainbuletin/dotfiles/commit/c280e32516685ad8259f4850f6c34cf1b325d3ca][c280e32516]] Use the Vertico count for the mini-frame instead of a count of its own (Claude, 2026-10-26 11:48)

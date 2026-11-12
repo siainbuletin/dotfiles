@@ -1,0 +1,53 @@
+* PR #93: 🔧 Merge sp-paths into sp-globals and move my main settings there
+:PROPERTIES:
+:PR_NUMBER: 93
+:URL: https://github.com/siainbuletin/dotfiles/pull/93
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/93][https://github.com/siainbuletin/dotfiles/pull/93]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 13:39
+- Merged :: 2026-10-25 14:23
+- Branch :: =88-global-settings= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/eec59c18998ead62fa6922ce25c9844dbd81a9bb][eec59c1899]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2YUwbTNFP92MbconEgCJZPM][project thread]]/
+
+*What:* =sp-globals= (=libraries/modules/base/sp-globals.el=, doc =docs/tangles/base/sp-globals.org=) is now the one file for my most important settings, locations included.
+
+- *=sp-paths= is gone as a module.* Its content is in =sp-globals=, which says (commentary and doc) that it holds what should have been =sp-paths= as well, combined for simplicity and brevity. =(provide 'sp-paths)= stays, so an old =(require 'sp-paths)= still works. =init.el=, the four profiles, =sp-env=, =sp-org-lint=, =sp-org-normalise=, =docs/main.org=, =load-order.org=, the README and the run-emacs-modular skill now point at =sp-globals=.
+- *Moved in, with the same defaults:*
+  - =auth-sources= (=sp-auth-sources=).
+  - =sp-bibliography=, =sp-bib-notes=, =sp-citar-note=.
+  - The four =sp-dashboard-*= privacy options.
+  - =sia-hunspell-dictionaries=, plus the new =sp-ispell-program=.
+  - Prompts, bells and dialogs: =sp-confirm-kill-emacs=, =sp-confirm-kill-processes=, =sp-ring-bell-function=, =sp-visible-bell=, =sp-use-dialog-box=, =sp-use-file-dialog=.
+  - =sp-backup-directory= and =sp-create-lockfiles=.
+  - =sp-calendar-week-start-day=.
+  - =sp-persistent-scratch=, =sp-scratch-default-dir=.
+  - The folders =sp-bibtex-dir=, =sp-scratch-save-dir=, =sp-treemacs-root=, =sp-tab-inbox-dir=, =sp-emoji-font-install-dir=, =sp-trails-chrome-history=.
+  - New and =nil= (nothing changes until filled in): =sp-user-full-name=, =sp-user-mail-address=.
+- *Pointers:* every place a setting used to live has a =;; Moved to =sp-globals': ...=comment, in the=.el=and in the doc, and the doc prose links to=sp-globals`.
+- *Left where they are, as asked:* =sp-headless-host=, =sp-defer-late-modules=, per-package =:custom=, platform settings, values derived from a path. The default font and the theme also stay (=sp-fonts=, =sp-themes=).
+
+*Behaviour changes to know about:*
+
+- The =setq= settings (bells, dialogs, confirmations, lock files, backup folder, week start, =auth-sources=) now apply at startup, not when their old module loads.
+- =sp-ispell-program= is a name, looked up in =sp-spelling= with =executable-find= as before (not at startup, because the macOS =PATH= is only complete after =sp-env=).
+- =sp-tab-inbox-dir= is built from =sp-notes-dir= (same as =org-directory=), so it no longer needs Org loaded. =sp-emoji-font-install-dir= is built from =sp-data-home= (same folder).
+- =sp-trails-chrome-history= kept its name and default; only its definition moved.
+
+*Not tested:* no Emacs here. Brackets are balanced; every doc still tangles to its =.el= (the same 15 doc/=.el= mismatches as on =main=, none of them new); =set-defcustom-group.py --check= reports only the three =sp-collection-query-tables= files that it already reported on =main=. No CHANGELOG line, to avoid more conflicts on the "Open pull requests" set.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01PF79fi4scSSid1V5FvNkEF]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/144864403f78c02f58b7f8ae313fa1361dd02a76][144864403f]] Add sp-globals for my most important settings; move auth-sources there (Claude, 2026-10-25 13:39)
+- [[https://github.com/siainbuletin/dotfiles/commit/ea86eeb9780cba2a5f7a8bf6a961487bdaa3479a][ea86eeb978]] Merge sp-paths into sp-globals and move my main settings there (Claude, 2026-10-25 13:50)
+- [[https://github.com/siainbuletin/dotfiles/commit/0cbde8896c07c6a27f5a87d2fdc6a68531aa5a17][0cbde8896c]] Merge branch 'main' into 88-global-settings (Sia Piperea, 2026-10-25 14:23)

@@ -1,0 +1,62 @@
+* PR #284: ✨ Apply the keymap design: C-; leader, sessions, agenda and spelling groups, shims
+:PROPERTIES:
+:PR_NUMBER: 284
+:URL: https://github.com/siainbuletin/dotfiles/pull/284
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/284][https://github.com/siainbuletin/dotfiles/pull/284]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-03 14:08
+- Merged :: 2026-11-04 13:09
+- Branch :: =284-keymap-leader-c-z= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/e8927b008bcde2abdd7db8387f8f730ee47507ca][e8927b008b]]
+- Labels :: new-feature, simplifying, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21kRXq9R8f9BL3eSYVrQpsh][project thread]]/
+
+Applies the first part of =docs/architecture/global-keymap-namespaces.org= so it can be tried, and aligns the modifier keys across macOS, Linux and Windows.
+
+*Leader key: =C-;=.* Not =C-z=, =C-x=, =C-c= or =C-v= (clipboard and undo keys), not =Ctrl+Space= or =Cmd+Space= (OS and Alfred). =sp-spelling= unbinds =C-;= in =flyspell-mode-map=.
+
+*What to try after merging (GUI):*
+
+- =C-;= then =b=, =g=, =f=, =w=: the existing groups, now under =C-;= (with which-key).
+- =C-; a= (agenda, capture, focus HUD), =C-; S= (easysession), =C-; z= (spelling: =p= previous, =n= next, =.= at point), =C-; f d= (dirvish), =C-; w M= (jump to minibuffer), =C-; w D= (redraw), =C-; b P= (=pop-global-mark=).
+- =C-x C-SPC= prints where the leader moved and waits for the next key.
+- Old =C-c s s/L/d/R= and =C-c e b b= still work and print where they moved to.
+- =M-x sp-keys-audit= lists leader keys with no command and the shims still alive.
+- Mac: =Cmd+C/X/V/Z= and =Cmd+Shift+Z= copy, cut, paste, undo and redo; =M-x= is Option+X.
+- Mac window manager: hold Caps Lock plus =h/j/k/l=, =1=-=9=, =a b d e m t w=, =Tab=, =/=, =,= (the old =alt-*= keys of AeroSpace); Caps Lock + =Shift+;= enters service mode.
+- Linux (i3, sway): Caps Lock is =$mod=; dmenu is =$mod+d=.
+
+*Changes:*
+
+- =sp-prefix= is =C-;=.
+- Collisions removed: =C-c s l/r= (consult only), =C-c m= (supersonic only), =<f6>= (projectile only), =C-c f= (Org footnotes only; =org-focus-hud= and =dirvish= lose their =:bind=, keep =:commands=).
+- Shims live in =sp-keys-moved= until removed.
+- Removed: Python configuration (=sp-python=, =ein=) and Evil (last commit with it: 4164bae).
+- Clipboard and undo (=sp-macos=, =sp-text-manipulation=): on the Mac, Command is Super and Option is Meta, =s-c/s-x/s-v/s-z/s-Z= are plain bindings and CUA is off. On Linux and Windows CUA stays for =C-c=/=C-x= with a region only; =C-v= is =yank=, =C-z= is =undo=, =C-S-z= is =undo-redo=. The two =C-z= unbinds moved to =sp-text-manipulation=.
+- Window managers (non-Emacs): =aerospace.toml= no longer binds =alt-*= in main mode; Hammerspoon (=aerospace-keys.lua=) turns Caps Lock into F18 and runs the same =aerospace= commands. i3 and sway use Caps Lock as =$mod= (=caps:super=) and no longer bind Alt; i3's dmenu moved from Alt+Space to =$mod+d=. Windows has no window manager here.
+- Design doc: new sections "Keys freed by CUA", "Replacing CUA" and "Same keys on macOS, Linux and Windows" (linked to ADR 0019, ADR 0023, =sp-syslinux=, =sp-syswin=, =sp-macos=, =sp-text-manipulation=, =sp-globals=).
+- Docs and =.el= edited together; the doc blocks and the changed =.el= files match when compared ignoring whitespace.
+
+*Not done (later PRs):* one =defvar-keymap= per module and the registry, moving the =C-c w= / =C-c k= / =C-c d= keys, an Org local leader, the batch test, the 11 undefined leader commands.
+
+Not run in Emacs, AeroSpace, Hammerspoon, i3 or sway (none in the container). Check the =aerospace= path in =aerospace-keys.lua= and whether =s-b=/=s-i= reach Emacs on Linux.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9sdrKxJ3CH27TGGqB]]
+
+** Commits (7)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/7d60f30f6927a16be790ff1b2bbd827a376c8f1e][7d60f30f69]] Apply the keymap design: C-z leader, sessions and agenda groups, shims, audit (Claude, 2026-11-03 14:08)
+- [[https://github.com/siainbuletin/dotfiles/commit/e71231af230f023d19a95d8bd76801c4da5ec46e][e71231af23]] Move the leader from C-z to C-; because cua-mode is on; add a spelling group (Claude, 2026-11-03 14:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/dce71f1973a4d4827a1ac9560f451ef0fc1eddeb][dce71f1973]] Design doc: keys freed by CUA and options to replace CUA (Claude, 2026-11-03 15:06)
+- [[https://github.com/siainbuletin/dotfiles/commit/667d824153d983a79fe2f69c9177d9fc364526ab][667d824153]] Mac: Command is Super and Option is Meta, native clipboard keys; Caps Lock layer for AeroSpace, i3 and sway (Claude, 2026-11-03 21:48)
+- [[https://github.com/siainbuletin/dotfiles/commit/18543f7ab44d0b17c598d90f1d6411a73e754a27][18543f7ab4]] Merge branch 'main' into 284-keymap-leader-c-z (Sia Piperea, 2026-11-04 12:01)
+- [[https://github.com/siainbuletin/dotfiles/commit/19b61b6407623f4d4b7718dbec6ef080a326f03d][19b61b6407]] Link the cross-platform keys section to the other cross-platform docs; dotfiles changelog for the layer key (Claude, 2026-11-04 13:04)
+- [[https://github.com/siainbuletin/dotfiles/commit/878ac2fba8cd34728040ea3965dce0b89891b17a][878ac2fba8]] Leave the changelogs to the nightly tidy (Claude, 2026-11-04 13:05)

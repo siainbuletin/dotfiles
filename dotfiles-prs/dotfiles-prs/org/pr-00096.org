@@ -1,0 +1,30 @@
+* PR #96: 🐛 Source typlite's env.fish only when it exists
+:PROPERTIES:
+:PR_NUMBER: 96
+:URL: https://github.com/siainbuletin/dotfiles/pull/96
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/96][https://github.com/siainbuletin/dotfiles/pull/96]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-25 14:06
+- Merged :: 2026-10-25 14:13
+- Branch :: =96-guard-typlite-env= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/ebcfafcce1a7690e185d85abb10c2cdb63bb1ed4][ebcfafcce1]]
+- Labels :: bugfix
+
+** Description
+/Requested by *Sia*/
+
+Before: on the Mac, every fish start printed =source: Error encountered while sourcing file '~/.local/bin/env.fish'=, because =conf.d/typlite.env.fish= sources it unconditionally and typlite's installer never ran there (=~/.local/bin= only holds =claude=).
+
+After: the file is sourced only if it exists, so the error is gone on machines without typlite and nothing changes where it is installed.
+
+How: =test -f ...; and source ...=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/fa83bbd1ebbdf740267e0ab45ecdbde74f5e56c7][fa83bbd1eb]] Source typlite's env.fish only when it exists (Sia Piperea, 2026-10-25 14:06)

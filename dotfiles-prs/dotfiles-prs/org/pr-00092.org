@@ -1,0 +1,41 @@
+* PR #92: ✨ Add sp-fetch-academic: biblio, DOI look-up and PDF download
+:PROPERTIES:
+:PR_NUMBER: 92
+:URL: https://github.com/siainbuletin/dotfiles/pull/92
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/92][https://github.com/siainbuletin/dotfiles/pull/92]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-24 20:46
+- Merged :: 2026-10-26 09:15
+- Branch :: =92-fetch-academic= → =90-bibtex-keys-and-citar=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/6952ac69e7f14066af58616d16b5a009ddf36d1a][6952ac69e7]]
+- Labels :: simplifying
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW26wAfLRRbhSQHUmjT3byNkC][project thread]]/
+
+*Stacked on #90* (base is its branch; retarget to =main= after #90 merges). New sub-module =sp-fetch-academic=, required by =sp-academic= after =sp-bibprocess=; its doc is =docs/tangles/academic/sp-fetch-academic.org=.
+
+- *Search:* =biblio= and =biblio-gscholar= (Google Scholar) and the lookup commands move here from =sp-academic= / =sp-bibprocess=. =C-c w b b= is now =sp-fetch-academic-biblio-lookup=; the old =sp-bibtex-biblio-lookup= is gone, no alias. Inserted entries get the key scheme from #90.
+- *DOI:* =sp-fetch-academic-doi= (=C-c w b i=) adds an entry through =org-ref='s =doi-utils= and offers =doi-utils-get-bibtex-entry-pdf=.
+- *Download and import:* =sp-fetch-academic-download= (=C-c w b u=) saves a PDF from a URL into =sp-fetch-academic-download-dir= (default the literature folder), named after the entry's key, rejects anything that is not a PDF, and writes it into the entry's =file= field (relative to =sp-bibtex-dir=, =;=-separated, which the attachment audit already reads).
+- *consult-omni:* only a clearly marked placeholder (section and a =:tangle no= stub) in the doc, linked to the placeholder section of =sp-browsing.org=, which now links back. I did *not* flesh out =sp-browsing=: the working recipe exists only as a switched-off block in =sp-browsing-old.org=, and its comment says it caused errors at startup, so enabling it untested is not trivial.
+- *Docs:* entry in the =docs/main.org= module tree, a short section in =docs/architecture/load-order.org= (why it requires last and that =biblio= is still queued once), CHANGELOG line (#90 and #92 listed in dependency order under Open pull requests).
+
+*Checked* (Emacs 29.3, batch, with =use-package= stubbed): the download command copies a =file://= PDF to the library, names it after the key, writes ~file = {lit/<key>.pdf}~ and rejects an HTML file as "not a PDF"; the attach helper on entries with no =file= field, an existing one, and no trailing comma; DOI clean-up of =https://doi.org/…= and =doi:…=; =sp-bibtex-register= on a temp directory. That run caught that =bibtex-set-field= does not exist, so the field is edited with =bibtex-search-forward-field=. *Not run:* anything over the network (CrossRef, Google Scholar, =org-ref= DOI and PDF fetch), Elpaca installing =biblio-gscholar=, loading the whole configuration. I also expect =org-ref= to clean the new DOI entry with =bibtex-clean-entry= (so it gets the #90 key) but did not confirm it; check the first key you get.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01HNdCfPPQBnsznsDyobvCof]]
+
+** Commits (6)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/9483f8a55178970c5f7188a6992638576cd7b714][9483f8a551]] Add sp-fetch-academic: biblio, DOI look-up and PDF download (Claude, 2026-10-24 20:46)
+- [[https://github.com/siainbuletin/dotfiles/commit/e0f0ae22e45a642ba40793394435b16bf118f643][e0f0ae22e4]] Merge 90-bibtex-keys-and-citar into 92-fetch-academic (Claude, 2026-10-24 20:56)
+- [[https://github.com/siainbuletin/dotfiles/commit/60ec49f16ffb8c712f47988c9eda6a3d86ee2cca][60ec49f16f]] Merge 90-bibtex-keys-and-citar into 92-fetch-academic (Claude, 2026-10-24 21:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/ec5eb32ef4bfdec6987922633cf22ffb2bf71bac][ec5eb32ef4]] Merge 90-bibtex-keys-and-citar into 92-fetch-academic (Claude, 2026-10-24 21:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/edfd05495d0103e8dbdc91fc894842e7131114c4][edfd05495d]] sp-fetch-academic: use sp-bibliography-dir (Claude, 2026-10-24 21:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/9fe3e5d2ed56c4f066c9490ddb6f9adf66a48862][9fe3e5d2ed]] CHANGELOG: drop lines duplicated by the union merge (Claude, 2026-10-24 21:23)

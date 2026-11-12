@@ -1,0 +1,49 @@
+* PR #39: ✨ Show the relationship-annotator live view in an Emacs buffer (embr.el and xwidget-webkit)
+:PROPERTIES:
+:PR_NUMBER: 39
+:URL: https://github.com/siainbuletin/dotfiles/pull/39
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/39][https://github.com/siainbuletin/dotfiles/pull/39]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-21 21:12
+- Merged :: 2026-10-23 21:20
+- Branch :: =39-embr-live-view= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1817c844d8841f91d51267e290a5455856802735][1817c844d8]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2LyHQi7b6T67FotQ1nucEdp][project thread]]/
+
+*Before:* the live relationship graph (=sp-relationship-annotator-live=, on =127.0.0.1=) could only be opened in an outside browser.
+
+*After:* a new module =sp-embr= (=libraries/modules/custom/=, loaded in =lem--late-modules= after the live module) adds two more viewers and a comparison, all showing the same live page:
+
+- =M-x rel-anno-live-embr=: [[https://github.com/emacs-os/embr.el][embr.el]], a headless Chromium whose CDP screencast frames are drawn in a buffer. Needs Emacs 30.1, Python 3.10 and a Chromium it downloads (=M-x embr-install-or-update-chromium=); upstream says macOS is "Unknown".
+- =M-x rel-anno-live-xwidget=: Emacs's own =xwidget-webkit=, a native WebKit view (needs xwidgets; =sp-md= already uses them).
+- =M-x rel-anno-live-compare=: embr on the left, xwidget on the right.
+- =rel-anno-live= / =rel-anno-graph= are unchanged and still open the normal browser. Each new command asks for the note and depth the same way (and shares the remembered ones), starts the server if needed and uses the live module's URL and port, so there is no separate host/port setting. A viewer that is unusable or errors falls back to =sp-embr-fallback-function= (=browse-url=). =sp-embr-open= and =sp-embr-open-xwidget= take any URL.
+- Elpaca installs embr from GitHub (recipe from its README), only on Emacs 30+. Literate doc =docs/tangles/custom/sp-embr.org= has a checklist of what to compare (pan/zoom smoothness, CPU and memory, rendering, input, live reload); entries in =docs/main.org= and =CHANGELOG.org=.
+
+*Brought up to date:* =main= is merged in (including the renamed =rel-anno-= commands, the moved late-module list and the removal of the academic block from =init.el=); one conflict in =init.el= resolved by dropping the old block and adding =sp-embr= to =lem--late-modules=. A merge of =main= that was pushed to the branch in the meantime is merged too.
+
+*Tested:* Emacs 29.3 in a container: the module tangles from the doc, byte-compiles without warnings, and the three commands were run in batch against stubs of the live module (scope, server start and URL), with the =browse-url= fallback and the two-window layout.
+
+*Not tested:* embr itself (Emacs 29 is below its 30.1 minimum), the Elpaca recipe, the Chromium install, =xwidget-webkit-browse-url= and the side-by-side layout with real xwidgets (a new session is assumed to display in the selected window), the real live module, anything on macOS.
+
+--------------
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01EQjW571PLn9vkbScKxBJSR]]
+
+** Commits (6)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/3b5463a56533c6f520f16254e49e87a393d05fd5][3b5463a565]] Add sp-embr: show the annotator live view in an Emacs buffer (Claude, 2026-10-21 21:12)
+- [[https://github.com/siainbuletin/dotfiles/commit/bf451a5c5a6a55d1f581c65aebbf1fb52367fcc2][bf451a5c5a]] sp-embr: add an xwidget-webkit view and a side-by-side comparison (Claude, 2026-10-21 21:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/3d5da05e7a20cb8cddc5366ae8948f12c3c7c809][3d5da05e7a]] Merge branch 'main' into 39-embr-live-view (Sia Piperea, 2026-10-23 14:05)
+- [[https://github.com/siainbuletin/dotfiles/commit/64f54063c7a442399970589d61ac1d4eeddbb83b][64f54063c7]] Merge main into 39-embr-live-view; sp-embr uses the live view's commands (Claude, 2026-10-23 14:07)
+- [[https://github.com/siainbuletin/dotfiles/commit/7c98aacdb9fe848942f2a4ca6a128062b7a13a75][7c98aacdb9]] Merge remote-tracking branch 'origin/39-embr-live-view' into 39-embr-live-view (Claude, 2026-10-23 14:08)
+- [[https://github.com/siainbuletin/dotfiles/commit/b5bb2a121a80e9047861ee6cac203cd0d336301b][b5bb2a121a]] Merge branch 'main' into 39-embr-live-view (Sia Piperea, 2026-10-23 20:42)

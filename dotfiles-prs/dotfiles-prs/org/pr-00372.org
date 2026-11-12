@@ -1,0 +1,73 @@
+* PR #372: ✨ Add an attachment paths fix (bdsk-file to file) to the BibTeX lint
+:PROPERTIES:
+:PR_NUMBER: 372
+:URL: https://github.com/siainbuletin/dotfiles/pull/372
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/372][https://github.com/siainbuletin/dotfiles/pull/372]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-10 22:42
+- Merged :: 2026-11-10 23:06
+- Branch :: =claude/project-thread-07pt51= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/197b3e7c59980a680fea3f2749665e695ba44a1a][197b3e7c59]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2PP5G5M6XUy3ezceVz378Pm][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+A separate fix in =sp-bibtex-lint= for attachment paths: =M-x sp-bibtex-lint-fix-files=, a button in =sp-bibtex-lint-dryrun= (section "Attachment paths") and an entry in =sp-bibtex-lint-convert=.
+
+- BibDesk =bdsk-file-N= fields (base64 bookmark) become one ~file = {...}~ field; several files are joined with =;=, an existing plain =file= field is extended.
+  - The bookmark's old relative path gives a file name, looked up anywhere below =sp-literature-dir= (case and accents ignored); it must match exactly one file.
+  - Otherwise the only PDF whose name, minus BibDesk's trailing digit, equals the citekey is used.
+  - Entries that cannot be resolved keep their fields and are listed as problems.
+- Absolute =~/Documents/literature/...= paths (typos of =Documents= accepted) become relative to =sp-literature-dir=; a path whose file is elsewhere in the library is pointed at it.
+- Same pattern as the other fixes: whole file, one question, backup first, only the attachment fields change.
+- =sp-bibtex-files-flatten= (default nil) also moves the files to the top of the library and writes the bare name.
+- =sp-bibtex-files-devonthink-tool= (default nil): path of the new =tools/devonthink-move.py=. With it, the move goes through DEVONthink (one call per fix), so records keep their UUID, tags and annotations and =x-devonthink-item://= / =#+devonthink:= links keep working. If the tool stops, the =.bib= file is not written.
+
+**** New: tools/devonthink-move.py
+:PROPERTIES:
+:CUSTOM_ID: new-toolsdevonthink-movepy
+:END:
+- =move= (dry run unless =--apply=): =--library DIR --flatten SUBDIR...= or =--moves FILE= (FROMTO pairs, the format =sp-bibtex-files= logs). Each file is moved with DEVONthink's own =move=; afterwards the record is read back and the run stops at the first one whose UUID or path is not as expected. Files DEVONthink does not index are left alone, or renamed with =--plain-rename=. A manifest of the moves goes to =~/.local/state/devonthink-move/=.
+- =check NOTES_DIR...=: lists the UUIDs in notes (=x-devonthink-item://=, =devonthink:=, =#+devonthink:=) that DEVONthink does not know; run it before and after.
+- Literate doc =docs/tangles/academic/devonthink-move.org= (bullet lists), tangled to the tool and =tests/test_devonthink_move.py=.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- =tests/sp-bibprocess-lint-test.el=: 49/49 on Emacs 29.3 (bookmark decoding also checked against two real bookmarks; flatten with rename and with a faked tool, including the tool stopping).
+- =python3 -m unittest tests/test_devonthink_move.py=: 13 tests with DEVONthink faked.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- =devonthink-move.py= has not been run against DEVONthink. The JXA calls (=lookupRecordsWithPath=, =getRecordWithUuid=, =move=) and the assumption that moving an indexed record into the group of another folder of the same indexed hierarchy moves the file on disk are unverified. Try =check=, then =move ... --apply --limit 1=, then =check= again. If the file does not move, the read-back fails and the run stops with the file where it was.
+- Nothing was run on the Mac or on the real =.bib= files; try =M-x sp-bibtex-lint-dryrun= first.
+
+**** Notes
+:PROPERTIES:
+:CUSTOM_ID: notes
+:END:
+- Branch is =claude/project-thread-07pt51=; the number prefix could not be added from the cloud session.
+- No CHANGELOG edits (nightly tidy).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9j5uczieubaguho7q]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/e28acb0437a01ce5cd9ebbb4ee226f1214fb5a60][e28acb0437]] ✨ feat: attachment paths fix in the BibTeX lint (bdsk-file to file) (Claude, 2026-11-10 22:42)
+- [[https://github.com/siainbuletin/dotfiles/commit/8e5c2faa85975b814a6c4ccb06560b9a8e3f6ba0][8e5c2faa85]] 📝 docs: PR number in the changes list (Claude, 2026-11-10 22:42)
+- [[https://github.com/siainbuletin/dotfiles/commit/a23b49300bf8c5d21a85736c989b5eb880512c71][a23b49300b]] ✨ feat: move the PDFs through DEVONthink (devonthink-move.py) from the attachment paths fix (Claude, 2026-11-10 22:54)
+- [[https://github.com/siainbuletin/dotfiles/commit/2c9c591f08683a3e56b212059ba5d98f59a8268a][2c9c591f08]] Merge main into the attachment paths branch (Claude, 2026-11-10 23:01)

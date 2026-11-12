@@ -1,0 +1,62 @@
+* PR #67: ✨ One owner per agenda setting: vulpea-para agenda files, keywords, capture, views
+:PROPERTIES:
+:PR_NUMBER: 67
+:URL: https://github.com/siainbuletin/dotfiles/pull/67
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/67][https://github.com/siainbuletin/dotfiles/pull/67]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-10-23 15:26
+- Merged :: 2026-10-23 21:52
+- Branch :: =67-agenda-consolidation= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/a205ec91eba034bc00c4057b0722825e7dccf20e][a205ec91eb]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BXvYbsL5hJPxFZGv79aHKm][project thread]]/
+
+Implements the proposal from the thread's analysis doc. Reasons and alternatives are in =adr/0009-one-agenda-owner-per-setting.org= and =adr/0010-phase-out-denote.org=.
+
+*Agenda*
+
+- =sp-vulpea-para= turns on =vulpea-para-agenda-mode=: it owns =org-agenda-files=, filters =cemetery= notes (=sp-vulpea-para-agenda-note-p=, tested), and keeps =inbox.org= always listed. The three other =org-agenda-files= settings are gone.
+- The =org-mem= agenda hook is removed from =sp-org-node-mem=; the old code is kept in ADR 0009.
+- New =sp-org-keywords= is the only setter of =org-todo-keywords= (one constant per use) and gives =vulpea-para-done-keywords=. Its doc has a use-case table with empty columns to fill in, and the removed Workflow Status settings.
+- =sp-agenda-views= assigns =org-agenda-custom-commands= once (PARA, native and issue views) and holds every agenda key; =sp-org-issues=, =sp-org-base= and =sp-org-taskman-extra= point to it. Commands that restrict the files bind =vulpea-para-agenda-inhibit-files-update=.
+- =org-agenda-prefix-format= is one alist in =sp-org-agenda=.
+- The =sp-denote= agenda hooks are removed; Denote is to be phased out (ADR 0010).
+
+*Capture*
+
+- =sp-org-capture= assigns =org-capture-templates= once (t, i, p, I, n, l); the only inbox is =~/notes/inbox.org=.
+
+*Load order*: =sp-org-keywords= after =sp-org-base=; =sp-org-capture= and =sp-agenda-views= last (=init.el=, both lists; =sp-org-ext= no longer requires them). =docs/load-order-modules.svg= is redrawn.
+
+*Not done / to check*
+
+- Nothing was run with the real packages. Run vulpea-para's backfill once so existing files get the =agenda= tag.
+- =C-c d c= (org-gtd capture) is unbound; =C-c d p= still processes org-gtd's own inbox.
+- Dashboard/splash link and org-ql in the agenda were left out as asked.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01Y8ZgxDfdguwS7VT1Ascf4D]]
+
+** Conversation
+
+*** @siainbuletin, 2026-10-23 21:32
+[[https://github.com/siainbuletin/dotfiles/pull/67#issuecomment-6375151688][permalink]]
+For the =defconst= of =sp-org-keywords-trails= and =-questions=, try to combine the two in a unified research setup that doesn't end up overlapping.
+
+*** @siainbuletin, 2026-10-23 21:42
+[[https://github.com/siainbuletin/dotfiles/pull/67#issuecomment-6375328120][permalink]]
+See how the =sp-vulpea-para-test.el= test works and whether it does anything to the notes themselves.
+
+** Commits (5)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/67a15679bf070f643cecb9bde683dcb54ecf5251][67a15679bf]] Agenda: one owner per setting (vulpea-para agenda files, keywords, capture, views, keys) (Claude, 2026-10-23 15:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/8298680ba95de7845de34d86dc86e114a7ad2de7][8298680ba9]] Changelog for the agenda consolidation (Claude, 2026-10-23 15:26)
+- [[https://github.com/siainbuletin/dotfiles/commit/3cf088abfb5578a2142993d673d2f66bfc5cb9ed][3cf088abfb]] Remove the sp-denote agenda hooks, keep the removed Workflow Status settings, redraw the load-order SVG, add ADR 0010 (Claude, 2026-10-23 15:31)
+- [[https://github.com/siainbuletin/dotfiles/commit/9a31050c71fcb010e570c5e9c76875dc35bb1be0][9a31050c71]] Merge the research keyword sequences into one without overlapping words (Claude, 2026-10-23 21:33)
+- [[https://github.com/siainbuletin/dotfiles/commit/286664faf72ff91173486fde10229c49983bf5f8][286664faf7]] Merge branch 'main' into 67-agenda-consolidation (Sia Piperea, 2026-10-23 21:51)
