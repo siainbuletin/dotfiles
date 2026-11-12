@@ -588,12 +588,14 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 | =C-c o a q=               | The org-ql views                              | here, in the views         |
 | =C-c o a i i=, =C-c o a i b= | The issue board, issues with a branch      | here, in the views         |
 | =C-c o a c=               | The open TODOs of the config files            | here, in the views         |
+| =C-c o x=, =C-c o a x=    | Entries with an inline keyword (=FIXME=, ...) | here, in the views         |
 | =C-c d e n p s=           | org-gtd engage, next, process inbox, stuck    | =sp-org-taskman-extra=     |
 
 #+begin_src emacs-lisp -i
 ;;;; Keys
 (keymap-global-set "C-c o a" #'org-agenda)
 (keymap-global-set "C-c a" #'org-agenda)
+(keymap-global-set "C-c o x" #'sp-agenda-views-inline)
 
 (with-eval-after-load 'org-agenda
   (keymap-set org-agenda-mode-map "C-c ." #'org-gtd-agenda-transient))
@@ -750,6 +752,81 @@ The =i= prefix lists the open issues of the issue tracker.
   "The issue views, as `org-agenda-custom-commands' entries.")
 #+end_src
 
+** Inline keyword view
+
+=x= lists the entries whose heading or text holds a word that marks a problem to fix, such as =FIXME= in a draft.
+
+- It is Org's search view with a regexp, so each hit is an agenda line that jumps to the place on =RET=.
+- =sp-agenda-views-inline-keywords= holds the words: =FIXME=, =CITE=, =TK=, =XXX=. They match as whole words.
+- Changing the option installs the view again, with the new words.
+- =sp-agenda-views-inline-extra-dirs= lists folders scanned besides the agenda files. The default is =sp-writing-projects=, because draft headings are not always agenda entries.
+- Hidden folders of those folders are skipped.
+- =sp-agenda-views-inline= opens the view; it is bound to =C-c o x=.
+- Each line starts with the file title, as in the config view.
+- Not covered: text before a file's first heading (the search view skips it).
+- Whether =fixme= also matches depends on Org's search view.
+
+#+begin_src emacs-lisp -i
+;;;; Inline keywords
+
+(defvar sp-writing-projects)
+
+(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX")
+  "Words that mark a problem inside the text of an Org entry.
+- The inline view lists every entry whose text or heading holds one of them.
+- Words are matched whole, so \"TK\" does not hit \"Atkins\".
+- Org's search view decides whether the match ignores case."
+  :type '(repeat string)
+  :group 'spcustom
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-agenda-views--inline-install)
+           (sp-agenda-views--inline-install))))
+
+(defcustom sp-agenda-views-inline-extra-dirs (list sp-writing-projects)
+  "Folders whose Org files the inline view scans besides the agenda files.
+Drafts live there, and their headings are not always agenda entries."
+  :type '(repeat directory)
+  :group 'spcustom)
+
+(defun sp-agenda-views-inline-regexp ()
+  "Return the search-view term matching `sp-agenda-views-inline-keywords'."
+  (concat "{\\_<" (regexp-opt sp-agenda-views-inline-keywords) "\\_>}"))
+
+(defun sp-agenda-views-inline-files ()
+  "Return the agenda files plus the Org files of the extra folders."
+  (delete-dups
+   (append (org-agenda-files)
+           (seq-mapcat
+            (lambda (dir)
+              (when (and dir (file-directory-p dir))
+                (seq-remove (lambda (file) (string-match-p "/\\." file))
+                            (directory-files-recursively
+                             (expand-file-name dir) "\\.org\\'"))))
+            sp-agenda-views-inline-extra-dirs))))
+
+(defun sp-agenda-views--inline-entry ()
+  "Return the inline view, as an `org-agenda-custom-commands' entry."
+  `("x" "Inline keywords to fix" search ,(sp-agenda-views-inline-regexp)
+    ((org-agenda-files (sp-agenda-views-inline-files))
+     (vulpea-para-agenda-inhibit-files-update t)
+     (org-agenda-prefix-format '((search . " %(sp-agenda-views-file-title) ")))
+     (org-agenda-overriding-header "Inline keywords to fix")
+     (org-agenda-buffer-name "*Inline keywords*"))))
+
+(defun sp-agenda-views-inline ()
+  "Show the entries that hold an inline keyword, in the agenda."
+  (interactive)
+  (org-agenda nil "x"))
+
+(defun sp-agenda-views--inline-install ()
+  "Put the inline view into `org-agenda-custom-commands', replacing any old one."
+  (setq org-agenda-custom-commands
+        (append (seq-remove (lambda (cmd) (equal (car cmd) "x"))
+                            org-agenda-custom-commands)
+                (list (sp-agenda-views--inline-entry)))))
+#+end_src
+
 ** Config file views
 
 =c= lists every open TODO heading in the Org files of the dotfiles (the yadm repository in =~=): the docs in =docs/tangles/=, =README.org=, =CHANGELOG.org=, the ADRs. Each line starts with the =#+title:= of the file it comes from, in a 36 character column, instead of the Area and Project category the other views show. The file title is the useful label here, because these files are not vulpea-para areas or projects, so they have no category of their own.
@@ -893,7 +970,7 @@ A view on the space key, built from vulpea-para's blocks: items to refile, today
 
 ** The command list
 
-The one assignment. The PARA view comes first, then the native views, the org-ql views, the config view and the issue views.
+The one assignment. The PARA view comes first, then the native views, the org-ql views, the config view, the issue views and the inline keyword view.
 
 #+begin_src emacs-lisp -i
 (setq org-agenda-custom-commands
@@ -902,7 +979,8 @@ The one assignment. The PARA view comes first, then the native views, the org-ql
               sp-agenda-views-ql
               sp-agenda-views-config
               (when (featurep 'sp-org-issues)
-                sp-agenda-views-issues)))
+                sp-agenda-views-issues)
+              (list (sp-agenda-views--inline-entry))))
 #+end_src
 
 ** Provide
@@ -918,6 +996,9 @@ Provides the =sp-agenda-views= feature and closes the file.
 
 What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
+- [[https://github.com/siainbuletin/dotfiles/pull/395][#395]]
+  - ✨ View =x= and =C-c o x= list entries with an inline keyword (=sp-agenda-views-inline-keywords=), see "Inline keyword view".
+  - Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/191][#191]]
   - 🔧 =org-other-agenda= faces take their colours from the theme (=sp-org-agenda-board-accents=, =sp-org-agenda-board-roles=), see "org-other-agenda colours".
 - [[https://github.com/siainbuletin/dotfiles/pull/185][#185]]
