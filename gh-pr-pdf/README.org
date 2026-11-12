@@ -48,6 +48,25 @@ Pull request text comes from other people. Raw HTML is dropped, =pandoc= runs wi
 
 Text that Typst reads as code is escaped too: =@key= (a reference: "label =<key>= does not exist"), =$...$= (math) and =<key>= (a label). =pandoc= does not escape these the same way in every version, so the script swaps them for placeholders before =pandoc= and turns them into Typst escapes afterwards; fenced and inline code stay as written. Dollar signs are also kept literal in Markdown bodies, since otherwise =$HOME/$PATH= turns into a math fragment. If an unescaped =@name= is still left in the Typst source, the script warns with the line numbers.
 
+* Inline code followed by a dot
+
+- pandoc writes inline code as =#raw("...")=.
+- Typst reads =#raw("...").el= as field access on that element and stops with "raw does not have field el".
+- That happens when the source text has odd backticks (for example a code span nested in a code span), so pandoc leaves =.el= right after the span.
+- The script puts a zero-width space after =#raw(...)= when a dot and a letter follow, so the text stays text.
+- Only =#raw= calls are touched: table code like =(auto, auto).at(col)= needs its dot.
+
+* Page per pull request
+
+- Every level-1 heading in the Typst source is one pull request (or discussion).
+- The preamble has =#show heading.where(level: 1)= with a weak =pagebreak=, so each one starts on a new page.
+- Weak: no blank page when the heading already starts one.
+
+* Stale PDF
+
+- Before =typst compile=, the script deletes the old PDF.
+- A failed compile then leaves no older PDF that looks current (and lacks the newer pull requests).
+
 * Not run
 
 Written in a container without a Mac or a Linux desktop, without Typst and without network access to GitHub's API. What was run: the org and Typst-source output on made-up JSON, including headings in bodies, empty bodies, an injected =#+INCLUDE:= and the splitting into several PDFs. Not run:
