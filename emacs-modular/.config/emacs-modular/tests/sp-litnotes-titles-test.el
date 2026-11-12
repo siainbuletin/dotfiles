@@ -368,3 +368,33 @@
         ;; a failed note is listed with a link too
         (should (string-match-p "Failed:.*\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]: "
                                 (buffer-string)))))))
+
+(ert-deftest sp-litnotes-titles-editor-fallback ()
+  (sp-litnotes-titles-test--with-vault
+    (sp-litnotes-titles-test--note dir "ed.org" "1"
+                                   "- pub-editor :: Lee, Ann; Roe, Bo" "- pub-year :: 2014"
+                                   "- pub-title :: Essays")
+    (sp-litnotes-titles-test--note dir "both.org" "2"
+                                   "- pub-author :: Kant, Immanuel" "- pub-editor :: Lee, Ann"
+                                   "- pub-year :: 1781" "- pub-title :: Critique")
+    (sp-litnotes-titles-test--note dir "amb.org" "3" "- pub-author :: A B, C D, E F"
+                                   "- pub-editor :: Lee, Ann" "- pub-year :: 1" "- pub-title :: T")
+    (let ((plans (sp-litnotes-titles--plans)))
+      (cl-flet ((new (name) (plist-get (cl-find name plans :test #'string=
+                                                :key (lambda (p) (file-name-nondirectory (plist-get p :file))))
+                                       :new-title))
+                (status (name) (plist-get (cl-find name plans :test #'string=
+                                                   :key (lambda (p) (file-name-nondirectory (plist-get p :file))))
+                                          :title-status)))
+        (should (equal (new "ed.org") "Lee and Roe (2014) Essays"))
+        (should (equal (new "both.org") "Kant (1781) Critique"))
+        (should (eq (status "amb.org") 'ambiguous-author))
+        (let ((sp-litnotes-titles-editor-suffix " (ed.)"))
+          (should (equal (plist-get (sp-litnotes-titles--plan
+                                     (sp-litnotes-titles--parse (expand-file-name "ed.org" dir)))
+                                    :new-title)
+                         "Lee and Roe (ed.) (2014) Essays"))
+          (should (equal (plist-get (sp-litnotes-titles--plan
+                                     (sp-litnotes-titles--parse (expand-file-name "both.org" dir)))
+                                    :new-title)
+                         "Kant (1781) Critique")))))))
