@@ -171,6 +171,10 @@ Two functions decide it. Both are options, so the scoring can be changed without
 
 - =M-x sp-see-also-show=: the concepts and open questions of the current litnote, in the buffer =*see-also*=.
 - =M-x sp-see-also-show-concept=: the litnotes that mention a concept, in the buffer =*see-also-concept*=.
+- =M-x sp-see-also-show-concept-by-name=: the same view, for a note picked by title.
+  - The prompt is =sp-select-note= with =:grouped t=: the groups of =sp-find-note= (notes, writing projects, config), the tag emoji and column.
+  - No ID is typed and the entry at point is not used, so it works from any buffer.
+  - It needs a match (=:require-match t=); it falls back to =vulpea-select= when =sp-org-tag-groups= is not loaded.
 - Layout (the model is the context pane of =discourse-graphs=):
   - a /group/ per concept, open question or litnote, as a coloured heading (=sp-see-also-file-heading=) with its score and counts as small print;
   - an /entry/ per mention below it: a heading line (marks =❝= and =?=, the place, the question), then the context as an indented quote;
@@ -1380,6 +1384,19 @@ heading, with one entry for each mention."
              (dolist (m (plist-get entry :mentions))
                (sp-see-also-view--entry file m (or (plist-get m :heading) "file"))))))))))
 
+;;;###autoload
+(defun sp-see-also-show-concept-by-name ()
+  "Pick a note by its title and show where it is mentioned in see-also footnotes.
+Like `sp-see-also-show-concept', but the note is chosen in the minibuffer
+with the groups of `sp-find-note' (notes, writing projects, config), not
+taken from the entry at point, and no ID is typed."
+  (interactive)
+  (and-let* ((note (if (fboundp 'sp-select-note)
+                       (sp-select-note "Concept: " :require-match t :grouped t)
+                     (vulpea-select "Concept" :require-match t)))
+             (id (vulpea-note-id note)))
+    (sp-see-also-show-concept id)))
+
 (with-eval-after-load 'vulpea-ui
   (condition-case err
       (require 'sp-see-also-widget)
@@ -2021,6 +2038,19 @@ heading, with one entry for each mention."
         (revert-buffer)
         (should (> (buffer-size) 0))))
       (kill-buffer "*see-also*"))))
+
+(ert-deftest sp-see-also-view-concept-by-name-picks-by-title ()
+  (let (args shown)
+    (cl-letf (((symbol-function 'sp-select-note)
+               (lambda (&rest a) (setq args a) 'a-note))
+              ((symbol-function 'vulpea-note-id)
+               (lambda (n) (and (eq n 'a-note) "c-one")))
+              ((symbol-function 'sp-see-also-show-concept)
+               (lambda (id) (setq shown id))))
+      (sp-see-also-show-concept-by-name)
+      (should (equal shown "c-one"))
+      (should (plist-get (cdr args) :grouped))
+      (should (plist-get (cdr args) :require-match)))))
 
 (ert-deftest sp-see-also-view-concept-groups-by-litnote ()
   (sp-see-also-test--with-vault
