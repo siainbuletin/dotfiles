@@ -181,6 +181,101 @@ The cited column keeps the default of `citar'."
                                       :tag "has:notes")
               citar-indicator-cited)))
 
+;;;; Citar candidate widths
+;; `citar' gives every `*' column of the template an equal share of the frame width, so a
+;; short column leaves blanks and a long one is cut. Here the columns are sized from
+;; the entries themselves, and to the width of the posframe, not of the frame.
+(defvar citar--entries)
+
+(defcustom sp-citations-candidate-margin 2
+  "Columns kept free at the right of the `citar' candidates."
+  :type 'integer
+  :group 'sp)
+
+(defun sp-citations--candidate-width ()
+  "Return the columns a `citar' candidate may fill.
+That is the share of the frame the posframe takes while `vertico-posframe-mode'
+is on in a graphical frame, and the width of the frame otherwise."
+  (if (and (bound-and-true-p vertico-posframe-mode)
+           (boundp 'sp-posframe-width-fraction)
+           (display-graphic-p))
+      (round (* sp-posframe-width-fraction (frame-width)))
+    (frame-width)))
+
+(defun sp-citations--fit-widths (naturals room)
+  "Return a list of column widths that fit ROOM, from the NATURALS widths.
+Every column that is narrower than an equal share keeps its full width, and
+the columns left share the rest equally, the widest taking the remainder."
+  (let ((widths (make-vector (length naturals) 0))
+        (left (max 0 room))
+        (count (length naturals)))
+    (dolist (index (sort (number-sequence 0 (1- (length naturals)))
+                         (lambda (a b) (< (nth a naturals) (nth b naturals)))))
+      (let ((width (min (nth index naturals) (/ left count))))
+        (aset widths index width)
+        (setq left (- left width)
+              count (1- count))))
+    (append widths nil)))
+
+(defun sp-citations--assemble (strings widths)
+  "Join the preformatted STRINGS of a candidate, giving each column its WIDTHS.
+STRINGS alternates fixed text and column values, as `citar-format--preformat'
+returns it.  A column of width 0 is left out with the text before it."
+  (let ((out (or (car strings) ""))
+        (previous nil))
+    (cl-loop for (value following) on (cdr strings) by #'cddr
+             for width in widths
+             do (when (> width 0)
+                  (setq out (concat out previous
+                                    (citar-format--string
+                                     value :width width :hide-elided t
+                                     :ellipsis citar-ellipsis))))
+                (setq previous following))
+    (concat out previous)))
+
+(defun sp-citations--format-candidates (original)
+  "Format the `citar' candidates with widths fitted to their content.
+Around advice of `citar--format-candidates', which is ORIGINAL; it is used
+when the templates have no `*' column."
+  (let* ((bibs (citar--bibliographies))
+         (preformatted (and bibs (citar-cache--preformatted bibs)))
+         (sample nil)
+         (naturals nil))
+    (when preformatted
+      (maphash
+       (lambda (_key preform)
+         (let ((values (cl-loop for (value) on (cddr preform) by #'cddr
+                                collect (string-width value))))
+           (setq sample (or sample preform)
+                 naturals (if naturals (cl-mapcar #'max naturals values) values))))
+       preformatted))
+    (if (null naturals)
+        (funcall original)
+      (let* ((citar--entries (citar-cache--entries bibs))
+             (indicatorprocs (citar--make-indicator-processors citar-indicators))
+             (symbolswidth (string-width (citar--make-indicator-symbols "")))
+             (strings (cdr sample))
+             ;; The text before an empty column is left out, but not before the first.
+             (dropped (cl-loop for width in naturals
+                               for (text) on strings by #'cddr
+                               for first = t then nil
+                               when (and (= width 0) (not first))
+                               sum (string-width text)))
+             (room (- (sp-citations--candidate-width) symbolswidth
+                      sp-citations-candidate-margin (- (car sample) dropped)))
+             (widths (sp-citations--fit-widths naturals room))
+             (completions (make-hash-table :test 'equal
+                                           :size (hash-table-count citar--entries))))
+        (prog1 completions
+          (maphash
+           (lambda (citekey _entry)
+             (let ((preform (or (gethash citekey preformatted)
+                                (error "No preformatted candidate string: %s" citekey))))
+               (puthash (concat (sp-citations--assemble (cdr preform) widths)
+                                (citar--make-indicator-tags citekey indicatorprocs))
+                        citekey completions)))
+           citar--entries))))))
+
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
@@ -207,10 +302,10 @@ The cited column keeps the default of `citar'."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . " ${title:48}   ${author editor:30}")
+        `((main . " ${title:*}   ${author editor:*}   ${year issued date:*}")
           (suffix . ,(concat "   "
-                             (propertize "${=key= id:15}" 'face 'sp-citar-key)
-                             "   ${=type=:12}   ${=beref=:12}   ${tags keywords:*}"))
+                             (propertize "${=key= id:*}" 'face 'sp-citar-key)
+                             "   ${=type=:*}   ${=beref=:*}   ${tags keywords:*}"))
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
           (note . ,sp-citar-note)))
 
@@ -218,6 +313,7 @@ The cited column keeps the default of `citar'."
   ;; Find a PDF that is not where its `file' field says.
   (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (sp-citations-setup-indicators)
+  (advice-add 'citar--format-candidates :around #'sp-citations--format-candidates)
   (sp-citations-update-indicator-faces)
 
   :bind
