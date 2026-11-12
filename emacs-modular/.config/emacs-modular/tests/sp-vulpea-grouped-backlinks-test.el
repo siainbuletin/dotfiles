@@ -23,6 +23,7 @@
   (defun vulpea-note-id (note) (plist-get note :id))
   (defun vulpea-note-title (note) (plist-get note :title))
   (defun vulpea-note-path (note) (plist-get note :path))
+  (defun vulpea-note-tags (note) (plist-get note :tags))
   (defun sp-collec-query-select-note (_prompt) nil)
   ;; vulpea-ui: the module only calls these three.
   (provide 'vulpea-ui)
@@ -40,6 +41,8 @@
        "../libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el"
        (file-name-directory (or load-file-name buffer-file-name)))
       nil t)
+
+(defvar sp-writing-projects)
 
 (defmacro sp-vulpea-grouped-backlinks-test--with-vault (&rest body)
   "Run BODY with two source notes linking to note \"target\".
@@ -81,8 +84,9 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
   (sp-vulpea-grouped-backlinks-test--with-vault
     (let ((groups (sp-vulpea-grouped-backlinks-classify "target")))
       (should (equal (sort (mapcar #'car groups) #'string<)
-                     '("Mentions" "pub-author")))
-      (should (equal (mapcar #'vulpea-note-id (cdr (assoc "Mentions" groups)))
+                     '("Mentions / Notes" "pub-author")))
+      (should (equal (mapcar #'vulpea-note-id
+                             (cdr (assoc "Mentions / Notes" groups)))
                      '("a")))
       (should (equal (mapcar #'vulpea-note-id (cdr (assoc "pub-author" groups)))
                      '("b"))))))
@@ -97,6 +101,7 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
       (let ((text (buffer-string)))
         (should (string-match-p "^\\* Backlinks to Target$" text))
         (should (string-match-p "^\\*\\* Mentions (1)$" text))
+        (should (string-match-p "^\\*\\*\\* Notes (1)$" text))
         (should (string-match-p "^\\*\\* pub-author (1)$" text))
         (should (string-match-p "\\[\\[id:a\\]\\[Note A\\]\\]" text))
         (should (< (string-match "Mentions" text)
@@ -155,6 +160,7 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
       (should (= (nth 2 tree) 2))
       (let ((flat (format "%S" (nth 3 tree))))
         (should (string-match-p "Mentions (1)" flat))
+        (should (string-match-p "Notes (1)" flat))
         (should (string-match-p "pub-author (1)" flat))
         (should (string-match-p "vulpea-ui-note-link" flat))
         (should (string-match-p ":id \"b\"" flat))))))
@@ -190,7 +196,7 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
 (ert-deftest sp-vulpea-grouped-backlinks-test-sorted-puts-mentions-first ()
   (sp-vulpea-grouped-backlinks-test--with-vault
     (should (equal (mapcar #'car (sp-vulpea-grouped-backlinks-sorted "target"))
-                   '("Mentions" "pub-author")))))
+                   '("Mentions / Notes" "pub-author")))))
 
 (ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-opens-in-a-side-window ()
   (sp-vulpea-grouped-backlinks-test--with-sidebar
@@ -200,8 +206,10 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
       (should (eq (window-parameter win 'window-side) 'right)))
     (let ((text (sp-vulpea-grouped-backlinks-test--sidebar-text)))
       (should (string-match-p "Backlinks to Target" text))
-      (should (string-match-p "Mentions (1)" text))
-      (should (string-match-p "pub-author (1)" text))
+      (should (string-match-p "^Mentions (1)$" text))
+      (should (string-match-p "^  Notes (1)$" text))
+      (should (string-match-p "^    Note A$" text))
+      (should (string-match-p "^pub-author (1)$" text))
       (should (string-match-p "following the main note" text)))))
 
 (ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-command-toggles ()
@@ -273,6 +281,180 @@ Note \"a\" has a plain mention and note \"b\" lists the target under
       (push-button))
     (should (equal (vulpea-note-id sp-vulpea-grouped-backlinks-test--visited)
                    "b"))))
+
+;;;; Kinds of mention
+
+(defmacro sp-vulpea-grouped-backlinks-test--with-kinds (&rest body)
+  "Run BODY in a vault whose notes mention \"target\" from every kind of file.
+Note \"z\" is tagged `zettel', \"c\" `concept', \"l\" `litnote', \"lz\" both
+`litnote' and `zettel', \"u\" has no tag, \"w\" is a litnote inside a writing
+project and \"b\" lists the target under `pub-author'."
+  (declare (indent 0))
+  `(let* ((dir (make-temp-file "sp-gb-" t))
+          (sp-writing-projects (file-name-as-directory
+                                (expand-file-name "writing" dir)))
+          (files nil)
+          (notes nil)
+          (links nil))
+     (make-directory (expand-file-name "p" sp-writing-projects) t)
+     (unwind-protect
+         (progn
+           (dolist (spec `(("z" ("zettel") "Zettel Z" "z.org")
+                           ("c" ("concept") "Concept C" "c.org")
+                           ("l" ("litnote") "Litnote L" "l.org")
+                           ("lz" ("litnote" "zettel") "Both LZ" "lz.org")
+                           ("u" nil "Untagged U" "u.org")
+                           ("w" ("litnote") "Writing W" "writing/p/w.org")
+                           ("b" nil "Meta B" "b.org")))
+             (let ((file (expand-file-name (nth 3 spec) dir)))
+               (with-temp-file file
+                 (insert (if (equal (car spec) "b")
+                             "* X\n- pub-author :: [[id:target][T]]\n"
+                           "* X\nSome prose with [[id:target][T]] inside.\n")))
+               (push file files)
+               (push (cons (car spec)
+                           (list :id (car spec) :title (nth 2 spec)
+                                 :path file :tags (nth 1 spec)))
+                     notes)
+               (push (list :source (car spec)
+                           :pos (if (equal (car spec) "b") 12 20))
+                     links)))
+           (push (cons "target" (list :id "target" :title "Target"
+                                      :path (car files)))
+                 notes)
+           (let ((sp-vulpea-grouped-backlinks-test--notes notes)
+                 (sp-vulpea-grouped-backlinks-test--links
+                  (list (cons "target" (reverse links)))))
+             ,@body))
+       (mapc #'kill-buffer (delq nil (mapcar #'find-buffer-visiting files)))
+       (delete-directory dir t))))
+
+(defun sp-vulpea-grouped-backlinks-test--ids (groups name)
+  "Sorted note IDs of the group NAME in GROUPS."
+  (sort (mapcar #'vulpea-note-id (cdr (assoc name groups))) #'string<))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-mentions-split-by-kind ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (let ((groups (sp-vulpea-grouped-backlinks-classify "target")))
+      (should (equal (sp-vulpea-grouped-backlinks-test--ids
+                      groups "Mentions / Notes")
+                     '("c" "u" "z")))
+      (should (equal (sp-vulpea-grouped-backlinks-test--ids
+                      groups "Mentions / Litnotes")
+                     '("l" "lz")))
+      (should (equal (sp-vulpea-grouped-backlinks-test--ids
+                      groups "Mentions / Writing projects")
+                     '("w")))
+      (should (equal (sp-vulpea-grouped-backlinks-test--ids groups "pub-author")
+                     '("b"))))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-writing-project-wins-over-tags ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (should (equal (sp-vulpea-grouped-backlinks--mention-kind
+                    (cdr (assoc "w" sp-vulpea-grouped-backlinks-test--notes)))
+                   "Writing projects"))
+    (let ((sp-writing-projects nil))
+      (should (equal (sp-vulpea-grouped-backlinks--mention-kind
+                      (cdr (assoc "w" sp-vulpea-grouped-backlinks-test--notes)))
+                     "Litnotes")))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sorted-orders-the-kinds ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (should (equal (mapcar #'car (sp-vulpea-grouped-backlinks-sorted "target"))
+                   '("Mentions / Notes" "Mentions / Litnotes"
+                     "Mentions / Writing projects" "pub-author")))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sections-nest-the-mentions ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (let ((sections (sp-vulpea-grouped-backlinks-sections "target")))
+      (should (equal (mapcar #'car sections) '("Mentions" "pub-author")))
+      (let ((mentions (car sections)))
+        (should (equal (mapcar #'car (cdr mentions))
+                       '("Notes" "Litnotes" "Writing projects")))
+        (should (= (sp-vulpea-grouped-backlinks-section-count mentions) 6))
+        (should-not (sp-vulpea-grouped-backlinks--flat-p mentions)))
+      (should (sp-vulpea-grouped-backlinks--flat-p (cadr sections)))
+      (should (= (sp-vulpea-grouped-backlinks-section-count (cadr sections)) 1)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sections-skip-empty-kinds ()
+  (sp-vulpea-grouped-backlinks-test--with-vault
+    (let ((sections (sp-vulpea-grouped-backlinks-sections "target")))
+      (should (equal (mapcar #'car (cdar sections)) '("Notes"))))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-org-buffer-has-kind-subsections ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (cl-letf (((symbol-function 'display-buffer) #'ignore))
+      (let ((sp-vulpea-grouped-backlinks-block-padding 2))
+        (sp-vulpea-grouped-backlinks-org-detached
+         (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))))
+    (with-current-buffer "*vulpea backlinks: Target*"
+      (let ((text (buffer-string)))
+        (should (string-match-p "^\\*\\* Mentions (6)$" text))
+        (should (string-match-p "^\\*\\*\\* Notes (3)$" text))
+        (should (string-match-p "^\\*\\*\\* Litnotes (2)$" text))
+        (should (string-match-p "^\\*\\*\\* Writing projects (1)$" text))
+        (should (string-match-p "^\\*\\* pub-author (1)$" text))
+        (should (< (string-match "Notes (3)" text)
+                   (string-match "Litnotes (2)" text)
+                   (string-match "Writing projects (1)" text)
+                   (string-match "pub-author (1)" text)))
+        ;; two blank lines between blocks, none inside one
+        (should (string-match-p "\\]\\]\n\n\n\\*\\*\\* Litnotes" text))
+        (should (string-match-p "\\]\\]\n\n\n\\*\\* pub-author" text))
+        (should-not (string-match-p "Mentions (6)\n\n" text)))
+      (kill-buffer))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-padding-is-configurable ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (cl-letf (((symbol-function 'display-buffer) #'ignore))
+      (let ((sp-vulpea-grouped-backlinks-block-padding 1))
+        (sp-vulpea-grouped-backlinks-org-detached
+         (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))))
+    (with-current-buffer "*vulpea backlinks: Target*"
+      (let ((text (buffer-string)))
+        (should (string-match-p "\\]\\]\n\n\\*\\*\\* Litnotes" text))
+        (should-not (string-match-p "\n\n\n" text)))
+      (kill-buffer))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-sidebar-shows-kind-subsections ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (let ((sp-vulpea-grouped-backlinks-test--main
+           (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))
+          (sp-vulpea-grouped-backlinks-sidebar-follow t)
+          (sp-vulpea-grouped-backlinks-block-padding 2))
+      (unwind-protect
+          (progn
+            (sp-vulpea-grouped-backlinks-sidebar)
+            (let ((text (sp-vulpea-grouped-backlinks-test--sidebar-text)))
+              (should (string-match-p "^Mentions (6)$" text))
+              (should (string-match-p "^  Notes (3)$" text))
+              (should (string-match-p "^  Litnotes (2)$" text))
+              (should (string-match-p "^  Writing projects (1)$" text))
+              (should (string-match-p "^    Litnote L$" text))
+              (should (string-match-p "^pub-author (1)$" text))
+              (should (string-match-p "\n\n\n  Litnotes" text))
+              (should (string-match-p "\n\n\npub-author" text))))
+        (sp-vulpea-grouped-backlinks-sidebar-close)))))
+
+(ert-deftest sp-vulpea-grouped-backlinks-test-widget-nests-the-kinds-with-padding ()
+  (sp-vulpea-grouped-backlinks-test--with-kinds
+    (let* ((sp-vulpea-grouped-backlinks-test--main
+            (cdr (assoc "target" sp-vulpea-grouped-backlinks-test--notes)))
+           (sp-vulpea-grouped-backlinks-block-padding 2)
+           (tree (sp-vulpea-grouped-backlinks-widget))
+           (flat (format "%S" (nth 3 tree))))
+      (should (= (nth 2 tree) 7))
+      (should (string-match-p "Mentions (6)" flat))
+      (should (string-match-p "Notes (3)" flat))
+      (should (string-match-p "Litnotes (2)" flat))
+      (should (string-match-p "Writing projects (1)" flat))
+      (should (< (string-match "Notes (3)" flat)
+                 (string-match "Litnotes (2)" flat)
+                 (string-match "Writing projects (1)" flat)
+                 (string-match "pub-author (1)" flat)))
+      ;; blank text lines separate the blocks: 2 between each of 3 kinds
+      ;; (2 gaps) and 2 between the 2 sections (1 gap)
+      (should (= (length (split-string flat "(text \"\")")) 7)))))
 
 (provide 'sp-vulpea-grouped-backlinks-test)
 ;;; sp-vulpea-grouped-backlinks-test.el ends here
