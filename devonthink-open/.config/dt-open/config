@@ -9,9 +9,5 @@
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
 
-# window: the PDF opens in its own DEVONthink window. reveal: it is shown in
-# the main window, in its database.
-DT_OPEN_MODE=window
-
 # 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
 DT_OPEN_DEBUG=1
