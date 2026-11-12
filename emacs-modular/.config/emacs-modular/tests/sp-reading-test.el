@@ -73,3 +73,15 @@
       (should-not (sp-reading-open "none")))))
 
 ;;; sp-reading-test.el ends here
+
+(ert-deftest sp-reading-test-listing-is-bulk-jxa-and-refresh-parses-it ()
+  (let ((script (sp-reading--listing-script)))
+    (should (string-match-p "app.databases.byName(\"literature\").contents" script))
+    (should (string-match-p "c.uuid()" script))
+    (should-not (string-match-p "every item" script)))
+  (let ((sp-reading-index nil))
+    (cl-letf (((symbol-function 'sp-reading--jxa)
+               (lambda (_) "U-1\tsmith-2017-x.pdf\nU-2\tother-2000-y.pdf")))
+      (sp-reading-refresh))
+    (should (equal (gethash "smith-2017-x" sp-reading-index) "U-1"))
+    (should (= (hash-table-count sp-reading-index) 2))))

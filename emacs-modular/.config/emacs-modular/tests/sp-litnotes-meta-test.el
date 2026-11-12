@@ -1362,10 +1362,58 @@
                               ("r1" . "reference-entries")))
                 (with-temp-buffer
                   (insert-file-contents (funcall file (car cell)))
-                  (should (search-forward (format ":view \"%s\"" (cdr cell)) nil t))))
+                  (should (search-forward (format ":view \"%s\"" (cdr cell)) nil t))
+                  ;; the heading sits above the block, blank lines around it
+                  (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN: collection-query-table"
+                                          (buffer-string)))))
               ;; the note without the litnote tag is untouched
               (should-not (with-temp-buffer (insert-file-contents (funcall file "n1"))
                                             (search-forward "BEGIN:" nil t)))
               ;; a second run adds nothing
               (should-not (plist-get (sp-litnotes-meta-add-all-tables) :inserted)))))
       (delete-directory dir t))))
+
+(ert-deftest sp-litnotes-meta-insert-table-block-is-resumable ()
+  (let ((head ":PROPERTIES:\n:ID: x\n:END:\n#+title: T\n\n"))
+    (cl-flet ((run (text)
+                (with-temp-buffer
+                  (insert text)
+                  (delay-mode-hooks (org-mode))
+                  (let ((first (sp-litnotes-meta--insert-table-block "book-sections"))
+                        (once (buffer-string))
+                        (second (sp-litnotes-meta--insert-table-block "book-sections")))
+                    (list first once second (buffer-string)))))
+              (count (re-s str)
+                (let ((n 0) (i 0))
+                  (while (string-match re-s str i) (setq n (1+ n) i (match-end 0)))
+                  n)))
+      ;; nothing yet: heading and block, above the first heading
+      (pcase-let ((`(,first ,once ,second ,final) (run (concat head "* H\n"))))
+        (should (eq first 'inserted))
+        (should (null second))
+        (should (equal once final))
+        (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN: collection-query-table.*\n\n#\\+END:\n\n\\* H\n"
+                                final)))
+      ;; no headings at all
+      (pcase-let ((`(,first ,_ ,second ,final) (run head)))
+        (should (eq first 'inserted))
+        (should (null second))
+        (should (= 1 (count "^\\* Sections" final))))
+      ;; a block from an earlier run, no heading: only the heading is added
+      (pcase-let ((`(,first ,_ ,second ,final)
+                   (run (concat head "#+BEGIN: collection-query-table :view \"book-sections\"\n\n#+END:\n\n* H\n"))))
+        (should (eq first 'heading))
+        (should (null second))
+        (should (= 1 (count "#\\+BEGIN:" final)))
+        (should (string-match-p "\n\n\\* Sections\n\n#\\+BEGIN:" final)))
+      ;; the heading without a block: the block goes under it
+      (pcase-let ((`(,first ,_ ,second ,final) (run (concat head "* Sections\n\n* H\n"))))
+        (should (eq first 'inserted))
+        (should (null second))
+        (should (= 1 (count "^\\* Sections" final)))
+        (should (= 1 (count "#\\+BEGIN:" final))))
+      ;; a block under another heading is left alone
+      (pcase-let ((`(,first ,_ ,_ ,final)
+                   (run (concat head "* H\n#+BEGIN: collection-query-table :view \"x\"\n#+END:\n"))))
+        (should (null first))
+        (should (= 0 (count "^\\* Sections" final)))))))

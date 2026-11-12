@@ -56,5 +56,17 @@
   (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) "/no/such/file.pdf")))
     (should-error (sp-devonthink-record-pdf "smith-2017-x.pdf") :type 'user-error)))
 
+(ert-deftest sp-devonthink-browse-script-is-bulk-jxa ()
+  (let ((script (sp-devonthink-browse--script)))
+    (should (string-match-p "byName(\"literature\").contents" script))
+    (should (string-match-p "c.location()" script))
+    (should (string-match-p "new RegExp(\"\\\\\\\\.pdf\\$\"" script))
+    (should-not (string-match-p "every item" script))))
+
+(ert-deftest sp-devonthink-browse-refresh-uses-jxa ()
+  (let ((sp-devonthink-browse--records nil))
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) sp-devonthink-browse-test--text)))
+      (should (= (length (sp-devonthink-browse-refresh)) 3)))))
+
 (provide 'sp-devonthink-browse-test)
 ;;; sp-devonthink-browse-test.el ends here
