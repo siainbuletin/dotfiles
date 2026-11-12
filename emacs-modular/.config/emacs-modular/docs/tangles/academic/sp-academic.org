@@ -3142,31 +3142,56 @@ Citar provides completing-read based selection of bibliography entries. Under =:
 Candidate layout (=citar-templates=):
 
 - the order is fixed: emoji, authors or editors, year, title, citekey, then the tags or keywords.
-- =main=: the entry type as an emoji (3 columns), the authors or editors (30), the year (4) and the title (60).
-- =suffix=: the citekey (45 columns, so a key of up to 45 characters shows in full), then the tags or keywords.
+- =main=: the entry type as an emoji (3 columns), the authors or editors, the year (4) and the title; the other widths come from the layout below.
+- =suffix=: the citekey (up to 45 columns), then the tags or keywords when there is room.
 - the entry type is an emoji from =sp-org-tag-groups-bibtex-types= (see [[file:../custom/sp-org-tag-groups.org][sp-org-tag-groups]]), made by the =etype= transform of =citar-display-transform-functions= (=sp-citations--type-emoji=); a type that is not in the table gets the fallback emoji, and so does every type when =sp-org-tag-groups= is not loaded.
-- the emoji is followed by a space, so the titles still line up if an emoji is drawn a little wider than its width says.
+- the type emoji sits in a cell of 3 columns measured in pixels (see "Exact emoji cells" below), so the next column starts in the same place whatever the emoji.
 - the =beref= field is no longer shown, to leave the room to the titles and citekeys.
 - the candidates are cached by =citar=: after a change to the table of types, refresh them with =citar-refresh=.
 - the citekey comes after the title, in the =sp-citar-key= face (=shadow= and italic, a faded grey in every theme).
-- columns are three spaces apart.
-- every column but the tags has a fixed width, so the columns are padded with spaces and line up in a monospaced font.
+- columns are two spaces apart.
+- every column has a fixed width, so the columns are padded with spaces and line up in a monospaced font.
 
 Indicators (=citar-indicators=, set by =sp-citations-setup-indicators= in =:config=):
 
 - four emoji, in this order: link 🌿️, file 📁️, note 📝️, cited 🎓️.
 - the cited indicator is new here; it uses =citar-is-cited=.
-- an indicator that is absent is a blank of the same width (=sp-citations-indicator-cell=, 2 columns).
+- each indicator is a cell of =sp-citations-indicator-cell= (2) columns measured in pixels; one that is absent is a blank of the same width.
 - there is no padding between the indicators; one space ends the block.
 - =citar= makes the padding from the last character of each indicator, so an empty padding would replace the emoji by a space; =sp-citations--indicator-symbols= (override of =citar--make-indicator-symbols=) builds the block instead.
 - the old =citar-symbols= setting is gone: it is obsolete since citar 1.4 and nothing read it.
 - the indicator faces and the Modus colours of the first version are gone: an emoji has its own colours.
 
-Candidate widths (the fitting of #406, #409, #411 and #427 is reverted):
+Exact emoji cells (=sp-citations--emoji-cell=):
 
-- the fitting of the columns to the posframe (=sp-citations--format-candidates= and its helpers) is removed, with =sp-citations-prefix-width=, the priorities, the maximum widths and the stretched spaces; it did not fix the alignment.
-- every column has a fixed width in the template, as it had before the fitting: type 3, authors 30, year 4, title 60, citekey 45, and the tags take the rest.
-- a longer value is cut at its width; to show more of a title, raise its number in =citar-templates=.
+- why the columns drifted: an emoji is drawn by the emoji font, not by the mono font, and its width is not the =string-width= that =citar= pads with.
+  - a glyph can be wider than two cells, or narrower;
+  - a variation selector (U+FE0F, in 🌿️ 📁️ 📝️ 🎓️) or a ZWJ sequence (the master's thesis emoji) changes what is drawn but not the character count;
+  - =citar= pads and cuts by =string-width=, so every row with a different emoji ended at a different pixel.
+- the fix measures instead of counting:
+  - =string-pixel-width= gives the width of the emoji in the font in use;
+  - the cell is a string of the right number of spaces (so =string-width= is exact and =citar= never pads or cuts it), with a =display= property: the emoji, then a space of the pixels left up to the cell (cells times =frame-char-width=);
+  - an emoji wider than its cell is made smaller (the =:height= of its face) until it fits;
+  - the pad is relative to the cell, not an =:align-to= from the left of the window, so it does not matter where the line starts (the Vertico mark, the posframe border).
+- the cells are cached by emoji, columns, character width and font; =sp-citations-fit-layout= clears the cache.
+- on a terminal the emoji is followed by spaces, as before.
+- not verified without a graphical Emacs: the real widths come from the emoji font of the machine (Apple Color Emoji on macOS), so check the rows by eye (see the PR).
+
+Candidate layout widths (=sp-citations--layout=, from the display):
+
+- the widths are worked out when the module loads, for the posframe in half of the display (a tile of AeroSpace): =sp-citations--half-frame-columns=.
+  - the width of a tile is half of the display less the AeroSpace gaps (8 outside on each side, 8 between: 24 in all);
+  - minus the internal border of the frame on both sides (=internal-border-width=, 30);
+  - times =sp-posframe-width-fraction= (0.75), divided by the width of one character of the =default= face (=frame-char-width=; the base face is 150, Aporetic Sans Mono).
+- =sp-citations-layout-columns= sets the columns by hand; nil takes them from the display.
+- 27 columns are fixed (=sp-citations-layout-overhead=): the margin, the Vertico mark and the four indicators, the type emoji, the year and the separators.
+- the rest is shared like this:
+  - the authors take a fifth, between 10 and 30 columns;
+  - the citekey takes up to 45 columns, but the title keeps 20 at least and the key keeps 16 at least;
+  - the title takes what is left;
+  - the tags are shown only with 110 columns of room or more (22 columns).
+- a citekey is only whole (45) from about 110 columns in all; below that the key is cut first, to 16 at the least: 80 columns give a key of 22, 90 give 30, 104 give 42.
+- after a change of font size, frame or posframe width, run =M-x sp-citations-fit-layout=: it works the widths out again and refreshes the candidates.
 
 The notes path was written inside =:custom= once, which expects pairs of variable and value, so use-package tried to customise variables literally named when and setq and neither was ever applied.
 
@@ -3260,13 +3285,60 @@ left to the other parsers, so this returns only the files it found."
 (defconst sp-citations-indicator-cell 2
   "Columns of one indicator, the width of an emoji.")
 
+;; An emoji is not drawn as wide as its `string-width' says: the width of the glyph
+;; comes from the emoji font, and a variation selector (U+FE0F) or a ZWJ sequence changes
+;; it again.  So each emoji is put in a cell whose width is measured in pixels, in the
+;; font in use, and padded to a whole number of character cells with a `display' space.
+;; The pad is relative, so it does not depend on where the line starts on the screen.
+(defvar sp-citations--cell-cache (make-hash-table :test 'equal)
+  "Cells made by `sp-citations--emoji-cell', by emoji, columns, character width and font.")
+
+(defun sp-citations--pixel-cells-p ()
+  "Non-nil when widths can be measured in pixels: a graphical frame."
+  (and (display-graphic-p) (fboundp 'string-pixel-width)))
+
+(defun sp-citations--build-cell (emoji cells)
+  "Return EMOJI shown in CELLS character cells, measured in pixels.
+The string is CELLS spaces, so its `string-width' is CELLS whatever the emoji is; its
+`display' property is the emoji, made smaller if it is wider than the cells, then a
+space that takes the pixels left.  `citar' therefore never pads or cuts it."
+  (let* ((target (* cells (frame-char-width)))
+         (glyph emoji)
+         (factor 1.0)
+         (width (string-pixel-width glyph)))
+    (dotimes (_ 2)
+      (when (> width target)
+        (setq factor (* factor 0.98 (/ (float target) width))
+              glyph (propertize emoji 'face `(:height ,factor))
+              width (string-pixel-width glyph))))
+    (propertize (make-string cells ?\s)
+                'display (concat glyph (propertize " " 'display
+                                                   `(space :width (,(max 0 (- target width)))))))))
+
+(defun sp-citations--emoji-cell (emoji cells)
+  "Return EMOJI in a cell of CELLS columns, exact in pixels on a graphical display.
+On a terminal it is the emoji and spaces up to CELLS columns."
+  (if (not (sp-citations--pixel-cells-p))
+      (concat emoji (make-string (max 1 (- cells (string-width emoji))) ?\s))
+    (let ((key (list emoji cells (frame-char-width)
+                     (face-attribute 'default :family nil t)
+                     (face-attribute 'default :height nil t))))
+      (or (gethash key sp-citations--cell-cache)
+          (puthash key (sp-citations--build-cell emoji cells) sp-citations--cell-cache)))))
+
+(defun sp-citations--blank-cell (cells)
+  "Return a blank of CELLS character cells, exact in pixels on a graphical display."
+  (if (sp-citations--pixel-cells-p)
+      (propertize (make-string cells ?\s)
+                  'display `(space :width (,(* cells (frame-char-width)))))
+    (make-string cells ?\s)))
+
 (defun sp-citations-setup-indicators ()
   "Set `citar-indicators' to the link, file, note and cited emoji."
   (cl-flet ((indicator (symbol function tag)
               (citar-indicator-create
                :symbol symbol :padding ""
-               :emptysymbol (propertize (make-string sp-citations-indicator-cell ?\s)
-                                        'display `(space :width ,sp-citations-indicator-cell))
+               :emptysymbol (make-string sp-citations-indicator-cell ?\s)
                :function function :tag tag)))
     (setq citar-indicators
           (list (indicator "\U0001F33F️" #'citar-has-links "has:links")   ; link
@@ -3277,12 +3349,14 @@ left to the other parsers, so this returns only the files it found."
 (defun sp-citations--indicator-symbols (candidate)
   "Return the indicators of CANDIDATE, ended by one space.
 Replaces `citar--make-indicator-symbols'.  Its padding is the last character of each
-indicator, so it cannot be empty."
+indicator, so it cannot be empty.  Each indicator is a cell of
+`sp-citations-indicator-cell' columns, measured in pixels."
   (concat (mapconcat
            (lambda (indicator)
              (if (string-match-p (citar-indicator-tag indicator) candidate)
-                 (citar-indicator-symbol indicator)
-               (citar-indicator-emptysymbol indicator)))
+                 (sp-citations--emoji-cell (citar-indicator-symbol indicator)
+                                           sp-citations-indicator-cell)
+               (sp-citations--blank-cell sp-citations-indicator-cell)))
            citar-indicators "")
           " "))
 
@@ -3291,17 +3365,83 @@ indicator, so it cannot be empty."
 (defvar sp-org-tag-groups-bibtex-type-fallback)
 
 (defun sp-citations--type-emoji (type)
-  "Return the emoji of the BibTeX entry TYPE, and a space, for the type column.
+  "Return the emoji of the BibTeX entry TYPE in a cell of 3 columns, for the type column.
 The emoji come from `sp-org-tag-groups-bibtex-types'; a type that is not in it,
-or the module not being loaded, gives the fallback emoji.  The space leaves
-room if the emoji is drawn wider than its width says.  Used as the `etype'
-transform of `citar-display-transform-functions'."
-  (concat (or (and (boundp 'sp-org-tag-groups-bibtex-types)
-                   (nth 1 (assoc (downcase (or type "")) sp-org-tag-groups-bibtex-types)))
-              (and (boundp 'sp-org-tag-groups-bibtex-type-fallback)
-                   sp-org-tag-groups-bibtex-type-fallback)
-              "\U0001F4C4\uFE0F")
-          " "))
+or the module not being loaded, gives the fallback emoji.  The cell is measured in
+pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
+`citar-display-transform-functions'."
+  (sp-citations--emoji-cell
+   (or (and (boundp 'sp-org-tag-groups-bibtex-types)
+            (nth 1 (assoc (downcase (or type "")) sp-org-tag-groups-bibtex-types)))
+       (and (boundp 'sp-org-tag-groups-bibtex-type-fallback)
+            sp-org-tag-groups-bibtex-type-fallback)
+       "\U0001F4C4\uFE0F")
+   3))
+
+;;;; Citar layout
+;; The widths in `citar-templates' are numbers, so they are worked out here from the
+;; columns that fit in half of the screen (a tiled window of AeroSpace), at the size of
+;; the `default' face.  The citekey is shown in full (45) when it fits; the authors and
+;; the title share what is left, and the tags only come back on a wide display.
+(defvar sp-posframe-width-fraction)
+
+(defcustom sp-citations-layout-columns nil
+  "Columns the `citar' candidates may take, or nil to work them out from the display.
+Nil means the posframe in half of the display: see `sp-citations--half-frame-columns'."
+  :type '(choice (const :tag "From the display" nil) integer)
+  :group 'sp)
+
+(defconst sp-citations-layout-overhead 27
+  "Columns the template spends besides authors, title, citekey and tags.
+That is 2 for the margin, 11 for the Vertico mark and the four indicators, 3 for the
+type emoji, 1 after it, 4 for the year and 6 for the separators (two columns each).")
+
+(defun sp-citations--half-frame-columns ()
+  "Return the columns of the posframe in half of the display, at the current font.
+AeroSpace gives a tile the half of the width left by its gaps (8 on each side and 8
+between), the frame loses its internal border on both sides, and the posframe takes
+`sp-posframe-width-fraction' of that.  Without a graphical display it is 60."
+  (if (display-graphic-p)
+      (let* ((half (/ (- (display-pixel-width) 24) 2.0))
+             (inner (- half (* 2 (or (frame-parameter nil 'internal-border-width) 0)))))
+        (floor (* (if (boundp 'sp-posframe-width-fraction) sp-posframe-width-fraction 0.75)
+                  (/ inner (frame-char-width)))))
+    60))
+
+(defun sp-citations--layout (&optional columns)
+  "Return the widths of the `citar' columns for COLUMNS as a plist.
+The keys are :author, :title, :key and :tags.  The citekey takes up to 45 columns, but
+never leaves the title under 20 and the authors under 10, and not under 16 itself;
+the title takes what is left after the authors, a fifth of the room (10 to 30).  Tags
+get 20 columns once the room is 110 columns or more."
+  (let* ((columns (or columns sp-citations-layout-columns (sp-citations--half-frame-columns)))
+         (room (max 0 (- columns sp-citations-layout-overhead)))
+         (tags (if (>= room 110) 22 0))
+         (room (- room tags))
+         (author (max 10 (min 30 (round (* 0.2 room)))))
+         (key (max 16 (min 45 (- room author 20))))
+         (title (max 20 (- room author key))))
+    (list :author author :title title :key key :tags (max 0 (- tags 2)))))
+
+(defun sp-citations--layout-templates (&optional columns)
+  "Return the `main' and `suffix' entries of `citar-templates' for COLUMNS."
+  (let* ((layout (sp-citations--layout columns))
+         (tags (plist-get layout :tags)))
+    `((main . ,(format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
+                       (plist-get layout :author) (plist-get layout :title)))
+      (suffix . ,(concat "  "
+                         (propertize (format "${=key= id:%d}" (plist-get layout :key))
+                                     'face 'sp-citar-key)
+                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
+
+(defun sp-citations-fit-layout ()
+  "Work the `citar' column widths out again from the display, and refresh the candidates.
+Run it after changing the font size, the frame or `sp-posframe-width-fraction'."
+  (interactive)
+  (clrhash sp-citations--cell-cache)
+  (setq citar-templates (append (sp-citations--layout-templates)
+                                (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+  (when (fboundp 'citar-refresh) (citar-refresh)))
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -3329,10 +3469,7 @@ transform of `citar-display-transform-functions'."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . "${=type=:3%etype} ${author editor:30}   ${year issued date:4}   ${title:60}")
-          (suffix . ,(concat "   "
-                             (propertize "${=key= id:45}" 'face 'sp-citar-key)
-                             "   ${tags keywords:*}"))
+        `(,@(sp-citations--layout-templates)
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
           (note . ,sp-citar-note)))
 
