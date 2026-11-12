@@ -1,0 +1,48 @@
+* PR #387: ✨ Rename sp-collection-query-tables to sp-collection-query, one grouped command for inserting dblocks
+:PROPERTIES:
+:PR_NUMBER: 387
+:URL: https://github.com/siainbuletin/dotfiles/pull/387
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/387][https://github.com/siainbuletin/dotfiles/pull/387]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-11 23:11
+- Merged :: 2026-11-11 23:23
+- Branch :: =387-collection-query= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/41308be1ef703f40580bc7ed259111b05dd8836b][41308be1ef]]
+- Labels :: simplifying
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BwDJuqNETEyCwswgX8zTyT][project thread]]/
+
+Stacked on #386 (base is its branch; retarget to =main= after #386 merges).
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- *Rename:* =sp-collection-query-tables*= becomes =sp-collection-query*= (files, features, doc, tests, requires). The =sp-collec-query-= symbols are unchanged. A views file saved under the old names is still read (the tracked file in =views/= is renamed too).
+- *One insert command:* =sp-org-dblock-insert-template= (=C-c C-x t=) now lists every dynamic block, grouped like =sp-find-note= groups notes:
+  - Group = the template's =:category= (stripped before insertion); =sp-org-dblock-category-order= puts Academic, then Collections, first.
+  - Modules add templates via =sp-org-dblock-template-functions=; hand-written ones stay in =sp-org-dblock-templates=.
+- *Views are templates:* new =sp-collection-query-templates= offers every view (including =reference-entries= and =encyclopedia-articles= from #386) as =collection-query-table :view NAME=. Built-in literature views are in /Academic/; any other view (e.g. one saved for albums) is in /Collections/. =sp-collec-query-view-categories= overrides by name. =sp-collec-query-insert-view-dblock= is now an obsolete alias.
+- *=vulpea-collection= (from vulpea-ui):* =sp-org-dblock-disabled-names= (default =("vulpea-collection")=) removes it from =org-dynamic-blocks= (vulpea-ui registers it with =org-dynamic-block-define=), re-applied whenever a block is defined and after vulpea-ui loads. =vulpea-ui-collection-insert-dblock= refuses with a pointer to the one command. Blocks already in notes still update; collection buffers and the sidebar widget are untouched.
+
+**** Not verified
+:PROPERTIES:
+:CUSTOM_ID: not-verified
+:END:
+- Not run in a real Emacs session with vulpea-ui and the vault; the =vulpea-collection= handling was checked against the vulpea-ui source only.
+- Tests (Emacs 29.3): org-base dblock tests (9), query tests (32), templates (7), book (7), litnotes-meta (56), author-notes (36); =tools/check-tangle.sh= passes.
+- CHANGELOG not edited.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDSHDEGNJxmSPXp8cZ]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/9ee23cb7604030975636c168de6e7b24e0167995][9ee23cb760]] ✨ feat: rename sp-collection-query-tables to sp-collection-query; one grouped command inserts every dynamic block (Claude, 2026-11-11 23:11)
+- [[https://github.com/siainbuletin/dotfiles/commit/234da3c57a1b18c9e485dfd44fdb6ddafb32f2c2][234da3c57a]] ✨ feat: vulpea-ui's vulpea-collection insert command refuses while its block is disabled (Claude, 2026-11-11 23:19)

@@ -1,0 +1,60 @@
+* PR #389: 📝 CHANGELOG tidy (2026-11-11)
+:PROPERTIES:
+:PR_NUMBER: 389
+:URL: https://github.com/siainbuletin/dotfiles/pull/389
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/389][https://github.com/siainbuletin/dotfiles/pull/389]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-11 23:29
+- Merged :: 2026-11-11 23:50
+- Branch :: =389-changelog-tidy= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/9a00bb0d1d9a450a102413c1b7d81acde27e044b][9a00bb0d1d]]
+- Labels :: documentation
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2FVLrqu7REJ6EYUbr4JythQ][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- Catches the changelogs up after the last tidy (#328, 2026-11-08); the nightly run missed the days since.
+- Adds merged PRs #329 to #388 (all 60) and the direct commits on main since then (merge commits left out).
+- Emacs changelog (=emacs-modular/.config/emacs-modular/CHANGELOG.org=):
+  - new sets: "Literature notes filled from BibTeX", "Book and collection tables", "Batch reports for the lint and convert commands", "See also footnotes (=sp-see-also=)".
+  - new lines in the Search, Note tags, BibTeX and academic tools, DEVONthink, Author and literature note lint, Notes vault tools and Module docs sets, with their date ranges updated.
+  - "Being developed": date updated, DEVONthink bullet extended, two new bullets for merged-but-untried work (labelled =needs-further-testing=).
+- Global changelog (=CHANGELOG.org=), non-Emacs changes: =devonthink-open= (#379, #382, #384 and four direct commits), =gh-pr-pdf= and =dotfiles-prs= (#340, #341, #349, #350 and one direct commit), the emoji standard (#385), and a =btop.conf= line.
+
+**** Update (2026-11-12)
+:PROPERTIES:
+:CUSTOM_ID: update-2026-11-12
+:END:
+- #326 and #327 (grouped backlinks sidebar and widget) reached =main= as #390 and #392.
+- Their "Grouped backlinks" bullet is removed from "Being developed", and both are now lines in the "Links in notes" set, after #325.
+- Main is merged into the branch.
+
+**** Left as it was
+:PROPERTIES:
+:CUSTOM_ID: left-as-it-was
+:END:
+- PR #349 had no attribution marker, so it is credited to Sia.
+
+**** Not checked
+:PROPERTIES:
+:CUSTOM_ID: not-checked
+:END:
+- Summaries come from the PR bodies, commit messages and file lists; nothing was run.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiD1EqErxv8Y1wG33ZF]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/ecd8c3c5898593f7ff9c130d8279523310bb961e][ecd8c3c589]] 📝 CHANGELOG tidy (2026-11-11) (Claude, 2026-11-11 23:29)
+- [[https://github.com/siainbuletin/dotfiles/commit/62ba47f6b5c9f5412a86f950f085ee8699d4557a][62ba47f6b5]] Merge main into 389-changelog-tidy (Claude, 2026-11-11 23:48)
+- [[https://github.com/siainbuletin/dotfiles/commit/c687e9839086b04ff0fef6b215cd9454bf041a09][c687e98390]] 📝 Move #326 and #327 out of Being developed, now in main as #390 and #392 (Claude, 2026-11-11 23:48)

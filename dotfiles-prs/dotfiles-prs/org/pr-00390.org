@@ -1,0 +1,24 @@
+* PR #390: 🐢️ Merge the grouped backlinks sidebar into `main`
+:PROPERTIES:
+:PR_NUMBER: 390
+:URL: https://github.com/siainbuletin/dotfiles/pull/390
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/390][https://github.com/siainbuletin/dotfiles/pull/390]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-11 23:42
+- Merged :: 2026-11-11 23:44
+- Branch :: =326-grouped-backlinks-sidebar= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c0c6b6416ba74ebe65e313f97ae2df723597ffb9][c0c6b6416b]]
+
+** Description
+/(empty)/
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/8df1de2d0f9fbf5704a3c6fd872b0be2cb5a8753][8df1de2d0f]] Add a grouped backlinks sidebar that follows the main note (Claude, 2026-11-08 00:44)
+- [[https://github.com/siainbuletin/dotfiles/commit/4c99739a009be2be20397decbb3e0bdf2af3f42c][4c99739a00]] Add grouped backlinks as a vulpea-ui widget (Claude, 2026-11-08 00:46)
+- [[https://github.com/siainbuletin/dotfiles/commit/1a2e11621c730236da00e487009a3318619f50fb][1a2e11621c]] Merge pull request #327 from siainbuletin/327-grouped-backlinks-widget (Sia Piperea, 2026-11-08 12:15)
+- [[https://github.com/siainbuletin/dotfiles/commit/3ea15f0fd3f7cb4bec90cd004de29034b491d95d][3ea15f0fd3]] Merge branch 'main' into 326-grouped-backlinks-sidebar (Sia Piperea, 2026-11-11 23:43)

@@ -2407,45 +2407,6 @@ Split windows sensibly
     :config
     (balanced-windows-mode))
 #+end_src
-** TODO Highlighting the active window with =dimmer=
-
-To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:16]
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package dimmer
-  :custom
-  (dimmer-adjustment-mode :foreground)
-
-  :config
-  (dimmer-configure-which-key)    ; Do not dim these special windows
-  (dimmer-configure-hydra)
-  (dimmer-configure-magit)
-
-  (dimmer-mode t))
-#+end_src
-
-As an interesting alternative, check out the =selected-window-accent= project.
-
-** TODO Buffer management through perspective-el
-
-This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package perspective
-    :ensure t  ; use `:straight t` if using straight.el!
-    :bind
-    ("C-x k" . persp-kill-buffer*)
-    :custom
-    (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
-    :init
-    (persp-mode))
-#+end_src
-
-If you're using Emacs >v.28, you need to specificy =persp-mode-prefix-key= to be able to use =perspective-el=.
-
-*** TODO Replacing the =switch-to-buffer= functionality with =perspective-el=
-
-Replace the binding for C-x C-b, the default Emacs buffer switcher, with one of the nicer implementations described in the Buffer switchers section.
 
 ** TODO Configuring =ace-window=
 

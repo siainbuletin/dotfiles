@@ -53,6 +53,8 @@
         "hardware"
         "computing"
         "networking"
+        "chapter"
+        "writing"
         ;; sp-org-tag-add: new tags go above this line
         ))
 

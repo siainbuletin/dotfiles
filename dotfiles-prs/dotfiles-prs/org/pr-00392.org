@@ -1,0 +1,21 @@
+* PR #392: Merge pull request #391 from siainbuletin/main
+:PROPERTIES:
+:PR_NUMBER: 392
+:URL: https://github.com/siainbuletin/dotfiles/pull/392
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/392][https://github.com/siainbuletin/dotfiles/pull/392]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-11 23:46
+- Merged :: 2026-11-11 23:47
+- Branch :: =327-grouped-backlinks-widget= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/980122d2445874ab382a26dbb571ac8487888bab][980122d244]]
+
+** Description
+🐢️ Merge grouped backlinks widget (for =vulpea-ui=) into =main=
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/fdb2a5999fdac809b61bb405b1fb35842f9be3d5][fdb2a5999f]] Merge pull request #391 from siainbuletin/main (Sia Piperea, 2026-11-11 23:46)

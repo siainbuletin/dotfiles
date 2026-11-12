@@ -1,6 +1,9 @@
 #set page(numbering: "1")
 #show link: set text(fill: rgb("#1d4ed8"))
 #show raw: set text(size: 8pt)
+// Every level-1 heading is one pull request (or discussion): start it on a new page.
+// weak: no blank page when the heading already starts one.
+#show heading.where(level: 1): it => { pagebreak(weak: true); it }
 #set terms(hanging-indent: 1.5em)
 
 #set table(
@@ -26937,12 +26940,14 @@ the fallback viewer.
 = PR \#386: ✨ Chapter tables for books, collections, reference works and encyclopedias, plus a refresh-all command
 <pr-386-chapter-tables-for-books-collections-reference-works-and-encyclopedias-plus-a-refresh-all-command>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/386")[#link("https://github.com/siainbuletin/dotfiles/pull/386")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-11 23:03
+/ Merged: 2026-11-11 23:22
 / Branch: #raw(lang:"verbatim", "386-chapter-tables") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/ce5f48bcc4ffeda9aa7db6daad6c2e05b01ff431")[ce5f48bcc4]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/078c5f2c88a33e87dcb1da4c69398044a1792051")[078c5f2c88]
+/ Labels: new-feature, needs-further-testing
 
 == Description
 <description-383>
@@ -27017,3 +27022,1517 @@ the fallback viewer.
   ✨ feat: chapter tables for books, collections, reference works and
   encyclopedias, and a command to refresh them all (Claude, 2026-11-11
   23:03)
+
+= PR \#387: ✨ Rename sp-collection-query-tables to sp-collection-query, one grouped command for inserting dblocks
+<pr-387-rename-sp-collection-query-tables-to-sp-collection-query-one-grouped-command-for-inserting-dblocks>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/387")[#link("https://github.com/siainbuletin/dotfiles/pull/387")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:11
+/ Merged: 2026-11-11 23:23
+/ Branch: #raw(lang:"verbatim", "387-collection-query") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/41308be1ef703f40580bc7ed259111b05dd8836b")[41308be1ef]
+/ Labels: simplifying
+
+== Description
+<description-384>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BwDJuqNETEyCwswgX8zTyT")[project thread]]
+
+Stacked on \#386 (base is its branch; retarget to
+#raw(lang:"verbatim", "main") after \#386 merges).
+
+==== What
+<what>
+- #strong[Rename:] #raw(lang:"verbatim", "sp-collection-query-tables*")
+  becomes #raw(lang:"verbatim", "sp-collection-query*") (files,
+  features, doc, tests, requires). The
+  #raw(lang:"verbatim", "sp-collec-query-") symbols are unchanged. A
+  views file saved under the old names is still read (the tracked file
+  in #raw(lang:"verbatim", "views/") is renamed too).
+- #strong[One insert command:]
+  #raw(lang:"verbatim", "sp-org-dblock-insert-template")
+  (#raw(lang:"verbatim", "C-c C-x t")) now lists every dynamic block,
+  grouped like #raw(lang:"verbatim", "sp-find-note") groups notes:
+  - Group = the template\'s #raw(lang:"verbatim", ":category") (stripped
+    before insertion);
+    #raw(lang:"verbatim", "sp-org-dblock-category-order") puts Academic,
+    then Collections, first.
+  - Modules add templates via
+    #raw(lang:"verbatim", "sp-org-dblock-template-functions")\;
+    hand-written ones stay in
+    #raw(lang:"verbatim", "sp-org-dblock-templates").
+- #strong[Views are templates:] new
+  #raw(lang:"verbatim", "sp-collection-query-templates") offers every
+  view (including #raw(lang:"verbatim", "reference-entries") and
+  #raw(lang:"verbatim", "encyclopedia-articles") from \#386) as
+  #raw(lang:"verbatim", "collection-query-table :view NAME"). Built-in
+  literature views are in #emph[Academic]\; any other view (e.g. one
+  saved for albums) is in #emph[Collections].
+  #raw(lang:"verbatim", "sp-collec-query-view-categories") overrides by
+  name. #raw(lang:"verbatim", "sp-collec-query-insert-view-dblock") is
+  now an obsolete alias.
+- #strong[#raw(lang:"verbatim", "vulpea-collection") (from vulpea-ui):]
+  #raw(lang:"verbatim", "sp-org-dblock-disabled-names") (default
+  #raw(lang:"verbatim", "(\"vulpea-collection\")")) removes it from
+  #raw(lang:"verbatim", "org-dynamic-blocks") (vulpea-ui registers it
+  with #raw(lang:"verbatim", "org-dynamic-block-define")), re-applied
+  whenever a block is defined and after vulpea-ui loads.
+  #raw(lang:"verbatim", "vulpea-ui-collection-insert-dblock") refuses
+  with a pointer to the one command. Blocks already in notes still
+  update; collection buffers and the sidebar widget are untouched.
+
+==== Not verified
+<not-verified>
+- Not run in a real Emacs session with vulpea-ui and the vault; the
+  #raw(lang:"verbatim", "vulpea-collection") handling was checked
+  against the vulpea-ui source only.
+- Tests (Emacs 29.3): org-base dblock tests (9), query tests (32),
+  templates (7), book (7), litnotes-meta (56), author-notes (36);
+  #raw(lang:"verbatim", "tools/check-tangle.sh") passes.
+- CHANGELOG not edited.
+
+🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiDSHDEGNJxmSPXp8cZ")
+
+== Commits (2)
+<commits-2-95>
+- #link("https://github.com/siainbuletin/dotfiles/commit/9ee23cb7604030975636c168de6e7b24e0167995")[9ee23cb760]
+  ✨ feat: rename sp-collection-query-tables to sp-collection-query; one
+  grouped command inserts every dynamic block (Claude, 2026-11-11 23:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/234da3c57a1b18c9e485dfd44fdb6ddafb32f2c2")[234da3c57a]
+  ✨ feat: vulpea-ui\'s vulpea-collection insert command refuses while
+  its block is disabled (Claude, 2026-11-11 23:19)
+
+= PR \#388: ✨ Read \"See also\" sections as mentions in sp-see-also
+<pr-388-read-see-also-sections-as-mentions-in-sp-see-also>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/388")[#link("https://github.com/siainbuletin/dotfiles/pull/388")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:15
+/ Merged: 2026-11-11 23:23
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-lmotav") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/e6523bf85afb60f7426c52e9035502a08bbbfdfd")[e6523bf85a]
+
+== Description
+<description-385>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TznfzA82m9ah28peK3HRxx")[project thread]]
+
+==== What
+<what>
+- A heading titled #raw(lang:"verbatim", "See also") (any case), with
+  its subtree, is now a see-also section.
+- Every #raw(lang:"verbatim", "id:") link in it is a mention of that
+  concept, in list items or plain text.
+- Mentions have #raw(lang:"verbatim", ":where") =
+  #raw(lang:"verbatim", "section") (weight 1.5, in
+  #raw(lang:"verbatim", "sp-see-also-where-weights")).
+
+==== Scope
+<scope>
+- The scope is the parent of the section: the nearest ancestor with an
+  #raw(lang:"verbatim", ":ID:").
+- At the bottom of the file (no ID\'d ancestor) it belongs to the file.
+- An #raw(lang:"verbatim", ":ID:") on the
+  #raw(lang:"verbatim", "See also") heading itself is ignored.
+- The open question above it counts, as for footnotes.
+
+==== How
+<how>
+- Reuses the footnote scanner:
+  #raw(lang:"verbatim", "sp-see-also-parse-buffer") gains an optional
+  #raw(lang:"verbatim", "SECTIONS") argument.
+- #raw(lang:"verbatim", "sp-see-also-mentions-in-buffer") (cache and
+  index) passes it, so #raw(lang:"verbatim", "sp-see-also-show"),
+  #raw(lang:"verbatim", "sp-see-also-show-concept"), and the widgets and
+  #raw(lang:"verbatim", "concept-usage") block show them.
+- The sidenote renderer is unchanged: it calls the parser without
+  #raw(lang:"verbatim", "SECTIONS").
+- Links already read as footnotes inside a section, and links in
+  source/comment blocks, are not counted twice or at all.
+- Cache version 3, so files are re-read; editing a section re-reads only
+  that file.
+- Literate source #raw(lang:"verbatim", "sp-see-also.org") updated and
+  re-tangled (new section \"See also\" sections, weights, tests).
+
+==== Tests
+<tests>
+- 5 new ERT tests on fixtures; 25/25 pass in batch on Emacs 29.3.
+- #strong[Not run on the real vault] or in a GUI/vulpea-ui.
+- Known limit: a heading in all capitals
+  (#raw(lang:"verbatim", "SEE ALSO")) is not matched (the existing title
+  parser reads the first capital word as a keyword).
+- Branch is not number-prefixed: the number was unknown before creating
+  the PR and the rename API is blocked.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAHAD2Bnx7dhWCdiE8")[Claude Code]]
+
+== Commits (1)
+<commits-1-168>
+- #link("https://github.com/siainbuletin/dotfiles/commit/fb6c99554edc5bacfb1e8247cd3233a6fd894e09")[fb6c99554e]
+  ✨ Read \'See also\' sections as mentions in sp-see-also (Claude,
+  2026-11-11 23:15)
+
+= PR \#389: 📝 CHANGELOG tidy (2026-11-11)
+<pr-389-changelog-tidy-2026-11-11>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/389")[#link("https://github.com/siainbuletin/dotfiles/pull/389")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:29
+/ Merged: 2026-11-11 23:50
+/ Branch: #raw(lang:"verbatim", "389-changelog-tidy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/9a00bb0d1d9a450a102413c1b7d81acde27e044b")[9a00bb0d1d]
+/ Labels: documentation
+
+== Description
+<description-386>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2FVLrqu7REJ6EYUbr4JythQ")[project thread]]
+
+==== What
+<what>
+- Catches the changelogs up after the last tidy (\#328, 2026-11-08); the
+  nightly run missed the days since.
+- Adds merged PRs \#329 to \#388 (all 60) and the direct commits on main
+  since then (merge commits left out).
+- Emacs changelog
+  (#raw(lang:"verbatim", "emacs-modular/.config/emacs-modular/CHANGELOG.org")):
+  - new sets: \"Literature notes filled from BibTeX\", \"Book and
+    collection tables\", \"Batch reports for the lint and convert
+    commands\", \"See also footnotes
+    (#raw(lang:"verbatim", "sp-see-also"))\".
+  - new lines in the Search, Note tags, BibTeX and academic tools,
+    DEVONthink, Author and literature note lint, Notes vault tools and
+    Module docs sets, with their date ranges updated.
+  - \"Being developed\": date updated, DEVONthink bullet extended, two
+    new bullets for merged-but-untried work (labelled
+    #raw(lang:"verbatim", "needs-further-testing")).
+- Global changelog (#raw(lang:"verbatim", "CHANGELOG.org")), non-Emacs
+  changes: #raw(lang:"verbatim", "devonthink-open") (\#379, \#382, \#384
+  and four direct commits), #raw(lang:"verbatim", "gh-pr-pdf") and
+  #raw(lang:"verbatim", "dotfiles-prs") (\#340, \#341, \#349, \#350 and
+  one direct commit), the emoji standard (\#385), and a
+  #raw(lang:"verbatim", "btop.conf") line.
+
+==== Update (2026-11-12)
+<update-2026-11-12>
+- \#326 and \#327 (grouped backlinks sidebar and widget) reached
+  #raw(lang:"verbatim", "main") as \#390 and \#392.
+- Their \"Grouped backlinks\" bullet is removed from \"Being
+  developed\", and both are now lines in the \"Links in notes\" set,
+  after \#325.
+- Main is merged into the branch.
+
+==== Left as it was
+<left-as-it-was>
+- PR \#349 had no attribution marker, so it is credited to Sia.
+
+==== Not checked
+<not-checked>
+- Summaries come from the PR bodies, commit messages and file lists;
+  nothing was run.
+
+🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiD1EqErxv8Y1wG33ZF")
+
+== Commits (3)
+<commits-3-62>
+- #link("https://github.com/siainbuletin/dotfiles/commit/ecd8c3c5898593f7ff9c130d8279523310bb961e")[ecd8c3c589]
+  📝 CHANGELOG tidy (2026-11-11) (Claude, 2026-11-11 23:29)
+- #link("https://github.com/siainbuletin/dotfiles/commit/62ba47f6b5c9f5412a86f950f085ee8699d4557a")[62ba47f6b5]
+  Merge main into 389-changelog-tidy (Claude, 2026-11-11 23:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c687e9839086b04ff0fef6b215cd9454bf041a09")[c687e98390]
+  📝 Move \#326 and \#327 out of Being developed, now in main as \#390
+  and \#392 (Claude, 2026-11-11 23:48)
+
+= PR \#390: 🐢️ Merge the grouped backlinks sidebar into \`main\`
+<pr-390-merge-the-grouped-backlinks-sidebar-into-main>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/390")[#link("https://github.com/siainbuletin/dotfiles/pull/390")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:42
+/ Merged: 2026-11-11 23:44
+/ Branch: #raw(lang:"verbatim", "326-grouped-backlinks-sidebar") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c0c6b6416ba74ebe65e313f97ae2df723597ffb9")[c0c6b6416b]
+
+== Description
+<description-387>
+#emph[\(empty)]
+
+== Commits (4)
+<commits-4-26>
+- #link("https://github.com/siainbuletin/dotfiles/commit/8df1de2d0f9fbf5704a3c6fd872b0be2cb5a8753")[8df1de2d0f]
+  Add a grouped backlinks sidebar that follows the main note (Claude,
+  2026-11-08 00:44)
+- #link("https://github.com/siainbuletin/dotfiles/commit/4c99739a009be2be20397decbb3e0bdf2af3f42c")[4c99739a00]
+  Add grouped backlinks as a vulpea-ui widget (Claude, 2026-11-08 00:46)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1a2e11621c730236da00e487009a3318619f50fb")[1a2e11621c]
+  Merge pull request \#327 from
+  siainbuletin/327-grouped-backlinks-widget (Sia Piperea, 2026-11-08
+  12:15)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3ea15f0fd3f7cb4bec90cd004de29034b491d95d")[3ea15f0fd3]
+  Merge branch \'main\' into 326-grouped-backlinks-sidebar (Sia Piperea,
+  2026-11-11 23:43)
+
+= PR \#391: 🐢️ Merge grouped backlinks widget (for \`vulpea-ui\`) into \`main\`
+<pr-391-merge-grouped-backlinks-widget-for-vulpea-ui-into-main>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/391")[#link("https://github.com/siainbuletin/dotfiles/pull/391")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:45
+/ Merged: 2026-11-11 23:46
+/ Branch: #raw(lang:"verbatim", "main") →
+    #raw(lang:"verbatim", "327-grouped-backlinks-widget")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/fdb2a5999fdac809b61bb405b1fb35842f9be3d5")[fdb2a5999f]
+
+== Description
+<description-388>
+#emph[\(empty)]
+
+== Commits (185)
+<commits-185>
+- #link("https://github.com/siainbuletin/dotfiles/commit/edde1fdc9029d13bbe43b288b81a14a2db38e9bc")[edde1fdc90]
+  Merge pull request \#325 from
+  siainbuletin/325-grouped-backlinks-org-detached (Sia Piperea,
+  2026-11-08 12:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1a2e11621c730236da00e487009a3318619f50fb")[1a2e11621c]
+  Merge pull request \#327 from
+  siainbuletin/327-grouped-backlinks-widget (Sia Piperea, 2026-11-08
+  12:15)
+- #link("https://github.com/siainbuletin/dotfiles/commit/277b544de4a77f65457a4ec24fac5623f59e5952")[277b544de4]
+  CHANGELOG: tidy for 2026-11-08 (PRs \#305 to \#325) (Claude,
+  2026-11-08 12:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2d33588a130562a5875aec650b0519ca50a6f442")[2d33588a13]
+  Add book section tables and a vulpea-ui book position widget (Claude,
+  2026-11-08 12:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1fda6668d363f3fcae7c5d9142dcd2fb5ea90fee")[1fda6668d3]
+  Fix PR number in the book sections entry (Claude, 2026-11-08 12:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1603a1e279f3d44f97f44806afa5173225e4ad12")[1603a1e279]
+  Merge pull request \#328 from siainbuletin/328-changelog-tidy (Sia
+  Piperea, 2026-11-08 12:19)
+- #link("https://github.com/siainbuletin/dotfiles/commit/54b4b153853e35e0ecdc54cc51c30176d795495b")[54b4b15385]
+  Merge pull request \#329 from siainbuletin/328-book-section-tables
+  (Sia Piperea, 2026-11-08 12:22)
+- #link("https://github.com/siainbuletin/dotfiles/commit/69db90305e834369fd06ae72fcb4ceb2057bca30")[69db90305e]
+  Add view templates for dynamic blocks and bib-parent checks (Claude,
+  2026-11-08 12:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9ed700e990f433e3d2d321aae806fead7bb758fb")[9ed700e990]
+  Merge pull request \#330 from siainbuletin/330-book-dblock (Sia
+  Piperea, 2026-11-08 18:37)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3e9647246fa0c9747894a0b5d85e965a794d432a")[3e9647246f]
+  Sort :pages by its first number and drop the :page column (Claude,
+  2026-11-08 18:39)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a191554f8a04cb7d52a83797ee39c3b4cfa1aa67")[a191554f8a]
+  Merge pull request \#331 from siainbuletin/331-pages-sort (Sia
+  Piperea, 2026-11-08 18:41)
+- #link("https://github.com/siainbuletin/dotfiles/commit/b9c232868bdd46406c3f668d92aad4684f42a2e1")[b9c232868b]
+  Require read-status, relevance-factor and read-priority on litnotes
+  (Claude, 2026-11-08 18:47)
+- #link("https://github.com/siainbuletin/dotfiles/commit/01ef300c67a29801e99f032a73706ffb84217200")[01ef300c67]
+  Put the litnote schema fields in the sp-vulpea doc so the tangle check
+  passes (Claude, 2026-11-08 18:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/24b7ed9c5e523b0e6bbc6989f78220331e7f8f09")[24b7ed9c5e]
+  Use 01-05 scales and the five read-status values; add a litnote status
+  report (Claude, 2026-11-08 18:59)
+- #link("https://github.com/siainbuletin/dotfiles/commit/37494e123a20f69161d8d1e068cccd4b1dc24e10")[37494e123a]
+  Backfill the chapters of a book or collection from BibTeX crossrefs
+  (Claude, 2026-11-08 19:00)
+- #link("https://github.com/siainbuletin/dotfiles/commit/bb065e309539be6cfd9bc1629cd915ef341b3be1")[bb065e3095]
+  Add sp-author-notes-works-dryrun and -convert to backfill an author
+  note\'s Works table (Claude, 2026-11-08 19:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f9aeebd539639ed931a9f6a6de891797729ceae7")[f9aeebd539]
+  Merge pull request \#332 from
+  siainbuletin/claude/project-thread-1p5vv2 (Sia Piperea, 2026-11-08
+  19:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c3d572f5eed26bf0ad77bfa118c7f08510e73e82")[c3d572f5ee]
+  Infer litnote titles from BibTeX in sp-litnotes-titles dryrun/convert
+  (Claude, 2026-11-08 19:09)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d16a5c7345f5f4f28c23efcddc011ed942b54540")[d16a5c7345]
+  Add an Edited works table for pub-editor to the lint and the works
+  commands (Claude, 2026-11-08 19:12)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e3f7269bfef013e4abbe4e612c428034b214e176")[e3f7269bfe]
+  Merge pull request \#334 from
+  siainbuletin/claude/project-thread-g1foaj (Sia Piperea, 2026-11-08
+  19:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/fd77d71216cf0fd143faf0428ec72ad98dde3254")[fd77d71216]
+  Backfill all children of a book at once and show them in its table
+  (Claude, 2026-11-08 19:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/20a65a75d0a4710da019ee0f5219ede67ed0465b")[20a65a75d0]
+  Document backfill-all and test the table block (Claude, 2026-11-08
+  19:17)
+- #link("https://github.com/siainbuletin/dotfiles/commit/cd92906692b4bc621fe99941dc9a0b165b98dfd4")[cd92906692]
+  Merge pull request \#335 from siainbuletin/333-backfill-all-children
+  (Sia Piperea, 2026-11-08 23:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6d11785cb5ee4b2969208f915afeba24ce52b2f3")[6d11785cb5]
+  Add the Edited works table only for people linked under pub-editor
+  (Claude, 2026-11-08 23:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c19890dc66032c1c1b332ecfedc949fab70f556f")[c19890dc66]
+  Merge pull request \#333 from siainbuletin/332-author-works-backfill
+  (Sia Piperea, 2026-11-08 23:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1ed0108a4423d09a6622aff11fb6927c53215db2")[1ed0108a44]
+  Mark and change several litnotes at once in the status report (Claude,
+  2026-11-08 23:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/8eada702a9c8329e9c05471f5f7791aff3e00e2c")[8eada702a9]
+  Merge pull request \#336 from
+  siainbuletin/claude/project-thread-6b3tzs (Sia Piperea, 2026-11-08
+  23:44)
+- #link("https://github.com/siainbuletin/dotfiles/commit/b28c033c877c27c648d4420f42c415b2fbe305bb")[b28c033c87]
+  Keep saved query table views in a tracked file inside the
+  configuration (Claude, 2026-11-08 23:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/de22d86068c4c9ca9b602ab78a8e18b81675f14c")[de22d86068]
+  Fix PR number in the views file entry (Claude, 2026-11-08 23:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/b97a234607bbcd37988bde7019c1d7c264b01930")[b97a234607]
+  Backfilled litnotes: plain title, no print#sub[bibliography] block
+  (Claude, 2026-11-08 23:51)
+- #link("https://github.com/siainbuletin/dotfiles/commit/61a59118efdbc8bff77813efbd97fbcd0924cbed")[61a59118ef]
+  Merge pull request \#337 from siainbuletin/332-book-load-fix (Sia
+  Piperea, 2026-11-09 00:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1466e5864e86b4afdd3aad391d9a4dd64bb8697b")[1466e5864e]
+  Make \'standard\' the default title of backfilled litnotes (Claude,
+  2026-11-09 00:23)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0a5b1f8e9d17388facdba27ede464e73a7c39667")[0a5b1f8e9d]
+  Design doc: match selected citations to BibTeX and DEVONthink records
+  (Claude, 2026-11-09 00:24)
+- #link("https://github.com/siainbuletin/dotfiles/commit/96cf659bb999f5ad552e076493ad221bc610bf77")[96cf659bb9]
+  ✨ feat: add gh-pr-pdf, a repo\'s PRs as org files and a Typst PDF
+  (Claude, 2026-11-09 00:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d373393749bf2fc98ed4b41cc80b71215b233bf7")[d373393749]
+  Merge pull request \#338 from siainbuletin/337-plain-backfilled-titles
+  (Sia Piperea, 2026-11-09 00:29)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ddce238938c17c00a20a111d0453f85f88c43d24")[ddce238938]
+  Merge pull request \#340 from siainbuletin/340-gh-pr-pdf (Sia Piperea,
+  2026-11-09 00:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d234053e39fb4ecb14b78508184e62c5d204d3b3")[d234053e39]
+  Design doc: read in DEVONthink, choose per document whether to index
+  it (Claude, 2026-11-09 00:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7211a033988d118a1fc21db4a0bb8a81bdbad02d")[7211a03398]
+  Design doc: choose a Hammerspoon hotkey and record why (Claude,
+  2026-11-09 00:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/cd9a16e24ed0c18ead43dc40716426f3f433329f")[cd9a16e24e]
+  Design doc: Preview on macOS, Sioyek on Linux for files outside BibTeX
+  (Claude, 2026-11-09 00:51)
+- #link("https://github.com/siainbuletin/dotfiles/commit/32db790d77e9a34089639441b4fea59a899715a8")[32db790d77]
+  Design doc: keep the Linux script thin, logic in Emacs Lisp (Claude,
+  2026-11-09 00:51)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3b7cec950b0fc9d5dbe13ccf9ec39af81e379c15")[3b7cec950b]
+  Design doc: backfill DEVONthink item links from matched citations
+  (Claude, 2026-11-09 01:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/54723d5d65dbb162dc161f7b1ddf698de22fea3a")[54723d5d65]
+  🐛 fix: escape \u{40}key, \u{24} and \u{3c}key\> from PR text so typst compile passes
+  (Claude, 2026-11-09 01:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f918373b7be767719264b439bc5bfd95eec1809d")[f918373b7b]
+  Merge pull request \#341 from
+  siainbuletin/341-gh-pr-pdf-typst-escaping (Sia Piperea, 2026-11-09
+  13:38)
+- #link("https://github.com/siainbuletin/dotfiles/commit/71af3ff987d9e3aebeecef650a8c821c96f058ba")[71af3ff987]
+  Design doc: write item links on the DEVONthink record itself (Claude,
+  2026-11-09 13:54)
+- #link("https://github.com/siainbuletin/dotfiles/commit/213012f6b7daf3ca1c060e1191ab8e4df0a03c79")[213012f6b7]
+  Merge pull request \#339 from
+  siainbuletin/claude/project-thread-guoa9h (Sia Piperea, 2026-11-09
+  13:54)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0a8bf393bbc3c048a26096179cdb5466c4b5846b")[0a8bf393bb]
+  Backfill: make notes with vulpea-create (ID, CREATED), fill from
+  BibTeX, index them (Claude, 2026-11-09 13:54)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ed5859a13338a819300efd9d81c66e6d537c6010")[ed5859a133]
+  Merge pull request \#342 from siainbuletin/339-backfill-fixes (Sia
+  Piperea, 2026-11-09 13:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1fb4bcd60a84d7de72475a82d8cba3081bc840ce")[1fb4bcd60a]
+  Add sp-cite-match and sp-reading for macOS, with a Hammerspoon hotkey
+  (Claude, 2026-11-09 14:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/efa11f85a82f939ddd1f5b4e481521ca6f2eeed8")[efa11f85a8]
+  Move the book table key to C-c w B so C-c w b stays a prefix (Claude,
+  2026-11-09 14:14)
+- #link("https://github.com/siainbuletin/dotfiles/commit/49be25b4910d46ba2321f0043435596224b3a0a6")[49be25b491]
+  Merge pull request \#344 from
+  siainbuletin/344-fix-book-table-key-clash (Sia Piperea, 2026-11-09
+  14:17)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3ab3a93f933045281848fbc7bd411fb18b060085")[3ab3a93f93]
+  Add BibTeX and DEVONthink page columns to the book section table
+  (Claude, 2026-11-09 14:27)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0dac8efeaecf4b5d50e5c7c55777b64b54163af1")[0dac8efeae]
+  Merge pull request \#345 from
+  siainbuletin/345-book-bibtex-page-columns (Sia Piperea, 2026-11-09
+  14:33)
+- #link("https://github.com/siainbuletin/dotfiles/commit/5f23cc7acf1d8ba780f21ff75bf984494814a28b")[5f23cc7acf]
+  Cited works as a table with read-status and read-priority (Claude,
+  2026-11-09 14:34)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2101b93afb119dd8a1b67e225f707201029794b5")[2101b93afb]
+  Fix litnote title surname for \"Last, First M.\" names (Claude,
+  2026-11-09 14:46)
+- #link("https://github.com/siainbuletin/dotfiles/commit/b64260d0de8034e34a9a13f5bf3abb71c7ce79b0")[b64260d0de]
+  Update the literate doc for the litnote surname fix (Claude,
+  2026-11-09 14:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/28eccdd6265d2531c6d1586bba00ce6febf93e6e")[28eccdd626]
+  Merge pull request \#346 from siainbuletin/346-fix-litnote-surname
+  (Sia Piperea, 2026-11-09 14:51)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d32129119043d614be6315baf4f75ce9540b8f5f")[d321291190]
+  Merge pull request \#343 from siainbuletin/343-cite-match-macos (Sia
+  Piperea, 2026-11-09 14:52)
+- #link("https://github.com/siainbuletin/dotfiles/commit/cfcb184a3ca7858fe2220b458b4db2c7158d2836")[cfcb184a3c]
+  Map BibTeX entry types to litnote tags in one table (Claude,
+  2026-11-09 14:53)
+- #link("https://github.com/siainbuletin/dotfiles/commit/91cf52fbe3d77e6204b0e75709a38a836f01aee3")[91cf52fbe3]
+  Merge pull request \#347 from siainbuletin/347-bibtex-type-tags (Sia
+  Piperea, 2026-11-09 14:58)
+- #link("https://github.com/siainbuletin/dotfiles/commit/15946fe055b4ac9ab30149f3ff2b5c6743d3f26f")[15946fe055]
+  Add a small idea for a dispatcher for my notes collection (Sia
+  Piperea, 2026-11-09 15:00)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0031c8c953b5d8e75771f175fdac6105c97b086a")[0031c8c953]
+  Add to org-tag-registry (Sia Piperea, 2026-11-09 15:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0935a2636da156cdd5a12c3e16680fad577ac0d6")[0935a2636d]
+  Merge branch \'main\' of github.com:siainbuletin/dotfiles (Sia
+  Piperea, 2026-11-09 15:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/dae865cd044fd8b2a285c7408f0ab09a76a6f0bf")[dae865cd04]
+  Fill all tagged litnotes from BibTeX (dryrun/convert) and add the type
+  tag in sp-litnotes-meta-fill (Claude, 2026-11-09 15:08)
+- #link("https://github.com/siainbuletin/dotfiles/commit/75b3e6a8ca49b2c5df5901ea09b52a861b2c8856")[75b3e6a8ca]
+  gh-pr-pdf readme: break up into bullet-points (Sia Piperea, 2026-11-09
+  15:09)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e2db55e02c5b78d218ea112ad8f994d28d19cd57")[e2db55e02c]
+  Merge pull request \#349 from
+  siainbuletin/341-gh-pr-pdf-typst-escaping (Sia Piperea, 2026-11-09
+  15:09)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3a91916e8a0e3feda98eba4e9d3e26d93c582daa")[3a91916e8a]
+  Merge pull request \#348 from siainbuletin/348-litnote-meta-fill-all
+  (Sia Piperea, 2026-11-09 15:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/bd3171ddbfb0cec6c43271e49d69e36cd1db9be6")[bd3171ddbf]
+  ✨ feat: gh-pr-pdf only fetches what changed after the first run
+  (Claude, 2026-11-09 15:14)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7c288277b665a4620cfb3dee8d25c33026a57a2a")[7c288277b6]
+  Merge pull request \#350 from siainbuletin/350-gh-pr-pdf-incremental
+  (Sia Piperea, 2026-11-09 15:16)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a7b6d8038862d47363c487d8873a653eb4e29e6b")[a7b6d80388]
+  Link the files in batch conversion reports and share one report buffer
+  (Claude, 2026-11-09 15:23)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d102ff603144e825dfc9157585a8c93afc580f72")[d102ff6031]
+  Merge pull request \#351 from siainbuletin/351-batch-report-links (Sia
+  Piperea, 2026-11-09 15:28)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0627ffb32a7d78845762aeb4802163983abf20ea")[0627ffb32a]
+  ✨ feat: lint and rewrite one \.bib file at a time, in batches
+  (Claude, 2026-11-09 15:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ef144dfd8c6ce76cdf785a26cb08015294384ec2")[ef144dfd8c]
+  Add docs on the decision to use \`org\` for \`sp-batch-report\` (Sia
+  Piperea, 2026-11-09 15:31)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f5e26c8fc19a6bae29c7a331e6dff474e30a1fcb")[f5e26c8fc1]
+  Merge pull request \#352 from
+  siainbuletin/claude/project-thread-t7rcvh (Sia Piperea, 2026-11-09
+  15:34)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9b9bd9f95399b48b7fa4206157a5f5c610e87d6c")[9b9bd9f953]
+  Unify the batch reports on sp-batch-report, keeping the old views as
+  obsolete (Claude, 2026-11-09 15:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/72eaa05e27485af7f32df48953cd6aeec7a94f32")[72eaa05e27]
+  Document the unified batch reports (Claude, 2026-11-09 15:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7dfe7c0f0a17a76dcb6a3f73b1ddc8b855e2890e")[7dfe7c0f0a]
+  Merge pull request \#353 from siainbuletin/353-unify-batch-reports
+  (Sia Piperea, 2026-11-09 15:52)
+- #link("https://github.com/siainbuletin/dotfiles/commit/4a8877379a6b480883bf4b5221a38996c308e2be")[4a8877379a]
+  ✨ feat: split the BibTeX lint fixes into order, indentation and
+  author names (Claude, 2026-11-09 15:52)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3a7020336188ee3ae5c9c2ed0227f9a5629d8ea3")[3a70203361]
+  Make the missing crossref parent note in sp-litnotes-meta-fill
+  (Claude, 2026-11-09 15:55)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2f2c38d06fc2790739385ab039768b11f9634978")[2f2c38d06f]
+  Merge main into the lint branch (Claude, 2026-11-09 16:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1b6c1822cf95eeb3e2be3eb5d781e27b7994cb2a")[1b6c1822cf]
+  Flag crossref chains deeper than two levels and skip them (Claude,
+  2026-11-09 16:04)
+- #link("https://github.com/siainbuletin/dotfiles/commit/5517e1aed02852944ce2f8a1b2d0b65b48a562bd")[5517e1aed0]
+  Merge pull request \#355 from
+  siainbuletin/354-crossref-parent-meta-fill (Sia Piperea, 2026-11-09
+  16:08)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7f3ce5048d2e2a256daee4cb1c8ece64652feaa9")[7f3ce5048d]
+  ✨ feat: match BibTeX names by the surname of an author note (Claude,
+  2026-11-09 16:09)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e99333dde8ca9ca124b6e5d2aae897cb334f228f")[e99333dde8]
+  Add sp-litnotes-meta-fill-deep-chain to convert a flagged chain on
+  request (Claude, 2026-11-09 16:08)
+- #link("https://github.com/siainbuletin/dotfiles/commit/404f3b8d0c8a7d8d8bf4667cfe7dcbd7f9d665d5")[404f3b8d0c]
+  Merge pull request \#356 from siainbuletin/356-fill-deep-chain-command
+  (Sia Piperea, 2026-11-09 16:10)
+- #link("https://github.com/siainbuletin/dotfiles/commit/305cf58be975ebe2cd0fb428b23615306665f52d")[305cf58be9]
+  Order vulpea meta lines by key; litnote meta fill uses it (Claude,
+  2026-11-09 16:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/44e269084541af401d917ddca959111a5620f4e2")[44e2690845]
+  Add PR number to the change notes (Claude, 2026-11-09 16:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/aad378cc5f3224a9832dae866a72295e6154d04d")[aad378cc5f]
+  Merge pull request \#354 from
+  siainbuletin/claude/project-thread-t7rcvh (Sia Piperea, 2026-11-09
+  16:12)
+- #link("https://github.com/siainbuletin/dotfiles/commit/67191e2ebfb2041adfca1da71f275908260966b2")[67191e2ebf]
+  Merge main into the meta order branch (Claude, 2026-11-09 16:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/03a6a040d3f31db57fbd1cc65f3c7232319ca217")[03a6a040d3]
+  Merge pull request \#357 from
+  siainbuletin/claude/project-thread-8z1y61 (Sia Piperea, 2026-11-09
+  16:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/8f94fd608f88c1d753b045a411e16168375b46b8")[8f94fd608f]
+  ♻️ refactor: fix BibTeX field order and indentation on the whole file
+  at once (Claude, 2026-11-09 16:20)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0c8ddfe9f3e63d8354d8dd8efced34c286efb918")[0c8ddfe9f3]
+  Merge pull request \#358 from
+  siainbuletin/claude/project-thread-t7rcvh (Sia Piperea, 2026-11-09
+  16:21)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a85ecbd3d54254be20e95448d02630b50a72d95a")[a85ecbd3d5]
+  ✨ feat: drop BibTeX author candidates for later and bring them back
+  (Claude, 2026-11-09 17:21)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9be9462587f6227bc33bc53f5494edbb5aa5247d")[9be9462587]
+  ✨ feat: show the BibTeX works of the author of the current note
+  (Claude, 2026-11-09 17:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0057f7803ad2e6126146bb8a453de59dbb675f5b")[0057f7803a]
+  Merge pull request \#359 from
+  siainbuletin/claude/project-thread-t7rcvh (Sia Piperea, 2026-11-09
+  22:06)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1ad6b67ebcc7368881a407a33077ac77e19c6ce8")[1ad6b67ebc]
+  ✨ feat: update changed litnote fields, lint bib-parent, stop batches
+  early (Claude, 2026-11-09 22:12)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a907fba63dea3d95acf8d4742b8af8b3d8bd6bef")[a907fba63d]
+  Merge pull request \#360 from siainbuletin/360-author-works-one-author
+  (Sia Piperea, 2026-11-09 22:15)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2318d85217d6ee70304f1c24389792709f890e14")[2318d85217]
+  Merge pull request \#361 from
+  siainbuletin/claude/project-thread-yjxx53 (Sia Piperea, 2026-11-09
+  22:17)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9d83e59917b24cc0a9899fd8218a4c6c79e0e35e")[9d83e59917]
+  ✨ feat: fill and update pub-pages in the litnote meta from BibTeX
+  pages (Claude, 2026-11-09 22:22)
+- #link("https://github.com/siainbuletin/dotfiles/commit/79f241869b4fab5f7980f770c54ed604c66e0cd0")[79f241869b]
+  Merge pull request \#362 from siainbuletin/362-pub-pages-meta-fill
+  (Sia Piperea, 2026-11-09 22:24)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f88fba59d130b5f4c8f4bf470cde39caa271d454")[f88fba59d1]
+  Let read-priority and relevance-factor prompts be left empty (Claude,
+  2026-11-09 22:24)
+- #link("https://github.com/siainbuletin/dotfiles/commit/048bd4cd0aaacfed078a214501cbd5e2da5fd1be")[048bd4cd0a]
+  Keep the pick-entries doc wording in sync with the tangled module
+  (Claude, 2026-11-09 22:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/88719ab6f25dae96834c431f5987325f48da45ae")[88719ab6f2]
+  Merge pull request \#363 from
+  siainbuletin/claude/project-thread-y46yrm (Sia Piperea, 2026-11-09
+  22:53)
+- #link("https://github.com/siainbuletin/dotfiles/commit/046ba3a92f484d5a13d802d76aa77dbb873b8b4c")[046ba3a92f]
+  ✨ feat: open or diff the backups of the visited file
+  (sp-backup-lookup) (Claude, 2026-11-09 22:56)
+- #link("https://github.com/siainbuletin/dotfiles/commit/119b028a80658a37e7d8683798ec0db5b263731c")[119b028a80]
+  Merge pull request \#364 from
+  siainbuletin/claude/project-thread-tzx0l1 (Sia Piperea, 2026-11-09
+  22:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/915762696ab6398a7590bf51a1a830282fea9ef0")[915762696a]
+  ✨ feat: lint and strip quotes around the litnote pub-title (Claude,
+  2026-11-09 23:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0e05cfe344ab2b0d356ee72fa0761552f69825f5")[0e05cfe344]
+  Note \#365 in the sp-litnotes-meta doc (Claude, 2026-11-09 23:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/dfc3d3308223916103b6e22fc19f6f60022cc350")[dfc3d33082]
+  Merge pull request \#365 from
+  siainbuletin/claude/project-thread-i5ctj3 (Sia Piperea, 2026-11-09
+  23:28)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c0cee7cdfc5a144b6924a43892eabc20a955d1fa")[c0cee7cdfc]
+  ✨ feat: scan see-also footnotes of litnotes and rank concepts
+  (sp-see-also) (Claude, 2026-11-09 23:34)
+- #link("https://github.com/siainbuletin/dotfiles/commit/8b46a164c557cc518fd0398f8c15ea2d1f0d2870")[8b46a164c5]
+  🐛 fix: add the sp-see-also require to the sp-academic doc so the
+  tangle check passes (Claude, 2026-11-09 23:35)
+- #link("https://github.com/siainbuletin/dotfiles/commit/5754384438819389a6de0d7504223c80c1c07c7a")[5754384438]
+  ✨ feat: see-also footnotes as sidenotes in sp-reading-mode
+  (sp-reading-sidenotes) (Claude, 2026-11-09 23:37)
+- #link("https://github.com/siainbuletin/dotfiles/commit/027afd32e6c77197f83c4278e346cae65f2464cc")[027afd32e6]
+  Merge pull request \#366 from
+  siainbuletin/claude/project-thread-7yi4nb (Sia Piperea, 2026-11-09
+  23:53)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0a755ce579a7e03dfb5dbee9b7efb88024194c3c")[0a755ce579]
+  Start working through \`sp-see-also\` docs manually (Sia Piperea,
+  2026-11-10 20:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c1ff05b55a80781f2d3fdca4bc3da636ea4864db")[c1ff05b55a]
+  ✨ feat: add a global option to the batch prompt of the lint/convert
+  commands (Claude, 2026-11-10 22:00)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a8f10bff4049be7aeded89323fd1b172045966b2")[a8f10bff40]
+  Merge pull request \#368 from
+  siainbuletin/claude/project-thread-k78mjc (Sia Piperea, 2026-11-10
+  22:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/635577f51231bdb41d2e2c070cb20aa2128e1c57")[635577f512]
+  Merge pull request \#367 from siainbuletin/367-reading-sidenotes (Sia
+  Piperea, 2026-11-10 22:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2db6e7e8d5b17193b6362c5b6032ec22cf7a59d1")[2db6e7e8d5]
+  ✨ feat: make notes asked of citar-create-note with the sp litnote
+  mechanism (Claude, 2026-11-10 22:08)
+- #link("https://github.com/siainbuletin/dotfiles/commit/38d67a2bbfe72502c895608dad885ea0ac470f28")[38d67a2bbf]
+  Merge pull request \#369 from siainbuletin/369-litnote-citar-create
+  (Sia Piperea, 2026-11-10 22:23)
+- #link("https://github.com/siainbuletin/dotfiles/commit/70711db21591148b54bda49b8a71caf5e24904a3")[70711db215]
+  Make org-semantic binary install survive a macOS kill (Sia Piperea,
+  2026-11-10 22:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ca5391e3de1a12b9f934dcf377f5f4f16ab73ca1")[ca5391e3de]
+  Document the org-semantic macOS install repair (Sia Piperea,
+  2026-11-10 22:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ad310927ceae877915006d5cb1161f74a1b66434")[ad310927ce]
+  Stop tracking the downloaded org-semantic binary (Sia Piperea,
+  2026-11-10 22:30)
+- #link("https://github.com/siainbuletin/dotfiles/commit/38cdf74d7c7932b752007927385f755eeed0f0d6")[38cdf74d7c]
+  ✨ feat: normalise key=value author names and misplaced prefixes in
+  the BibTeX lint (Claude, 2026-11-10 22:37)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7bca0e1d416abfe196f9fee01eda75cfd53c7561")[7bca0e1d41]
+  ✨ feat: run the name prefixes fix first in sp-bibtex-lint-fix-authors
+  (Claude, 2026-11-10 22:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e28acb0437a01ce5cd9ebbb4ee226f1214fb5a60")[e28acb0437]
+  ✨ feat: attachment paths fix in the BibTeX lint (bdsk-file to file)
+  (Claude, 2026-11-10 22:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/60f3d09241f2b81fc60eef07bad03989990fad16")[60f3d09241]
+  Merge pull request \#371 from siainbuletin/371-bibtex-name-prefixes
+  (Sia Piperea, 2026-11-10 22:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/8e5c2faa85975b814a6c4ccb06560b9a8e3f6ba0")[8e5c2faa85]
+  📝 docs: PR number in the changes list (Claude, 2026-11-10 22:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2f4fa9ac3122e0a013ce350cb453e9f996033d2d")[2f4fa9ac31]
+  Merge pull request \#370 from
+  siainbuletin/370-org-semantic-install-fix (Sia Piperea, 2026-11-10
+  22:46)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e6802dc39f04c63046ef841f8319497a55950a43")[e6802dc39f]
+  Add org-semantic to \`.gitignore\` (Sia Piperea, 2026-11-10 22:51)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a23b49300bf8c5d21a85736c989b5eb880512c71")[a23b49300b]
+  ✨ feat: move the PDFs through DEVONthink (devonthink-move.py) from
+  the attachment paths fix (Claude, 2026-11-10 22:54)
+- #link("https://github.com/siainbuletin/dotfiles/commit/040fe24553fa8d58f70701a7ea05bc19c13673a8")[040fe24553]
+  Remove \`org-semantic\` from the codebase (Sia Piperea, 2026-11-10
+  22:59)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d006641d3fb4ccb443d25f8090cbcba66d1670f9")[d006641d3f]
+  Add \`dotfiles-prs\` as a backup of PR history in plain text (Sia
+  Piperea, 2026-11-10 22:59)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d29cd572930c47f08ea0678931b0365f3e05304a")[d29cd57293]
+  Merge branch \'main\' of github.com:siainbuletin/dotfiles (Sia
+  Piperea, 2026-11-10 22:59)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2c9c591f08683a3e56b212059ba5d98f59a8268a")[2c9c591f08]
+  Merge main into the attachment paths branch (Claude, 2026-11-10 23:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/197b3e7c59980a680fea3f2749665e695ba44a1a")[197b3e7c59]
+  Merge pull request \#372 from
+  siainbuletin/claude/project-thread-07pt51 (Sia Piperea, 2026-11-10
+  23:06)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9a22f0738aa3740a1f81b4b17d3095eb623a8c9f")[9a22f0738a]
+  Read definition footnotes in see-also, add interactive show commands
+  (Claude, 2026-11-10 23:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e198f5bf19f60528a016c646d3bcdd30b1c7cd62")[e198f5bf19]
+  Merge pull request \#373 from
+  siainbuletin/claude/project-thread-0ojt3l (Sia Piperea, 2026-11-10
+  23:34)
+- #link("https://github.com/siainbuletin/dotfiles/commit/723a53841d1c51dd078b9ef00241cdf61a44485e")[723a53841d]
+  Move leftover configuration into \`leftovers/\` folder (Sia Piperea,
+  2026-11-11 00:06)
+- #link("https://github.com/siainbuletin/dotfiles/commit/2d97ebe86f0096bb0b200ba268189dc472a6e935")[2d97ebe86f]
+  Index the Emacs config and writing projects in Vulpea (Claude,
+  2026-11-11 00:32)
+- #link("https://github.com/siainbuletin/dotfiles/commit/bd79e832452ed28fab779d86d5ec0035eb2f3dfb")[bd79e83245]
+  Search the writing projects for Projectile projects (Claude,
+  2026-11-11 00:39)
+- #link("https://github.com/siainbuletin/dotfiles/commit/653d26041ee4889681c7fb14ac9b6f4998146333")[653d26041e]
+  Group the notes of sp-find-note by where their file lives (Claude,
+  2026-11-11 00:40)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ce2acdc28c1c4bceb2b326e1453a3b876eeec91c")[ce2acdc28c]
+  Merge pull request \#374 from
+  siainbuletin/claude/project-thread-xt8r93 (Sia Piperea, 2026-11-11
+  00:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/26684112366e876f6bdd3be1bdfc44408af9993e")[2668411236]
+  Merge pull request \#375 from siainbuletin/375-projectile-search-path
+  (Sia Piperea, 2026-11-11 00:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d58f52f658be917524052d13faa80161c7c29e86")[d58f52f658]
+  Merge pull request \#376 from siainbuletin/376-find-note-groups (Sia
+  Piperea, 2026-11-11 00:44)
+- #link("https://github.com/siainbuletin/dotfiles/commit/605aa130bdc68c2b3623440e784dbc49b9350e41")[605aa130bd]
+  chore: small changes to old docs (Sia Piperea, 2026-11-11 10:31)
+- #link("https://github.com/siainbuletin/dotfiles/commit/8c1563a228f5c3cc62114cfa5d57c623a233e680")[8c1563a228]
+  Do not let a missing PDF stop the book table update (Claude,
+  2026-11-11 10:48)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0d245a7c6af37ecd397ce7a1e81a70895eb91f98")[0d245a7c6a]
+  Port the missing-file fix into the literate doc (Claude, 2026-11-11
+  10:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/39e0058e59ad9288b54f0de3f39f559ac2d73d27")[39e0058e59]
+  Undo the unrelated tangle output of the last commit; keep the doc fix
+  (Claude, 2026-11-11 10:50)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a521b3b3e05c452f4d53a9d88855d42b2eb1ff16")[a521b3b3e0]
+  Fold incollection chapters under their collection in the author works
+  table (Claude, 2026-11-11 10:52)
+- #link("https://github.com/siainbuletin/dotfiles/commit/dfdf9c6b6c9fb4d0596a042e89b878ce53206ebe")[dfdf9c6b6c]
+  ✨ feat: open indexed PDFs in DEVONthink from Finder and Alfred
+  (Claude, 2026-11-11 10:55)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ac670d526597bb3c5bb14b49249644073c704144")[ac670d5265]
+  Show incollection chapters as own rows with a :collection column
+  (Claude, 2026-11-11 10:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/da7895061f9fbb86706004458ca55deaa83f9181")[da7895061f]
+  📝 docs: make devonthink-open a literate README.org that tangles
+  (Claude, 2026-11-11 11:00)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3dc34569a5d0706dae947517284978d2b5733223")[3dc34569a5]
+  📝 docs: drop an unchecked claim about Hammerspoon\'s Info.plist
+  (Claude, 2026-11-11 11:00)
+- #link("https://github.com/siainbuletin/dotfiles/commit/247a1781d7dcd8359dbbdde507feb55e73ba35b8")[247a1781d7]
+  Make citar find PDFs below the library when the file field is wrong
+  (Claude, 2026-11-11 11:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a93569f9c4f732ad87c17cb97aa0064c9412b2b5")[a93569f9c4]
+  Require ucs-normalize for the library lookup (Claude, 2026-11-11
+  11:02)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3ab1422bafad74267643010619de8c8fbf76c38f")[3ab1422baf]
+  Merge pull request \#378 from
+  siainbuletin/claude/project-thread-fzht3a (Sia Piperea, 2026-11-11
+  11:12)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a6df701e88b405712e1a2c62f839b1fa885143cd")[a6df701e88]
+  Merge pull request \#377 from
+  siainbuletin/377-citar-missing-pdf-backfill (Sia Piperea, 2026-11-11
+  11:12)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7ae7daaa7dd7d21fef29e952ef951cd2e82554a2")[7ae7daaa7d]
+  🔧 refactor: do the DEVONthink lookup in the applet, drop dt-open;
+  macOS only (Claude, 2026-11-11 11:17)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e244daf7bcf069267c05df205c1971b27b55dd15")[e244daf7bc]
+  Merge pull request \#379 from siainbuletin/379-devonthink-open-pdf
+  (Sia Piperea, 2026-11-11 11:32)
+- #link("https://github.com/siainbuletin/dotfiles/commit/437a2cdaf272cad9eb159dc4fcbccbe040b58d58")[437a2cdaf2]
+  Match every link of a comma-separated pub-author in query tables
+  (Claude, 2026-11-11 11:32)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7ca7290eb229587d324ee15b99b2951bb8b5c013")[7ca7290eb2]
+  Merge pull request \#380 from
+  siainbuletin/claude/project-thread-fzht3a (Sia Piperea, 2026-11-11
+  11:33)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1f7d0d51db0a35999a773157561f3b6cfebd80ec")[1f7d0d51db]
+  Fix author-notes report crash on comma lists, plain names and Denote
+  links (Claude, 2026-11-11 11:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a0dbe8d4f753a51c879f7a30b5c3bfeada90bc99")[a0dbe8d4f7]
+  \`devonthink-open\`: Add tangled output and \`.gitignore\` to repo
+  (Sia Piperea, 2026-11-11 11:47)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c1d7d946c6237d991797ac4a67e8358ca44e888e")[c1d7d946c6]
+  Merge pull request \#381 from siainbuletin/381-fix-author-notes-report
+  (Sia Piperea, 2026-11-11 11:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6daf120fed5159d1ad5f24b44a07dc7b56401c89")[6daf120fed]
+  Add \`.stow-local-ignore\` (Sia Piperea, 2026-11-11 19:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0e3792f76eeee563787f294b3ccbac117ef9f361")[0e3792f76e]
+  Merge branch \'main\' of github.com:siainbuletin/dotfiles (Sia
+  Piperea, 2026-11-11 19:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6628e1ca6eb2390e675667b239bd93b1536b175e")[6628e1ca6e]
+  remove redundant \`.gitignore\` (Sia Piperea, 2026-11-11 21:50)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c0b433ee31df6c9aa090e1c4d78aebe309dc4020")[c0b433ee31]
+  🐛 fix: DT Open PDF falls back to the previous PDF viewer and can log
+  why a lookup fails (Claude, 2026-11-11 21:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7508af203578e3e0453152eda54a0b18fcb5b665")[7508af2035]
+  Treat organisations in author-notes as organisations, not people
+  (Claude, 2026-11-11 22:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/dec0df33928e7ef25ce0b85f520ae3eb9f3c0854")[dec0df3392]
+  Put the organisation changes in the literate doc that tangles them
+  (Claude, 2026-11-11 22:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3bd1a60c0ef384703b0a17a39f426a5fc2b314a3")[3bd1a60c0e]
+  Use the institution tag for organisation author notes (Claude,
+  2026-11-11 22:04)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c44c57e216703bc68cf22d2636b11241cb86b25c")[c44c57e216]
+  Merge pull request \#382 from
+  siainbuletin/382-dt-open-fallback-and-debug (Sia Piperea, 2026-11-11
+  22:08)
+- #link("https://github.com/siainbuletin/dotfiles/commit/80dc6f91b55549eddbfa203ffde458f9ad36c3c4")[80dc6f91b5]
+  \`devonthink-open\`: enable logging in \`\~/Library\` (Sia Piperea,
+  2026-11-11 22:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/55a5e3fd61752f07247d36340f080d0481217f52")[55a5e3fd61]
+  Merge pull request \#383 from
+  siainbuletin/claude/project-thread-hngu8m (Sia Piperea, 2026-11-11
+  22:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f5a7a5e4325fbca28ddeed665009adeefe1adf44")[f5a7a5e432]
+  🐛 fix: DT Open PDF lookup failed with -1728 inside the DEVONthink
+  tell block (Claude, 2026-11-11 22:22)
+- #link("https://github.com/siainbuletin/dotfiles/commit/237447e20a59a7c06f1cd7455a95c404c721ff58")[237447e20a]
+  Merge pull request \#384 from
+  siainbuletin/384-dt-open-lookup-tell-block (Sia Piperea, 2026-11-11
+  22:25)
+- #link("https://github.com/siainbuletin/dotfiles/commit/d0ef9c33a0680aa7f5bff369102177e4ad69f9d8")[d0ef9c33a0]
+  📝 Add the emoji prefix standard for commits and PR titles (Claude,
+  2026-11-11 22:58)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1d04424563e41eff43749d1b1f57281081bd190a")[1d04424563]
+  Merge pull request \#385 from siainbuletin/385-emoji-prefixes (Sia
+  Piperea, 2026-11-11 23:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6f195467e9c54d084267cc926f2da734a48dacbb")[6f195467e9]
+  ✨ feat: chapter tables for books, collections, reference works and
+  encyclopedias, and a command to refresh them all (Claude, 2026-11-11
+  23:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9ee23cb7604030975636c168de6e7b24e0167995")[9ee23cb760]
+  ✨ feat: rename sp-collection-query-tables to sp-collection-query; one
+  grouped command inserts every dynamic block (Claude, 2026-11-11 23:11)
+- #link("https://github.com/siainbuletin/dotfiles/commit/fb6c99554edc5bacfb1e8247cd3233a6fd894e09")[fb6c99554e]
+  ✨ Read \'See also\' sections as mentions in sp-see-also (Claude,
+  2026-11-11 23:15)
+- #link("https://github.com/siainbuletin/dotfiles/commit/234da3c57a1b18c9e485dfd44fdb6ddafb32f2c2")[234da3c57a]
+  ✨ feat: vulpea-ui\'s vulpea-collection insert command refuses while
+  its block is disabled (Claude, 2026-11-11 23:19)
+- #link("https://github.com/siainbuletin/dotfiles/commit/078c5f2c88a33e87dcb1da4c69398044a1792051")[078c5f2c88]
+  Merge pull request \#386 from siainbuletin/386-chapter-tables (Sia
+  Piperea, 2026-11-11 23:22)
+- #link("https://github.com/siainbuletin/dotfiles/commit/41308be1ef703f40580bc7ed259111b05dd8836b")[41308be1ef]
+  Merge pull request \#387 from siainbuletin/387-collection-query (Sia
+  Piperea, 2026-11-11 23:23)
+- #link("https://github.com/siainbuletin/dotfiles/commit/e6523bf85afb60f7426c52e9035502a08bbbfdfd")[e6523bf85a]
+  Merge pull request \#388 from
+  siainbuletin/claude/project-thread-lmotav (Sia Piperea, 2026-11-11
+  23:23)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3ea15f0fd3f7cb4bec90cd004de29034b491d95d")[3ea15f0fd3]
+  Merge branch \'main\' into 326-grouped-backlinks-sidebar (Sia Piperea,
+  2026-11-11 23:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c0c6b6416ba74ebe65e313f97ae2df723597ffb9")[c0c6b6416b]
+  Merge pull request \#390 from
+  siainbuletin/326-grouped-backlinks-sidebar (Sia Piperea, 2026-11-11
+  23:44)
+
+= PR \#392: Merge pull request \#391 from siainbuletin/main
+<pr-392-merge-pull-request-391-from-siainbuletinmain>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/392")[#link("https://github.com/siainbuletin/dotfiles/pull/392")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:46
+/ Merged: 2026-11-11 23:47
+/ Branch: #raw(lang:"verbatim", "327-grouped-backlinks-widget") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/980122d2445874ab382a26dbb571ac8487888bab")[980122d244]
+
+== Description
+<description-389>
+🐢️ Merge grouped backlinks widget (for
+#raw(lang:"verbatim", "vulpea-ui")) into #raw(lang:"verbatim", "main")
+
+== Commits (1)
+<commits-1-169>
+- #link("https://github.com/siainbuletin/dotfiles/commit/fdb2a5999fdac809b61bb405b1fb35842f9be3d5")[fdb2a5999f]
+  Merge pull request \#391 from siainbuletin/main (Sia Piperea,
+  2026-11-11 23:46)
+
+= PR \#393: 📝 Split \"Being developed\" in the Emacs CHANGELOG into sub-headings
+<pr-393-split-being-developed-in-the-emacs-changelog-into-sub-headings>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/393")[#link("https://github.com/siainbuletin/dotfiles/pull/393")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-11 23:53
+/ Merged: 2026-11-11 23:54
+/ Branch: #raw(lang:"verbatim", "393-being-developed-headings") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/f8e8feddda9f6b4ef7f95635d0243ccf416bb2de")[f8e8feddda]
+/ Labels: documentation
+
+== Description
+<description-390>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2FVLrqu7REJ6EYUbr4JythQ")[project thread]]
+
+==== What
+<what>
+- The \"Being developed\" section of
+  #raw(lang:"verbatim", "emacs-modular/.config/emacs-modular/CHANGELOG.org")
+  had one long paragraph per feature.
+- Each feature is now a #raw(lang:"verbatim", "**") sub-heading with
+  short lines:
+  - #raw(lang:"verbatim", "Merged:") the pull requests.
+  - #raw(lang:"verbatim", "Not tested:") what was merged but never
+    tried, on its own line.
+  - #raw(lang:"verbatim", "Open:") and #raw(lang:"verbatim", "To do:")
+    for what is left.
+  - Long accounts (keybindings, SVG chips) are bullet lists.
+- Nothing was dropped: every pull request and caveat of the old text is
+  still there.
+- The date line is 2026-11-12 and the intro says what the headings hold.
+
+==== Not checked
+<not-checked>
+- Only the changelog changed; nothing was run.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiD1EqErxv8Y1wG33ZF")[Claude Code]]
+
+== Commits (1)
+<commits-1-170>
+- #link("https://github.com/siainbuletin/dotfiles/commit/133be6970479cea3f050d798bbec0ab3d30f7732")[133be69704]
+  📝 Split \'Being developed\' into sub-headings with merged, not-tested
+  and to-do lines (Claude, 2026-11-11 23:53)
+
+= PR \#394: ✨ DT Open PDF: open each PDF in a DEVONthink window of its own
+<pr-394-dt-open-pdf-open-each-pdf-in-a-devonthink-window-of-its-own>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/394")[#link("https://github.com/siainbuletin/dotfiles/pull/394")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 11:23
+/ Merged: 2026-11-12 11:35
+/ Branch: #raw(lang:"verbatim", "394-dt-open-own-windows") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/ffab488a0731b811ea3447ba9f3aefaccd46a406")[ffab488a07]
+/ Labels: correction, needs-further-testing
+
+== Description
+<description-391>
+Requested: PDFs should open in a separate DEVONthink window instead of
+the small viewer beneath the database view, and several PDFs must be
+possible at once.
+
+- #raw(lang:"verbatim", "openInDatabases") now calls DEVONthink\'s
+  #raw(lang:"verbatim", "open window for record") and
+  #raw(lang:"verbatim", "activate"), instead of
+  #raw(lang:"verbatim", "open location") with the
+  #raw(lang:"verbatim", "x-devonthink-item://") link (which replaced the
+  previous PDF in the main window\'s viewer).
+- Several PDFs: a Finder selection sent in one event is handled one
+  after the other, each getting a window.
+- #raw(lang:"verbatim", "DT_OPEN_MODE") (window/reveal) is removed from
+  the code, the config and the docs.
+- Handlers renamed: #raw(lang:"verbatim", "openInDEVONthink"),
+  #raw(lang:"verbatim", "findAndOpen"),
+  #raw(lang:"verbatim", "openInDatabases") (true/false instead of a
+  link).
+- Not run on a Mac. Not checked: what DEVONthink does when a window for
+  that record is already open.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiBSPryU16ZirHGRiaX")[Claude Code]]
+
+== Commits (1)
+<commits-1-171>
+- #link("https://github.com/siainbuletin/dotfiles/commit/20930d866153cda55af191c75baee832f570c3ce")[20930d8661]
+  ✨ feat: open PDFs from DEVONthink in a window of their own (Claude,
+  2026-11-12 11:23)
+
+= PR \#395: ✨ Flag inline keywords in Org text as agenda problems
+<pr-395-flag-inline-keywords-in-org-text-as-agenda-problems>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/395")[#link("https://github.com/siainbuletin/dotfiles/pull/395")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 13:21
+/ Merged: 2026-11-12 13:32
+/ Branch: #raw(lang:"verbatim", "395-inline-keywords-agenda") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/9ceb34b13c6d52be1ed69c77db16e5bca6d37d2a")[9ceb34b13c]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-392>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Dj998i7jbCbdy2Z6GrciUq")[project thread]]
+
+==== What
+<what>
+- Requested: inline keywords in Org text (for example in a draft for a
+  project) show up in the agenda as problems to fix.
+- New agenda view #raw(lang:"verbatim", "x"), \"Inline keywords to
+  fix\", in #raw(lang:"verbatim", "sp-agenda-views.el") (the owner of
+  #raw(lang:"verbatim", "org-agenda-custom-commands"), ADR 0009).
+- Also on #raw(lang:"verbatim", "C-c o x")
+  (#raw(lang:"verbatim", "sp-agenda-views-inline")).
+- It uses Org\'s search view with a regexp, so each hit is an agenda
+  entry with its context that jumps to the place on
+  #raw(lang:"verbatim", "RET").
+
+==== Settings
+<settings>
+- #raw(lang:"verbatim", "sp-agenda-views-inline-keywords"):
+  #raw(lang:"verbatim", "FIXME"), #raw(lang:"verbatim", "CITE"),
+  #raw(lang:"verbatim", "TK"), #raw(lang:"verbatim", "XXX")\; whole
+  words only. Changing it re-installs the view.
+- #raw(lang:"verbatim", "sp-agenda-views-inline-extra-dirs"):
+  #raw(lang:"verbatim", "sp-writing-projects"). Its Org files are
+  scanned besides the agenda files, because draft headings are not
+  always agenda entries.
+- The file title is shown as the prefix column (reuses
+  #raw(lang:"verbatim", "sp-agenda-views-file-title")).
+
+==== Reading I chose
+<reading-i-chose>
+- \"Inline\" means a keyword anywhere in an entry\'s heading or body,
+  not an Org TODO keyword.
+- The agenda shows problems on demand in its own view; it is not added
+  to the main PARA view or the morning list.
+
+==== Not checked
+<not-checked>
+- No Emacs in the container: neither the code nor the new ERT test
+  (#raw(lang:"verbatim", "tests/sp-agenda-views-inline-test.el")) was
+  run.
+- Org\'s search view ignores text before a file\'s first heading.
+- Whether the search is case-insensitive depends on Org (so
+  #raw(lang:"verbatim", "fixme") may match).
+- Not added: a count in the dashboard or the morning view.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9jyyEFewgtDoWE5dF")[Claude Code]]
+
+== Commits (2)
+<commits-2-96>
+- #link("https://github.com/siainbuletin/dotfiles/commit/fdeb77d88072af18da8ba503dd1cc15d8b5aa11a")[fdeb77d880]
+  ✨ Flag inline keywords in Org text as agenda problems (Claude,
+  2026-11-12 13:21)
+- #link("https://github.com/siainbuletin/dotfiles/commit/a0f5ece1e701c736c9b0f8f9f2afdeb3b084f3bb")[a0f5ece1e7]
+  📝 Document the inline keyword view in the tangled doc (Claude,
+  2026-11-12 13:22)
+
+= PR \#396: ✨ Decorate the see-also views
+<pr-396-decorate-the-see-also-views>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/396")[#link("https://github.com/siainbuletin/dotfiles/pull/396")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 13:22
+/ Merged: 2026-11-12 13:32
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-fq5ngr") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/e5634562f1743e2c33a5a999296005c196f9911f")[e5634562f1]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-393>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2HCMwoLCw1KVjty9i7Bahxd")[project thread]]
+
+==== What
+<what>
+- #raw(lang:"verbatim", "sp-see-also-show") and
+  #raw(lang:"verbatim", "sp-see-also-show-concept") now draw a decorated
+  view (#raw(lang:"verbatim", "sp-see-also-view-mode")), laid out like
+  the DG context pane of #raw(lang:"verbatim", "discourse-graphs").
+- A group per concept, open question or litnote: a coloured heading
+  (#raw(lang:"verbatim", "outline-1")) with score and counts as small
+  print.
+- An entry per mention: heading line (marks, place, question), then the
+  context as an indented quote.
+- Each entry has a background from #raw(lang:"verbatim", "sp-highlight")
+  (the Modus #raw(lang:"verbatim", "bg-hl-line")), so it follows the
+  active theme.
+- Headings and contexts are clickable (mouse-1 or
+  #raw(lang:"verbatim", "RET")) and visit the footnote; a concept
+  heading opens its concept view.
+- Keys: #raw(lang:"verbatim", "n=/=p") headings,
+  #raw(lang:"verbatim", "TAB") fold one entry,
+  #raw(lang:"verbatim", "S-TAB") fold all, #raw(lang:"verbatim", "g")
+  redraw, #raw(lang:"verbatim", "q") close.
+
+==== Notes
+<notes>
+- Literate doc updated (section \"The two views\"); tangling it gives
+  the committed #raw(lang:"verbatim", ".el") files exactly.
+- Two ERT tests added; all 27 pass in batch Emacs 29. Not seen in the
+  real GUI with the real vault yet.
+- No #raw(lang:"verbatim", "CHANGELOG.org") change (the nightly tidy
+  writes it).
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiD1WCz5BjUbXLvPJST")[Claude Code]]
+
+== Commits (1)
+<commits-1-172>
+- #link("https://github.com/siainbuletin/dotfiles/commit/bbbd9c01f684c6d44a8e42cda85a0bd115328dc9")[bbbd9c01f6]
+  ✨ Decorate the see-also views: headings, entries, clickable contexts
+  (Claude, 2026-11-12 13:22)
+
+= PR \#397: ✨ Extend sp-notes commands to writing projects
+<pr-397-extend-sp-notes-commands-to-writing-projects>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/397")[#link("https://github.com/siainbuletin/dotfiles/pull/397")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 13:43
+/ Merged: 2026-11-12 14:34
+/ Branch: #raw(lang:"verbatim", "397-sp-notes-writing-projects") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/44f471e1e7864955139f66f53d217e8a62b467a3")[44f471e1e7]
+/ Labels: enhancement, new-feature
+
+== Description
+<description-394>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2QcxyfbGRCqbavRozuEZbry")[project thread]]
+
+==== What
+<what>
+- #raw(lang:"verbatim", "sp-insert-note") and
+  #raw(lang:"verbatim", "sp-select-note") group candidates by origin
+  (Notes, #raw(lang:"verbatim", "Writing: \u{3c}project>"), Writing, Config),
+  like #raw(lang:"verbatim", "sp-find-note").
+  - The grouping is now a macro,
+    #raw(lang:"verbatim", "sp-org-tag-groups--with-origin-groups"),
+    which #raw(lang:"verbatim", "sp-find-note") also uses (no duplicated
+    code).
+- #raw(lang:"verbatim", "sp-notes-create") asks where the note goes: the
+  notes root, or a Projectile writing project.
+  - For a writing project it asks the file name (default: slug of the
+    title; subfolders allowed; #raw(lang:"verbatim", ".org") added); the
+    tag folder does not apply.
+  - With no writing projects the question is skipped.
+- #raw(lang:"verbatim", "sp-notes-open") also lists org files of the
+  writing projects and the config #raw(lang:"verbatim", "docs/") and
+  #raw(lang:"verbatim", "adr/") folders
+  (#raw(lang:"verbatim", "sp-notes-open-config-dirs")).
+- #raw(lang:"verbatim", "sp-note-origin--writing-roots") is now public:
+  #raw(lang:"verbatim", "sp-note-origin-writing-roots").
+
+==== Notes
+<notes>
+- Literate docs edited (#raw(lang:"verbatim", "sp-notes.org"),
+  #raw(lang:"verbatim", "sp-org-tag-groups.org"));
+  #raw(lang:"verbatim", ".el") files match the tangled blocks.
+- 4 ERT tests added in #raw(lang:"verbatim", "tests/sp-notes-test.el").
+  Emacs is not in the container, so nothing was run.
+- No #raw(lang:"verbatim", "CHANGELOG.org") change (the nightly tidy
+  writes it).
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCpWuUVRCSzULA39Vk")[Claude Code]]
+
+== Commits (2)
+<commits-2-97>
+- #link("https://github.com/siainbuletin/dotfiles/commit/e238a70c55fdaf5275c1a70a88519900f7f1d4ce")[e238a70c55]
+  ✨ Extend sp-notes commands to writing projects (Claude, 2026-11-12
+  13:43)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6e0aa17b93128bc7f71bbb5568e58396c3740c4c")[6e0aa17b93]
+  ✨ Merge main into \#397 and split Notes results by subfolder (Claude,
+  2026-11-12 14:30)
+
+= PR \#398: ✨ Add sp-see-also-show-concept-by-name to pick the concept by title
+<pr-398-add-sp-see-also-show-concept-by-name-to-pick-the-concept-by-title>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/398")[#link("https://github.com/siainbuletin/dotfiles/pull/398")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 13:54
+/ Merged: 2026-11-12 14:23
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-8f9kmh") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/0084e2c57895a80c5d5a99884873fa2dc9496915")[0084e2c578]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-395>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CkNuSJrjB76ZiHYGn2MXpt")[project thread]]
+
+==== What
+<what>
+- New command
+  #raw(lang:"verbatim", "M-x sp-see-also-show-concept-by-name") next to
+  #raw(lang:"verbatim", "sp-see-also-show-concept").
+- It prompts in the minibuffer for a note by title, so no ID is typed
+  and the entry at point is not used.
+- It then opens the same #raw(lang:"verbatim", "*see-also-concept*")
+  view (code reused as is).
+- The prompt is #raw(lang:"verbatim", "sp-select-note") with the new
+  #raw(lang:"verbatim", ":grouped t") option: the groups of
+  #raw(lang:"verbatim", "sp-find-note") (notes, writing projects,
+  config), with the tag emoji and column.
+- #raw(lang:"verbatim", ":require-match t"), so the choice always
+  exists.
+
+==== Changes
+<changes>
+- #raw(lang:"verbatim", "sp-org-tag-groups"): the grouping
+  #raw(lang:"verbatim", "let") of #raw(lang:"verbatim", "sp-find-note")
+  is now the macro
+  #raw(lang:"verbatim", "sp-org-tag-groups--with-origin-groups")\;
+  #raw(lang:"verbatim", "sp-find-note") behaves as before.
+- #raw(lang:"verbatim", "sp-select-note") gets
+  #raw(lang:"verbatim", ":grouped").
+- Literate docs updated (bullet lists) and re-tangled;
+  #raw(lang:"verbatim", "tools/check-tangle.sh") matches.
+- Test added; the 28 #raw(lang:"verbatim", "sp-see-also") tests pass in
+  Emacs 29.3.
+
+==== Not done
+<not-done>
+- Not run in the real GUI or against the real vault.
+- No keybinding yet.
+- Branch is not number-prefixed (rename is blocked here); no
+  #raw(lang:"verbatim", "CHANGELOG.org") edit, per the rules.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi8hmjgGyhMeZ9AvbZU")[Claude Code]]
+
+== Commits (1)
+<commits-1-173>
+- #link("https://github.com/siainbuletin/dotfiles/commit/4ccea2bba5c248ef4c67340fc5d9010528e74017")[4ccea2bba5]
+  ✨ Add sp-see-also-show-concept-by-name to pick the concept by title
+  (Claude, 2026-11-12 13:54)
+
+= PR \#399: 🐛 Fix recursive require of sp-collection-query-book in sp-org-ext
+<pr-399-fix-recursive-require-of-sp-collection-query-book-in-sp-org-ext>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/399")[#link("https://github.com/siainbuletin/dotfiles/pull/399")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 14:28
+/ Merged: 2026-11-12 14:30
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-etrhmg") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/44ffaa5d53b372de8606c49e421e92bdca0debcc")[44ffaa5d53]
+/ Labels: bugfix, needs-further-testing
+
+== Description
+<description-396>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25iQL1iD5DoiTnWc6CXKb5a")[project thread]]
+
+==== What
+<what>
+- #raw(lang:"verbatim", "sp-org-ext") failed with
+  #raw(lang:"verbatim", "Recursive 'require' for feature 'sp-collection-query-book'").
+
+==== Cause
+<cause>
+- #raw(lang:"verbatim", "sp-collection-query-book.el") ran
+  #raw(lang:"verbatim", "(with-eval-after-load 'vulpea-ui (require 'sp-collection-query-book-widget))")
+  #strong[before] its own #raw(lang:"verbatim", "(provide ...)").
+- #raw(lang:"verbatim", "sp-org-ext") loads
+  #raw(lang:"verbatim", "vulpea-ui") before
+  #raw(lang:"verbatim", "sp-collection-query"), so the
+  #raw(lang:"verbatim", "with-eval-after-load") body ran immediately.
+- The widget file requires
+  #raw(lang:"verbatim", "sp-collection-query-book"), which was not yet
+  provided, so the require recursed.
+
+==== Fix
+<fix>
+- Move #raw(lang:"verbatim", "(provide 'sp-collection-query-book)")
+  above the #raw(lang:"verbatim", "with-eval-after-load") block.
+- Same change in the literate source
+  #raw(lang:"verbatim", "docs/tangles/funct/sp-collection-query.org"),
+  with a bullet explaining why.
+
+==== Checked
+<checked>
+- All #raw(lang:"verbatim", "require=/=provide") names in the
+  #raw(lang:"verbatim", "sp-collection-query*") modules match their file
+  names; no old #raw(lang:"verbatim", "vulpea-collection") module names
+  remain in them.
+- No other cycle in the require graph.
+
+==== Not tested
+<not-tested>
+- No Emacs in the cloud container, so the modules were not loaded in
+  batch. Please start Emacs once to confirm
+  #raw(lang:"verbatim", "sp-org-ext") loads.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiB1cbJYhBZ49KEwepB")[Claude Code]]
+
+== Commits (1)
+<commits-1-174>
+- #link("https://github.com/siainbuletin/dotfiles/commit/e1bf0f30e0e46574457798d9eeae46ac333eaec7")[e1bf0f30e0]
+  🐛 Provide sp-collection-query-book before loading its widget (Claude,
+  2026-11-12 14:28)
+
+= PR \#400: 🐛 Skip dired buffers in the tabspaces session
+<pr-400-skip-dired-buffers-in-the-tabspaces-session>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/400")[#link("https://github.com/siainbuletin/dotfiles/pull/400")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 14:41
+/ Merged: 2026-11-12 14:48
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-ypizd6") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/12257bd1945583fb29dce3eb612844edbd31e82c")[12257bd194]
+/ Labels: bugfix
+
+== Description
+<description-397>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2AerpZARjPmAEDrDXc7FYpk")[project thread]]
+
+==== What
+<what>
+- Emacs printed
+  #raw(lang:"verbatim", "Fetch dir data failed with error: (end-of-file)")
+  at startup.
+
+==== Cause
+<cause>
+- The message comes from Dirvish
+  (#raw(lang:"verbatim", "dirvish--dir-data-async")), not from an Info
+  #raw(lang:"verbatim", "dir") file.
+- #raw(lang:"verbatim", "tabspaces") restores the saved session at
+  startup, including a dired buffer
+  (#raw(lang:"verbatim", "~/Documents/writing/thesis/chapters/") in
+  #raw(lang:"verbatim", "var/tabspaces-session.eld")).
+- That opens a Dirvish buffer while Emacs is still starting, and its
+  background directory scan returns nothing.
+
+==== Fix
+<fix>
+- Register the #raw(lang:"verbatim", "dired") buffer kind in
+  #raw(lang:"verbatim", "sp-tabs") with
+  #raw(lang:"verbatim", "#'ignore") for save and restore.
+- Dired buffers are no longer saved, and old dired records in the
+  session file are skipped.
+- Same change in #raw(lang:"verbatim", "docs/tangles/ui/sp-tabs.org")
+  (new section with bullets).
+
+==== Not tested
+<not-tested>
+- Emacs cannot boot the real config in the cloud container.
+- Not confirmed that the child process is killed mid-run rather than
+  failing; this fix removes the trigger either way.
+- Branch is not number-prefixed (rename is blocked here); no
+  #raw(lang:"verbatim", "CHANGELOG.org") edit.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiBrcNzYWuC6MnPzHEG")[Claude Code]]
+
+== Commits (1)
+<commits-1-175>
+- #link("https://github.com/siainbuletin/dotfiles/commit/a8e2a34b6a544aaed1891917fd09a2afab77db2e")[a8e2a34b6a]
+  🐛 Skip dired buffers in the tabspaces session (Claude, 2026-11-12
+  14:41)
+
+= PR \#401: 🐛 Fix gh-pr-pdf compile failure on inline code and add a page break per PR
+<pr-401-fix-gh-pr-pdf-compile-failure-on-inline-code-and-add-a-page-break-per-pr>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/401")[#link("https://github.com/siainbuletin/dotfiles/pull/401")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 14:42
+/ Merged: 2026-11-12 14:48
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-526y8z") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/4454629323c9e324b0a579ef69e5339ff68fb71a")[4454629323]
+/ Labels: bugfix, needs-further-testing
+
+== Description
+<description-398>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2SRHUWz5F2if6VxPkp4VonS")[project thread]]
+
+==== What
+<what>
+- #raw(lang:"verbatim", "gh-pr-pdf") now starts every PR on a new page
+  in the PDF.
+- It no longer fails to build the PDF on PR text where inline code is
+  followed by #raw(lang:"verbatim", ".name").
+
+==== Cause
+<cause>
+- The committed #raw(lang:"verbatim", ".typ") (366 PRs, pandoc and Typst
+  0.15) compiles with every PR, so the org files and that snapshot are
+  fine.
+- A fresh re-render of the same backup with pandoc 3.9 failed in
+  #raw(lang:"verbatim", "typst compile") with
+  #raw(lang:"verbatim", "raw does not have field \"el\"").
+  - pandoc writes inline code as #raw(lang:"verbatim", "#raw(\"...\")").
+  - Typst reads #raw(lang:"verbatim", "#raw(\"...\").el") as field
+    access, not as text.
+  - PRs \#64, \#93, \#176 and \#271 trigger it: their source has nested
+    backticks, so pandoc leaves #raw(lang:"verbatim", ".el") or
+    #raw(lang:"verbatim", ".gitignore") right after the span.
+- The failed compile left the previous PDF in place, so the PDF looked
+  current but lacked the newer PRs, and compiling again fails the same
+  way.
+- I could not see Sia\'s PDF, so this is the cause I reproduced, not a
+  proven match for their exact output.
+
+==== Changes
+<changes>
+- #raw(lang:"verbatim", "harden_typst") puts a zero-width space after
+  #raw(lang:"verbatim", "#raw(...)") when
+  #raw(lang:"verbatim", ".letter") follows. Only
+  #raw(lang:"verbatim", "#raw") calls are touched (table code such as
+  #raw(lang:"verbatim", "(auto, auto).at(col)") needs its dot).
+- The preamble gets
+  #raw(lang:"verbatim", "#show heading.where(level: 1)") with a weak
+  #raw(lang:"verbatim", "pagebreak"): one PR (or discussion) per page.
+- The old PDF is deleted before #raw(lang:"verbatim", "typst compile"),
+  so a failure cannot leave a stale one.
+- #raw(lang:"verbatim", "README.org") documents the three points as
+  bullets.
+
+==== Checked
+<checked>
+- Re-rendered all 366 PRs from the committed backup with pandoc 3.9 and
+  Typst 0.15: PDF builds, 507 pages (was 294), all 366 PR headings
+  present, each starting its own page.
+
+==== Not checked
+<not-checked>
+- Not run on Sia\'s Mac, so their pandoc and Typst versions were not
+  tried.
+- With pandoc 3.1.3 the Typst build fails with
+  #raw(lang:"verbatim", "expected colon"), with or without this change.
+  This is a separate pandoc-version problem, not touched here.
+- No #raw(lang:"verbatim", "CHANGELOG.org") change, per the rules.
+- The branch name has no PR-number prefix (the branch is fixed by the
+  environment).
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi8mA91YKqdvxXiwQZF")[Claude Code]]
+
+== Commits (1)
+<commits-1-176>
+- #link("https://github.com/siainbuletin/dotfiles/commit/90614c04d95688021db44b5dadee059f2f1f1aad")[90614c04d9]
+  🐛 Fix gh-pr-pdf compile failure on inline code before a dot, and
+  start each PR on a new page (Claude, 2026-11-12 14:42)
+
+= PR \#402: 🐛 Activate ibuffer filter groups and widen columns in sp-buffers
+<pr-402-activate-ibuffer-filter-groups-and-widen-columns-in-sp-buffers>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/402")[#link("https://github.com/siainbuletin/dotfiles/pull/402")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-12 14:48
+/ Merged: 2026-11-12 14:50
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-d5aqw1") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/60754b821e196c309fb3f5edb4a3337b70190ed8")[60754b821e]
+/ Labels: bugfix, needs-further-testing
+
+== Description
+<description-399>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2LhEe24oay53RyeYRYN5ytz")[project thread]]
+
+==== Cause
+<cause>
+- #raw(lang:"verbatim", "ibuffer-saved-filter-groups") only stores
+  groups. Nothing called
+  #raw(lang:"verbatim", "ibuffer-switch-to-saved-filter-groups"), so the
+  list was never sectioned.
+- #raw(lang:"verbatim", "nerd-icons-ibuffer-mode") (enabled in
+  #raw(lang:"verbatim", "sp-icons")) overwrites
+  #raw(lang:"verbatim", "ibuffer-formats") with
+  #raw(lang:"verbatim", "nerd-icons-ibuffer-formats"), so the custom
+  column widths were never used.
+
+==== Fix
+<fix>
+- #raw(lang:"verbatim", "sp-buffers-activate-filter-groups") runs on
+  #raw(lang:"verbatim", "ibuffer-mode-hook") and switches to the
+  \"Main\" groups.
+- Column widths: name 36 (24 in the compact format), mode 18,
+  #raw(lang:"verbatim", ":elide") for long text, file path takes the
+  remaining width.
+- The same widths are set for
+  #raw(lang:"verbatim", "nerd-icons-ibuffer-formats") after that package
+  loads, keeping the icon column.
+- Same change in
+  #raw(lang:"verbatim", "docs/tangles/ui/sp-buffers.org"), with bullets.
+
+==== Not tested
+<not-tested>
+- No Emacs in the cloud container; only checked that the parentheses
+  balance. Please open #raw(lang:"verbatim", "C-x C-b") once to confirm.
+- Branch is not number-prefixed (the branch is fixed by the
+  environment); no #raw(lang:"verbatim", "CHANGELOG.org") edit.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiD37BuLaMwPUpatw23")[Claude Code]]
+
+== Commits (1)
+<commits-1-177>
+- #link("https://github.com/siainbuletin/dotfiles/commit/618e1fc6f015489d88b0d164a932ae29710bc88e")[618e1fc6f0]
+  🐛 Activate ibuffer filter groups and widen columns (Claude,
+  2026-11-12 14:48)
