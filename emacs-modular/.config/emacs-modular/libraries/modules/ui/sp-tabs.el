@@ -132,6 +132,12 @@ questions.  Otherwise use completion to select the tab."
   (tabspaces-exclude-buffers '("*Messages*" "*Compile-Log*"))  ; Additional buffers to exclude
   (tab-bar-new-tab-choice "*scratch*"))
 
+;; Dired buffers are not kept in the session: restoring one runs Dirvish at
+;; startup, and its async directory scan fails with "Fetch dir data failed
+;; with error: (end-of-file)".  A saved dired record is skipped on restore.
+(with-eval-after-load 'tabspaces
+  (tabspaces-register-buffer-kind 'dired #'ignore #'ignore))
+
 ;; Optional: treat plain directories containing a .project file as
 ;; projects, so they work with tabspaces without version control.
 ;; See the "Non-VC Projects" section below.
