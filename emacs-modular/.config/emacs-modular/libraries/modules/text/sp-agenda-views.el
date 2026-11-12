@@ -25,6 +25,7 @@
 ;;;; Keys
 (keymap-global-set "C-c o a" #'org-agenda)
 (keymap-global-set "C-c a" #'org-agenda)
+(keymap-global-set "C-c o x" #'sp-agenda-views-inline)
 
 (with-eval-after-load 'org-agenda
   (keymap-set org-agenda-mode-map "C-c ." #'org-gtd-agenda-transient))
@@ -139,6 +140,65 @@
       (org-agenda-overriding-header "Issues with a branch"))))
   "The issue views, as `org-agenda-custom-commands' entries.")
 
+;;;; Inline keywords
+
+(defvar sp-writing-projects)
+
+(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX")
+  "Words that mark a problem inside the text of an Org entry.
+- The inline view lists every entry whose text or heading holds one of them.
+- Words are matched whole, so \"TK\" does not hit \"Atkins\".
+- Org's search view decides whether the match ignores case."
+  :type '(repeat string)
+  :group 'spcustom
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-agenda-views--inline-install)
+           (sp-agenda-views--inline-install))))
+
+(defcustom sp-agenda-views-inline-extra-dirs (list sp-writing-projects)
+  "Folders whose Org files the inline view scans besides the agenda files.
+Drafts live there, and their headings are not always agenda entries."
+  :type '(repeat directory)
+  :group 'spcustom)
+
+(defun sp-agenda-views-inline-regexp ()
+  "Return the search-view term matching `sp-agenda-views-inline-keywords'."
+  (concat "{\\_<" (regexp-opt sp-agenda-views-inline-keywords) "\\_>}"))
+
+(defun sp-agenda-views-inline-files ()
+  "Return the agenda files plus the Org files of the extra folders."
+  (delete-dups
+   (append (org-agenda-files)
+           (seq-mapcat
+            (lambda (dir)
+              (when (and dir (file-directory-p dir))
+                (seq-remove (lambda (file) (string-match-p "/\\." file))
+                            (directory-files-recursively
+                             (expand-file-name dir) "\\.org\\'"))))
+            sp-agenda-views-inline-extra-dirs))))
+
+(defun sp-agenda-views--inline-entry ()
+  "Return the inline view, as an `org-agenda-custom-commands' entry."
+  `("x" "Inline keywords to fix" search ,(sp-agenda-views-inline-regexp)
+    ((org-agenda-files (sp-agenda-views-inline-files))
+     (vulpea-para-agenda-inhibit-files-update t)
+     (org-agenda-prefix-format '((search . " %(sp-agenda-views-file-title) ")))
+     (org-agenda-overriding-header "Inline keywords to fix")
+     (org-agenda-buffer-name "*Inline keywords*"))))
+
+(defun sp-agenda-views-inline ()
+  "Show the entries that hold an inline keyword, in the agenda."
+  (interactive)
+  (org-agenda nil "x"))
+
+(defun sp-agenda-views--inline-install ()
+  "Put the inline view into `org-agenda-custom-commands', replacing any old one."
+  (setq org-agenda-custom-commands
+        (append (seq-remove (lambda (cmd) (equal (car cmd) "x"))
+                            org-agenda-custom-commands)
+                (list (sp-agenda-views--inline-entry)))))
+
 ;;;; Config files
 
 (defcustom sp-agenda-views-config-source 'yadm
@@ -237,7 +297,8 @@ Fall back to the file name when the file has no title.  Meant for
               sp-agenda-views-ql
               sp-agenda-views-config
               (when (featurep 'sp-org-issues)
-                sp-agenda-views-issues)))
+                sp-agenda-views-issues)
+              (list (sp-agenda-views--inline-entry))))
 
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here
