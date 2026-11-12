@@ -60,6 +60,7 @@
   (let ((script (sp-devonthink-browse--script)))
     (should (string-match-p "byName(\"literature\").contents" script))
     (should (string-match-p "c.location()" script))
+    (should (string-match-p "wanted.test(paths\\[i\\])" script))
     (should (string-match-p "new RegExp(\"\\\\\\\\.pdf\\$\"" script))
     (should-not (string-match-p "every item" script))))
 
