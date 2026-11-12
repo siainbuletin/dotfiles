@@ -1,6 +1,7 @@
 ;;; sp-citations-layout-test.el --- Citar column layout -*- lexical-binding: t; -*-
 (require 'ert)
 (require 'cl-lib)
+(require 'subr-x)
 (defvar citar-templates nil)
 (defface sp-citar-key '((t)) "" :group 'sp)
 (let ((file (expand-file-name "../libraries/modules/academic/sp-citations.el"
