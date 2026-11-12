@@ -89,7 +89,8 @@ With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-gro
 - It takes the keywords of =vulpea-find=; a title that does not exist offers to create the note, as there.
 - =M-o f= is bound to it globally, in place of =vulpea-find= (the binding was removed from =sp-vulpea-base=).
 - The notes are in groups by where their file lives (see "Where a note lives"): the notes folder, one group per Projectile project below =sp-writing-projects=, other writing files, the config.
-  + It is set through =completion-category-overrides= for the =vulpea-note= category, only while =sp-find-note= runs, so =sp-insert-note= and =sp-select-note= stay flat.
+  + It is set through =completion-category-overrides= for the =vulpea-note= category, by the macro =sp-org-tag-groups--with-origin-groups=.
+  + =sp-insert-note= and =sp-select-note= use the same macro, so every picker has the same groups.
   + Without Vertico, the groups appear in Emacs's own completion list instead of as headings (Emacs 30).
 
 Other commands that link to or pick a note
@@ -847,7 +848,7 @@ The width is worked out once per selection and bound while the selector runs. Th
 
 ** Where a note lives
 
-Groups the notes in =sp-find-note= by the folder of their file, like the sources of consult-omni.
+Groups the notes in =sp-find-note=, =sp-insert-note= and =sp-select-note= by the folder of their file, like the sources of consult-omni.
 
 - =sp-note-origin= takes a file name and returns a rank and a group title:
   + 0, "Notes": below =sp-notes-dir=.
@@ -855,6 +856,7 @@ Groups the notes in =sp-find-note= by the folder of their file, like the sources
   + 2, "Writing": below =sp-writing-projects= but in no known Projectile project.
   + 3, "Config": below =user-emacs-directory=.
   + 4, "Other": anywhere else.
+- =sp-note-origin-writing-roots= lists the roots of those projects; =sp-notes-create= and =sp-notes-open= use it too.
 - The projects are the entries of =projectile-known-projects= (the deepest one wins). Nothing is looked up on disk, and the answer is kept per file until that list changes.
 - =sp-note-origin-group= is the completion =group-function=; Vertico shows the title as a heading above each group.
 - =sp-note-origin-sort= is the =display-sort-function=: groups in rank order, project groups alphabetical, and inside a group shortest title first, as Vertico does.
@@ -871,7 +873,7 @@ Groups the notes in =sp-find-note= by the folder of their file, like the sources
        (string-prefix-p (file-name-as-directory (expand-file-name dir))
                         (expand-file-name path))))
 
-(defun sp-note-origin--writing-roots ()
+(defun sp-note-origin-writing-roots ()
   "Roots of the known Projectile projects below `sp-writing-projects'.
 The longest come first, so a project inside a project wins."
   (when (and (bound-and-true-p projectile-known-projects)
@@ -911,7 +913,7 @@ The rank orders the groups in the selector:
             ((sp-note-origin--under-p path (bound-and-true-p sp-writing-projects))
              (if-let* ((root (seq-find (lambda (root)
                                          (string-prefix-p root (expand-file-name path)))
-                                       (sp-note-origin--writing-roots))))
+                                       (sp-note-origin-writing-roots))))
                  (cons 1 (format "Writing: %s"
                                  (file-name-nondirectory (directory-file-name root))))
                (cons 2 "Writing")))
@@ -959,25 +961,43 @@ property of the note."
          (vulpea-select-cache nil))
      ,@body))
 
+(defmacro sp-org-tag-groups--with-origin-groups (&rest body)
+  "Run BODY with the notes in groups by where their file lives.
+The groups are those of `sp-note-origin': the notes folder, one per writing
+project, other writing files, the config.  Every note picker of the
+`sp-' family uses it, so the candidates look the same in all of them."
+  (declare (indent 0))
+  `(let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
+          (completion-category-overrides
+           (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
+                               (display-sort-function . ,#'sp-note-origin-sort)
+                               ,@old)
+                 completion-category-overrides)))
+     ,@body))
+
 (cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
-INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'."
+INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'.
+The notes are in groups by where their file lives, see `sp-note-origin'."
   (sp-org-tag-groups--with-tag-column
-    (vulpea-select-from prompt
-                        (vulpea-db-query filter-fn)
-                        :require-match require-match
-                        :initial-prompt initial-prompt
-                        :expand-aliases expand-aliases)))
+    (sp-org-tag-groups--with-origin-groups
+      (vulpea-select-from prompt
+                          (vulpea-db-query filter-fn)
+                          :require-match require-match
+                          :initial-prompt initial-prompt
+                          :expand-aliases expand-aliases))))
 
 (defun sp-insert-note (&rest args)
   "Insert a link to a note chosen with the emoji and the tag column.
 Like `vulpea-insert': ARGS are its keywords (:filter-fn, :candidates-fn,
 :create-fn, :note-fn, :expand-aliases).  The link text is the note's
-title, without the emoji."
+title, without the emoji.
+The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (apply #'vulpea-insert args)))
+    (sp-org-tag-groups--with-origin-groups
+      (apply #'vulpea-insert args))))
 
 (defun sp-find-note (&rest args)
   "Find a note and visit it, like `vulpea-find', with its emoji and tag column.
@@ -986,12 +1006,7 @@ exist offers to create the note, as `vulpea-find' does.
 The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
-           (completion-category-overrides
-            (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
-                                (display-sort-function . ,#'sp-note-origin-sort)
-                                ,@old)
-                  completion-category-overrides)))
+    (sp-org-tag-groups--with-origin-groups
       (apply #'vulpea-find args))))
 
 ;; My own key for it, instead of `vulpea-find'.
@@ -1220,3 +1235,7 @@ What each pull request changed in this module, newest last; the one-line summary
     - the old =M-o n i= of the removed =org-node= module is gone. =sp-select-note= is a function other commands call, not a command, so it has no key.
   - Not run in Emacs (none in the container)
     - =sp-find-note= assumes =vulpea-find= picks its notes with =vulpea-select-from=, so the emoji and column apply through the let-bound options as they do for =vulpea-insert=.
+- [[https://github.com/siainbuletin/dotfiles/pull/397][#397]]
+  - 🔧 =sp-insert-note= and =sp-select-note= group their notes by origin like =sp-find-note=; the grouping is the macro =sp-org-tag-groups--with-origin-groups=.
+  - 🔧 =sp-note-origin--writing-roots= is public as =sp-note-origin-writing-roots=, for =sp-notes-create= and =sp-notes-open=.
+  - Not run in Emacs (none in the container).

@@ -624,7 +624,7 @@ A group without a colour (such as `unsorted') gets the neutral `default'."
        (string-prefix-p (file-name-as-directory (expand-file-name dir))
                         (expand-file-name path))))
 
-(defun sp-note-origin--writing-roots ()
+(defun sp-note-origin-writing-roots ()
   "Roots of the known Projectile projects below `sp-writing-projects'.
 The longest come first, so a project inside a project wins."
   (when (and (bound-and-true-p projectile-known-projects)
@@ -664,7 +664,7 @@ The rank orders the groups in the selector:
             ((sp-note-origin--under-p path (bound-and-true-p sp-writing-projects))
              (if-let* ((root (seq-find (lambda (root)
                                          (string-prefix-p root (expand-file-name path)))
-                                       (sp-note-origin--writing-roots))))
+                                       (sp-note-origin-writing-roots))))
                  (cons 1 (format "Writing: %s"
                                  (file-name-nondirectory (directory-file-name root))))
                (cons 2 "Writing")))
@@ -708,25 +708,43 @@ property of the note."
          (vulpea-select-cache nil))
      ,@body))
 
+(defmacro sp-org-tag-groups--with-origin-groups (&rest body)
+  "Run BODY with the notes in groups by where their file lives.
+The groups are those of `sp-note-origin': the notes folder, one per writing
+project, other writing files, the config.  Every note picker of the
+`sp-' family uses it, so the candidates look the same in all of them."
+  (declare (indent 0))
+  `(let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
+          (completion-category-overrides
+           (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
+                               (display-sort-function . ,#'sp-note-origin-sort)
+                               ,@old)
+                 completion-category-overrides)))
+     ,@body))
+
 (cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
-INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'."
+INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'.
+The notes are in groups by where their file lives, see `sp-note-origin'."
   (sp-org-tag-groups--with-tag-column
-    (vulpea-select-from prompt
-                        (vulpea-db-query filter-fn)
-                        :require-match require-match
-                        :initial-prompt initial-prompt
-                        :expand-aliases expand-aliases)))
+    (sp-org-tag-groups--with-origin-groups
+      (vulpea-select-from prompt
+                          (vulpea-db-query filter-fn)
+                          :require-match require-match
+                          :initial-prompt initial-prompt
+                          :expand-aliases expand-aliases))))
 
 (defun sp-insert-note (&rest args)
   "Insert a link to a note chosen with the emoji and the tag column.
 Like `vulpea-insert': ARGS are its keywords (:filter-fn, :candidates-fn,
 :create-fn, :note-fn, :expand-aliases).  The link text is the note's
-title, without the emoji."
+title, without the emoji.
+The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (apply #'vulpea-insert args)))
+    (sp-org-tag-groups--with-origin-groups
+      (apply #'vulpea-insert args))))
 
 (defun sp-find-note (&rest args)
   "Find a note and visit it, like `vulpea-find', with its emoji and tag column.
@@ -735,12 +753,7 @@ exist offers to create the note, as `vulpea-find' does.
 The notes are in groups by where their file lives, see `sp-note-origin'."
   (interactive)
   (sp-org-tag-groups--with-tag-column
-    (let* ((old (cdr (assq 'vulpea-note completion-category-overrides)))
-           (completion-category-overrides
-            (cons `(vulpea-note (group-function . ,#'sp-note-origin-group)
-                                (display-sort-function . ,#'sp-note-origin-sort)
-                                ,@old)
-                  completion-category-overrides)))
+    (sp-org-tag-groups--with-origin-groups
       (apply #'vulpea-find args))))
 
 ;; My own key for it, instead of `vulpea-find'.
