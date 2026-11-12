@@ -72,7 +72,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 - =M-x sp-litnotes-meta-fill=: fill the note you are in (its citation key comes from =ROAM_REFS=). It also adds the BibTeX type tag (=sp-bibtex-types=) when the note has none, and orders the meta lines (the result lists ="order"= when it did).
 - =M-x sp-litnotes-meta-fill-all-dryrun= and =M-x sp-litnotes-meta-fill-all-convert=: preview, then fill, every note tagged =litnote= (see "Fill the whole collection"). A prefix argument replaces the pub-* values.
 - =M-x sp-litnotes-meta-backfill-children=: in a book or collection note, make the notes of the BibTeX entries that cross-reference it (see below).
-- =M-x sp-litnotes-meta-add-all-tables=: the same, but every tagged book, collection, reference work and encyclopedia litnote gets the block, even with no chapter note yet.
+- =M-x sp-litnotes-meta-add-all-tables=: the same, but every tagged book, collection, reference work and encyclopedia litnote gets the block, even with no chapter note yet; it also moves misplaced table blocks under =* Sections= and migrates old blocks to =:view= (=C-u= previews).
 - =M-x sp-litnotes-meta-refresh-all-tables=: add and refresh the chapter table of every book, collection, reference work and encyclopedia in the vault in one go; =C-u= is a dry run (see "Refresh the chapter tables of the whole vault").
 - =M-x sp-litnotes-meta-status-report=: list all litnotes by read-status; mark several and change their status (see below).
 - =sp-litnotes-meta-auto= (default t): fill every note made by =citar-create-note=. Set it to nil to turn that off.
@@ -935,9 +935,9 @@ act on all of them."
   - If nothing is missing, the table below is still created or refreshed.
 - Show them in the note of the book (=sp-litnotes-meta--ensure-table=), when the command runs in an Org buffer:
   - The files of the new notes are put in the Vulpea database first (=vulpea-db-update-file=), so the table sees them.
-  - A note without a =collection-query-table= block gets one above its first heading.
+  - A note without a =collection-query-table= block gets one at the start of its =* Sections= heading (added above the first heading when missing).
   - The view follows the BibTeX type tag of the note (=sp-bibtex-types-tag=) through =sp-litnotes-meta-parent-views=: =book-sections= for a book (and any unknown type), =collection-articles= for a collection, =reference-entries= for a reference work, =encyclopedia-articles= for an encyclopedia (=sp-litnotes-meta--table-view=).
-  - A note that has a block keeps it; it is only updated.
+  - A note that has a block keeps it; it is moved under =* Sections= and brought into the saved template format when it is not there yet (see "Refresh the chapter tables of the whole vault"), then updated.
   - If the query table module does not load, that is reported in the echo area instead of skipped silently.
   - The note is saved if it had no unsaved changes before.
 - Entries that are not made yet are not rows in the table (only existing notes are).
@@ -1139,97 +1139,276 @@ It follows the BibTeX type of KEY through `sp-bibtex-types-tag' and
   "Title of the heading the chapter table block sits under.")
 
 (defconst sp-litnotes-meta--block-regexp
-  "^[ \t]*#\\+BEGIN:[ \t]+collection-query-table"
-  "Start of a chapter table block.")
+  "^\\([ \t]*\\)#\\+BEGIN:[ \t]+\\(collection-query-table\\|vulpea-table\\)\\_>\\(.*\\)$"
+  "Begin line of a query table block: the indent, the block name, the parameters.")
 
 (defun sp-litnotes-meta--sections-regexp ()
-  "Regexp of the Sections heading line."
-  (format "^\\* %s[ \t]*$" (regexp-quote sp-litnotes-meta-sections-heading)))
+  "Regexp of a Sections heading line (any level, tags allowed)."
+  (format "^\\*+[ \t]+%s\\(?:[ \t]+:[^ \t\n]+:\\)?[ \t]*$"
+          (regexp-quote sp-litnotes-meta-sections-heading)))
 
-(defun sp-litnotes-meta--table-state ()
-  "How far the current note is from having its table, as a symbol.
-`complete': a block, not above the first heading, or the Sections
-heading is there too.  `no-heading': a block above the first heading and
-no Sections heading.  `no-block': the Sections heading without a block.
-`none': neither."
+(defun sp-litnotes-meta--sections-heading ()
+  "Start of the line of the first Sections heading of the buffer, or nil."
   (save-excursion
     (save-restriction
       (widen)
-      (let* ((case-fold-search nil)
-             (block (progn (goto-char (point-min))
-                           (and (re-search-forward sp-litnotes-meta--block-regexp nil t)
-                                (match-beginning 0))))
-             (heading (progn (goto-char (point-min))
-                             (re-search-forward (sp-litnotes-meta--sections-regexp) nil t))))
-        (cond ((and block (or heading (>= block (sp-author-notes--first-heading)))) 'complete)
-              (block 'no-heading)
-              (heading 'no-block)
-              (t 'none))))))
-
-(defun sp-litnotes-meta--insert-block-here (view)
-  "Insert the block with VIEW at point, with a blank line after it.
-Point ends on the line after the block."
-  (let ((start (point)))
-    (insert "\n")
-    (goto-char start)
-    (org-create-dblock (list :name "collection-query-table" :view view))
-    (goto-char start)
-    (re-search-forward "^[ \t]*#\\+END")
-    (forward-line 1)
-    (unless (or (eobp) (looking-at-p "[ \t]*$"))
-      (insert "\n"))))
-
-(defun sp-litnotes-meta--insert-table-block (view)
-  "Put a `collection-query-table' block with VIEW under a Sections heading.
-The current buffer is an Org note; the block is not updated here.  Safe to
-repeat, it only adds what is missing:
-- no heading and no block: both go above the first heading;
-- a block above the first heading, no heading: the heading goes above it;
-- the heading without a block: the block goes right under it;
-- anything else is left alone.
-Each part is set off by a blank line.  Return `inserted' when a block was
-added, `heading' when only the heading was, nil when nothing changed."
-  (save-excursion
-    (save-restriction
-      (widen)
+      (goto-char (point-min))
       (let ((case-fold-search nil))
-        (pcase (sp-litnotes-meta--table-state)
-          ('no-heading
-           (goto-char (point-min))
-           (re-search-forward sp-litnotes-meta--block-regexp)
-           (beginning-of-line)
-           (unless (or (bobp) (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))
-             (insert "\n"))
-           (insert (format "* %s\n\n" sp-litnotes-meta-sections-heading))
-           'heading)
-          ('no-block
-           (goto-char (point-min))
-           (re-search-forward (sp-litnotes-meta--sections-regexp))
-           (forward-line 1)
-           (let ((blank nil))
-             (while (and (not (eobp)) (looking-at-p "[ \t]*$"))
-               (setq blank t)
-               (forward-line 1))
-             (unless blank (insert "\n")))
-           (sp-litnotes-meta--insert-block-here view)
-           'inserted)
-          ('none
-           (goto-char (sp-author-notes--first-heading))
-           (unless (or (eobp) (bolp)) (insert "\n"))
-           (unless (or (bobp) (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))
-             (insert "\n"))
-           (insert (format "* %s\n\n" sp-litnotes-meta-sections-heading))
-           (sp-litnotes-meta--insert-block-here view)
-           (when (eobp) (insert "\n"))
-           'inserted))))))
+        (and (re-search-forward (sp-litnotes-meta--sections-regexp) nil t)
+             (match-beginning 0))))))
+
+(defun sp-litnotes-meta--parse-params (text)
+  "The plist written in TEXT, the parameters of a block, or `:unreadable'."
+  (condition-case nil
+      (let ((params (car (read-from-string (concat "(" text ")")))))
+        (if (and (listp params) (cl-evenp (length params))) params :unreadable))
+    (error :unreadable)))
+
+(defun sp-litnotes-meta--blocks ()
+  "The query table blocks of the buffer, in order, as plists.
+Keys: :beg (start of the begin line), :end (after the end line), :indent,
+:name, :rest (the text after the name) and :params (see
+`sp-litnotes-meta--parse-params')."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t) out)
+        (while (re-search-forward sp-litnotes-meta--block-regexp nil t)
+          (let ((beg (match-beginning 0))
+                (indent (match-string 1))
+                (name (match-string 2))
+                (rest (match-string 3)))
+            (when (re-search-forward "^[ \t]*#\\+END:?[ \t]*$" nil t)
+              (push (list :beg beg :end (min (point-max) (1+ (point)))
+                          :indent indent :name name :rest rest
+                          :params (sp-litnotes-meta--parse-params rest))
+                    out))))
+        (nreverse out)))))
+
+(defun sp-litnotes-meta--note-id ()
+  "The ID of the note in the buffer, from the property drawer above its first heading."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (and (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)" (sp-author-notes--first-heading) t)
+             (match-string 1))))))
+
+(defun sp-litnotes-meta--chapter-view-names ()
+  "The names of the views that `sp-litnotes-meta-parent-views' and `-chapter-views' use."
+  (delete-dups (append (mapcar #'cdr sp-litnotes-meta-parent-views)
+                       (mapcar #'cdr sp-litnotes-meta-chapter-views))))
+
+(defun sp-litnotes-meta--view-for-params (params)
+  "The name of the view whose spec is exactly PARAMS, or nil.
+PARAMS has no :view.  The views of the chapter tables are tried first."
+  (when (and (require 'sp-collection-query-views nil t)
+             (fboundp 'sp-collec-query-views-names)
+             (fboundp 'sp-collec-query-spec-normalize))
+    (let ((want (sp-collec-query-spec-normalize params))
+          (chapter (sp-litnotes-meta--chapter-view-names)))
+      (seq-find (lambda (name)
+                  (let ((spec (sp-collec-query-views-get name)))
+                    (and spec (equal want (sp-collec-query-spec-normalize spec)))))
+                (append chapter
+                        (seq-remove (lambda (name) (member name chapter))
+                                    (sp-collec-query-views-names)))))))
+
+(defun sp-litnotes-meta--self-parent-p (params id)
+  "Non-nil when the :parent-of of PARAMS is the note itself, as \"self\" or as its ID."
+  (let ((parent (plist-get params :parent-of)))
+    (and parent (member parent (delq nil (list "self" 'self id))))))
+
+(defun sp-litnotes-meta--saved-format (view)
+  "The begin line of a block in the saved template format, with VIEW."
+  (format "#+BEGIN: collection-query-table :view %S" view))
+
+(defun sp-litnotes-meta--migrated-line (block view id)
+  "The begin line BLOCK should have, or nil when it is right already.
+The saved template format is `#+BEGIN: collection-query-table :view NAME':
+- the old name `vulpea-table' becomes `collection-query-table';
+- a block without :view whose parameters are exactly those of a view gets
+  `:view' with that name;
+- a block without :view that lists the notes pointing at the note itself
+  (\\=:parent-of \"self\" or the ID of the note) gets VIEW, the view of this note;
+- a block with :view, or other parameters, keeps them.
+ID is the ID of the note."
+  (let* ((params (plist-get block :params))
+         (renamed (not (string-equal-ignore-case (plist-get block :name) "collection-query-table")))
+         (indent (plist-get block :indent))
+         (name (and (listp params) (null (plist-get params :view))
+                    (or (sp-litnotes-meta--view-for-params params)
+                        (and view (sp-litnotes-meta--self-parent-p params id) view)))))
+    (cond (name (concat indent (sp-litnotes-meta--saved-format name)))
+          (renamed (concat indent "#+BEGIN: collection-query-table" (plist-get block :rest))))))
+
+(defun sp-litnotes-meta--migrate-blocks (view)
+  "Rewrite the begin lines of the query table blocks to the saved template format.
+See `sp-litnotes-meta--migrated-line'; VIEW is the view of this note.
+Return the (OLD . NEW) lines, in the order of the buffer."
+  (let ((id (sp-litnotes-meta--note-id)) changes)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (dolist (block (reverse (sp-litnotes-meta--blocks)))
+          (when-let* ((new (sp-litnotes-meta--migrated-line block view id)))
+            (goto-char (plist-get block :beg))
+            (let ((old (buffer-substring (line-beginning-position) (line-end-position))))
+              (delete-region (line-beginning-position) (line-end-position))
+              (insert new)
+              (push (cons (string-trim old) (string-trim new)) changes))))))
+    changes))
+
+(defun sp-litnotes-meta--chapter-block-p (block id)
+  "Non-nil when BLOCK is the chapter table of the note with ID.
+It has the view of a chapter table, or no view and lists the notes that point at the note."
+  (let ((params (plist-get block :params)))
+    (and (listp params)
+         (let ((view (plist-get params :view)))
+           (if view
+               (member view (sp-litnotes-meta--chapter-view-names))
+             (sp-litnotes-meta--self-parent-p params id))))))
+
+(defun sp-litnotes-meta--skip-blank-lines ()
+  "Move point over blank lines."
+  (while (and (not (eobp)) (looking-at-p "[ \t]*$"))
+    (forward-line 1)))
+
+(defun sp-litnotes-meta--section-start (heading)
+  "Where the content of the heading starting at HEADING begins.
+That is after the heading line, its planning line and its property drawer."
+  (save-excursion
+    (goto-char heading)
+    (forward-line 1)
+    (when (looking-at-p "[ \t]*\\(?:CLOSED\\|SCHEDULED\\|DEADLINE\\):")
+      (forward-line 1))
+    (when (looking-at-p "[ \t]*:PROPERTIES:[ \t]*$")
+      (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+        (forward-line 1)))
+    (point)))
+
+(defun sp-litnotes-meta--blocks-in-place-p (heading blocks)
+  "Non-nil when BLOCKS are the first content under the heading at HEADING.
+Only blank lines may sit between the heading and the first block, and
+between the blocks."
+  (save-excursion
+    (goto-char (sp-litnotes-meta--section-start heading))
+    (sp-litnotes-meta--skip-blank-lines)
+    (let ((expect (point)))
+      (seq-every-p (lambda (block)
+                     (and (= (plist-get block :beg) expect)
+                          (progn (goto-char (plist-get block :end))
+                                 (sp-litnotes-meta--skip-blank-lines)
+                                 (setq expect (point))
+                                 t)))
+                   blocks))))
+
+(defun sp-litnotes-meta--block-text (block)
+  "The text of BLOCK, ending in a newline."
+  (let ((text (buffer-substring (plist-get block :beg) (plist-get block :end))))
+    (if (string-suffix-p "\n" text) text (concat text "\n"))))
+
+(defun sp-litnotes-meta--cut-block (block)
+  "Delete BLOCK and the blank lines after it.
+When blank lines followed it, one is kept between the text before and after."
+  (goto-char (plist-get block :beg))
+  (delete-region (plist-get block :beg) (plist-get block :end))
+  (when (and (sp-litnotes-meta--delete-blank-lines)
+             (not (or (bobp) (eobp)
+                      (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))))
+    (insert "\n")))
+
+(defun sp-litnotes-meta--delete-blank-lines ()
+  "Delete the blank lines that start at point; return non-nil when there were some."
+  (let (deleted)
+    (while (and (not (eobp)) (looking-at-p "[ \t]*$"))
+      (delete-region (point) (min (point-max) (1+ (line-end-position))))
+      (setq deleted t))
+    deleted))
+
+(defun sp-litnotes-meta--insert-blocks (texts)
+  "Insert the block TEXTS at point, with a blank line before, between and after them."
+  (unless (bolp) (insert "\n"))
+  (sp-litnotes-meta--delete-blank-lines)
+  (insert "\n" (mapconcat #'identity texts "\n") "\n"))
+
+(defun sp-litnotes-meta--normalize-tables (view &optional create)
+  "Put the chapter table of the current note under its Sections heading.
+The current buffer is an Org note; nothing is updated here.  Safe to run
+again, it changes only what is not in place:
+- every table block gets the saved template format
+  (see `sp-litnotes-meta--migrated-line');
+- the chapter table blocks sit at the start of the content of the
+  `* Sections' heading, set off by blank lines.  One that sits elsewhere
+  (above the first heading, under another heading, or after other text
+  under Sections) is moved there; an existing Sections heading is reused,
+  else it is added above the first heading;
+- with CREATE, a note without a chapter table gets a block with VIEW.
+Return the actions, in order, as a list of (SYMBOL . DETAIL):
+`migrated' (DETAIL is (OLD . NEW) begin lines), `moved', `heading'
+\(a Sections heading was added) and `inserted' (a block was added)."
+  (let (actions)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (let ((case-fold-search nil))
+          (dolist (change (sp-litnotes-meta--migrate-blocks view))
+            (push (cons 'migrated change) actions))
+          (let* ((id (sp-litnotes-meta--note-id))
+                 (chapters (seq-filter (lambda (block) (sp-litnotes-meta--chapter-block-p block id))
+                                       (sp-litnotes-meta--blocks)))
+                 (heading (sp-litnotes-meta--sections-heading)))
+            (unless (or (and (null chapters) (not create))
+                        (and chapters heading
+                             (sp-litnotes-meta--blocks-in-place-p heading chapters)))
+              (let* ((first (sp-author-notes--first-heading))
+                     (texts (or (mapcar #'sp-litnotes-meta--block-text chapters)
+                                (list (format "%s\n#+END:\n" (sp-litnotes-meta--saved-format view)))))
+                     (above-first (and (null heading) chapters
+                                       (seq-every-p (lambda (block) (< (plist-get block :beg) first))
+                                                    chapters))))
+                (dolist (block (reverse chapters))
+                  (sp-litnotes-meta--cut-block block))
+                (cond ((null chapters) (push (cons 'inserted nil) actions))
+                      ((not above-first) (push (cons 'moved nil) actions)))
+                (if (setq heading (sp-litnotes-meta--sections-heading))
+                    (goto-char (sp-litnotes-meta--section-start heading))
+                  (goto-char (sp-author-notes--first-heading))
+                  (unless (or (bobp) (bolp)) (insert "\n"))
+                  (unless (or (bobp) (save-excursion (forward-line -1) (looking-at-p "[ \t]*$")))
+                    (insert "\n"))
+                  (insert (format "* %s\n" sp-litnotes-meta-sections-heading))
+                  (push (cons 'heading nil) actions))
+                (sp-litnotes-meta--insert-blocks texts)))))))
+    (nreverse actions)))
+
+(defun sp-litnotes-meta--truncate (text)
+  "TEXT cut to fit a report line."
+  (truncate-string-to-width text 60 nil nil "…"))
+
+(defun sp-litnotes-meta--actions-text (actions)
+  "A sentence about the ACTIONS of `sp-litnotes-meta--normalize-tables'."
+  (mapconcat
+   (lambda (action)
+     (pcase (car action)
+       ('inserted "table added")
+       ('heading (format "* %s heading added" sp-litnotes-meta-sections-heading))
+       ('moved (format "table moved under * %s" sp-litnotes-meta-sections-heading))
+       ('migrated (format "~%s~ becomes ~%s~"
+                          (sp-litnotes-meta--truncate (cadr action))
+                          (sp-litnotes-meta--truncate (cddr action))))
+       (other (format "%s" other))))
+   actions "; "))
 
 (defun sp-litnotes-meta--ensure-table (key files &optional view)
   "Make the current note show a table of its children, and refresh it.
 KEY is the citation key of the note; FILES the files of the notes just made,
-which are put in the Vulpea database first.  Insert a
-`collection-query-table' block with VIEW (by default the view for KEY),
-above the first heading, when the note has none.  Return `inserted',
-`updated' or nil."
+which are put in the Vulpea database first.  Put a `collection-query-table'
+block with VIEW (by default the view for KEY) under the Sections heading when
+the note has none, and bring an old block into the saved template format
+\(see `sp-litnotes-meta--normalize-tables').  Return `inserted', `updated' or nil."
   (when (derived-mode-p 'org-mode)
     (unless (and (require 'sp-collection-query-org nil t)
                  (fboundp 'sp-collec-query-dblock-update-buffer))
@@ -1239,8 +1418,8 @@ above the first heading, when the note has none.  Return `inserted',
       (when (fboundp 'vulpea-db-update-file)
         (dolist (file files)
           (ignore-errors (vulpea-db-update-file file))))
-      (when (eq 'inserted (sp-litnotes-meta--insert-table-block
-                           (or view (sp-litnotes-meta--table-view key))))
+      (when (assq 'inserted (sp-litnotes-meta--normalize-tables
+                             (or view (sp-litnotes-meta--table-view key)) t))
         (setq how 'inserted))
       (sp-collec-query-dblock-update-buffer)
       (when (and buffer-file-name (not was-modified) (buffer-modified-p))
@@ -1332,23 +1511,34 @@ table in the note is created or refreshed afterwards."
 - Which view the table uses (=sp-litnotes-meta--parent-view=):
   - The first tag of the parent found in =sp-litnotes-meta-parent-views=: =book-sections=, =collection-articles=, =reference-entries=, =encyclopedia-articles=.
   - Else the view for the tag of the first chapter, from =sp-litnotes-meta-chapter-views=.
-- The block sits under a =* Sections= heading (=sp-litnotes-meta-sections-heading=), with a blank line before and after the heading.
-- A note that already has a =collection-query-table= block keeps it; only a note without one gets a block, above its first heading.
-- Running the command again completes what is missing, and adds nothing twice:
+- The block sits under a =* Sections= heading (=sp-litnotes-meta-sections-heading=), at the start of the heading's content, with a blank line before and after the heading and after the block.
+- A table block never stays outside that heading (=sp-litnotes-meta--normalize-tables=, one function for every command):
+  - A "table block" is a =collection-query-table= (or old =vulpea-table=) block that is the chapter table of the note: its =:view= is one of the views of =sp-litnotes-meta-parent-views= and =sp-litnotes-meta-chapter-views=, or it has no =:view= and its =:parent-of= is =self= or the ID of the note.
+  - Other query table blocks of the note are not moved.
+  - A note with such a block anywhere else gets it moved under =* Sections= when the command runs again.
+- Running the command again completes what is missing, repairs what is misplaced, and changes nothing twice:
   - No heading and no block: both are added above the first heading.
   - A block above the first heading, but no =* Sections= heading: the heading is added above the block.
-  - The heading without a block: the block is added right under it.
-  - A block under some other heading: left alone.
+  - A block under some other heading, or in the middle of the text of =* Sections=: moved to the start of the content of =* Sections= (after its property drawer, if any).
+  - A =* Sections= heading that exists (any level, tags allowed) is reused; it is not duplicated, and not moved.
+  - The heading without a block: the block is added right under it, before the text that is there.
+  - Blocks that already are the first content under the heading are not touched.
+- Every table block is also brought into the saved template format, =#+BEGIN: collection-query-table :view "NAME"= (=sp-litnotes-meta--migrate-blocks=):
+  - The old name =vulpea-table= becomes =collection-query-table=; the other parameters stay.
+  - A block without =:view= whose parameters are exactly those of a view (saved views and =sp-collec-query-views-defaults=; the views of the chapter tables are tried first) gets =:view NAME=.
+  - A block without =:view= for the note itself (=:parent-of= =self= or the ID of the note) gets the view of the note, even when its columns differ; the dry run shows the old line, and the backup keeps the old note.
+  - A block with =:view= (with or without overrides), or for another note, is kept as it is.
 - Each parent file is opened (and closed again when it was not open), its blocks are updated and it is saved when it changed.
-- A summary buffer lists the notes with a table added, the notes whose table changed, the count of those unchanged, and the problems:
+- A note is copied first to =sp-litnotes-meta-backup-directory=/<time>/ (the same folder as the fill-all backups), only when the run is about to save it; the summary links the folder.
+- A summary buffer lists the notes with a table added, the notes whose table changed (with what was done: heading added, table moved, header migrated, old and new), the count of those unchanged, and the problems:
   - A =bib-parent= that is not in the database.
   - A note that failed to update.
 - =M-x sp-litnotes-meta-add-all-tables= does the same for every litnote tagged =book=, =collection=, =reference= or =encyclopedia= (=sp-litnotes-meta-parent-tags=), also when it has no chapter note yet:
   - The block is there before the first chapter note is made, so that note only has to be created.
   - The view follows the tag of the note (=sp-litnotes-meta-parent-views=).
   - Only notes that also carry the =litnote= tag (=sp-litnotes-meta-batch-tag=) are touched; other notes tagged =book= are left alone.
-  - =C-u= is a dry run; it also lists the notes that would only get the heading.
-- =C-u M-x sp-litnotes-meta-refresh-all-tables= is a dry run: it only lists the notes that would get a table, and writes nothing.
+  - =C-u= is a dry run; it also lists the notes that would be repaired (heading added, block moved, header migrated).
+- =C-u M-x sp-litnotes-meta-refresh-all-tables= is a dry run: it lists the notes that would get a table, or be fixed, and writes nothing (no backup either).
 - Not run on the real vault; the tests use stubbed notes.
 
 #+begin_src emacs-lisp
@@ -1418,12 +1608,23 @@ names that are not in the database."
           (push (list note) parents)))
       (list :parents (nreverse parents) :missing (nreverse missing)))))
 
+(declare-function sp-litnotes-meta--backup "sp-litnotes-meta")
+(defvar sp-litnotes-meta-backup-directory)
+
+(defvar sp-litnotes-meta--table-stamp nil
+  "Name of the backup sub-folder of the running table command, or nil for no backup.")
+
+(defvar sp-litnotes-meta--table-backups 0
+  "How many notes the running table command has copied to its backup folder.")
+
 (defun sp-litnotes-meta--refresh-file (file view create)
-  "Update the chapter table in FILE, adding a block with VIEW when CREATE.
-A missing Sections heading is added too, also above an existing block.
-Return `inserted', `changed', `unchanged' or `skipped' (no block and not
-CREATE).  The file is saved when it changed, and its buffer killed when it
-was not open."
+  "Put the chapter table in FILE in order and update it.
+See `sp-litnotes-meta--normalize-tables': a block with VIEW is added when
+CREATE, the blocks are moved under the Sections heading and brought into
+the saved template format.  Return (STATUS . ACTIONS); STATUS is
+`inserted', `changed', `unchanged' or `skipped' (no block and not CREATE).
+The file is saved when it changed, after a copy to the backup folder named
+by `sp-litnotes-meta--table-stamp'; its buffer is killed when it was not open."
   (let* ((open (find-buffer-visiting file))
          (buffer (or open (find-file-noselect file))))
     (unwind-protect
@@ -1431,63 +1632,87 @@ was not open."
           (unless (and (require 'sp-collection-query-org nil t)
                        (fboundp 'sp-collec-query-dblock-update-buffer))
             (user-error "The query table module (sp-collection-query-org) did not load"))
-          (let ((was-modified (buffer-modified-p))
-                (before (buffer-hash))
-                (state (sp-litnotes-meta--table-state))
-                (inserted nil))
-            (cond ((and (memq state '(none no-block)) (not create)) 'skipped)
-                  (t (when (eq 'inserted (sp-litnotes-meta--insert-table-block view))
-                       (setq inserted t))
-                     (sp-collec-query-dblock-update-buffer)
-                     (when (and buffer-file-name (not was-modified) (buffer-modified-p))
-                       (save-buffer))
-                     (cond (inserted 'inserted)
-                           ((equal before (buffer-hash)) 'unchanged)
-                           (t 'changed))))))
+          (if (and (not create) (null (sp-litnotes-meta--blocks)))
+              (list 'skipped)
+            (let* ((was-modified (buffer-modified-p))
+                   (before (buffer-hash))
+                   (actions (sp-litnotes-meta--normalize-tables view create)))
+              (sp-collec-query-dblock-update-buffer)
+              (when (and buffer-file-name (not was-modified) (buffer-modified-p))
+                (when sp-litnotes-meta--table-stamp
+                  (sp-litnotes-meta--backup buffer-file-name sp-litnotes-meta--table-stamp)
+                  (cl-incf sp-litnotes-meta--table-backups))
+                (save-buffer))
+              (cons (cond ((assq 'inserted actions) 'inserted)
+                          ((or actions (not (equal before (buffer-hash)))) 'changed)
+                          (t 'unchanged))
+                    actions))))
       (unless (or open (buffer-modified-p buffer))
         (kill-buffer buffer)))))
+
+(defun sp-litnotes-meta--plan-file (file view create)
+  "The actions `sp-litnotes-meta--refresh-file' would take on FILE, writing nothing."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (and (or create (sp-litnotes-meta--blocks))
+         (sp-litnotes-meta--normalize-tables view create))))
 
 ;;;###autoload
 (defun sp-litnotes-meta-refresh-all-tables (&optional dry-run all-parents)
   "Add and refresh the chapter table of every book, collection and the like.
 See the doc for which notes get one.  The Vulpea database is synced first
 when `sp-litnotes-meta-refresh-sync' is non-nil.  With a prefix argument,
-or DRY-RUN, only list what would be added and write nothing.  With
-ALL-PARENTS, a litnote tagged `sp-litnotes-meta-parent-tags' gets a block
-even when no chapter note exists yet.  Show a
+or DRY-RUN, only list what would be added, moved or migrated and write
+nothing.  With ALL-PARENTS, a litnote tagged `sp-litnotes-meta-parent-tags'
+gets a block even when no chapter note exists yet.
+
+Each table block ends up under a `* Sections' heading in the saved
+template format, `#+BEGIN: collection-query-table :view NAME'; see
+`sp-litnotes-meta--normalize-tables'.  A note is copied to a time-stamped
+folder in `sp-litnotes-meta-backup-directory' before it is written.  Show a
 summary in `sp-litnotes-meta--refresh-buffer' and return the plist
-\\(:inserted :changed :unchanged :skipped :failed :missing)."
+\\(:inserted :changed :unchanged :skipped :failed :missing :backup).  The
+:inserted and :changed items are (TITLE FILE [WHAT])."
   (interactive "P")
   (when (and sp-litnotes-meta-refresh-sync (not dry-run)
              (fboundp 'vulpea-db-sync-full-scan))
     (message "Syncing the Vulpea database...")
     (vulpea-db-sync-full-scan))
   (let* ((found (sp-litnotes-meta--table-parents all-parents))
+         (stamp (format-time-string "%Y%m%d-%H%M%S"))
+         (sp-litnotes-meta--table-stamp (unless dry-run stamp))
+         (sp-litnotes-meta--table-backups 0)
          inserted changed unchanged skipped failed)
     (dolist (entry (plist-get found :parents))
       (let* ((parent (car entry))
              (chapters (cdr entry))
              (view (sp-litnotes-meta--parent-view parent chapters))
              (file (vulpea-note-path parent))
+             (create (and (or chapters all-parents) t))
              (label (list (vulpea-note-title parent) file)))
         (condition-case err
-            (if dry-run
-                (pcase (with-temp-buffer
-                         (insert-file-contents file)
-                         (sp-litnotes-meta--table-state))
-                  ((and (or 'none 'no-block) (guard (or chapters all-parents)))
-                   (push label inserted))
-                  ('no-heading (push label changed))
-                  (_ (push label unchanged)))
-              (pcase (sp-litnotes-meta--refresh-file file view (and (or chapters all-parents) t))
-                ('inserted (push label inserted))
-                ('changed (push label changed))
+            (let* ((outcome (if dry-run
+                                (let ((actions (sp-litnotes-meta--plan-file file view create)))
+                                  (cons (cond ((assq 'inserted actions) 'inserted)
+                                              (actions 'changed)
+                                              (t 'unchanged))
+                                        actions))
+                              (sp-litnotes-meta--refresh-file file view create)))
+                   (note (and (if (eq (car outcome) 'inserted)
+                                  (seq-some (lambda (a) (memq (car a) '(moved migrated))) (cdr outcome))
+                                (cdr outcome))
+                              (list (sp-litnotes-meta--actions-text (cdr outcome))))))
+              (pcase (car outcome)
+                ('inserted (push (append label note) inserted))
+                ('changed (push (append label note) changed))
                 ('unchanged (push label unchanged))
                 (_ (push label skipped))))
           (error (push (append label (list (error-message-string err))) failed)))))
-    (let ((result (list :inserted (nreverse inserted) :changed (nreverse changed)
-                        :unchanged (nreverse unchanged) :skipped (nreverse skipped)
-                        :failed (nreverse failed) :missing (plist-get found :missing))))
+    (let* ((dir (expand-file-name (concat stamp "/") sp-litnotes-meta-backup-directory))
+           (result (list :inserted (nreverse inserted) :changed (nreverse changed)
+                         :unchanged (nreverse unchanged) :skipped (nreverse skipped)
+                         :failed (nreverse failed) :missing (plist-get found :missing)
+                         :backup (and (> sp-litnotes-meta--table-backups 0) dir))))
       (sp-litnotes-meta--show-refresh result dry-run)
       result)))
 
@@ -1497,10 +1722,14 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
 Like `sp-litnotes-meta-refresh-all-tables', but a litnote tagged with one of
 `sp-litnotes-meta-parent-tags' gets the block even before it has a chapter
 note, so the table is there when the first chapter is added.  The block sits
-under a `* Sections' heading, with a blank line before and after it.  Safe
-to run again: it completes the notes that lack the heading and/or the block,
-and leaves the others alone.  With a prefix argument, or DRY-RUN, only list
-the notes that would get one."
+at the start of the content of the `* Sections' heading, with a blank line
+before and after the heading and after the block.  Safe to run again, it
+also repairs the notes it ran on before:
+- an existing Sections heading is reused;
+- a table block that sits elsewhere is moved under it;
+- an old block (`vulpea-table', or written out with columns instead of
+  :view) is brought into the saved template format.
+With a prefix argument, or DRY-RUN, only list what would change."
   (interactive "P")
   (sp-litnotes-meta-refresh-all-tables dry-run t))
 
@@ -1522,9 +1751,11 @@ the notes that would get one."
       (insert (format "%d added, %d changed, %d unchanged, %d failed\n\n"
                       (length (plist-get result :inserted)) (length (plist-get result :changed))
                       (length (plist-get result :unchanged)) (length (plist-get result :failed))))
+      (when-let* ((backup (plist-get result :backup)))
+        (insert (format "Copies of the notes before they changed: [[file:%s][%s]]\n\n" backup backup)))
       (insert (or (sp-litnotes-meta--refresh-lines (if dry-run "Would get a table" "Table added")
                                                    (plist-get result :inserted)) "")
-              (or (sp-litnotes-meta--refresh-lines (if dry-run "Would get a Sections heading" "Table changed")
+              (or (sp-litnotes-meta--refresh-lines (if dry-run "Would be fixed" "Table changed")
                                                    (plist-get result :changed)) "")
               (or (sp-litnotes-meta--refresh-lines "Failed" (plist-get result :failed)) ""))
       (when-let* ((missing (plist-get result :missing)))
@@ -1540,34 +1771,7 @@ the notes that would get one."
            (length (plist-get result :unchanged))
            (if (plist-get result :failed)
                (format ", %d failed" (length (plist-get result :failed))) "")))
-#+end_src
 
-** Fill the whole collection
-
-- Goal: clean up every note tagged =litnote= in one go, like =sp-litnotes-titles-dryrun= and =-convert=.
-- Preview first (=-dryrun=), then apply (=-convert=).
-
-*** Options and the list of notes
-
-- =sp-litnotes-meta-batch-tag= (default =litnote=): the tag of the notes the batch goes through. Only top-level notes (not headings) count.
-- =sp-litnotes-meta-backup-directory=: where each note is copied before it is changed, in a sub-folder per run.
-- Three key lists: what comes from BibTeX, which of those a prefix argument may replace, and the four lines the batch never asks per note.
-- =sp-litnotes-meta-update-changed= (default on): a pub-* value that differs from the BibTeX entry is an update.
-  - The dry run shows it as =update KEY :: old -> new=.
-  - Only the four pub-* lines are compared (links are read as their text); =bib-parent= is left to the lint below.
-  - Names of people (=pub-author=, =pub-editor=) are compared without accents, case and extra spaces (=sp-author-notes--title-key=).
-    - The link text is the title of the person note, and the write keeps that link, so André/Andre never converges with an exact compare.
-    - A really different name is still an update.
-- A =bib-parent= that cannot be written is not planned.
-  - Cannot be written: the crossref key has no note (also with a colon in the key, as in =marx1966cartea-i:-=) and no BibTeX entry, or parent creation is off.
-  - It is listed in "Crossref without a note or a BibTeX entry"; fix the key in the =.bib= file.
-  - It no longer makes the note count as "to change" or "order the meta lines" on every run.
-- An error while filling one line (for example the parent note) no longer loses the other lines.
-  - It is kept in =sp-litnotes-meta--errors= and listed under "Problems in the last convert", with failed notes (unsaved buffer, ...).
-  - A prefix argument forces the updates when the option is off.
-- The convert goes in batches of =sp-batch-report-batch-size= (50): apply the batch, choose note by note, skip it or quit.
-
-#+begin_src emacs-lisp
 (defcustom sp-litnotes-meta-update-changed t
   "Non-nil when the batch also updates pub-* values that differ from the BibTeX entry.
 The dry run lists each as \"update\", with the old and the new value; the
