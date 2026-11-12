@@ -455,6 +455,7 @@ def harden_typst(typ: str) -> str:
     literal = {ch: ch for ch in MASKS}
     out: list[str] = []
     fence = 0                            # length of the open ``` fence, 0 = none
+    body = False                         # True from the first heading on
     for line in typ.split("\n"):
         m = FENCE_RE.match(line)
         if fence:
@@ -468,8 +469,23 @@ def harden_typst(typ: str) -> str:
             out.append(_swap(line, {ch: "-" for ch in MASKS}))
         else:
             parts = RAW_SPAN_RE.split(line)
-            out.append("".join(_swap(p, literal if k % 2 else TYPST_ESC) for k, p in enumerate(parts)))
+            line = "".join(_swap(p, literal if k % 2 else TYPST_ESC) for k, p in enumerate(parts))
+            body = body or line.startswith("= ")   # before the first heading: pandoc's template (code)
+            out.append(end_typst_calls(line) if body else line)
     return "\n".join(out)
+
+
+# pandoc writes inline code as #raw("..."). Typst reads "#raw(...).el" as field
+# access on the raw element ("raw does not have field el") and the compile
+# fails, so no new PDF is written. A zero-width space ends the expression and
+# the text after it stays text ("#[]" would not do: ".el" would then be read as
+# a field of that empty block). Only #raw calls are touched: table code such as
+# "(auto, auto).at(col)" needs its dot.
+RAW_CALL_RE = re.compile(r'(#raw\((?:[^()"\\]|"(?:[^"\\]|\\.)*")*\))(?=\.[A-Za-z_])')
+
+
+def end_typst_calls(line: str) -> str:
+    return RAW_CALL_RE.sub(r"\1\\u{200b}", line) if "#raw(" in line else line
 
 
 def typst_leaks(typ: str) -> list[int]:
@@ -494,6 +510,9 @@ TYPST_PREAMBLE = """\
 #set page(numbering: "1")
 #show link: set text(fill: rgb("#1d4ed8"))
 #show raw: set text(size: 8pt)
+// Every level-1 heading is one pull request (or discussion): start it on a new page.
+// weak: no blank page when the heading already starts one.
+#show heading.where(level: 1): it => { pagebreak(weak: true); it }
 """
 
 
@@ -527,6 +546,8 @@ def build_pdf(org_files: list[Path], title: str, out_pdf: Path) -> bool:
               "Install typst (https://github.com/typst/typst/releases, `brew install typst`, "
               "or `cargo install typst-cli`) and run again with --skip-fetch.", file=sys.stderr)
         return False
+    # A failed compile must not leave an older PDF behind that looks current.
+    out_pdf.unlink(missing_ok=True)
     r = subprocess.run(["typst", "compile", str(typ), str(out_pdf)], capture_output=True, text=True)
     if r.returncode != 0:
         die(f"typst failed:\n{r.stderr.strip()}")
