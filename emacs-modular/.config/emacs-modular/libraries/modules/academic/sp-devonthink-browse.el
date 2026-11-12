@@ -27,9 +27,9 @@
   "Browse the DEVONthink database from Emacs."
   :group 'sp-devonthink)
 
-(defcustom sp-devonthink-browse-name-regexp "\\.pdf$"
-  "JavaScript regular expression (case-insensitive) that a record name must match.
-The default lists the PDFs, whose names are citekeys."
+(defcustom sp-devonthink-browse-path-regexp "\\.pdf$"
+  "JavaScript regular expression (case-insensitive) that a record's file path must match.
+The default lists the PDFs; their names are citekeys."
   :type 'string :group 'sp-devonthink-browse)
 
 ;;;; The record list
@@ -46,14 +46,14 @@ The fields of all records are read in bulk; AppleScript could not read them from
 list of records (-1728)."
   (format "const app = Application(\"DEVONthink\");
 const c = app.databases.byName(%s).contents;
-const ids = c.uuid(), names = c.name(), locations = c.location();
+const ids = c.uuid(), names = c.name(), locations = c.location(), paths = c.path();
 const wanted = new RegExp(%s, \"i\");
 const out = [];
 for (let i = 0; i < ids.length; i++)
-  if (wanted.test(names[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
+  if (paths[i] && wanted.test(paths[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
 out.join(\"\\n\");"
           (json-encode-string sp-reading-database)
-          (json-encode-string sp-devonthink-browse-name-regexp)))
+          (json-encode-string sp-devonthink-browse-path-regexp)))
 
 (defun sp-devonthink-browse--parse (text)
   "The list of record plists read from TEXT (see the script)."

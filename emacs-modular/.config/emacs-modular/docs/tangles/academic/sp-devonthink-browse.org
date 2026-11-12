@@ -27,9 +27,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 * Header and options
 
-- =sp-devonthink-browse-name-regexp= says which records are listed: a JavaScript regular expression tested on the record name.
+- =sp-devonthink-browse-path-regexp= says which records are listed: a JavaScript regular expression tested on the record's file path (DEVONthink often keeps names without the extension).
   - The default =\\.pdf$= lists the PDFs, which is what =sp-reading= uses.
-  - Another expression, for example =^okane= , narrows the browser.
+  - Another expression, for example =/okane[^/]*[.]pdf$=, narrows the browser.
 
 #+begin_src emacs-lisp
 ;;; sp-devonthink-browse.el --- Browse the DEVONthink database from Emacs -*- lexical-binding: t; -*-
@@ -61,9 +61,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
   "Browse the DEVONthink database from Emacs."
   :group 'sp-devonthink)
 
-(defcustom sp-devonthink-browse-name-regexp "\\.pdf$"
-  "JavaScript regular expression (case-insensitive) that a record name must match.
-The default lists the PDFs, whose names are citekeys."
+(defcustom sp-devonthink-browse-path-regexp "\\.pdf$"
+  "JavaScript regular expression (case-insensitive) that a record's file path must match.
+The default lists the PDFs; their names are citekeys."
   :type 'string :group 'sp-devonthink-browse)
 #+end_src
 
@@ -91,14 +91,14 @@ The fields of all records are read in bulk; AppleScript could not read them from
 list of records (-1728)."
   (format "const app = Application(\"DEVONthink\");
 const c = app.databases.byName(%s).contents;
-const ids = c.uuid(), names = c.name(), locations = c.location();
+const ids = c.uuid(), names = c.name(), locations = c.location(), paths = c.path();
 const wanted = new RegExp(%s, \"i\");
 const out = [];
 for (let i = 0; i < ids.length; i++)
-  if (wanted.test(names[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
+  if (paths[i] && wanted.test(paths[i])) out.push([ids[i], locations[i], names[i]].join(\"\\t\"));
 out.join(\"\\n\");"
           (json-encode-string sp-reading-database)
-          (json-encode-string sp-devonthink-browse-name-regexp)))
+          (json-encode-string sp-devonthink-browse-path-regexp)))
 
 (defun sp-devonthink-browse--parse (text)
   "The list of record plists read from TEXT (see the script)."
