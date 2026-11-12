@@ -125,22 +125,32 @@ When none is found, say so and point to `sp-reading-diagnose'."
   sp-reading-index)
 
 (defun sp-reading--lookup-script (key)
-  "The AppleScript that finds the UUID of the record named KEY.pdf."
-  (format "tell application id \"DNtp\"
-  set theRecords to search %s in root of database %s
-  repeat with r in theRecords
-    if (name of r) is %s then return uuid of r
-  end repeat
-  return \"\"
-end tell"
-          (sp-reading--quote (concat "name:" key ".pdf"))
-          (sp-reading--quote sp-reading-database)
-          (sp-reading--quote (concat key ".pdf"))))
+  "The JavaScript that finds the UUID of the record for KEY, or an empty string.
+A record matches when its name or the file name of its path, without a
+trailing .pdf and ignoring case, equals KEY."
+  (format "const app = Application(\"DEVONthink\");
+const key = %s.toLowerCase();
+const stem = s => (s || \"\").toLowerCase().replace(/\\.pdf$/, \"\");
+const base = p => stem((p || \"\").split(\"/\").pop());
+const db = app.databases.byName(%s);
+let found = \"\";
+const hits = app.search(\"name:\" + key, {in: db.root()});
+for (const r of hits) {
+  if (stem(r.name()) === key || base(r.path()) === key) { found = r.uuid(); break; }
+}
+found;"
+          (json-encode-string key)
+          (json-encode-string sp-reading-database)))
 
 (defun sp-reading-uuid (key)
-  "The DEVONthink UUID of the record for the citekey KEY, or nil."
+  "The DEVONthink UUID of the record for the citekey KEY, or nil.
+Looks in the cache, then asks DEVONthink for that record, then rebuilds
+the cache from the whole database once and looks again."
   (or (and sp-reading-index (gethash key sp-reading-index))
-      (let ((uuid (sp-reading--osascript (sp-reading--lookup-script key))))
+      (let ((uuid (string-trim (sp-reading--jxa (sp-reading--lookup-script key)))))
+        (when (string-empty-p uuid)
+          (sp-reading-refresh)
+          (setq uuid (or (gethash key sp-reading-index) "")))
         (unless (string-empty-p uuid)
           (unless sp-reading-index
             (setq sp-reading-index (make-hash-table :test 'equal)))
