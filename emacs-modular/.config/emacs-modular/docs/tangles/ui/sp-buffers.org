@@ -43,7 +43,17 @@ Configures the built-in =ibuffer=:
 - buffers are sorted by file name or process,
 - the title uses =font-lock-doc-face=, and the window is not shrunk to fit.
 
-=ibuffer-formats= defines two column layouts, toggled with ~`~ in ibuffer: a detailed one with mark, flags, a 30 character name, size, mode and file or process, and a compact one with just a short name and file name.
+=ibuffer-formats= defines two column layouts, toggled with ~`~ in ibuffer:
+- detailed: mark, flags, a 36 character name, size, an 18 character mode and the file or process,
+- compact: mark, a 24 character name and the file name.
+- Long names and modes are cut with =:elide=, which keeps the start and end and puts =...= in the middle, so you can still tell similar buffers apart.
+- The last column has no width limit, so file paths use whatever room is left.
+
+=nerd-icons-ibuffer-mode= (switched on in =sp-icons=) overwrites =ibuffer-formats= with =nerd-icons-ibuffer-formats= when it starts.
+- Setting only =ibuffer-formats= therefore had no visible effect.
+- The same widths are set for =nerd-icons-ibuffer-formats= after that package loads, with an icon column added.
+
+The Main groups are activated by =sp-buffers-activate-filter-groups= on =ibuffer-mode-hook=.
 
 #+begin_src emacs-lisp -i
 (use-package ibuffer
@@ -59,15 +69,42 @@ Configures the built-in =ibuffer=:
   (ibuffer-default-shrink-to-minimum-size nil)
   (ibuffer-formats
         '((mark modified read-only locked " "
-                (name 30 30 :left :elide)
+                (name 36 36 :left :elide)
                 " "
                 (size 9 -1 :right)
                 " "
-                (mode 16 16 :left :elide)
+                (mode 18 18 :left :elide)
                 " " filename-and-process)
           (mark " "
-                (name 16 -1)
-                " " filename))))
+                (name 24 24 :left :elide)
+                " " filename)))
+  ;; Group the list as soon as ibuffer opens, otherwise the saved groups
+  ;; below are defined but never applied.
+  :hook (ibuffer-mode . sp-buffers-activate-filter-groups))
+
+(defun sp-buffers-activate-filter-groups ()
+  "Switch the current ibuffer to the \"Main\" saved filter groups."
+  (when (assoc "Main" ibuffer-saved-filter-groups)
+    (ibuffer-switch-to-saved-filter-groups "Main")))
+
+;; `nerd-icons-ibuffer-mode' (enabled in sp-icons) replaces `ibuffer-formats'
+;; with its own list, so the column widths have to be set here as well.
+(with-eval-after-load 'nerd-icons-ibuffer
+  (setopt nerd-icons-ibuffer-formats
+          '((mark modified read-only locked " "
+                  (icon 2 2 :left :elide)
+                  " "
+                  (name 36 36 :left :elide)
+                  " "
+                  (size-h 9 -1 :right)
+                  " "
+                  (mode+ 18 18 :left :elide)
+                  " " filename-and-process+)
+            (mark " "
+                  (icon 2 2 :left :elide)
+                  " "
+                  (name 24 24 :left :elide)
+                  " " filename-and-process+))))
 #+end_src
 
 ** Saved filter groups
@@ -80,7 +117,10 @@ Defines a filter group set named Main that sorts buffers into:
 - Org,
 - Emacs Internals (Emacs Lisp plus buffers like =*Help*=, =*Messages*= and =*scratch*=).
 
-Nothing in the config calls =ibuffer-switch-to-saved-filter-groups=, so the groups have to be activated by hand with ~/ r~ in ibuffer.
+Defining =ibuffer-saved-filter-groups= only stores the groups; ibuffer does not use them by itself.
+- This was the bug: nothing called =ibuffer-switch-to-saved-filter-groups=, so the list stayed ungrouped unless you ran ~/ r~ by hand.
+- =sp-buffers-activate-filter-groups=, run from =ibuffer-mode-hook= (the =:hook= in the block above), now switches to "Main" every time ibuffer opens.
+- Buffers that match no group stay at the bottom, ungrouped.
 
 #+begin_src emacs-lisp -i
 (setq ibuffer-saved-filter-groups
@@ -104,8 +144,7 @@ Nothing in the config calls =ibuffer-switch-to-saved-filter-groups=, so the grou
                    (name . "^\\*info\\*$")
                    (name . "^\\*scratch\\*$")
                    (name . "^\\*Backtrace\\*$")
-                   (name . "^\\*Messages\\*$")))))
-         )
+                   (name . "^\\*Messages\\*$"))))))
 #+end_src
 
 ** Icons in ibuffer
