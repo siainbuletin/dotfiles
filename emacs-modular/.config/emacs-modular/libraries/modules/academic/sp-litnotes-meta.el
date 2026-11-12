@@ -1068,8 +1068,15 @@ first tag of a chapter, see `sp-litnotes-meta-chapter-views'."
                 chapters)
       "book-sections"))
 
-(defun sp-litnotes-meta--table-parents ()
+(defcustom sp-litnotes-meta-parent-tags '("book" "collection" "reference" "encyclopedia")
+  "Tags of the litnotes that `sp-litnotes-meta-add-all-tables' gives a table."
+  :type '(repeat string)
+  :group 'sp-litnotes-meta)
+
+(defun sp-litnotes-meta--table-parents (&optional all-parents)
   "The notes that should show a chapter table, as a plist.
+With ALL-PARENTS, every litnote tagged with one of `sp-litnotes-meta-parent-tags'
+is a parent, with its chapters or none.
 :PARENTS is a list of (NOTE . CHAPTERS) for every note some chapter points
 at with bib-parent, and for every tagged note of
 `sp-litnotes-meta-parent-views'; :MISSING lists the ids a bib-parent
@@ -1086,8 +1093,13 @@ names that are not in the database."
                              (cons (vulpea-db-get-by-id id) (nreverse (gethash id by-id))))
                            (nreverse order))))
       ;; tagged notes without chapters count when they have a block
-      (dolist (note (vulpea-db-query-by-tags-some (mapcar #'car sp-litnotes-meta-parent-views)))
-        (unless (gethash (vulpea-note-id note) by-id)
+      (dolist (note (vulpea-db-query-by-tags-some
+                     (if all-parents
+                         sp-litnotes-meta-parent-tags
+                       (mapcar #'car sp-litnotes-meta-parent-views))))
+        (when (and (not (gethash (vulpea-note-id note) by-id))
+                   (or (not all-parents)
+                       (member sp-litnotes-meta-batch-tag (vulpea-note-tags note))))
           (push (list note) parents)))
       (list :parents (nreverse parents) :missing (nreverse missing)))))
 
@@ -1121,11 +1133,13 @@ was not open."
         (kill-buffer buffer)))))
 
 ;;;###autoload
-(defun sp-litnotes-meta-refresh-all-tables (&optional dry-run)
+(defun sp-litnotes-meta-refresh-all-tables (&optional dry-run all-parents)
   "Add and refresh the chapter table of every book, collection and the like.
 See the doc for which notes get one.  The Vulpea database is synced first
 when `sp-litnotes-meta-refresh-sync' is non-nil.  With a prefix argument,
-or DRY-RUN, only list what would be added and write nothing.  Show a
+or DRY-RUN, only list what would be added and write nothing.  With
+ALL-PARENTS, a litnote tagged `sp-litnotes-meta-parent-tags' gets a block
+even when no chapter note exists yet.  Show a
 summary in `sp-litnotes-meta--refresh-buffer' and return the plist
 \\(:inserted :changed :unchanged :skipped :failed :missing)."
   (interactive "P")
@@ -1133,7 +1147,7 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
              (fboundp 'vulpea-db-sync-full-scan))
     (message "Syncing the Vulpea database...")
     (vulpea-db-sync-full-scan))
-  (let* ((found (sp-litnotes-meta--table-parents))
+  (let* ((found (sp-litnotes-meta--table-parents all-parents))
          inserted changed unchanged skipped failed)
     (dolist (entry (plist-get found :parents))
       (let* ((parent (car entry))
@@ -1143,14 +1157,14 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
              (label (list (vulpea-note-title parent) file)))
         (condition-case err
             (if dry-run
-                (if (and chapters
+                (if (and (or chapters all-parents)
                          (not (with-temp-buffer
                                 (insert-file-contents file)
                                 (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+collection-query-table"
                                                    nil t))))
                     (push label inserted)
                   (push label unchanged))
-              (pcase (sp-litnotes-meta--refresh-file file view (and chapters t))
+              (pcase (sp-litnotes-meta--refresh-file file view (and (or chapters all-parents) t))
                 ('inserted (push label inserted))
                 ('changed (push label changed))
                 ('unchanged (push label unchanged))
@@ -1161,6 +1175,16 @@ summary in `sp-litnotes-meta--refresh-buffer' and return the plist
                         :failed (nreverse failed) :missing (plist-get found :missing))))
       (sp-litnotes-meta--show-refresh result dry-run)
       result)))
+
+;;;###autoload
+(defun sp-litnotes-meta-add-all-tables (&optional dry-run)
+  "Give every book, collection, reference and encyclopedia litnote its chapter table.
+Like `sp-litnotes-meta-refresh-all-tables', but a litnote tagged with one of
+`sp-litnotes-meta-parent-tags' gets the block even before it has a chapter
+note, so the table is there when the first chapter is added.  With a prefix
+argument, or DRY-RUN, only list the notes that would get one."
+  (interactive "P")
+  (sp-litnotes-meta-refresh-all-tables dry-run t))
 
 (defun sp-litnotes-meta--refresh-lines (heading items)
   "Org text for HEADING and the (TITLE FILE [NOTE]) ITEMS under it, or nil."
