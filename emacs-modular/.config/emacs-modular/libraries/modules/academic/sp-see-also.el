@@ -891,57 +891,255 @@ question.
     (goto-char pos)
     (when (fboundp 'org-reveal) (org-reveal))))
 
+;;;; The decorated views
+
+(defface sp-see-also-file-heading
+  '((t :inherit (bold outline-1) :height 1.15 :extend t))
+  "Face of the title of a litnote (or of a concept) in a see-also view."
+  :group 'sp-see-also)
+
+(defface sp-see-also-heading
+  '((t :inherit (bold outline-2) :extend t))
+  "Face of the heading line of an entry in a see-also view."
+  :group 'sp-see-also)
+
+(defface sp-see-also-match
+  '((t :inherit (sp-highlight hl-line) :extend t))
+  "Background of an entry in a see-also view.
+It inherits `sp-highlight', which follows the Modus palette (bg-hl-line)."
+  :group 'sp-see-also)
+
+(defface sp-see-also-hit
+  '((t :inherit (bold sp-focus)))
+  "Face of the concept text inside the context of an entry."
+  :group 'sp-see-also)
+
+(defface sp-see-also-marks
+  '((t :inherit shadow))
+  "Face of the marks and the small print of an entry."
+  :group 'sp-see-also)
+
+(defvar-local sp-see-also-view--redraw nil
+  "Function that draws the current see-also view again.")
+
+(defvar-local sp-see-also-view--stops nil
+  "Positions of the headings of the current see-also view, in order.")
+
+(defun sp-see-also-view--marks (mention)
+  "Return the marker text of MENTION: ❝ for a quote, ? under an open question."
+  (concat (if (eq (plist-get mention :where) 'quote) "❝" " ")
+          (if (plist-get mention :open) "?" " ")))
+
+(defun sp-see-also-view--stop ()
+  "Remember the line at point as a place for `sp-see-also-view-next'."
+  (push (line-beginning-position) sp-see-also-view--stops))
+
+(defun sp-see-also-view--button (label face help action)
+  "Insert LABEL as a button with FACE, HELP text and ACTION (a function)."
+  (insert-text-button label 'face face 'help-echo help 'follow-link t
+                      'action (lambda (_) (funcall action))))
+
+(defun sp-see-also-view--group (title face help action tag)
+  "Insert the group heading TITLE in FACE, with ACTION and the small print TAG."
+  (unless (bobp) (insert "\n"))
+  (sp-see-also-view--stop)
+  (sp-see-also-view--button title face help action)
+  (when tag (insert "  " (propertize tag 'face 'sp-see-also-marks)))
+  (insert "\n"))
+
+(defun sp-see-also-view--entry (file mention label)
+  "Insert the entry of MENTION, found in FILE, under the heading LABEL.
+The heading and the context are buttons that visit the footnote; the whole entry
+has the `sp-see-also-match' background, and TAB folds the context."
+  (let* ((start (point))
+         (jump (lambda () (sp-see-also-visit file (plist-get mention :beg))))
+         (snippet (let ((s (plist-get mention :snippet)))
+                    (if (string-empty-p s) (or (plist-get mention :heading) "…") s)))
+         (desc (plist-get mention :desc))
+         (under (plist-get mention :question-title)))
+    (sp-see-also-view--stop)
+    (insert "  " (propertize (sp-see-also-view--marks mention) 'face 'sp-see-also-marks) " ")
+    (sp-see-also-view--button label 'sp-see-also-heading "Visit this footnote" jump)
+    (insert "  "
+            (propertize (format "[%s%s]" (plist-get mention :where)
+                                (if under (concat " · " under) ""))
+                        'face 'sp-see-also-marks)
+            "\n")
+    (let ((body (point)))
+      (insert "      ")
+      (let ((text (point)))
+        (insert snippet)
+        (when (and desc (not (string-empty-p desc))
+                   (let ((case-fold-search t))
+                     (save-excursion
+                       (goto-char text)
+                       (search-forward desc (line-end-position) t))))
+          (add-face-text-property (match-beginning 0) (match-end 0) 'sp-see-also-hit)))
+      (make-text-button (+ body 6) (point) 'face nil 'help-echo "Visit this footnote"
+                        'follow-link t 'action (lambda (_) (funcall jump)))
+      (insert "\n")
+      (add-text-properties start (point) (list 'sp-see-also-body (cons body (point)))))
+    (add-face-text-property start (point) 'sp-see-also-match t)))
+
+(defun sp-see-also-view--fold-at (pos)
+  "Return the overlay that folds the context of the entry at POS, or nil."
+  (when-let* ((body (get-text-property pos 'sp-see-also-body)))
+    (seq-find (lambda (o) (overlay-get o 'sp-see-also-fold))
+              (overlays-in (car body) (cdr body)))))
+
+(defun sp-see-also-view-toggle ()
+  "Fold or unfold the context of the entry at point."
+  (interactive)
+  (if-let* ((body (get-text-property (point) 'sp-see-also-body)))
+      (if-let* ((overlay (sp-see-also-view--fold-at (point))))
+          (delete-overlay overlay)
+        (let ((overlay (make-overlay (car body) (cdr body))))
+          (overlay-put overlay 'sp-see-also-fold t)
+          (overlay-put overlay 'invisible t)))
+    (message "No entry here")))
+
+(defun sp-see-also-view-toggle-all ()
+  "Fold the context of every entry, or unfold them all when all are folded."
+  (interactive)
+  (let ((overlays (seq-filter (lambda (o) (overlay-get o 'sp-see-also-fold))
+                              (overlays-in (point-min) (point-max))))
+        (pos (point-min)))
+    (if overlays
+        (mapc #'delete-overlay overlays)
+      (while (setq pos (next-single-property-change pos 'sp-see-also-body))
+        (when (get-text-property pos 'sp-see-also-body)
+          (let* ((body (get-text-property pos 'sp-see-also-body))
+                 (overlay (make-overlay (car body) (cdr body))))
+            (overlay-put overlay 'sp-see-also-fold t)
+            (overlay-put overlay 'invisible t)
+            (setq pos (cdr body))))))))
+
+(defun sp-see-also-view-next (&optional previous)
+  "Move to the next heading of the view, or to the previous one with PREVIOUS."
+  (interactive)
+  (let ((here (line-beginning-position)))
+    (if-let* ((stop (seq-find (lambda (s) (if previous (< s here) (> s here)))
+                              (if previous
+                                  (reverse sp-see-also-view--stops)
+                                sp-see-also-view--stops))))
+        (goto-char stop)
+      (message "No %s heading" (if previous "previous" "next")))))
+
+(defun sp-see-also-view-previous ()
+  "Move to the previous heading of the view."
+  (interactive)
+  (sp-see-also-view-next t))
+
+(defvar sp-see-also-view-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "n") #'sp-see-also-view-next)
+    (define-key map (kbd "p") #'sp-see-also-view-previous)
+    (define-key map (kbd "TAB") #'sp-see-also-view-toggle)
+    (define-key map (kbd "<backtab>") #'sp-see-also-view-toggle-all)
+    map)
+  "Keymap of `sp-see-also-view-mode'.
+RET or a click on a heading or a context visits it.")
+
+(define-derived-mode sp-see-also-view-mode special-mode "See-also"
+  "Major mode of the see-also views: titles, entries and clickable contexts.
+
+\\{sp-see-also-view-mode-map}"
+  (setq-local revert-buffer-function
+              (lambda (&rest _)
+                (when sp-see-also-view--redraw (funcall sp-see-also-view--redraw))))
+  (setq-local truncate-lines nil))
+
+(defun sp-see-also-view--show (name redraw)
+  "Draw the buffer NAME with REDRAW (a function that inserts) and show it."
+  (with-current-buffer (get-buffer-create name)
+    (sp-see-also-view-mode)
+    (setq sp-see-also-view--redraw
+          (lambda ()
+            (let ((inhibit-read-only t)
+                  (line (line-number-at-pos)))
+              (remove-overlays (point-min) (point-max) 'sp-see-also-fold t)
+              (erase-buffer)
+              (setq sp-see-also-view--stops nil)
+              (funcall redraw)
+              (setq sp-see-also-view--stops (nreverse sp-see-also-view--stops))
+              (goto-char (point-min))
+              (forward-line (1- line)))))
+    (funcall sp-see-also-view--redraw))
+  (pop-to-buffer name))
+
+(defun sp-see-also-view--title (file)
+  "Return the title of the litnote FILE."
+  (or (plist-get (sp-see-also-file-data file) :title) (file-name-base file)))
+
 ;;;###autoload
 (defun sp-see-also-show (&optional file)
   "Show the see-also concepts and open questions of FILE in a buffer.
-FILE defaults to the file of the current buffer.  This needs no sidebar."
+FILE defaults to the file of the current buffer.  This needs no sidebar.
+Each concept and each open question is a coloured heading with its mentions
+below it; a click or RET on a heading or a context visits it."
   (interactive)
-  (let* ((file (or file buffer-file-name (user-error "This buffer visits no file")))
-         (concepts (sp-see-also-concepts-for-file file))
-         (questions (sp-see-also-questions-for-file file)))
-    (with-current-buffer (get-buffer-create "*see-also*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert (format "See also: %s\n\n" (file-name-nondirectory file)))
-        (if (null concepts)
-            (insert "No see-also footnotes found.\n")
-          (dolist (c concepts)
-            (insert (format "%5.1f  %s  x%d  quotes %d  questions %d\n"
-                            (plist-get c :score) (plist-get c :title)
-                            (plist-get c :count) (plist-get c :quotes)
-                            (plist-get c :questions)))))
-        (when questions
-          (insert "\nOpen questions\n")
-          (dolist (q questions)
-            (insert (format "%5.1f  %s %s  (%d)\n" (plist-get q :priority)
-                            (plist-get q :keyword) (plist-get q :title)
-                            (plist-get q :count)))))
-        (goto-char (point-min))
-        (special-mode)))
-    (pop-to-buffer "*see-also*")))
+  (let ((file (expand-file-name
+               (or file buffer-file-name (user-error "This buffer visits no file")))))
+    (sp-see-also-view--show
+     "*see-also*"
+     (lambda ()
+       (let ((concepts (sp-see-also-concepts-for-file file))
+             (questions (sp-see-also-questions-for-file file)))
+         (sp-see-also-view--stop)
+         (sp-see-also-view--button
+          (format "See also: %s" (sp-see-also-view--title file))
+          'sp-see-also-file-heading "Visit this litnote"
+          (lambda () (sp-see-also-visit file (point-min))))
+         (insert "\n")
+         (if (null concepts)
+             (insert "\nNo see-also footnotes found.\n")
+           (dolist (c concepts)
+             (sp-see-also-view--group
+              (plist-get c :title) 'sp-see-also-file-heading "Show where this concept is mentioned"
+              (let ((id (plist-get c :id))) (lambda () (sp-see-also-show-concept id)))
+              (format "%.1f · ×%d%s%s" (plist-get c :score) (plist-get c :count)
+                      (if (> (plist-get c :quotes) 0) (format " · ❝%d" (plist-get c :quotes)) "")
+                      (if (> (plist-get c :questions) 0) (format " · ?%d" (plist-get c :questions)) "")))
+             (dolist (m (plist-get c :mentions))
+               (sp-see-also-view--entry file m (or (plist-get m :heading) "file")))))
+         (when questions
+           (sp-see-also-view--group
+            "Open questions" 'sp-see-also-file-heading nil #'ignore nil)
+           (dolist (q questions)
+             (sp-see-also-view--group
+              (format "%s %s" (plist-get q :keyword) (plist-get q :title))
+              'sp-see-also-heading "Visit this question"
+              (let ((pos (plist-get q :pos))) (lambda () (sp-see-also-visit file pos)))
+              (format "%.1f · %d" (plist-get q :priority) (plist-get q :count)))
+             (dolist (m (plist-get q :mentions))
+               (sp-see-also-view--entry file m (or (plist-get m :desc) (plist-get m :id)))))))))))
 
 ;;;###autoload
 (defun sp-see-also-show-concept (id)
   "Show the litnotes that mention concept ID in a see-also footnote.
-Interactively, ID is the :ID: of the entry at point."
+Interactively, ID is the :ID: of the entry at point.  Each litnote is a coloured
+heading, with one entry for each mention."
   (interactive (list (progn (require 'org) (or (org-entry-get nil "ID" t)
                                                (read-string "Concept ID: ")))))
-  (let ((usage (sp-see-also-concept-usage id)))
-    (with-current-buffer (get-buffer-create "*see-also-concept*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert (format "Concept %s\n\n" (sp-see-also--concept-title id nil)))
-        (if (null usage)
-            (insert "No litnote mentions this concept in a see-also footnote.\n")
-          (dolist (entry usage)
-            (insert (format "%s (%d)\n" (plist-get entry :title)
-                            (length (plist-get entry :mentions))))
-            (dolist (m (plist-get entry :mentions))
-              (insert (format "   %s  %s\n" (plist-get m :where)
-                              (plist-get m :snippet))))))
-        (goto-char (point-min))
-        (special-mode)))
-    (pop-to-buffer "*see-also-concept*")))
+  (sp-see-also-view--show
+   "*see-also-concept*"
+   (lambda ()
+     (let ((usage (sp-see-also-concept-usage id)))
+       (sp-see-also-view--stop)
+       (insert (propertize (format "Concept: %s" (sp-see-also--concept-title id nil))
+                           'face 'sp-see-also-file-heading)
+               "\n")
+       (if (null usage)
+           (insert "\nNo litnote mentions this concept in a see-also footnote.\n")
+         (dolist (entry usage)
+           (let ((file (plist-get entry :file)))
+             (sp-see-also-view--group
+              (plist-get entry :title) 'sp-see-also-file-heading "Visit this litnote"
+              (lambda () (sp-see-also-visit file (point-min)))
+              (format "×%d" (length (plist-get entry :mentions))))
+             (dolist (m (plist-get entry :mentions))
+               (sp-see-also-view--entry file m (or (plist-get m :heading) "file"))))))))))
 
 (with-eval-after-load 'vulpea-ui
   (condition-case err
