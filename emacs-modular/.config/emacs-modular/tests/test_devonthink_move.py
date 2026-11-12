@@ -34,6 +34,12 @@ class FakeDT:
                         k for k, v in self.records.items() if v == p)) else None)
                 for p in paths}
 
+    def rename(self, uuid, name, dst):
+        if self.honest:
+            os.rename(self.records[uuid], dst)
+            self.records[uuid] = dst
+        return {"uuid": uuid, "path": self.records[uuid]}
+
     def move(self, uuid, folder):
         if self.honest:
             old = self.records[uuid]
@@ -88,6 +94,15 @@ class Planning(Library):
         self.assertEqual([c], [m[0] for m in plan["plain"]])
         self.assertEqual([b], [m[0] for m in plan["blocked"]])
         self.assertEqual(1, len(plan["missing"]))
+
+    def test_a_new_name_in_the_same_folder_is_a_rename(self):
+        a = self.path("inbox", "a.pdf")
+        new = self.path("inbox", "a-new.pdf")
+        found = {a: {"uuid": U1, "database": "d", "count": 1}}
+        plan = dm.plan_moves([(a, new)], found)
+        self.assertEqual([a], [m[0] for m in plan["rename"]])
+        self.assertEqual([], plan["move"])
+        self.assertEqual([(a, new)], dm.plan_moves([(a, new)], {})["plain"])
 
     def test_two_records_at_one_path_block(self):
         a = self.path("inbox", "a.pdf")
@@ -150,6 +165,31 @@ class Running(Library):
         dt = FakeDT({U1: self.path("inbox", "a.pdf"), U2: self.path("inbox", "c.pdf")})
         r = self.move(dt, limit=1)
         self.assertEqual(1, len(r["moved"]))
+
+    def rename(self, dt, apply=True, **kw):
+        moves = [(self.path("inbox", "a.pdf"), self.path("inbox", "a-new.pdf"))]
+        with mock.patch.object(dm, "dt_rename", dt.rename):
+            return dm.run_moves(dm.plan_moves(moves, dt.lookup([moves[0][0]])), apply, **kw)
+
+    def test_rename_goes_through_devonthink_and_keeps_the_uuid(self):
+        dt = self.dt()
+        r = self.rename(dt)
+        self.assertEqual([{"uuid": U1, "from": self.path("inbox", "a.pdf"),
+                           "to": self.path("inbox", "a-new.pdf")}], r["dt_renamed"])
+        self.assertEqual(self.path("inbox", "a-new.pdf"), dt.records[U1])
+        self.assertTrue((self.lib / "inbox" / "a-new.pdf").exists())
+        self.assertEqual(1, len(json.loads(Path(r["manifest"]).read_text())))
+
+    def test_rename_dry_run_changes_nothing(self):
+        r = self.rename(self.dt(), apply=False)
+        self.assertEqual(1, r["to_rename"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
+
+    def test_rename_stops_when_devonthink_did_not_rename_the_file(self):
+        r = self.rename(self.dt(honest=False))
+        self.assertEqual([], r["dt_renamed"])
+        self.assertEqual(self.path("inbox", "a.pdf"), r["stopped"]["from"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
 
 
 class Check(Library):

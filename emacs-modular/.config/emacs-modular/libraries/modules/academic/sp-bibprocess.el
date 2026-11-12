@@ -45,12 +45,39 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
 
 ;;;; Long citation keys
 ;; Keys are shown in full in the `citar' candidates up to a limit, so a longer one is
-;; flagged and the user is asked for a shorter one.
+;; flagged by the lint (`sp-bibtex-lint-fix-keys') and the user is asked for a shorter
+;; one.  Renaming a key also updates what uses it: the notes, the citations, the
+;; cross references of the other entries and the PDFs named after it.
+(defvar sp-notes-dir)
+(defvar sp-literature-dir)
+(defvar sp-bibtex-files)
+(defvar sp-bibtex-lint-backup-directory)
+(declare-function sp-bibtex-files--library "sp-bibprocess")
+(declare-function sp-bibtex-files--move "sp-bibprocess")
+(declare-function sp-bibtex-files--ctx-names "sp-bibprocess")
+(declare-function vulpea-db-update-file "vulpea-db")
+(declare-function citar-refresh "citar")
+
 (defcustom sp-bibtex-key-max-length 45
   "Longest citation key, in characters, that is not flagged as too long.
-`sp-bibtex-fix-long-keys' asks for a shorter key for every key over it, and
+`sp-bibtex-lint-fix-keys' asks for a shorter key for every key over it, and
 the lint report lists them."
   :type 'integer
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-key-update-targets '(notes files bibrefs)
+  "What renaming a key may update besides the .bib entry.
+`notes' is the notes folder: the `#+reference:' and `ROAM_REFS' of the
+litnotes and the citations in any note.  `files' is the PDFs of the library
+named after the key, and the `file' field of the entry.  `bibrefs' is the
+`crossref', `xref', `xdata' and `related' fields of the entries of the
+registered .bib files."
+  :type '(set (const notes) (const files) (const bibrefs))
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-key-notes-directory nil
+  "Folder of the notes that renaming a key updates; nil is `sp-notes-dir'."
+  :type '(choice (const :tag "sp-notes-dir" nil) directory)
   :group 'sp-bibtex)
 
 (defconst sp-bibtex--entry-key-regexp
@@ -78,43 +105,51 @@ lists, in buffer order, as `sp-bibtex-entry-keys' returns them."
     (seq-filter (lambda (entry) (> (length (car entry)) max))
                 (sp-bibtex-entry-keys))))
 
-(defun sp-bibtex--key-table (&optional files)
-  "Return a hash table of every key in the current buffer and in FILES.
-FILES defaults to `sp-bibtex-files'."
+(defun sp-bibtex--key-table (file)
+  "Return a hash table of every key in FILE and in the registered files."
   (let ((table (make-hash-table :test #'equal)))
-    (dolist (entry (sp-bibtex-entry-keys))
-      (puthash (car entry) t table))
-    (dolist (file (or files (and (boundp 'sp-bibtex-files) sp-bibtex-files)))
-      (when (file-readable-p file)
+    (dolist (path (delete-dups (cons file (and (boundp 'sp-bibtex-files) sp-bibtex-files))))
+      (when (file-readable-p path)
         (with-temp-buffer
-          (insert-file-contents file)
+          (insert-file-contents path)
           (dolist (entry (sp-bibtex-entry-keys))
             (puthash (car entry) t table)))))
     table))
 
-(defun sp-bibtex--short-key (position max table)
-  "Suggest a key of at most MAX characters for the entry at POSITION.
+(defun sp-bibtex--suggest-key (text max table)
+  "Suggest a key of at most MAX characters for the entry TEXT.
 It is the key `bibtex-generate-autokey' makes, or the old key cut to MAX
 when that fails, and a letter is added when TABLE, the keys taken, has it."
-  (let* ((old (save-excursion
-                (goto-char position)
-                (when (looking-at "[^,[:space:]]+") (match-string-no-properties 0))))
-         (generated (ignore-errors
-                      (save-excursion
-                        (goto-char position)
-                        (bibtex-beginning-of-entry)
-                        (bibtex-generate-autokey))))
-         (base (if (and (stringp generated) (not (string-empty-p generated))
-                        (<= (length generated) max))
-                   generated
-                 (substring (or old "key") 0 (min max (length (or old "key"))))))
-         (candidate base)
-         (suffix ?a))
-    (while (and (gethash candidate table) (<= suffix ?z))
-      (setq candidate (concat (substring base 0 (min (length base) (1- max)))
-                              (string suffix))
-            suffix (1+ suffix)))
-    candidate))
+  (with-temp-buffer
+    (insert text)
+    (delay-mode-hooks (bibtex-mode))
+    (goto-char (point-min))
+    (let* ((old (and (re-search-forward sp-bibtex--entry-key-regexp nil t)
+                     (match-string-no-properties 2)))
+           (generated (ignore-errors
+                        (goto-char (point-min))
+                        (bibtex-generate-autokey)))
+           (base (if (and (stringp generated) (not (string-empty-p generated))
+                          (<= (length generated) max))
+                     generated
+                   (substring (or old "key") 0 (min max (length (or old "key"))))))
+           (candidate base)
+           (suffix ?a))
+      (while (and (gethash candidate table) (<= suffix ?z))
+        (setq candidate (concat (substring base 0 (min (length base) (1- max)))
+                                (string suffix))
+              suffix (1+ suffix)))
+      candidate)))
+
+(defun sp-bibtex--text-title (text)
+  "Return the title of the entry TEXT, for the prompt, or nil."
+  (with-temp-buffer
+    (insert text)
+    (delay-mode-hooks (bibtex-mode))
+    (goto-char (point-min))
+    (when-let* ((entry (ignore-errors (bibtex-parse-entry)))
+                (title (cdr (assoc "title" entry))))
+      (replace-regexp-in-string "[{}\n ]+" " " (string-trim title "[{\" \n]+" "[}\" \n]+")))))
 
 (defun sp-bibtex--key-problem (key max table)
   "Return why KEY cannot be a new key of at most MAX characters, or nil.
@@ -145,63 +180,268 @@ holds the keys already taken."
                        (not problem)))))
     (unless (string-empty-p answer) answer)))
 
-(defun sp-bibtex--entry-title (position)
-  "Return the title of the entry at POSITION, for the prompt, or nil."
-  (save-excursion
-    (goto-char position)
-    (when-let* ((entry (ignore-errors (bibtex-beginning-of-entry) (bibtex-parse-entry)))
-                (title (cdr (assoc "title" entry))))
-      (replace-regexp-in-string "[{}\n ]+" " " (string-trim title "[{\" \n]+" "[}\" \n]+")))))
+;;;; Where a key is used
 
-;;;###autoload
-(defun sp-bibtex-fix-long-keys (file)
-  "Ask for a shorter key for each key of FILE over `sp-bibtex-key-max-length'.
-FILE is the current .bib file, or is read with completion.  For each long key
-the prompt shows the title and suggests a key from `bibtex-generate-autokey';
-an empty answer keeps the key.  The new keys are checked against all the
-registered files.  Afterwards you are asked whether to save the file, with a
-backup first, and a buffer lists the renames: notes, citations and attachment
-names that use an old key are not changed."
-  (interactive (list (sp-bibtex-lint--read-file)))
-  (sp-bibtex-lint--unsaved-check file)
-  (with-current-buffer (find-file-noselect file)
-    (let ((long (sp-bibtex-long-keys))
-          (max sp-bibtex-key-max-length)
-          (table (sp-bibtex--key-table))
-          decisions)
-      (if (null long)
-          (message "No key in %s is longer than %d characters"
-                   (file-name-nondirectory file) max)
-        (pcase-dolist (`(,key ,beg ,end) long)
-          (let ((new (sp-bibtex--read-short-key
-                      key (sp-bibtex--short-key beg max table)
-                      (sp-bibtex--entry-title beg) max table)))
-            (when new
-              (puthash new t table)
-              (push (list key new beg end) decisions))))
-        ;; `decisions' runs from the end of the file, so the positions stay valid.
-        (pcase-dolist (`(,_old ,new ,beg ,end) decisions)
+(defun sp-bibtex-keys--boundary-p (end)
+  "Non-nil when the key that ends at END is not the start of a longer word."
+  (save-excursion
+    (goto-char end)
+    (or (eobp)
+        (looking-at "[]; ,\n\t)}]")
+        (looking-at "\\.\\(?:[]; ,\n\t)}]\\|\\'\\)"))))
+
+(defun sp-bibtex-keys--note-edits (renames)
+  "Return the edits RENAMES, (OLD . NEW) pairs, need in the current note.
+Each edit is (BEG END NEW KIND) and KIND is `ref' for a key on a `#+reference:'
+or `ROAM_REFS' line, `cite' for `@key' and `cite:key'.  The edits are in
+descending order of position, so they can be made one after the other."
+  (when renames
+    (let ((case-fold-search nil)
+          (regexp (regexp-opt (mapcar #'car renames) t))
+          edits)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward regexp nil t)
+          (let* ((beg (match-beginning 1))
+                 (end (match-end 1))
+                 (old (match-string-no-properties 1))
+                 (ref (save-excursion
+                        (goto-char beg)
+                        (beginning-of-line)
+                        (let ((case-fold-search t))
+                          (looking-at "[ \t]*\\(?:#\\+reference:\\|:ROAM_REFS:\\)"))))
+                 (before (and (> beg (point-min)) (char-before beg))))
+            (when (and (or (eq before ?@)
+                           (and (eq before ?:)
+                                (save-excursion
+                                  (goto-char (1- beg))
+                                  (looking-back "cite[[:alpha:]*]*" (line-beginning-position))))
+                           (and ref (memq before '(?\s ?\t ?\; ?,))))
+                       (sp-bibtex-keys--boundary-p end))
+              (push (list beg end (cdr (assoc old renames)) (if ref 'ref 'cite)) edits)))))
+      edits)))
+
+(defun sp-bibtex-keys--notes-directory ()
+  "The folder of the notes to update, or nil."
+  (let ((dir (or sp-bibtex-key-notes-directory (and (boundp 'sp-notes-dir) sp-notes-dir))))
+    (and (stringp dir) (file-directory-p dir) (expand-file-name dir))))
+
+(defun sp-bibtex-keys--note-files ()
+  "The Org files below the notes folder; hidden folders and lock files are skipped."
+  (when-let* ((dir (sp-bibtex-keys--notes-directory)))
+    (seq-remove (lambda (file) (string-prefix-p ".#" (file-name-nondirectory file)))
+                (directory-files-recursively
+                 dir "\\.org\\'" nil
+                 (lambda (sub) (not (string-prefix-p "." (file-name-nondirectory sub))))))))
+
+(defun sp-bibtex-keys--scan-notes (renames)
+  "Return (FILE REFS CITES) for each note that RENAMES change, in order."
+  (let (found)
+    (dolist (file (sp-bibtex-keys--note-files))
+      (when-let* ((edits (with-temp-buffer
+                           (insert-file-contents file)
+                           (sp-bibtex-keys--note-edits renames))))
+        (push (list file
+                    (seq-count (lambda (e) (eq (nth 3 e) 'ref)) edits)
+                    (seq-count (lambda (e) (eq (nth 3 e) 'cite)) edits))
+              found)))
+    (nreverse found)))
+
+(defun sp-bibtex-keys--backup-directory (stamp)
+  "The folder of the backups of the key renames made at STAMP."
+  (expand-file-name (format "key-renames-%s/" stamp) sp-bibtex-lint-backup-directory))
+
+(defun sp-bibtex-keys--update-notes (renames files stamp)
+  "Make the RENAMES in the notes FILES, after a copy of each in the backup folder of STAMP.
+A note that is open with unsaved changes is left alone.  Return (CHANGED . SKIPPED),
+SKIPPED the files that were left."
+  (let ((changed 0) skipped
+        (dir (sp-bibtex-keys--backup-directory stamp))
+        (notes (sp-bibtex-keys--notes-directory)))
+    (dolist (file files)
+      (let ((visiting (find-buffer-visiting file)))
+        (if (and visiting (buffer-modified-p visiting))
+            (push file skipped)
+          (let ((edits (with-temp-buffer
+                         (insert-file-contents file)
+                         (sp-bibtex-keys--note-edits renames))))
+            (when edits
+              (make-directory dir t)
+              (copy-file file (expand-file-name
+                               (replace-regexp-in-string "/" "!" (file-relative-name file notes))
+                               dir)
+                         t)
+              (with-temp-buffer
+                (insert-file-contents file)
+                (dolist (edit edits)
+                  (goto-char (nth 0 edit))
+                  (delete-region (nth 0 edit) (nth 1 edit))
+                  (insert (nth 2 edit)))
+                (write-region nil nil file nil 'silent))
+              (when visiting (with-current-buffer visiting (revert-buffer t t t)))
+              (when (fboundp 'vulpea-db-update-file)
+                (ignore-errors (vulpea-db-update-file file)))
+              (cl-incf changed))))))
+    (cons changed (nreverse skipped))))
+
+(defun sp-bibtex-keys--replace-refs (renames)
+  "Make the RENAMES in the `crossref', `xref', `xdata' and `related' fields of this buffer.
+Return the number of keys changed."
+  (let ((count 0) (case-fold-search t))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^[ \t]*\\(?:crossref\\|xref\\|xdata\\|related\\)[ \t]*=[ \t]*[{\"]\\([^}\"]*\\)[}\"]"
+              nil t)
+        (let* ((beg (match-beginning 1))
+               (end (match-end 1))
+               (value (match-string-no-properties 1))
+               (new (mapconcat
+                     (lambda (part)
+                       (if-let* ((hit (assoc (string-trim part) renames)))
+                           (progn (cl-incf count)
+                                  (replace-regexp-in-string (regexp-quote (car hit)) (cdr hit)
+                                                            part t t))
+                         part))
+                     (split-string value "," nil) ",")))
+          (unless (equal new value)
+            (goto-char beg)
+            (delete-region beg end)
+            (insert new)))))
+    count))
+
+(defun sp-bibtex-keys--bib-refs (renames file)
+  "Return (FILE . COUNT) for each registered .bib file, and FILE, that RENAMES change."
+  (let (found)
+    (dolist (path (delete-dups (cons file (and (boundp 'sp-bibtex-files) sp-bibtex-files))))
+      (when (file-readable-p path)
+        (let ((count (with-temp-buffer
+                       (insert-file-contents path)
+                       (sp-bibtex-keys--replace-refs renames))))
+          (when (> count 0) (push (cons path count) found)))))
+    (nreverse found)))
+
+(defun sp-bibtex-keys--update-bibs (renames file stamp)
+  "Make the RENAMES in the fields of the registered .bib files other than FILE.
+Each file is copied to the backup folder of STAMP first.  Return the number
+of files changed."
+  (let ((changed 0))
+    (dolist (path (seq-remove (lambda (p) (file-equal-p p file))
+                              (and (boundp 'sp-bibtex-files) sp-bibtex-files)))
+      (when (and (file-readable-p path)
+                 (not (when-let* ((visiting (find-buffer-visiting path)))
+                        (buffer-modified-p visiting))))
+        (let ((new (with-temp-buffer
+                     (insert-file-contents path)
+                     (and (> (sp-bibtex-keys--replace-refs renames) 0) (buffer-string)))))
+          (when new
+            (make-directory (sp-bibtex-keys--backup-directory stamp) t)
+            (copy-file path (expand-file-name (file-name-nondirectory path)
+                                              (sp-bibtex-keys--backup-directory stamp))
+                       t)
+            (write-region new nil path nil 'silent)
+            (when-let* ((visiting (find-buffer-visiting path)))
+              (with-current-buffer visiting (revert-buffer t t t)))
+            (cl-incf changed)))))
+    changed))
+
+;;;; PDFs named after a key
+
+(defun sp-bibtex-keys--pdf-moves (renames)
+  "Return ((OLD (FROM . TO) ...) ...): the files of the library named after an old key.
+A file is named after OLD when its name is OLD, a dot and an extension, or OLD,
+a hyphen and anything (`citar' takes the part after the hyphen as the name of an
+additional file).  TO is FROM with OLD changed to the new key; a move whose TO
+exists is left out."
+  (when-let* (((boundp 'sp-literature-dir))
+              (ctx (sp-bibtex-files--library)))
+    (let ((dir (sp-bibtex-files--ctx-dir ctx))
+          result)
+      (maphash
+       (lambda (_name rels)
+         (dolist (rel rels)
+           (let ((base (file-name-nondirectory rel)))
+             (dolist (rename renames)
+               (let ((old (car rename)))
+                 (when (and (string-prefix-p old base)
+                            (memq (aref (concat base " ") (length old)) '(?. ?-)))
+                   (let* ((from (expand-file-name rel dir))
+                          (to (expand-file-name
+                               (concat (file-name-directory rel) (cdr rename)
+                                       (substring base (length old)))
+                               dir)))
+                     (unless (file-exists-p to)
+                       (push (cons from to) (alist-get old result nil nil #'equal))))))))))
+       (sp-bibtex-files--ctx-names ctx))
+      (mapcar (lambda (entry) (cons (car entry) (sort (cdr entry) (lambda (a b) (string< (car a) (car b))))))
+              (nreverse result)))))
+
+(defun sp-bibtex-keys--rename-in-value (value from to)
+  "Return the `file' field VALUE with the file name FROM changed to TO."
+  (replace-regexp-in-string
+   (concat "\\(\\`\\|[;/ ]\\)" (regexp-quote from) "\\(\\'\\|;\\)")
+   (lambda (match) (concat (match-string 1 match) to (match-string 2 match)))
+   value t))
+
+(defun sp-bibtex-keys--rewrite-entry (text old new moves)
+  "Return the entry TEXT with its key OLD changed to NEW.
+The file names of MOVES, (FROM . TO) pairs, are changed in its `file' field."
+  (with-temp-buffer
+    (insert text)
+    (goto-char (point-min))
+    (let ((case-fold-search nil))
+      (when (and (re-search-forward sp-bibtex--entry-key-regexp nil t)
+                 (equal (match-string 2) old))
+        (replace-match new t t nil 2)))
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (when (and moves (re-search-forward "^[ \t]*file[ \t]*=[ \t]*{\\([^{}]*\\)}" nil t))
+        (let ((beg (match-beginning 1))
+              (end (match-end 1))
+              (value (match-string-no-properties 1)))
+          (dolist (move moves)
+            (setq value (sp-bibtex-keys--rename-in-value
+                         value (file-name-nondirectory (car move)) (file-name-nondirectory (cdr move)))))
           (goto-char beg)
           (delete-region beg end)
-          (insert new))
-        (when decisions
-          (sp-bibtex--show-renames file (reverse decisions) (length long))
-          (when (yes-or-no-p (format "Save %s with %d new key%s (a backup is made first)? "
-                                     (file-name-nondirectory file) (length decisions)
-                                     (if (= 1 (length decisions)) "" "s")))
-            (sp-bibtex-lint--backup file (format-time-string "%Y%m%d-%H%M%S"))
-            (save-buffer)))))))
+          (insert value))))
+    (buffer-string)))
 
-(defun sp-bibtex--show-renames (file decisions total)
-  "Show the DECISIONS, (OLD NEW BEG END) lists, made for FILE among TOTAL long keys."
+;;;; The plan of a rename
+
+(defun sp-bibtex-keys-plan (renames file targets)
+  "Return what renaming the keys RENAMES, (OLD . NEW) pairs, in FILE would update.
+TARGETS is a list of `notes', `files' and `bibrefs', as `sp-bibtex-key-update-targets'.
+The plan is a plist: :renames, :notes (FILE REFS CITES lists), :moves (see
+`sp-bibtex-keys--pdf-moves') and :bibrefs ((FILE . COUNT) pairs)."
+  (list :renames renames
+        :notes (and (memq 'notes targets) (sp-bibtex-keys--scan-notes renames))
+        :moves (and (memq 'files targets) (sp-bibtex-keys--pdf-moves renames))
+        :bibrefs (and (memq 'bibrefs targets) (sp-bibtex-keys--bib-refs renames file))))
+
+(defun sp-bibtex-keys--plan-counts (plan)
+  "The numbers in PLAN as a list: notes, references, citations, PDFs, cross references."
+  (let ((notes (plist-get plan :notes)))
+    (list (length notes)
+          (apply #'+ (mapcar #'cadr notes))
+          (apply #'+ (mapcar #'caddr notes))
+          (apply #'+ (mapcar (lambda (entry) (length (cdr entry))) (plist-get plan :moves)))
+          (apply #'+ (mapcar #'cdr (plist-get plan :bibrefs))))))
+
+(defun sp-bibtex-keys--show-plan (file plan)
+  "Show the PLAN of renames in FILE in the buffer `*BibTeX key renames*'."
   (with-current-buffer (get-buffer-create "*BibTeX key renames*")
-    (let ((inhibit-read-only t))
+    (let ((inhibit-read-only t)
+          (counts (sp-bibtex-keys--plan-counts plan)))
       (erase-buffer)
-      (insert (format "%d of %d long keys in %s renamed.\n"
-                      (length decisions) total (file-name-nondirectory file))
-              "Notes, citations and attachment names that use an old key are not changed.\n\n")
-      (dolist (decision decisions)
-        (insert (format "%s\n  -> %s\n" (nth 0 decision) (nth 1 decision))))
+      (insert (format "%d keys of %s to rename.\n\n" (length (plist-get plan :renames))
+                      (file-name-nondirectory file))
+              (format "- %d notes: %d `#+reference:' or ROAM_REFS values and %d citations\n"
+                      (nth 0 counts) (nth 1 counts) (nth 2 counts))
+              (format "- %d PDFs named after a key\n" (nth 3 counts))
+              (format "- %d cross references (crossref, xref, xdata, related)\n\n" (nth 4 counts)))
+      (dolist (rename (plist-get plan :renames))
+        (insert (format "%s\n  -> %s\n" (car rename) (cdr rename))))
       (goto-char (point-min))
       (special-mode))
     (display-buffer (current-buffer))))
@@ -251,7 +491,7 @@ names that use an old key are not changed."
   (("C-c w b r" . sp-bibtex-register)
    ("C-c w b l" . sp-bibtex-lint-dryrun)
    ("C-c w b L" . sp-bibtex-lint-convert)
-   ("C-c w b k" . sp-bibtex-fix-long-keys)
+   ("C-c w b k" . sp-bibtex-lint-fix-keys)
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
@@ -891,6 +1131,13 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                 ((not (equal (car filed) old))))
       (push (cons 'files (append base (list :new (car filed) :desc changes :moves (nth 2 filed))))
             rewrites))
+    (when-let* (((memq 'keys kinds))
+                (max (bound-and-true-p sp-bibtex-key-max-length))
+                ((> (length key) max)))
+      (push (cons 'keys (append base (list :key key
+                                           :desc (list (format "key has %d characters, over the limit of %d"
+                                                               (length key) max)))))
+            rewrites))
     (when (and (nth 3 names) (memq 'ambiguous kinds))
       (push (cons 'ambiguous
                   (append base (list :desc (mapcar (lambda (a)
@@ -939,11 +1186,6 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
                    (problems (cdr analysis)))
               (when-let* ((first (gethash key seen)))
                 (push (format "duplicate key (also in %s)" (file-name-nondirectory first)) problems))
-              (when-let* ((max (bound-and-true-p sp-bibtex-key-max-length))
-                          ((> (length key) max)))
-                (push (format "key has %d characters, over the limit of %d (see `sp-bibtex-fix-long-keys')"
-                              (length key) max)
-                      problems))
               (puthash key (or (gethash key seen) file) seen)
               (when commented
                 (setq problems (append problems '("has a comment inside, left as it is"))))
@@ -1228,7 +1470,7 @@ files are moved to the top of the library."
     (prefixes . "name prefixes")
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes")
-    (files . "attachment paths"))
+    (files . "attachment paths") (keys . "long citation keys"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -1329,6 +1571,7 @@ Each position is the start of a line."
       ("authors" (sp-bibtex-lint-fix-authors file))
       ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       ("files" (sp-bibtex-lint-fix-files file))
+      ("keys" (sp-bibtex-lint-fix-keys file))
       (other (user-error "Unknown lint button: %s" other)))))
 
 (org-link-set-parameters "sp-bibtex-lint" :follow #'sp-bibtex-lint--follow)
@@ -1449,6 +1692,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count shown 'prefixes)))
       (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
                                                  (sp-bibtex-lint--count results 'files)))
+      (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
+                                                 (sp-bibtex-lint--count results 'keys)))
       (format "  - %s\n" (sp-bibtex-lint--button
                           "authors" file "author names"
                           (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
@@ -1462,6 +1707,7 @@ back; the dropped ones are listed at the end."
                     'sp-batch-report-file file))
                  main "")
       (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
+      (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
       (and dropped
@@ -1487,7 +1733,7 @@ author note or of several), the order of the fields (`sp-bibtex-field-order'), t
 button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
 prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -1885,17 +2131,151 @@ Notes for authors are never made."
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
   "Ask which fix to run on the .bib FILE.
-The fixes are field order, indentation, name prefixes, author names and attachment paths.
+The fixes are field order, indentation, name prefixes, author names, attachment paths
+and long citation keys.
 See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
-`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors' and `sp-bibtex-lint-fix-files'."
+`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files' and
+`sp-bibtex-lint-fix-keys'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths")
+  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths"
+                                         "long citation keys")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
     ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
     ("author names" (sp-bibtex-lint-fix-authors file))
-    ("attachment paths" (sp-bibtex-lint-fix-files file))))
+    ("attachment paths" (sp-bibtex-lint-fix-files file))
+    ("long citation keys" (sp-bibtex-lint-fix-keys file))))
+
+;;;; Long citation keys, the fix
+(defvar sp-bibtex-lint--key-table nil
+  "The keys taken, while `sp-bibtex-lint-fix-keys' asks for new ones.")
+
+(defun sp-bibtex-lint--ask-keys (file batch index total all)
+  "Show BATCH of long keys of FILE, ask for a shorter key for each, and confirm.
+Return `skip', `quit' or a plist for `sp-bibtex-lint--apply-keys': :file,
+:decisions, a list of (ITEM NEW), and :plan, what `sp-bibtex-keys-plan' says.
+After the keys, the notes, citations, cross references and PDFs that use them
+are counted and you choose to update them too, only the .bib file, or to skip
+the batch."
+  (sp-bibtex-lint--show-batch file 'keys batch index total all)
+  (pcase (read-char-choice
+          (format "Batch %d of %d (%d long keys): [p]rompt for a shorter key for each, [s]kip, [q]uit "
+                  index total (length batch))
+          '(?p ?s ?q))
+    (?s 'skip)
+    (?q 'quit)
+    (_
+     (let (decisions renames)
+       (dolist (item batch)
+         (let* ((rewrite (alist-get 'keys (nth 4 (car item))))
+                (old (plist-get rewrite :key))
+                (text (plist-get rewrite :old))
+                (new (sp-bibtex--read-short-key
+                      old
+                      (sp-bibtex--suggest-key text sp-bibtex-key-max-length sp-bibtex-lint--key-table)
+                      (sp-bibtex--text-title text)
+                      sp-bibtex-key-max-length sp-bibtex-lint--key-table)))
+           (when new
+             (puthash new t sp-bibtex-lint--key-table)
+             (push (list item new) decisions)
+             (push (cons old new) renames))))
+       (setq decisions (nreverse decisions)
+             renames (nreverse renames))
+       (if (null decisions)
+           'skip
+         (let ((plan (sp-bibtex-keys-plan renames file sp-bibtex-key-update-targets)))
+           (sp-bibtex-keys--show-plan file plan)
+           (pcase (read-char-choice
+                   (format "%d new keys: [y] rename them and update the notes, citations, cross references and PDFs listed, [b] only in the .bib file, [s]kip, [q]uit "
+                           (length decisions))
+                   '(?y ?b ?s ?q))
+             (?s 'skip)
+             (?q 'quit)
+             (?y (list :file file :decisions decisions :plan plan))
+             (?b (list :file file :decisions decisions
+                       :plan (sp-bibtex-keys-plan renames file nil))))))))))
+
+(defun sp-bibtex-lint--apply-keys (work batch answer)
+  "Rename the keys of ANSWER, the plist `sp-bibtex-lint--ask-keys' made, in BATCH.
+WORK is the buffer with the .bib file.  The PDFs move first, so a failed move
+changes nothing; then the notes and the other .bib files are updated, then
+the entries in WORK.  An entry that is not the one that was linted is left alone.
+Return (CHANGED STALE WROTE)."
+  (ignore batch)
+  (let ((plan (plist-get answer :plan))
+        (stamp (format-time-string "%Y%m%dT%H%M%S"))
+        (stale 0)
+        valid)
+    (with-current-buffer work
+      (dolist (decision (plist-get answer :decisions))
+        (pcase-let* ((`(,item ,new) decision)
+                     (`(,r ,beg ,end) item)
+                     (rewrite (alist-get 'keys (nth 4 r))))
+          (if (equal (plist-get rewrite :old) (buffer-substring-no-properties beg end))
+              (push (list item (plist-get rewrite :key) new) valid)
+            (cl-incf stale)))))
+    (setq valid (nreverse valid))
+    (let* ((renames (mapcar (lambda (v) (cons (nth 1 v) (nth 2 v))) valid))
+           (moves (seq-filter (lambda (entry) (assoc (car entry) renames))
+                              (plist-get plan :moves)))
+           (notes (plist-get plan :notes))
+           skipped)
+      (when moves
+        (sp-bibtex-files--move (apply #'append (mapcar #'cdr moves))))
+      (when notes
+        (setq skipped (cdr (sp-bibtex-keys--update-notes renames (mapcar #'car notes) stamp))))
+      (when (plist-get plan :bibrefs)
+        (sp-bibtex-keys--update-bibs renames (plist-get answer :file) stamp))
+      (with-current-buffer work
+        (dolist (v valid)
+          (pcase-let* ((`(,item ,old ,new) v)
+                       (beg (nth 1 item))
+                       (end (nth 2 item)))
+            (sp-bibtex-lint--replace
+             beg end
+             (sp-bibtex-keys--rewrite-entry (buffer-substring-no-properties beg end)
+                                            old new (cdr (assoc old moves))))))
+        (when (plist-get plan :bibrefs)
+          (sp-bibtex-keys--replace-refs renames)))
+      (when (fboundp 'citar-refresh) (ignore-errors (citar-refresh)))
+      (when skipped
+        (message "Not updated, open with unsaved changes: %s"
+                 (mapconcat #'file-name-nondirectory skipped ", ")))
+      (list (length valid) stale t))))
+
+(defun sp-bibtex-lint--review-keys (file results &optional then)
+  "Go through the long keys in RESULTS for FILE, a batch at a time.
+Each key is asked for, then what uses the new keys is counted and updated;
+see `sp-bibtex-lint--ask-keys' and `sp-bibtex-lint--apply-keys'."
+  (let ((sp-bibtex-lint--key-table (sp-bibtex--key-table file)))
+    (sp-bibtex-lint--run
+     file 'keys results
+     (lambda (batch index total all) (sp-bibtex-lint--ask-keys file batch index total all))
+     #'sp-bibtex-lint--apply-keys
+     then)))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-keys (file)
+  "Ask for a shorter key for each key of the .bib FILE over `sp-bibtex-key-max-length'.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Batches of
+`sp-bibtex-lint-batch-size' entries.  For each long key the prompt shows the
+title and suggests a key from `bibtex-generate-autokey'; an empty answer keeps
+the key.  A new key is checked: at most the limit, no character BibTeX does not
+allow, and not the key of another entry in a registered file.
+
+Then the plan is shown and you choose to update everything that uses the old
+keys (see `sp-bibtex-key-update-targets'): the `#+reference:' and `ROAM_REFS' of
+the notes and their citations (`@key', `cite:key') in `sp-bibtex-key-notes-directory',
+the cross references of the registered files, and the PDFs of
+`sp-literature-dir' named after the key, with the `file' field.  The PDFs are
+renamed through DEVONthink when `sp-bibtex-files-devonthink-tool' is set.  The files
+that are changed are copied to `sp-bibtex-lint-backup-directory' first."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
+                       (lambda (results) (sp-bibtex-lint--review-keys file results))))
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.

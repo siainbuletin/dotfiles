@@ -71,10 +71,10 @@ def plan_moves(moves, found, exists=os.path.exists):
     """Sort MOVES into what to do.  Pure, so it is tested without DEVONthink.
 
     FOUND maps a source path to its record, {"uuid", "database", "count"}, or
-    None.  Returns a dict of lists: `move` (FROM, TO, record), `plain` (FROM, TO:
-    no record), `done` (already at TO), `missing` (no file at FROM) and
-    `blocked` (FROM, TO, why)."""
-    plan = {"move": [], "plain": [], "done": [], "missing": [], "blocked": []}
+    None.  Returns a dict of lists: `move` (FROM, TO, record), `rename` (FROM, TO,
+    record: the same folder, a new name), `plain` (FROM, TO: no record), `done`
+    (already at TO), `missing` (no file at FROM) and `blocked` (FROM, TO, why)."""
+    plan = {"move": [], "rename": [], "plain": [], "done": [], "missing": [], "blocked": []}
     for src, dst in moves:
         record = found.get(src)
         if not exists(src):
@@ -85,6 +85,8 @@ def plan_moves(moves, found, exists=os.path.exists):
             plan["plain"].append((src, dst))
         elif record["count"] > 1:
             plan["blocked"].append((src, dst, "%d records have this path" % record["count"]))
+        elif os.path.dirname(src) == os.path.dirname(dst):
+            plan["rename"].append((src, dst, record))
         else:
             plan["move"].append((src, dst, record))
     return plan
@@ -179,6 +181,32 @@ JSON.stringify(result);
     return jxa(script)
 
 
+def dt_rename(uuid, name, dst):
+    """Rename the record UUID to the file NAME, so the file is at DST; return its new state.
+
+    DEVONthink renames the file of an indexed record with the record.  The name
+    is tried without the extension, then with it; when neither puts the file at
+    DST the old name is restored.  The record is filed back in the group it was
+    in, if the rename moved it.  The result is {"uuid", "path"} as read back, or
+    None."""
+    stem = os.path.splitext(name)[0]
+    script = JS_HEAD + """
+const rec = app.getRecordWithUuid(%s);
+const group = rec.parents()[0];
+const oldName = rec.name();
+for (const candidate of [%s, %s]) {
+  rec.name = candidate;
+  if (rec.path() === %s) break;
+  rec.name = oldName;
+}
+const now = rec.parents()[0];
+if (group && now && now.uuid() !== group.uuid()) app.move({record: rec, to: group});
+const after = app.getRecordWithUuid(%s);
+JSON.stringify(after ? {uuid: after.uuid(), path: after.path()} : null);
+""" % (json.dumps(uuid), json.dumps(stem), json.dumps(name), json.dumps(dst), json.dumps(uuid))
+    return jxa(script)
+
+
 def dt_resolve(uuids):
     """Return {uuid: name or None}: what DEVONthink knows of each UUID."""
     script = JS_HEAD + """
@@ -205,8 +233,9 @@ def run_moves(plan, apply, limit=None, plain_rename=False):
     """Do the PLAN; return a report dict.  Nothing happens without APPLY.
 
     The run stops at the first move DEVONthink did not make as asked."""
-    report = {"applied": apply, "moved": [], "renamed": [], "stopped": None,
-              "to_move": len(plan["move"]), "plain": len(plan["plain"]),
+    report = {"applied": apply, "moved": [], "dt_renamed": [], "renamed": [], "stopped": None,
+              "to_move": len(plan["move"]), "to_rename": len(plan["rename"]),
+              "plain": len(plan["plain"]),
               "done": len(plan["done"]), "missing": [list(m) for m in plan["missing"]],
               "blocked": [list(b) for b in plan["blocked"]]}
     todo = plan["move"][:limit] if limit else plan["move"]
@@ -218,17 +247,29 @@ def run_moves(plan, apply, limit=None, plain_rename=False):
                                      "answer": after}
                 break
             report["moved"].append({"uuid": record["uuid"], "from": src, "to": dst})
+        for src, dst, record in (plan["rename"][:limit] if limit else plan["rename"]):
+            if report["stopped"]:
+                break
+            after = dt_rename(record["uuid"], os.path.basename(dst), dst)
+            if not moved_ok(src, dst, record, after):
+                report["stopped"] = {"from": src, "to": dst, "uuid": record["uuid"],
+                                     "answer": after}
+                break
+            report["dt_renamed"].append({"uuid": record["uuid"], "from": src, "to": dst})
         if plain_rename and not report["stopped"]:
             for src, dst in plan["plain"][:limit] if limit else plan["plain"]:
                 os.rename(src, dst)
                 report["renamed"].append({"from": src, "to": dst})
-        report["manifest"] = str(save_manifest(report["moved"] + report["renamed"]) or "")
+        report["manifest"] = str(save_manifest(report["moved"] + report["dt_renamed"] + report["renamed"]) or "")
     return report
 
 
 def print_report(r):
     mode = "" if r["applied"] else "  (dry run)"
     print("through DEVONthink: %d to move, %d moved%s" % (r["to_move"], len(r["moved"]), mode))
+    if r["to_rename"]:
+        print("renamed through DEVONthink: %d to rename, %d renamed%s"
+              % (r["to_rename"], len(r["dt_renamed"]), mode))
     print("not in DEVONthink: %d%s" % (r["plain"], "; renamed %d" % len(r["renamed"])
                                        if r["renamed"] else "; left alone (--plain-rename moves them on disk)"
                                        if r["plain"] else ""))
