@@ -229,6 +229,24 @@ Installs =tabspaces= and makes its main commands autoload.
   (tab-bar-new-tab-choice "*scratch*"))
 #+end_src
 
+** Dired buffers are not restored
+
+Stops the session from reopening dired buffers, which printed an error at startup.
+
+- Restoring a dired buffer starts Dirvish while Emacs is still starting.
+- Dirvish's background directory scan then fails: =Fetch dir data failed with error: (end-of-file)=.
+- The =dired= buffer kind is replaced by one that neither saves nor restores.
+- Old session files may still hold a dired record. It is skipped.
+- File-visiting buffers are saved and restored as before.
+
+#+begin_src emacs-lisp -i
+;; Dired buffers are not kept in the session: restoring one runs Dirvish at
+;; startup, and its async directory scan fails with "Fetch dir data failed
+;; with error: (end-of-file)".  A saved dired record is skipped on restore.
+(with-eval-after-load 'tabspaces
+  (tabspaces-register-buffer-kind 'dired #'ignore #'ignore))
+#+end_src
+
 ** Non-VC projects (disabled)
 
 A commented-out setting that would make any directory with a =.project= file count as a project, so it could have a workspace without being a Git repository.
