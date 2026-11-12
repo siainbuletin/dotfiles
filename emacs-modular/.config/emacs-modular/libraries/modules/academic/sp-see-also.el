@@ -331,48 +331,86 @@ itself when nothing refers to it), :def-beg, :def-end, :label and :text."
 
 ;; A "See also" section lists links on purpose, so each link in it is a mention.
 
+(defun sp-see-also--link-items (start end skip avoid &rest props)
+  "Return the `id:' links between START and END as items, one for each link.
+SKIP and AVOID are ranges whose links are left out, and so are commented ones.
+Each item is a plist of :beg, :end, :label (nil), :text, :links and :snippet (the
+line, without its list bullet or a \"seealso ::\" key), followed by PROPS."
+  (let ((case-fold-search t)
+        items)
+    (save-excursion
+      (goto-char start)
+      (while (re-search-forward
+              "\\[\\[id:[^]\n]+\\]\\(?:\\[[^]]*\\]\\)?\\]" end t)
+        (let ((beg (match-beginning 0))
+              (link-end (match-end 0))
+              (text (match-string-no-properties 0)))
+          (unless (or (sp-see-also--in-ranges-p beg skip)
+                      (sp-see-also--in-ranges-p beg avoid)
+                      (sp-see-also--commented-p beg))
+            (push (append
+                   (list :beg beg :end link-end :label nil :text text
+                         :links (sp-see-also--links text)
+                         :snippet (sp-see-also--plain
+                                   (replace-regexp-in-string
+                                    "\\`[ \t]*seealso[ \t]*::[ \t]*" ""
+                                    (replace-regexp-in-string
+                                     "\\`[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+" ""
+                                     (buffer-substring-no-properties
+                                      (line-beginning-position) (line-end-position))
+                                     nil t)
+                                    nil t)))
+                   props)
+                  items)))))
+    (nreverse items)))
+
 (defun sp-see-also--section-items (headings skip avoid)
   "Return the `id:' links in the \"See also\" sections among HEADINGS.
 A section is a heading titled \"See also\" (any case) and its subtree.  SKIP are
 the ranges not read; AVOID are the ranges of footnotes, which are read as
-footnotes.  Each item is a plist of :beg, :end, :label (nil), :text, :links,
-:snippet (the line, without its list bullet) and :section-pos, the position of
-the heading."
+footnotes.  Each item is a plist as in `sp-see-also--link-items', with
+:section-pos, the position of the heading."
+  (let ((case-fold-search t)
+        (rest headings)
+        items)
+    (save-excursion
+      (while rest
+        (let ((heading (pop rest)))
+          (when (string-equal-ignore-case (string-trim (plist-get heading :title))
+                                          "See also")
+            (let* ((level (plist-get heading :level))
+                   (start (progn (goto-char (plist-get heading :pos))
+                                 (line-end-position)))
+                   (end (or (plist-get (seq-find (lambda (h) (<= (plist-get h :level) level))
+                                                 rest)
+                                       :pos)
+                            (point-max))))
+              (setq items
+                    (append items
+                            (sp-see-also--link-items
+                             start end skip avoid
+                             :section-pos (plist-get heading :pos)))))))))
+    items))
+
+(defun sp-see-also--meta-items (skip avoid)
+  "Return the `id:' links of the \"seealso ::\" meta lines of the buffer.
+A meta line is a description-list item, `- seealso :: [[id:..][Concept]]', as
+Vulpea writes them; the key is read in any case, with any spacing, and the
+bullet is optional.  SKIP and AVOID are as for `sp-see-also--link-items'.  Each
+item is a plist as there, with :meta t.  Unlike a \"See also\" heading, the line
+has no section of its own, so its scope is the heading it is in."
   (let ((case-fold-search t)
         items)
     (save-excursion
-      (let ((rest headings))
-        (while rest
-          (let ((heading (pop rest)))
-            (when (string-equal-ignore-case (string-trim (plist-get heading :title))
-                                            "See also")
-              (let* ((level (plist-get heading :level))
-                     (start (save-excursion
-                              (goto-char (plist-get heading :pos))
-                              (line-end-position)))
-                     (end (or (plist-get (seq-find (lambda (h) (<= (plist-get h :level) level))
-                                                   rest)
-                                         :pos)
-                              (point-max))))
-                (goto-char start)
-                (while (re-search-forward
-                        "\\[\\[id:[^]\n]+\\]\\(?:\\[[^]]*\\]\\)?\\]" end t)
-                  (let ((beg (match-beginning 0))
-                        (link-end (match-end 0))
-                        (text (match-string-no-properties 0)))
-                    (unless (or (sp-see-also--in-ranges-p beg skip)
-                                (sp-see-also--in-ranges-p beg avoid)
-                                (sp-see-also--commented-p beg))
-                      (push (list :beg beg :end link-end :label nil :text text
-                                  :links (sp-see-also--links text)
-                                  :snippet (sp-see-also--plain
-                                            (replace-regexp-in-string
-                                             "\\`[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+" ""
-                                             (buffer-substring-no-properties
-                                              (line-beginning-position) (line-end-position))))
-                                  :section-pos (plist-get heading :pos))
-                            items)))))))))
-      (nreverse items))))
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^[ \t]*\\(?:[-+][ \t]*\\)?seealso[ \t]*::[ \t]*" nil t)
+        (setq items
+              (append items
+                      (sp-see-also--link-items
+                       (match-end 0) (line-end-position) skip avoid :meta t)))
+        (end-of-line)))
+    items))
 
 ;;;###autoload
 (defun sp-see-also-parse-buffer (&optional buffer sections)
@@ -388,6 +426,9 @@ When SECTIONS is non-nil, every `id:' link in a \"See also\" section is
 returned as well, one item for each link, with :where `section'.  Its context
 (:heading, :heading-id, :question) is that of the parent of the section, so it
 is the nearest heading with an ID, or the file when the section is at the top.
+The same goes for the links of a `- seealso :: [[id:..]]' meta line, except
+that its context is the heading the line is in (or the file, before the first
+heading): it is section-level there, not granular.
 Nothing is moved, narrowed for good or changed, and no mode is needed."
   (with-current-buffer (or buffer (current-buffer))
     (save-restriction
@@ -405,14 +446,23 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
                                   all)))
                (headings (and (or raw sections)
                               (sp-see-also--headings keywords (car ranges))))
+               (avoid (mapcan (lambda (f)
+                                (list (cons (plist-get f :beg) (plist-get f :end))
+                                      (cons (or (plist-get f :def-beg) 0)
+                                            (or (plist-get f :def-end) 0))))
+                              all))
+               (section-items (and sections
+                                   (sp-see-also--section-items
+                                    headings (car ranges) avoid)))
+               ;; A meta line under a "See also" heading is read once, there.
                (items (and sections
-                           (sp-see-also--section-items
-                            headings (car ranges)
-                            (mapcan (lambda (f)
-                                      (list (cons (plist-get f :beg) (plist-get f :end))
-                                            (cons (or (plist-get f :def-beg) 0)
-                                                  (or (plist-get f :def-end) 0))))
-                                    all))))
+                           (append section-items
+                                   (sp-see-also--meta-items
+                                    (car ranges)
+                                    (append avoid
+                                            (mapcar (lambda (i)
+                                                      (cons (plist-get i :beg) (plist-get i :end)))
+                                                    section-items))))))
                stack result)
           (dolist (footnote (if items
                                 (sort (append raw items)
@@ -438,7 +488,8 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
                        footnote
                        (list :snippet (or (plist-get footnote :snippet)
                                           (sp-see-also--snippet beg (plist-get footnote :end)))
-                             :where (cond (section-pos 'section)
+                             :where (cond ((or section-pos (plist-get footnote :meta))
+                                           'section)
                                           ((sp-see-also--in-ranges-p beg (cdr ranges)) 'quote)
                                           (t 'prose))
                              :question (and question (plist-get question :keyword))
@@ -454,7 +505,8 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
 
 (defun sp-see-also-mentions-in-buffer (&optional buffer)
   "Return one mention for each concept link of each footnote in BUFFER.
-Links in a \"See also\" section count too (:where `section').
+Links in a \"See also\" section and in `seealso ::' meta lines count too
+(:where `section').
 A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
 :links, plus :id (the concept) and :desc (the text of the link)."
   (let (mentions)
@@ -466,7 +518,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
           (push (append (list :id (car link) :desc (cdr link)) base) mentions))))
     (nreverse mentions)))
 
-(defconst sp-see-also--cache-version 3
+(defconst sp-see-also--cache-version 4
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
