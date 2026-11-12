@@ -1,4 +1,4 @@
-* PR #97: Add the sp themes, a theme registry and one light/dark switch
+* PR #97: ✨ Add the sp themes, a theme registry and one light/dark switch
 :PROPERTIES:
 :PR_NUMBER: 97
 :URL: https://github.com/siainbuletin/dotfiles/pull/97

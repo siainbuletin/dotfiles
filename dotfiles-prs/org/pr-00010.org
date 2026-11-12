@@ -1,4 +1,4 @@
-* PR #10: Mirror libraries/modules/ in docs/tangles/
+* PR #10: 🔧 Mirror libraries/modules/ in docs/tangles/
 :PROPERTIES:
 :PR_NUMBER: 10
 :URL: https://github.com/siainbuletin/dotfiles/pull/10

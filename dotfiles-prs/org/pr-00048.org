@@ -1,4 +1,4 @@
-* PR #48: Splash menu: nested agendas in boxes, no Mail or Projects
+* PR #48: ✨ Splash menu: nested agendas in boxes, no Mail or Projects
 :PROPERTIES:
 :PR_NUMBER: 48
 :URL: https://github.com/siainbuletin/dotfiles/pull/48

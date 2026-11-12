@@ -1,4 +1,4 @@
-* PR #43: Overhaul the sp-vulpea-table modules: one entry point, a query menu and an exc renderer
+* PR #43: ✨ Overhaul the sp-vulpea-table modules: one entry point, a query menu and an exc renderer
 :PROPERTIES:
 :PR_NUMBER: 43
 :URL: https://github.com/siainbuletin/dotfiles/pull/43

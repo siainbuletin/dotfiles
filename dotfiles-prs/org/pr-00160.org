@@ -1,4 +1,4 @@
-* PR #160: Add sp-load-config-file: load-file with completion over the config
+* PR #160: ✨ Add sp-load-config-file: load-file with completion over the config
 :PROPERTIES:
 :PR_NUMBER: 160
 :URL: https://github.com/siainbuletin/dotfiles/pull/160

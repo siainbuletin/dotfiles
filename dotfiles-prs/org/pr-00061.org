@@ -1,4 +1,4 @@
-* PR #61: Remove conditional-loading guards (sp-load-extras, locate-library)
+* PR #61: 🔥 Remove conditional-loading guards (sp-load-extras, locate-library)
 :PROPERTIES:
 :PR_NUMBER: 61
 :URL: https://github.com/siainbuletin/dotfiles/pull/61

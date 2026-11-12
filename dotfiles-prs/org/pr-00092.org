@@ -1,4 +1,4 @@
-* PR #92: Add sp-fetch-academic: biblio, DOI look-up and PDF download
+* PR #92: ✨ Add sp-fetch-academic: biblio, DOI look-up and PDF download
 :PROPERTIES:
 :PR_NUMBER: 92
 :URL: https://github.com/siainbuletin/dotfiles/pull/92

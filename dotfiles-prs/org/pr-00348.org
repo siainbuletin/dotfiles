@@ -1,4 +1,4 @@
-* PR #348: Fill all tagged litnotes from BibTeX (dryrun/convert)
+* PR #348: ✨ Fill all tagged litnotes from BibTeX (dryrun/convert)
 :PROPERTIES:
 :PR_NUMBER: 348
 :URL: https://github.com/siainbuletin/dotfiles/pull/348

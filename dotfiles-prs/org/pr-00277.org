@@ -1,4 +1,4 @@
-* PR #277: Design one global keymap per feature under a single leader
+* PR #277: 📝 Design one global keymap per feature under a single leader
 :PROPERTIES:
 :PR_NUMBER: 277
 :URL: https://github.com/siainbuletin/dotfiles/pull/277

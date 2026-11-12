@@ -1,4 +1,4 @@
-* PR #80: Compare theme packages and propose one themes folder
+* PR #80: 📝 Compare theme packages and propose one themes folder
 :PROPERTIES:
 :PR_NUMBER: 80
 :URL: https://github.com/siainbuletin/dotfiles/pull/80

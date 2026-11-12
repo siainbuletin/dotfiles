@@ -1,4 +1,4 @@
-* PR #303: Turn the README module tree into tables with a Part of column
+* PR #303: 📝 Turn the README module tree into tables with a Part of column
 :PROPERTIES:
 :PR_NUMBER: 303
 :URL: https://github.com/siainbuletin/dotfiles/pull/303

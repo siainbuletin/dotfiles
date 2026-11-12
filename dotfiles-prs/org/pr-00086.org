@@ -1,4 +1,4 @@
-* PR #86: Move setq settings next to a use-package into its :custom
+* PR #86: 🔧 Move setq settings next to a use-package into its :custom
 :PROPERTIES:
 :PR_NUMBER: 86
 :URL: https://github.com/siainbuletin/dotfiles/pull/86

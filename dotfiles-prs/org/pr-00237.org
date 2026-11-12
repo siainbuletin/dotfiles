@@ -1,4 +1,4 @@
-* PR #237: Shorten the DEVONthink query table column
+* PR #237: ✨ Shorten the DEVONthink query table column
 :PROPERTIES:
 :PR_NUMBER: 237
 :URL: https://github.com/siainbuletin/dotfiles/pull/237

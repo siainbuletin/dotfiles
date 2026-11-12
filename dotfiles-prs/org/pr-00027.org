@@ -1,4 +1,4 @@
-* PR #27: Add --help to emacs-pr
+* PR #27: 🔧 Add --help to emacs-pr
 :PROPERTIES:
 :PR_NUMBER: 27
 :URL: https://github.com/siainbuletin/dotfiles/pull/27

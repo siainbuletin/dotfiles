@@ -1,4 +1,4 @@
-* PR #240: Move ID links to a seealso line when splitting a heading
+* PR #240: ✨ Move ID links to a seealso line when splitting a heading
 :PROPERTIES:
 :PR_NUMBER: 240
 :URL: https://github.com/siainbuletin/dotfiles/pull/240

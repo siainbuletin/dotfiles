@@ -1,4 +1,4 @@
-* PR #46: Order modules by package dependencies and load heavy leaf modules after startup
+* PR #46: ✨ Order modules by package dependencies and load heavy leaf modules after startup
 :PROPERTIES:
 :PR_NUMBER: 46
 :URL: https://github.com/siainbuletin/dotfiles/pull/46

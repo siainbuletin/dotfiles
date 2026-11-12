@@ -1,4 +1,4 @@
-* PR #67: One owner per agenda setting: vulpea-para agenda files, keywords, capture, views
+* PR #67: ✨ One owner per agenda setting: vulpea-para agenda files, keywords, capture, views
 :PROPERTIES:
 :PR_NUMBER: 67
 :URL: https://github.com/siainbuletin/dotfiles/pull/67

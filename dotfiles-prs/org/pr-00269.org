@@ -1,4 +1,4 @@
-* PR #269: Stop loading sp-ai at startup; add sp-ai-load
+* PR #269: 🔧 Stop loading sp-ai at startup; add sp-ai-load
 :PROPERTIES:
 :PR_NUMBER: 269
 :URL: https://github.com/siainbuletin/dotfiles/pull/269

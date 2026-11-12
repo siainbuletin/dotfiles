@@ -1,4 +1,4 @@
-* PR #62: Lint sectional footnotes of the vault in the background (sp-org-lint)
+* PR #62: ✨ Lint sectional footnotes of the vault in the background (sp-org-lint)
 :PROPERTIES:
 :PR_NUMBER: 62
 :URL: https://github.com/siainbuletin/dotfiles/pull/62

@@ -1,4 +1,4 @@
-* PR #266: Remove hook for svg-tag-mode and remove `org-node-mem`
+* PR #266: 🔥 Remove hook for svg-tag-mode and remove `org-node-mem`
 :PROPERTIES:
 :PR_NUMBER: 266
 :URL: https://github.com/siainbuletin/dotfiles/pull/266

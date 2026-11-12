@@ -1,4 +1,4 @@
-* PR #337: Keep saved query table views in a tracked file in the configuration
+* PR #337: 🔧 Keep saved query table views in a tracked file in the configuration
 :PROPERTIES:
 :PR_NUMBER: 337
 :URL: https://github.com/siainbuletin/dotfiles/pull/337

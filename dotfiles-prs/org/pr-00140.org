@@ -1,4 +1,4 @@
-* PR #140: Posframe: border matches background, dim behind every prompt
+* PR #140: ✨ Posframe: border matches background, dim behind every prompt
 :PROPERTIES:
 :PR_NUMBER: 140
 :URL: https://github.com/siainbuletin/dotfiles/pull/140

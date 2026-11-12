@@ -1,4 +1,4 @@
-* PR #189: Show notes to self and PRs to test in the morning list
+* PR #189: ✨ Show notes to self and PRs to test in the morning list
 :PROPERTIES:
 :PR_NUMBER: 189
 :URL: https://github.com/siainbuletin/dotfiles/pull/189

@@ -1,4 +1,4 @@
-* PR #293: Stow docs: pulling changes, conflict error, STALE=ok
+* PR #293: 📝 Stow docs: pulling changes, conflict error, STALE=ok
 :PROPERTIES:
 :PR_NUMBER: 293
 :URL: https://github.com/siainbuletin/dotfiles/pull/293

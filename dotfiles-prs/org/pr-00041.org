@@ -1,4 +1,4 @@
-* PR #41: Move AI-workflow decisions into adr/ and summarise them in the README
+* PR #41: 📝 Move AI-workflow decisions into adr/ and summarise them in the README
 :PROPERTIES:
 :PR_NUMBER: 41
 :URL: https://github.com/siainbuletin/dotfiles/pull/41

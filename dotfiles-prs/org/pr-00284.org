@@ -1,4 +1,4 @@
-* PR #284: Apply the keymap design: C-; leader, sessions, agenda and spelling groups, shims
+* PR #284: ✨ Apply the keymap design: C-; leader, sessions, agenda and spelling groups, shims
 :PROPERTIES:
 :PR_NUMBER: 284
 :URL: https://github.com/siainbuletin/dotfiles/pull/284

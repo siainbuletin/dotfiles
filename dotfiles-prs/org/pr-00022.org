@@ -1,4 +1,4 @@
-* PR #22: Name file locations once in sp-paths instead of hardcoding ~/notes
+* PR #22: 🔧 Name file locations once in sp-paths instead of hardcoding ~/notes
 :PROPERTIES:
 :PR_NUMBER: 22
 :URL: https://github.com/siainbuletin/dotfiles/pull/22

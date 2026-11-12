@@ -1,4 +1,4 @@
-* PR #268: Add sp-vault-perf for the 10k-note vault
+* PR #268: ✨ Add sp-vault-perf for the 10k-note vault
 :PROPERTIES:
 :PR_NUMBER: 268
 :URL: https://github.com/siainbuletin/dotfiles/pull/268

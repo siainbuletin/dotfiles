@@ -1,4 +1,4 @@
-* PR #75: Show dashboard agendas as boxes with their top TODOs
+* PR #75: ✨ Show dashboard agendas as boxes with their top TODOs
 :PROPERTIES:
 :PR_NUMBER: 75
 :URL: https://github.com/siainbuletin/dotfiles/pull/75

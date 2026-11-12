@@ -1,4 +1,4 @@
-* PR #56: Condense nested Provide subsections and document the Provide convention
+* PR #56: 📝 Condense nested Provide subsections and document the Provide convention
 :PROPERTIES:
 :PR_NUMBER: 56
 :URL: https://github.com/siainbuletin/dotfiles/pull/56

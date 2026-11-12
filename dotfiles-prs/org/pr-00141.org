@@ -1,4 +1,4 @@
-* PR #141: Fix sp-org-ext failing at init on a void vulpea query
+* PR #141: 🐛 Fix sp-org-ext failing at init on a void vulpea query
 :PROPERTIES:
 :PR_NUMBER: 141
 :URL: https://github.com/siainbuletin/dotfiles/pull/141

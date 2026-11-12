@@ -1,4 +1,4 @@
-* PR #136: Replace mini-frame with vertico-posframe
+* PR #136: ✨ Replace mini-frame with vertico-posframe
 :PROPERTIES:
 :PR_NUMBER: 136
 :URL: https://github.com/siainbuletin/dotfiles/pull/136

@@ -1,4 +1,4 @@
-* PR #102: Repaint dividers, fringe and frame borders after every theme load
+* PR #102: 🐛 Repaint dividers, fringe and frame borders after every theme load
 :PROPERTIES:
 :PR_NUMBER: 102
 :URL: https://github.com/siainbuletin/dotfiles/pull/102

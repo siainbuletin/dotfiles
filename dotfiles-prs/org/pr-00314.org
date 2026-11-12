@@ -1,4 +1,4 @@
-* PR #314: Remove the obsolete aliases of the renamed lint commands
+* PR #314: 🔥 Remove the obsolete aliases of the renamed lint commands
 :PROPERTIES:
 :PR_NUMBER: 314
 :URL: https://github.com/siainbuletin/dotfiles/pull/314

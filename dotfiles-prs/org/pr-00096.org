@@ -1,4 +1,4 @@
-* PR #96: Source typlite's env.fish only when it exists
+* PR #96: 🐛 Source typlite's env.fish only when it exists
 :PROPERTIES:
 :PR_NUMBER: 96
 :URL: https://github.com/siainbuletin/dotfiles/pull/96

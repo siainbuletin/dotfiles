@@ -1,4 +1,4 @@
-* PR #261: Remove vterm and the terminal workspace
+* PR #261: 🔥 Remove vterm and the terminal workspace
 :PROPERTIES:
 :PR_NUMBER: 261
 :URL: https://github.com/siainbuletin/dotfiles/pull/261

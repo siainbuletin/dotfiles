@@ -1,4 +1,4 @@
-* PR #49: Splash colour palette that follows the theme
+* PR #49: ✨ Splash colour palette that follows the theme
 :PROPERTIES:
 :PR_NUMBER: 49
 :URL: https://github.com/siainbuletin/dotfiles/pull/49

@@ -1,4 +1,4 @@
-* PR #82: Rewrite the changelog by feature set and add ADRs 0014 to 0018
+* PR #82: 📝 Rewrite the changelog by feature set and add ADRs 0014 to 0018
 :PROPERTIES:
 :PR_NUMBER: 82
 :URL: https://github.com/siainbuletin/dotfiles/pull/82

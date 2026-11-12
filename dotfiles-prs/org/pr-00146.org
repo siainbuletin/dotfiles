@@ -1,4 +1,4 @@
-* PR #146: Posframe text at Org size; smaller dashboard box text
+* PR #146: ✨ Posframe text at Org size; smaller dashboard box text
 :PROPERTIES:
 :PR_NUMBER: 146
 :URL: https://github.com/siainbuletin/dotfiles/pull/146

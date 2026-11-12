@@ -1,4 +1,4 @@
-* PR #167: Fix denote-rename-file error in split and use the tag-groups menu
+* PR #167: 🐛 Fix denote-rename-file error in split and use the tag-groups menu
 :PROPERTIES:
 :PR_NUMBER: 167
 :URL: https://github.com/siainbuletin/dotfiles/pull/167

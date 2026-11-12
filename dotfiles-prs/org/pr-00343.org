@@ -1,4 +1,4 @@
-* PR #343: Match selected citations to BibTeX records and open works in DEVONthink (macOS)
+* PR #343: ✨ Match selected citations to BibTeX records and open works in DEVONthink (macOS)
 :PROPERTIES:
 :PR_NUMBER: 343
 :URL: https://github.com/siainbuletin/dotfiles/pull/343

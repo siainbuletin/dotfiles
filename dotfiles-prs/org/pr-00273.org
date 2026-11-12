@@ -1,4 +1,4 @@
-* PR #273: Remove the sp-org-node-mem require from the sp-org-ext doc
+* PR #273: 🐛 Remove the sp-org-node-mem require from the sp-org-ext doc
 :PROPERTIES:
 :PR_NUMBER: 273
 :URL: https://github.com/siainbuletin/dotfiles/pull/273

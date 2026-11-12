@@ -1,4 +1,4 @@
-* PR #272: Make emacs-pr, M-x yadm and the config agenda view work with the Stow layout
+* PR #272: 🔧 Make emacs-pr, M-x yadm and the config agenda view work with the Stow layout
 :PROPERTIES:
 :PR_NUMBER: 272
 :URL: https://github.com/siainbuletin/dotfiles/pull/272

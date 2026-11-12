@@ -1,4 +1,4 @@
-* PR #133: Fix scratch buffer opening beside the dashboard
+* PR #133: 🐛 Fix scratch buffer opening beside the dashboard
 :PROPERTIES:
 :PR_NUMBER: 133
 :URL: https://github.com/siainbuletin/dotfiles/pull/133

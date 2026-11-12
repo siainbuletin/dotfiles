@@ -1,4 +1,4 @@
-* PR #289: Note keys: sp-insert-note on M-o n i, new sp-find-note on M-o f
+* PR #289: 📝 Note keys: sp-insert-note on M-o n i, new sp-find-note on M-o f
 :PROPERTIES:
 :PR_NUMBER: 289
 :URL: https://github.com/siainbuletin/dotfiles/pull/289

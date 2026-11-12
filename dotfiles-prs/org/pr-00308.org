@@ -1,4 +1,4 @@
-* PR #308: sp-ai-load: already-loaded check and wait for Elpaca
+* PR #308: 🐛 sp-ai-load: already-loaded check and wait for Elpaca
 :PROPERTIES:
 :PR_NUMBER: 308
 :URL: https://github.com/siainbuletin/dotfiles/pull/308

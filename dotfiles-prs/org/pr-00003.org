@@ -1,4 +1,4 @@
-* PR #3: Add sp-org-issues: an issue tracker kept as a vulpea-para area
+* PR #3: ✨ Add sp-org-issues: an issue tracker kept as a vulpea-para area
 :PROPERTIES:
 :PR_NUMBER: 3
 :URL: https://github.com/siainbuletin/dotfiles/pull/3

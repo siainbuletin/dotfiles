@@ -1,4 +1,4 @@
-* PR #300: File notes into subfolders by tag; remove Denote
+* PR #300: 🔥 File notes into subfolders by tag; remove Denote
 :PROPERTIES:
 :PR_NUMBER: 300
 :URL: https://github.com/siainbuletin/dotfiles/pull/300

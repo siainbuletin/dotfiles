@@ -1,4 +1,4 @@
-* PR #150: Add a command to link configuration docs from notes
+* PR #150: ✨ Add a command to link configuration docs from notes
 :PROPERTIES:
 :PR_NUMBER: 150
 :URL: https://github.com/siainbuletin/dotfiles/pull/150

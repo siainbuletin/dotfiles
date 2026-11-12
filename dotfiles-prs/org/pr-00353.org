@@ -1,4 +1,4 @@
-* PR #353: Unify the batch reports on sp-batch-report (old views kept, obsolete)
+* PR #353: 🔧 Unify the batch reports on sp-batch-report (old views kept, obsolete)
 :PROPERTIES:
 :PR_NUMBER: 353
 :URL: https://github.com/siainbuletin/dotfiles/pull/353

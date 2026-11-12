@@ -1,4 +1,4 @@
-* PR #70: Dashboard runs the agenda views; org-ql and org-super-agenda in the agenda; org-gtd mapping dropped
+* PR #70: ✨ Dashboard runs the agenda views; org-ql and org-super-agenda in the agenda; org-gtd mapping dropped
 :PROPERTIES:
 :PR_NUMBER: 70
 :URL: https://github.com/siainbuletin/dotfiles/pull/70

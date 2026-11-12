@@ -1,4 +1,4 @@
-* PR #52: Condense Provide sections in module docs
+* PR #52: 📝 Condense Provide sections in module docs
 :PROPERTIES:
 :PR_NUMBER: 52
 :URL: https://github.com/siainbuletin/dotfiles/pull/52

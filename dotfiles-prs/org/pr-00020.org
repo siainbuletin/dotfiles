@@ -1,4 +1,4 @@
-* PR #20: Add an empty design considerations section for relationship-annotator
+* PR #20: 📝 Add an empty design considerations section for relationship-annotator
 :PROPERTIES:
 :PR_NUMBER: 20
 :URL: https://github.com/siainbuletin/dotfiles/pull/20

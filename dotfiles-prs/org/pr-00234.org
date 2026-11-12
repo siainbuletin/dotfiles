@@ -1,4 +1,4 @@
-* PR #234: Show ROAM_REFS and PDF link in query tables
+* PR #234: ✨ Show ROAM_REFS and PDF link in query tables
 :PROPERTIES:
 :PR_NUMBER: 234
 :URL: https://github.com/siainbuletin/dotfiles/pull/234

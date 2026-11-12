@@ -1,4 +1,4 @@
-* PR #31: Lambda art behind the splash menu, with adjustable position
+* PR #31: ✨ Lambda art behind the splash menu, with adjustable position
 :PROPERTIES:
 :PR_NUMBER: 31
 :URL: https://github.com/siainbuletin/dotfiles/pull/31

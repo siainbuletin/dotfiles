@@ -1,4 +1,4 @@
-* PR #271: Add yadm to Stow migration (package map, script, guide, ADR 0023)
+* PR #271: 🔧 Add yadm to Stow migration (package map, script, guide, ADR 0023)
 :PROPERTIES:
 :PR_NUMBER: 271
 :URL: https://github.com/siainbuletin/dotfiles/pull/271

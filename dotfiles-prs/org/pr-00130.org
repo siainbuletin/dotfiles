@@ -1,4 +1,4 @@
-* PR #130: Fix sp-split-leave-parents autoload error
+* PR #130: 🐛 Fix sp-split-leave-parents autoload error
 :PROPERTIES:
 :PR_NUMBER: 130
 :URL: https://github.com/siainbuletin/dotfiles/pull/130

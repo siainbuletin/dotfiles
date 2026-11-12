@@ -1,4 +1,4 @@
-* PR #336: Mark and change several litnotes at once in the status report
+* PR #336: ✨ Mark and change several litnotes at once in the status report
 :PROPERTIES:
 :PR_NUMBER: 336
 :URL: https://github.com/siainbuletin/dotfiles/pull/336

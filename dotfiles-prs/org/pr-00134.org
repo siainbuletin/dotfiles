@@ -1,4 +1,4 @@
-* PR #134: Restore the plain sp-mini-frame with padding and a fixed height
+* PR #134: 🐛 Restore the plain sp-mini-frame with padding and a fixed height
 :PROPERTIES:
 :PR_NUMBER: 134
 :URL: https://github.com/siainbuletin/dotfiles/pull/134

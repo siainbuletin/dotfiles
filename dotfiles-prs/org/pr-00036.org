@@ -1,4 +1,4 @@
-* PR #36: Add sp-thesis-dump: brain-dump thesis ideas, get annotated tasks and citekeys
+* PR #36: ✨ Add sp-thesis-dump: brain-dump thesis ideas, get annotated tasks and citekeys
 :PROPERTIES:
 :PR_NUMBER: 36
 :URL: https://github.com/siainbuletin/dotfiles/pull/36

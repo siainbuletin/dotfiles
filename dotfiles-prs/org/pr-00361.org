@@ -1,4 +1,4 @@
-* PR #361: Litnote meta: update changed fields, lint bib-parent, stop batches early
+* PR #361: ✨ Litnote meta: update changed fields, lint bib-parent, stop batches early
 :PROPERTIES:
 :PR_NUMBER: 361
 :URL: https://github.com/siainbuletin/dotfiles/pull/361

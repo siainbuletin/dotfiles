@@ -1,4 +1,4 @@
-* PR #324: Add devonthink-reading.py: a small synced `reading` database
+* PR #324: ✨ Add devonthink-reading.py: a small synced `reading` database
 :PROPERTIES:
 :PR_NUMBER: 324
 :URL: https://github.com/siainbuletin/dotfiles/pull/324

@@ -1,4 +1,4 @@
-* PR #270: Turn off the vulpea select-cache prewarm; delay autosync
+* PR #270: ⚡ Turn off the vulpea select-cache prewarm; delay autosync
 :PROPERTIES:
 :PR_NUMBER: 270
 :URL: https://github.com/siainbuletin/dotfiles/pull/270

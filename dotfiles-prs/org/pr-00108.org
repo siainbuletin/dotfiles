@@ -1,4 +1,4 @@
-* PR #108: Add sp-select-note and sp-insert-note with tag emoji and a tag column
+* PR #108: ✨ Add sp-select-note and sp-insert-note with tag emoji and a tag column
 :PROPERTIES:
 :PR_NUMBER: 108
 :URL: https://github.com/siainbuletin/dotfiles/pull/108

@@ -1,4 +1,4 @@
-* PR #26: Give each sandbox its own packages and notes, and launch it from Emacs
+* PR #26: 🔧 Give each sandbox its own packages and notes, and launch it from Emacs
 :PROPERTIES:
 :PR_NUMBER: 26
 :URL: https://github.com/siainbuletin/dotfiles/pull/26

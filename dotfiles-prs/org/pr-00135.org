@@ -1,4 +1,4 @@
-* PR #135: New feature: add `supersonic.el` for Navidrome
+* PR #135: ✨ New feature: add `supersonic.el` for Navidrome
 :PROPERTIES:
 :PR_NUMBER: 135
 :URL: https://github.com/siainbuletin/dotfiles/pull/135

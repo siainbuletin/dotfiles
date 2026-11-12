@@ -1,4 +1,4 @@
-* PR #350: gh-pr-pdf: only fetch what changed after the first run
+* PR #350: ⚡ gh-pr-pdf: only fetch what changed after the first run
 :PROPERTIES:
 :PR_NUMBER: 350
 :URL: https://github.com/siainbuletin/dotfiles/pull/350

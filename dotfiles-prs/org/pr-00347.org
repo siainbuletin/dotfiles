@@ -1,4 +1,4 @@
-* PR #347: Map BibTeX entry types to litnote tags in one table
+* PR #347: ✨ Map BibTeX entry types to litnote tags in one table
 :PROPERTIES:
 :PR_NUMBER: 347
 :URL: https://github.com/siainbuletin/dotfiles/pull/347

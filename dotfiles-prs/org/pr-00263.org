@@ -1,4 +1,4 @@
-* PR #263: fish: no fastfetch greeting inside Emacs
+* PR #263: 🐛 fish: no fastfetch greeting inside Emacs
 :PROPERTIES:
 :PR_NUMBER: 263
 :URL: https://github.com/siainbuletin/dotfiles/pull/263

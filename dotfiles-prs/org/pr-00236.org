@@ -1,4 +1,4 @@
-* PR #236: Follow links in table widgets without the link menu
+* PR #236: ✨ Follow links in table widgets without the link menu
 :PROPERTIES:
 :PR_NUMBER: 236
 :URL: https://github.com/siainbuletin/dotfiles/pull/236

@@ -1,4 +1,4 @@
-* PR #87: Fix duplicate and late package declarations from the Elpaca log
+* PR #87: 🐛 Fix duplicate and late package declarations from the Elpaca log
 :PROPERTIES:
 :PR_NUMBER: 87
 :URL: https://github.com/siainbuletin/dotfiles/pull/87

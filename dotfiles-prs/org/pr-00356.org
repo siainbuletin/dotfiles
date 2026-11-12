@@ -1,4 +1,4 @@
-* PR #356: Add a command to convert a flagged deep crossref chain on request
+* PR #356: ✨ Add a command to convert a flagged deep crossref chain on request
 :PROPERTIES:
 :PR_NUMBER: 356
 :URL: https://github.com/siainbuletin/dotfiles/pull/356

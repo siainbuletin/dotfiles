@@ -1,4 +1,4 @@
-* PR #327: Add grouped backlinks as a vulpea-ui widget
+* PR #327: ✨ Add grouped backlinks as a vulpea-ui widget
 :PROPERTIES:
 :PR_NUMBER: 327
 :URL: https://github.com/siainbuletin/dotfiles/pull/327

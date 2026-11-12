@@ -1,4 +1,4 @@
-* PR #129: Shorten CHANGELOG entries, move details to the module docs, add emojis
+* PR #129: 📝 Shorten CHANGELOG entries, move details to the module docs, add emojis
 :PROPERTIES:
 :PR_NUMBER: 129
 :URL: https://github.com/siainbuletin/dotfiles/pull/129

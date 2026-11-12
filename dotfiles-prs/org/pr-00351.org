@@ -1,4 +1,4 @@
-* PR #351: Link files in batch conversion reports (shared report buffer)
+* PR #351: 🔧 Link files in batch conversion reports (shared report buffer)
 :PROPERTIES:
 :PR_NUMBER: 351
 :URL: https://github.com/siainbuletin/dotfiles/pull/351

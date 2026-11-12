@@ -1,4 +1,4 @@
-* PR #238: Rename the clocked-in entry from the mode line
+* PR #238: ✨ Rename the clocked-in entry from the mode line
 :PROPERTIES:
 :PR_NUMBER: 238
 :URL: https://github.com/siainbuletin/dotfiles/pull/238

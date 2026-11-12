@@ -1,4 +1,4 @@
-* PR #74: Make TAB move between dashboard buttons (and bring the sp-dashboard rename into main)
+* PR #74: ✨ Make TAB move between dashboard buttons (and bring the sp-dashboard rename into main)
 :PROPERTIES:
 :PR_NUMBER: 74
 :URL: https://github.com/siainbuletin/dotfiles/pull/74

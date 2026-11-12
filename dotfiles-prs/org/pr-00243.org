@@ -1,4 +1,4 @@
-* PR #243: Add sp-refile: one command to refile, split or merge notes
+* PR #243: ✨ Add sp-refile: one command to refile, split or merge notes
 :PROPERTIES:
 :PR_NUMBER: 243
 :URL: https://github.com/siainbuletin/dotfiles/pull/243

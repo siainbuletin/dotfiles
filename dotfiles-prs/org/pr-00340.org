@@ -1,4 +1,4 @@
-* PR #340: Add gh-pr-pdf: a repository's pull requests as org files and a Typst PDF
+* PR #340: 🔧 Add gh-pr-pdf: a repository's pull requests as org files and a Typst PDF
 :PROPERTIES:
 :PR_NUMBER: 340
 :URL: https://github.com/siainbuletin/dotfiles/pull/340

@@ -1,4 +1,4 @@
-* PR #360: Run the BibTeX author works search for one author note
+* PR #360: ✨ Run the BibTeX author works search for one author note
 :PROPERTIES:
 :PR_NUMBER: 360
 :URL: https://github.com/siainbuletin/dotfiles/pull/360

@@ -1,4 +1,4 @@
-* PR #145: Posframe: same text size for every prompt
+* PR #145: ✨ Posframe: same text size for every prompt
 :PROPERTIES:
 :PR_NUMBER: 145
 :URL: https://github.com/siainbuletin/dotfiles/pull/145

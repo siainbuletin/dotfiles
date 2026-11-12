@@ -1,4 +1,4 @@
-* PR #329: Add book section tables and a vulpea-ui book position widget
+* PR #329: ✨ Add book section tables and a vulpea-ui book position widget
 :PROPERTIES:
 :PR_NUMBER: 329
 :URL: https://github.com/siainbuletin/dotfiles/pull/329

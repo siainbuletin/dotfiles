@@ -1,4 +1,4 @@
-* PR #148: Take Org, minibuffer and posframe text sizes from fontaine
+* PR #148: ✨ Take Org, minibuffer and posframe text sizes from fontaine
 :PROPERTIES:
 :PR_NUMBER: 148
 :URL: https://github.com/siainbuletin/dotfiles/pull/148

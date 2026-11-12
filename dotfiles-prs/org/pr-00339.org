@@ -1,4 +1,4 @@
-* PR #339: Design: match selected citations to BibTeX and DEVONthink records
+* PR #339: 📝 Design: match selected citations to BibTeX and DEVONthink records
 :PROPERTIES:
 :PR_NUMBER: 339
 :URL: https://github.com/siainbuletin/dotfiles/pull/339

@@ -1,4 +1,4 @@
-* PR #13: Scope vulpea hierarchy views and add a browser graph
+* PR #13: ✨ Scope vulpea hierarchy views and add a browser graph
 :PROPERTIES:
 :PR_NUMBER: 13
 :URL: https://github.com/siainbuletin/dotfiles/pull/13

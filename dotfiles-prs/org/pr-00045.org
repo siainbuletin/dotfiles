@@ -1,4 +1,4 @@
-* PR #45: Splash art layers: centred lambda, dashboard banner, Dashboard buffer
+* PR #45: ✨ Splash art layers: centred lambda, dashboard banner, Dashboard buffer
 :PROPERTIES:
 :PR_NUMBER: 45
 :URL: https://github.com/siainbuletin/dotfiles/pull/45

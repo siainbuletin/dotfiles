@@ -1,4 +1,4 @@
-* PR #118: Add sp-fetch-academic and make sp-bibliography-dir the only bibliography folder option
+* PR #118: ✨ Add sp-fetch-academic and make sp-bibliography-dir the only bibliography folder option
 :PROPERTIES:
 :PR_NUMBER: 118
 :URL: https://github.com/siainbuletin/dotfiles/pull/118

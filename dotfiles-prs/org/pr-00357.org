@@ -1,4 +1,4 @@
-* PR #357: Order vulpea meta lines by key, and use it in litnote meta fill
+* PR #357: 🔧 Order vulpea meta lines by key, and use it in litnote meta fill
 :PROPERTIES:
 :PR_NUMBER: 357
 :URL: https://github.com/siainbuletin/dotfiles/pull/357

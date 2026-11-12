@@ -1,4 +1,4 @@
-* PR #287: Record why Stow replaced yadm (ADR 0001 superseded by 0023)
+* PR #287: 📝 Record why Stow replaced yadm (ADR 0001 superseded by 0023)
 :PROPERTIES:
 :PR_NUMBER: 287
 :URL: https://github.com/siainbuletin/dotfiles/pull/287

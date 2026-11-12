@@ -1,4 +1,4 @@
-* PR #282: Match author names without accents and normalize duplicates
+* PR #282: ✨ Match author names without accents and normalize duplicates
 :PROPERTIES:
 :PR_NUMBER: 282
 :URL: https://github.com/siainbuletin/dotfiles/pull/282

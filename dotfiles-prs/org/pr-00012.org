@@ -1,4 +1,4 @@
-* PR #12: Add sp-dg-positions: position graph, status views and rules for discourse-graphs
+* PR #12: ✨ Add sp-dg-positions: position graph, status views and rules for discourse-graphs
 :PROPERTIES:
 :PR_NUMBER: 12
 :URL: https://github.com/siainbuletin/dotfiles/pull/12

@@ -1,4 +1,4 @@
-* PR #290: Fix extra paren in the sp-search menu that stopped sp-navi loading
+* PR #290: 🐛 Fix extra paren in the sp-search menu that stopped sp-navi loading
 :PROPERTIES:
 :PR_NUMBER: 290
 :URL: https://github.com/siainbuletin/dotfiles/pull/290

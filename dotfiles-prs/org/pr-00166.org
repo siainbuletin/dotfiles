@@ -1,4 +1,4 @@
-* PR #166: Fix help: links failing on taxy's shortdoc group
+* PR #166: 🐛 Fix help: links failing on taxy's shortdoc group
 :PROPERTIES:
 :PR_NUMBER: 166
 :URL: https://github.com/siainbuletin/dotfiles/pull/166

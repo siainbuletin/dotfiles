@@ -1,4 +1,4 @@
-* PR #352: Lint one BibTeX file at a time, rewrite in batches of 50
+* PR #352: ✨ Lint one BibTeX file at a time, rewrite in batches of 50
 :PROPERTIES:
 :PR_NUMBER: 352
 :URL: https://github.com/siainbuletin/dotfiles/pull/352

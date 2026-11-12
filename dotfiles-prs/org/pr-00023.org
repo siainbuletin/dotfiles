@@ -1,4 +1,4 @@
-* PR #23: Add a ranked morning list of issues and pull requests to sp-org-issues
+* PR #23: ✨ Add a ranked morning list of issues and pull requests to sp-org-issues
 :PROPERTIES:
 :PR_NUMBER: 23
 :URL: https://github.com/siainbuletin/dotfiles/pull/23

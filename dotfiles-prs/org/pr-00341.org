@@ -1,4 +1,4 @@
-* PR #341: Escape @key, $ and <key> from PR text in gh-pr-pdf so typst compile passes
+* PR #341: 🐛 Escape @key, $ and <key> from PR text in gh-pr-pdf so typst compile passes
 :PROPERTIES:
 :PR_NUMBER: 341
 :URL: https://github.com/siainbuletin/dotfiles/pull/341

@@ -1,4 +1,4 @@
-* PR #354: BibTeX lint: separate fixes for order, indentation and author names, with surname matches
+* PR #354: ✨ BibTeX lint: separate fixes for order, indentation and author names, with surname matches
 :PROPERTIES:
 :PR_NUMBER: 354
 :URL: https://github.com/siainbuletin/dotfiles/pull/354

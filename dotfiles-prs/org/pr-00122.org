@@ -1,4 +1,4 @@
-* PR #122: Stop Emacs hanging on macOS when the mini-frame opens
+* PR #122: 🐛 Stop Emacs hanging on macOS when the mini-frame opens
 :PROPERTIES:
 :PR_NUMBER: 122
 :URL: https://github.com/siainbuletin/dotfiles/pull/122

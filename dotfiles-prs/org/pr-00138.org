@@ -1,4 +1,4 @@
-* PR #138: Add the nano-style M-x back to sp-posframe
+* PR #138: ✨ Add the nano-style M-x back to sp-posframe
 :PROPERTIES:
 :PR_NUMBER: 138
 :URL: https://github.com/siainbuletin/dotfiles/pull/138

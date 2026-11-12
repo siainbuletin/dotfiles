@@ -1,4 +1,4 @@
-* PR #128: Fit the mini-frame height to the scaled minibuffer text
+* PR #128: ✨ Fit the mini-frame height to the scaled minibuffer text
 :PROPERTIES:
 :PR_NUMBER: 128
 :URL: https://github.com/siainbuletin/dotfiles/pull/128

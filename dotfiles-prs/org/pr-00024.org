@@ -1,4 +1,4 @@
-* PR #24: Add emacs-pr to run a pull request in a sandboxed Emacs
+* PR #24: 🔧 Add emacs-pr to run a pull request in a sandboxed Emacs
 :PROPERTIES:
 :PR_NUMBER: 24
 :URL: https://github.com/siainbuletin/dotfiles/pull/24

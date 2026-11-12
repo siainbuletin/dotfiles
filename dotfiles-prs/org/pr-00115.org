@@ -1,4 +1,4 @@
-* PR #115: Add boxed mode line segments, header title and clock, centred M-x with nano styling
+* PR #115: ✨ Add boxed mode line segments, header title and clock, centred M-x with nano styling
 :PROPERTIES:
 :PR_NUMBER: 115
 :URL: https://github.com/siainbuletin/dotfiles/pull/115

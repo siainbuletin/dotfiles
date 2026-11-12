@@ -1,4 +1,4 @@
-* PR #113: Give the dashboard boxes their own width setting
+* PR #113: ✨ Give the dashboard boxes their own width setting
 :PROPERTIES:
 :PR_NUMBER: 113
 :URL: https://github.com/siainbuletin/dotfiles/pull/113

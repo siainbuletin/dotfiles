@@ -1,4 +1,4 @@
-* PR #326: Add a grouped backlinks sidebar that follows the main note
+* PR #326: ✨ Add a grouped backlinks sidebar that follows the main note
 :PROPERTIES:
 :PR_NUMBER: 326
 :URL: https://github.com/siainbuletin/dotfiles/pull/326

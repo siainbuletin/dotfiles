@@ -1,4 +1,4 @@
-* PR #280: Fill literature note metadata from BibTeX
+* PR #280: ✨ Fill literature note metadata from BibTeX
 :PROPERTIES:
 :PR_NUMBER: 280
 :URL: https://github.com/siainbuletin/dotfiles/pull/280

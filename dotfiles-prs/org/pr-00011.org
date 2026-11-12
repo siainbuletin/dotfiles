@@ -1,4 +1,4 @@
-* PR #11: Add CHANGELOG.org for the Emacs config
+* PR #11: 📝 Add CHANGELOG.org for the Emacs config
 :PROPERTIES:
 :PR_NUMBER: 11
 :URL: https://github.com/siainbuletin/dotfiles/pull/11

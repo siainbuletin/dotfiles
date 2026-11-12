@@ -1,4 +1,4 @@
-* PR #132: Fix C-x t s (vulpea-ui sidebar) undefined
+* PR #132: 🐛 Fix C-x t s (vulpea-ui sidebar) undefined
 :PROPERTIES:
 :PR_NUMBER: 132
 :URL: https://github.com/siainbuletin/dotfiles/pull/132

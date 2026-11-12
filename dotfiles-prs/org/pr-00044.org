@@ -1,4 +1,4 @@
-* PR #44: Fix splash lambda art not showing
+* PR #44: 🐛 Fix splash lambda art not showing
 :PROPERTIES:
 :PR_NUMBER: 44
 :URL: https://github.com/siainbuletin/dotfiles/pull/44

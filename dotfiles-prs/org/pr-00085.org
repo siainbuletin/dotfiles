@@ -1,4 +1,4 @@
-* PR #85: Defer the vulpea scan and start cursor-intangible after the dashboard is drawn
+* PR #85: ⚡ Defer the vulpea scan and start cursor-intangible after the dashboard is drawn
 :PROPERTIES:
 :PR_NUMBER: 85
 :URL: https://github.com/siainbuletin/dotfiles/pull/85

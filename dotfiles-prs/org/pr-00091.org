@@ -1,4 +1,4 @@
-* PR #91: Use when-let* and if-let* instead of the obsolete macros
+* PR #91: 🔧 Use when-let* and if-let* instead of the obsolete macros
 :PROPERTIES:
 :PR_NUMBER: 91
 :URL: https://github.com/siainbuletin/dotfiles/pull/91

@@ -1,4 +1,4 @@
-* PR #325: Rename grouped backlinks to sp- and call the Org view -org-detached
+* PR #325: 🔧 Rename grouped backlinks to sp- and call the Org view -org-detached
 :PROPERTIES:
 :PR_NUMBER: 325
 :URL: https://github.com/siainbuletin/dotfiles/pull/325

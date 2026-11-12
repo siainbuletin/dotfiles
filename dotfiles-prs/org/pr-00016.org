@@ -1,4 +1,4 @@
-* PR #16: Declare several relation types, each read from several sources
+* PR #16: ✨ Declare several relation types, each read from several sources
 :PROPERTIES:
 :PR_NUMBER: 16
 :URL: https://github.com/siainbuletin/dotfiles/pull/16

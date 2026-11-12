@@ -1,4 +1,4 @@
-* PR #63: Put every defcustom in the spcustom group
+* PR #63: 🔧 Put every defcustom in the spcustom group
 :PROPERTIES:
 :PR_NUMBER: 63
 :URL: https://github.com/siainbuletin/dotfiles/pull/63

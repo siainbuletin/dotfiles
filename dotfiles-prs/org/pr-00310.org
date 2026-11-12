@@ -1,4 +1,4 @@
-* PR #310: AeroSpace layer: Shift works in either order with Caps Lock
+* PR #310: 🐛 AeroSpace layer: Shift works in either order with Caps Lock
 :PROPERTIES:
 :PR_NUMBER: 310
 :URL: https://github.com/siainbuletin/dotfiles/pull/310

@@ -1,4 +1,4 @@
-* PR #333: Backfill an author note's Works table (sp-author-notes-works-dryrun / -convert)
+* PR #333: ✨ Backfill an author note's Works table (sp-author-notes-works-dryrun / -convert)
 :PROPERTIES:
 :PR_NUMBER: 333
 :URL: https://github.com/siainbuletin/dotfiles/pull/333

@@ -1,4 +1,4 @@
-* PR #81: Rewrite module docs as short bullet lists
+* PR #81: 📝 Rewrite module docs as short bullet lists
 :PROPERTIES:
 :PR_NUMBER: 81
 :URL: https://github.com/siainbuletin/dotfiles/pull/81

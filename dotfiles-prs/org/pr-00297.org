@@ -1,4 +1,4 @@
-* PR #297: Record and remove the Command+f / Command+b word-motion bindings
+* PR #297: 📝 Record and remove the Command+f / Command+b word-motion bindings
 :PROPERTIES:
 :PR_NUMBER: 297
 :URL: https://github.com/siainbuletin/dotfiles/pull/297

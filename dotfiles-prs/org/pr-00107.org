@@ -1,4 +1,4 @@
-* PR #107: Walk dashboard box titles with TAB, entries with the right arrow
+* PR #107: ✨ Walk dashboard box titles with TAB, entries with the right arrow
 :PROPERTIES:
 :PR_NUMBER: 107
 :URL: https://github.com/siainbuletin/dotfiles/pull/107

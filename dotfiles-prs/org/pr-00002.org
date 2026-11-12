@@ -1,4 +1,4 @@
-* PR #2: Add literate Org docs for every module in emacs-modular
+* PR #2: 📝 Add literate Org docs for every module in emacs-modular
 :PROPERTIES:
 :PR_NUMBER: 2
 :URL: https://github.com/siainbuletin/dotfiles/pull/2

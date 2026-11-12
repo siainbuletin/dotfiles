@@ -1,4 +1,4 @@
-* PR #77: Build doc SVGs with make and publish them from CI
+* PR #77: 🔧 Build doc SVGs with make and publish them from CI
 :PROPERTIES:
 :PR_NUMBER: 77
 :URL: https://github.com/siainbuletin/dotfiles/pull/77

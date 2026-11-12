@@ -1,4 +1,4 @@
-* PR #119: Size the mini-frame to Vertico's candidates, centre it and add padding
+* PR #119: ✨ Size the mini-frame to Vertico's candidates, centre it and add padding
 :PROPERTIES:
 :PR_NUMBER: 119
 :URL: https://github.com/siainbuletin/dotfiles/pull/119

@@ -1,4 +1,4 @@
-* PR #346: Fix litnote title surname for "Last, First M." names
+* PR #346: 🐛 Fix litnote title surname for "Last, First M." names
 :PROPERTIES:
 :PR_NUMBER: 346
 :URL: https://github.com/siainbuletin/dotfiles/pull/346

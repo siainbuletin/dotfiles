@@ -1,4 +1,4 @@
-* PR #79: Add sp-typst: PDF of the literate docs through ox-typst and Typst
+* PR #79: ✨ Add sp-typst: PDF of the literate docs through ox-typst and Typst
 :PROPERTIES:
 :PR_NUMBER: 79
 :URL: https://github.com/siainbuletin/dotfiles/pull/79

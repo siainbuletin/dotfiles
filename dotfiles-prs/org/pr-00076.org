@@ -1,4 +1,4 @@
-* PR #76: Add Focus condition, public-facing mode and auto-redraw to the dashboard
+* PR #76: ✨ Add Focus condition, public-facing mode and auto-redraw to the dashboard
 :PROPERTIES:
 :PR_NUMBER: 76
 :URL: https://github.com/siainbuletin/dotfiles/pull/76

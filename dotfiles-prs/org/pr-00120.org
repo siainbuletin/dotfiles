@@ -1,4 +1,4 @@
-* PR #120: Add a guide to styling dividers and lines
+* PR #120: 📝 Add a guide to styling dividers and lines
 :PROPERTIES:
 :PR_NUMBER: 120
 :URL: https://github.com/siainbuletin/dotfiles/pull/120

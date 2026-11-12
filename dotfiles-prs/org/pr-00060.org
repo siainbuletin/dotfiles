@@ -1,4 +1,4 @@
-* PR #60: Show Org tags as emoji in the modeline and on links
+* PR #60: ✨ Show Org tags as emoji in the modeline and on links
 :PROPERTIES:
 :PR_NUMBER: 60
 :URL: https://github.com/siainbuletin/dotfiles/pull/60

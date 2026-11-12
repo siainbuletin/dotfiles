@@ -1,4 +1,4 @@
-* PR #245: Guard against git conflict markers in the tag registry
+* PR #245: 🐛 Guard against git conflict markers in the tag registry
 :PROPERTIES:
 :PR_NUMBER: 245
 :URL: https://github.com/siainbuletin/dotfiles/pull/245

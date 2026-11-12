@@ -1,4 +1,4 @@
-* PR #154: Dim only the visible faces behind the posframe
+* PR #154: 🐛 Dim only the visible faces behind the posframe
 :PROPERTIES:
 :PR_NUMBER: 154
 :URL: https://github.com/siainbuletin/dotfiles/pull/154

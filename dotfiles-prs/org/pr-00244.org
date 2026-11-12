@@ -1,4 +1,4 @@
-* PR #244: Load code-review lazily so Magit and yadm work
+* PR #244: 🐛 Load code-review lazily so Magit and yadm work
 :PROPERTIES:
 :PR_NUMBER: 244
 :URL: https://github.com/siainbuletin/dotfiles/pull/244

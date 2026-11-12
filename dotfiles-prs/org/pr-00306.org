@@ -1,4 +1,4 @@
-* PR #306: Literate AeroSpace configuration, with the Hammerspoon justification
+* PR #306: 📝 Literate AeroSpace configuration, with the Hammerspoon justification
 :PROPERTIES:
 :PR_NUMBER: 306
 :URL: https://github.com/siainbuletin/dotfiles/pull/306

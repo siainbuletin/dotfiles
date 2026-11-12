@@ -1,4 +1,4 @@
-* PR #29: Prettier Magit buffers (sp-magit-style)
+* PR #29: ✨ Prettier Magit buffers (sp-magit-style)
 :PROPERTIES:
 :PR_NUMBER: 29
 :URL: https://github.com/siainbuletin/dotfiles/pull/29

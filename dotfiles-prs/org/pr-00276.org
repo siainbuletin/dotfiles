@@ -1,4 +1,4 @@
-* PR #276: Plan bringing svg-tag-mode back in two stages
+* PR #276: 📝 Plan bringing svg-tag-mode back in two stages
 :PROPERTIES:
 :PR_NUMBER: 276
 :URL: https://github.com/siainbuletin/dotfiles/pull/276

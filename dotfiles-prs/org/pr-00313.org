@@ -1,4 +1,4 @@
-* PR #313: Caps+Shift+; toggles AeroSpace service mode
+* PR #313: ✨ Caps+Shift+; toggles AeroSpace service mode
 :PROPERTIES:
 :PR_NUMBER: 313
 :URL: https://github.com/siainbuletin/dotfiles/pull/313

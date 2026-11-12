@@ -1,4 +1,4 @@
-* PR #100: Follow the light/dark appearance per platform; macOS room light picks one of the four families
+* PR #100: ✨ Follow the light/dark appearance per platform; macOS room light picks one of the four families
 :PROPERTIES:
 :PR_NUMBER: 100
 :URL: https://github.com/siainbuletin/dotfiles/pull/100

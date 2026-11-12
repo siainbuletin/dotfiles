@@ -1,4 +1,4 @@
-* PR #35: Document the macOS stack for reviewing AI-made changes
+* PR #35: 📝 Document the macOS stack for reviewing AI-made changes
 :PROPERTIES:
 :PR_NUMBER: 35
 :URL: https://github.com/siainbuletin/dotfiles/pull/35

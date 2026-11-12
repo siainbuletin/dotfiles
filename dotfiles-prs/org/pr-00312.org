@@ -1,4 +1,4 @@
-* PR #312: AeroSpace service mode: a reliable way out (Esc, Caps+Esc)
+* PR #312: 🐛 AeroSpace service mode: a reliable way out (Esc, Caps+Esc)
 :PROPERTIES:
 :PR_NUMBER: 312
 :URL: https://github.com/siainbuletin/dotfiles/pull/312

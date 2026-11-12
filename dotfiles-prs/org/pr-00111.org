@@ -1,4 +1,4 @@
-* PR #111: Keep the dashboard selection when window hooks fire
+* PR #111: 🐛 Keep the dashboard selection when window hooks fire
 :PROPERTIES:
 :PR_NUMBER: 111
 :URL: https://github.com/siainbuletin/dotfiles/pull/111

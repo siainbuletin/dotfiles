@@ -2,15 +2,17 @@
 :PROPERTIES:
 :PR_NUMBER: 368
 :URL: https://github.com/siainbuletin/dotfiles/pull/368
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/368][https://github.com/siainbuletin/dotfiles/pull/368]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-10 22:00
+- Merged :: 2026-11-10 22:02
 - Branch :: =claude/project-thread-k78mjc= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/53152278825f71b0d3c00d7e2c8f52ac9c72937a][5315227882]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/a8f10bff4049be7aeded89323fd1b172045966b2][a8f10bff40]]
+- Labels :: enhancement, needs-further-testing
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CT4ymBGAePbPQKB43yNg19][project thread]]/

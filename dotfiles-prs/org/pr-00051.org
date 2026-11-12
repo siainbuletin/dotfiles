@@ -1,4 +1,4 @@
-* PR #51: Persist tabspaces workspaces across restarts
+* PR #51: ✨ Persist tabspaces workspaces across restarts
 :PROPERTIES:
 :PR_NUMBER: 51
 :URL: https://github.com/siainbuletin/dotfiles/pull/51

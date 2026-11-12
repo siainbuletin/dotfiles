@@ -1,4 +1,4 @@
-* PR #116: Stop sp-set-window-margins from undoing Olivetti's centring
+* PR #116: 🐛 Stop sp-set-window-margins from undoing Olivetti's centring
 :PROPERTIES:
 :PR_NUMBER: 116
 :URL: https://github.com/siainbuletin/dotfiles/pull/116

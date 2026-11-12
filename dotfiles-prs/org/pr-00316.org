@@ -1,4 +1,4 @@
-* PR #316: Fix sp-notes-create nil directory error; drop Denote from move-region
+* PR #316: 🐛 Fix sp-notes-create nil directory error; drop Denote from move-region
 :PROPERTIES:
 :PR_NUMBER: 316
 :URL: https://github.com/siainbuletin/dotfiles/pull/316

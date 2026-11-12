@@ -1,4 +1,4 @@
-* PR #125: Import a short colour palette as an sp theme
+* PR #125: ✨ Import a short colour palette as an sp theme
 :PROPERTIES:
 :PR_NUMBER: 125
 :URL: https://github.com/siainbuletin/dotfiles/pull/125

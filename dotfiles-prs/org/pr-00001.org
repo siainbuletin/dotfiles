@@ -1,4 +1,4 @@
-* PR #1: emacs-modular: define sp-frame-recenter so emacsclient frames stay open
+* PR #1: 🐛 emacs-modular: define sp-frame-recenter so emacsclient frames stay open
 :PROPERTIES:
 :PR_NUMBER: 1
 :URL: https://github.com/siainbuletin/dotfiles/pull/1

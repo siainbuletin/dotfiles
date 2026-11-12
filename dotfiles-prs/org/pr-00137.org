@@ -1,4 +1,4 @@
-* PR #137: Rename sp-mini-frame to sp-posframe
+* PR #137: 🔧 Rename sp-mini-frame to sp-posframe
 :PROPERTIES:
 :PR_NUMBER: 137
 :URL: https://github.com/siainbuletin/dotfiles/pull/137

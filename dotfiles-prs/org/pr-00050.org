@@ -1,4 +1,4 @@
-* PR #50: Normalise vault Tasks checkboxes and TODO keywords (preview first)
+* PR #50: ✨ Normalise vault Tasks checkboxes and TODO keywords (preview first)
 :PROPERTIES:
 :PR_NUMBER: 50
 :URL: https://github.com/siainbuletin/dotfiles/pull/50

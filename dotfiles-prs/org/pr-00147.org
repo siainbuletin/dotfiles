@@ -1,4 +1,4 @@
-* PR #147: Size the dashboard box text through fontaine-faces
+* PR #147: ✨ Size the dashboard box text through fontaine-faces
 :PROPERTIES:
 :PR_NUMBER: 147
 :URL: https://github.com/siainbuletin/dotfiles/pull/147

@@ -1,4 +1,4 @@
-* PR #164: Show links in query table cells by their description
+* PR #164: ✨ Show links in query table cells by their description
 :PROPERTIES:
 :PR_NUMBER: 164
 :URL: https://github.com/siainbuletin/dotfiles/pull/164

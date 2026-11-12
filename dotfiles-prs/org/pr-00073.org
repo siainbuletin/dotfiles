@@ -1,4 +1,4 @@
-* PR #73: Rename sp-vulpea-table to sp-collection-query-tables
+* PR #73: 🔧 Rename sp-vulpea-table to sp-collection-query-tables
 :PROPERTIES:
 :PR_NUMBER: 73
 :URL: https://github.com/siainbuletin/dotfiles/pull/73

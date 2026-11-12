@@ -1,4 +1,4 @@
-* PR #78: Put the dashboard banner, title and boxes in one lane
+* PR #78: ✨ Put the dashboard banner, title and boxes in one lane
 :PROPERTIES:
 :PR_NUMBER: 78
 :URL: https://github.com/siainbuletin/dotfiles/pull/78

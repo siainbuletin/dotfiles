@@ -1,4 +1,4 @@
-* PR #149: Fix org-clock-in "Wrong number of arguments" in the modeline clock
+* PR #149: 🐛 Fix org-clock-in "Wrong number of arguments" in the modeline clock
 :PROPERTIES:
 :PR_NUMBER: 149
 :URL: https://github.com/siainbuletin/dotfiles/pull/149

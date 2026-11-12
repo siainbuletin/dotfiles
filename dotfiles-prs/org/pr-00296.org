@@ -1,4 +1,4 @@
-* PR #296: Super prefix swap on Linux/Windows; i3 and sway stop using Super
+* PR #296: 🔧 Super prefix swap on Linux/Windows; i3 and sway stop using Super
 :PROPERTIES:
 :PR_NUMBER: 296
 :URL: https://github.com/siainbuletin/dotfiles/pull/296

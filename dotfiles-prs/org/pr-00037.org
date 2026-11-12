@@ -1,4 +1,4 @@
-* PR #37: Serve the relationship graph live on localhost
+* PR #37: ✨ Serve the relationship graph live on localhost
 :PROPERTIES:
 :PR_NUMBER: 37
 :URL: https://github.com/siainbuletin/dotfiles/pull/37

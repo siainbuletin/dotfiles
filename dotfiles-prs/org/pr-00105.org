@@ -1,4 +1,4 @@
-* PR #105: Note-tag registry, tag lint and tag prompt for new notes
+* PR #105: 📝 Note-tag registry, tag lint and tag prompt for new notes
 :PROPERTIES:
 :PR_NUMBER: 105
 :URL: https://github.com/siainbuletin/dotfiles/pull/105

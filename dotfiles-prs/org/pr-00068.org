@@ -1,4 +1,4 @@
-* PR #68: Magit merge picker: mark two commits in a graph, preview or start a no-commit merge
+* PR #68: ✨ Magit merge picker: mark two commits in a graph, preview or start a no-commit merge
 :PROPERTIES:
 :PR_NUMBER: 68
 :URL: https://github.com/siainbuletin/dotfiles/pull/68

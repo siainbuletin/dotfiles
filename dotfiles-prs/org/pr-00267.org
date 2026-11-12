@@ -1,4 +1,4 @@
-* PR #267: Load sp-ai on demand with M-x sp-ai-load
+* PR #267: 🔧 Load sp-ai on demand with M-x sp-ai-load
 :PROPERTIES:
 :PR_NUMBER: 267
 :URL: https://github.com/siainbuletin/dotfiles/pull/267

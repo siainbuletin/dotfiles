@@ -1,4 +1,4 @@
-* PR #88: Replace cursor-intangible in the dashboard with keymap jumping
+* PR #88: 🐛 Replace cursor-intangible in the dashboard with keymap jumping
 :PROPERTIES:
 :PR_NUMBER: 88
 :URL: https://github.com/siainbuletin/dotfiles/pull/88

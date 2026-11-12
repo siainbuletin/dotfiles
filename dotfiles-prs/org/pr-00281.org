@@ -1,4 +1,4 @@
-* PR #281: Convert pub-editor like pub-author in sp-author-notes
+* PR #281: ✨ Convert pub-editor like pub-author in sp-author-notes
 :PROPERTIES:
 :PR_NUMBER: 281
 :URL: https://github.com/siainbuletin/dotfiles/pull/281

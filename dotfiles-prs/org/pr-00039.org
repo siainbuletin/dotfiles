@@ -1,4 +1,4 @@
-* PR #39: Show the relationship-annotator live view in an Emacs buffer (embr.el and xwidget-webkit)
+* PR #39: ✨ Show the relationship-annotator live view in an Emacs buffer (embr.el and xwidget-webkit)
 :PROPERTIES:
 :PR_NUMBER: 39
 :URL: https://github.com/siainbuletin/dotfiles/pull/39

@@ -1,4 +1,4 @@
-* PR #98: Fix the empty lambda-line mode line; add sp-modeline adapted from Prot's
+* PR #98: 🐛 Fix the empty lambda-line mode line; add sp-modeline adapted from Prot's
 :PROPERTIES:
 :PR_NUMBER: 98
 :URL: https://github.com/siainbuletin/dotfiles/pull/98

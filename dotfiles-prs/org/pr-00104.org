@@ -1,4 +1,4 @@
-* PR #104: Skip whitespace cleanup on idle auto-saves in Org buffers
+* PR #104: 🐛 Skip whitespace cleanup on idle auto-saves in Org buffers
 :PROPERTIES:
 :PR_NUMBER: 104
 :URL: https://github.com/siainbuletin/dotfiles/pull/104

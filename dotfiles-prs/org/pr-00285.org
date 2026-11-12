@@ -1,4 +1,4 @@
-* PR #285: Fix browse-url error when opening a URL in an Org file
+* PR #285: 🐛 Fix browse-url error when opening a URL in an Org file
 :PROPERTIES:
 :PR_NUMBER: 285
 :URL: https://github.com/siainbuletin/dotfiles/pull/285

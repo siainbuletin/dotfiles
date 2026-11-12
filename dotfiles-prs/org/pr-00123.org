@@ -1,4 +1,4 @@
-* PR #123: Remap the minibuffer's default face in the mini-frame
+* PR #123: 🐛 Remap the minibuffer's default face in the mini-frame
 :PROPERTIES:
 :PR_NUMBER: 123
 :URL: https://github.com/siainbuletin/dotfiles/pull/123

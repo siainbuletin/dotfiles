@@ -1,4 +1,4 @@
-* PR #362: Litnote meta: fill and update pub-pages from BibTeX pages
+* PR #362: ✨ Litnote meta: fill and update pub-pages from BibTeX pages
 :PROPERTIES:
 :PR_NUMBER: 362
 :URL: https://github.com/siainbuletin/dotfiles/pull/362

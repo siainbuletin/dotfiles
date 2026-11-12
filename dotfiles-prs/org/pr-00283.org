@@ -1,4 +1,4 @@
-* PR #283: Remove Python and Evil; keymap design: GUI only, C-z leader
+* PR #283: 🔥 Remove Python and Evil; keymap design: GUI only, C-z leader
 :PROPERTIES:
 :PR_NUMBER: 283
 :URL: https://github.com/siainbuletin/dotfiles/pull/283

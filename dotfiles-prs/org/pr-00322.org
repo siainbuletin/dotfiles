@@ -1,4 +1,4 @@
-* PR #322: Add Caps+Ctrl+hjkl to stack windows in AeroSpace
+* PR #322: ✨ Add Caps+Ctrl+hjkl to stack windows in AeroSpace
 :PROPERTIES:
 :PR_NUMBER: 322
 :URL: https://github.com/siainbuletin/dotfiles/pull/322

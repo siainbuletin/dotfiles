@@ -1,4 +1,4 @@
-* PR #169: Keep exc column widths and word wrap in saved query table views
+* PR #169: 🐛 Keep exc column widths and word wrap in saved query table views
 :PROPERTIES:
 :PR_NUMBER: 169
 :URL: https://github.com/siainbuletin/dotfiles/pull/169

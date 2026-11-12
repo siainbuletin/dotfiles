@@ -1,4 +1,4 @@
-* PR #47: Design doc for a projects sidebar
+* PR #47: 📝 Design doc for a projects sidebar
 :PROPERTIES:
 :PR_NUMBER: 47
 :URL: https://github.com/siainbuletin/dotfiles/pull/47

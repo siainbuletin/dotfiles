@@ -1,4 +1,4 @@
-* PR #321: Remove consult-notes
+* PR #321: 🔥 Remove consult-notes
 :PROPERTIES:
 :PR_NUMBER: 321
 :URL: https://github.com/siainbuletin/dotfiles/pull/321

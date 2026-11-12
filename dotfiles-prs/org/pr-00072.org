@@ -1,4 +1,4 @@
-* PR #72: Gather the Vulpea modules into libraries/modules/vulpea/ with one doc
+* PR #72: 🔧 Gather the Vulpea modules into libraries/modules/vulpea/ with one doc
 :PROPERTIES:
 :PR_NUMBER: 72
 :URL: https://github.com/siainbuletin/dotfiles/pull/72

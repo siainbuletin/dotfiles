@@ -1,4 +1,4 @@
-* PR #165: Move the query table views file under sp-etc-dir
+* PR #165: 🔧 Move the query table views file under sp-etc-dir
 :PROPERTIES:
 :PR_NUMBER: 165
 :URL: https://github.com/siainbuletin/dotfiles/pull/165

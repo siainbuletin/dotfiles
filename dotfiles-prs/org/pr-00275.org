@@ -1,4 +1,4 @@
-* PR #275: Make the Magit workflow fit Stow: rely on vc-follow-symlinks, drop yadm leftovers
+* PR #275: 🔧 Make the Magit workflow fit Stow: rely on vc-follow-symlinks, drop yadm leftovers
 :PROPERTIES:
 :PR_NUMBER: 275
 :URL: https://github.com/siainbuletin/dotfiles/pull/275

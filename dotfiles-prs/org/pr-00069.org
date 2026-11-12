@@ -1,4 +1,4 @@
-* PR #69: Fix startup errors: missing :ensure, sp-path in :load-path, which-key order
+* PR #69: 🐛 Fix startup errors: missing :ensure, sp-path in :load-path, which-key order
 :PROPERTIES:
 :PR_NUMBER: 69
 :URL: https://github.com/siainbuletin/dotfiles/pull/69

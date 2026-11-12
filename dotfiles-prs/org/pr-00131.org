@@ -1,4 +1,4 @@
-* PR #131: Add sp-quick-capture: Things-style quick entry into inbox.org
+* PR #131: ✨ Add sp-quick-capture: Things-style quick entry into inbox.org
 :PROPERTIES:
 :PR_NUMBER: 131
 :URL: https://github.com/siainbuletin/dotfiles/pull/131

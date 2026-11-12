@@ -1,4 +1,4 @@
-* PR #162: Fix citar "No bibliography set": sp-bibliography-dir path
+* PR #162: 🐛 Fix citar "No bibliography set": sp-bibliography-dir path
 :PROPERTIES:
 :PR_NUMBER: 162
 :URL: https://github.com/siainbuletin/dotfiles/pull/162

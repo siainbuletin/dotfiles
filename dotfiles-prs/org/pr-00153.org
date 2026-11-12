@@ -1,4 +1,4 @@
-* PR #153: local small edits
+* PR #153: 🔧 local small edits
 :PROPERTIES:
 :PR_NUMBER: 153
 :URL: https://github.com/siainbuletin/dotfiles/pull/153

@@ -1,4 +1,4 @@
-* PR #6: Move the tangling how-to into README.org and add a module tree
+* PR #6: 📝 Move the tangling how-to into README.org and add a module tree
 :PROPERTIES:
 :PR_NUMBER: 6
 :URL: https://github.com/siainbuletin/dotfiles/pull/6

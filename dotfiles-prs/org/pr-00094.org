@@ -1,4 +1,4 @@
-* PR #94: Lay the dashboard out in two columns with a scalable SVG lambda
+* PR #94: ✨ Lay the dashboard out in two columns with a scalable SVG lambda
 :PROPERTIES:
 :PR_NUMBER: 94
 :URL: https://github.com/siainbuletin/dotfiles/pull/94

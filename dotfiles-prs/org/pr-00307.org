@@ -1,4 +1,4 @@
-* PR #307: Convert the Stow migration README to Org
+* PR #307: 📝 Convert the Stow migration README to Org
 :PROPERTIES:
 :PR_NUMBER: 307
 :URL: https://github.com/siainbuletin/dotfiles/pull/307

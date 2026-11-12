@@ -1,4 +1,4 @@
-* PR #127: Add sp-copy-last-message to sp-helper-funct
+* PR #127: ✨ Add sp-copy-last-message to sp-helper-funct
 :PROPERTIES:
 :PR_NUMBER: 127
 :URL: https://github.com/siainbuletin/dotfiles/pull/127

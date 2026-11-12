@@ -1,4 +1,4 @@
-* PR #142: Select the best match when switching buffers
+* PR #142: ✨ Select the best match when switching buffers
 :PROPERTIES:
 :PR_NUMBER: 142
 :URL: https://github.com/siainbuletin/dotfiles/pull/142

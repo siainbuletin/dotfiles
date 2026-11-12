@@ -1,4 +1,4 @@
-* PR #117: Remove minor-mode count, lay out the mode line with mode-line-maker, add clocked-task widget
+* PR #117: 🔥 Remove minor-mode count, lay out the mode line with mode-line-maker, add clocked-task widget
 :PROPERTIES:
 :PR_NUMBER: 117
 :URL: https://github.com/siainbuletin/dotfiles/pull/117

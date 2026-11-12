@@ -1,4 +1,4 @@
-* PR #84: docs: match late-module list in load-order.org to sp-late-modules
+* PR #84: 📝 docs: match late-module list in load-order.org to sp-late-modules
 :PROPERTIES:
 :PR_NUMBER: 84
 :URL: https://github.com/siainbuletin/dotfiles/pull/84

@@ -1,4 +1,4 @@
-* PR #53: File PR #30 under its merge date in CHANGELOG.org
+* PR #53: 📝 File PR #30 under its merge date in CHANGELOG.org
 :PROPERTIES:
 :PR_NUMBER: 53
 :URL: https://github.com/siainbuletin/dotfiles/pull/53

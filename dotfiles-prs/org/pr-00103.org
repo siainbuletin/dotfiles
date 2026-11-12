@@ -1,4 +1,4 @@
-* PR #103: Larger dashboard box titles, themed TODO colours, org-other-agenda
+* PR #103: ✨ Larger dashboard box titles, themed TODO colours, org-other-agenda
 :PROPERTIES:
 :PR_NUMBER: 103
 :URL: https://github.com/siainbuletin/dotfiles/pull/103

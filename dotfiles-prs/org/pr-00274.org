@@ -1,4 +1,4 @@
-* PR #274: Reorganise into GNU Stow packages (one per tool)
+* PR #274: 🔧 Reorganise into GNU Stow packages (one per tool)
 :PROPERTIES:
 :PR_NUMBER: 274
 :URL: https://github.com/siainbuletin/dotfiles/pull/274

@@ -1,4 +1,4 @@
-* PR #38: Fix clicking a box in the relationship-annotator graph
+* PR #38: 🐛 Fix clicking a box in the relationship-annotator graph
 :PROPERTIES:
 :PR_NUMBER: 38
 :URL: https://github.com/siainbuletin/dotfiles/pull/38

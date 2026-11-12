@@ -1,4 +1,4 @@
-* PR #143: Rename sp-tag-emoji to sp-org-tag-groups and load it once, late
+* PR #143: 🔧 Rename sp-tag-emoji to sp-org-tag-groups and load it once, late
 :PROPERTIES:
 :PR_NUMBER: 143
 :URL: https://github.com/siainbuletin/dotfiles/pull/143

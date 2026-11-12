@@ -1,4 +1,4 @@
-* PR #331: Sort :pages by its first number and drop the :page column
+* PR #331: 🔧 Sort :pages by its first number and drop the :page column
 :PROPERTIES:
 :PR_NUMBER: 331
 :URL: https://github.com/siainbuletin/dotfiles/pull/331

@@ -1,4 +1,4 @@
-* PR #144: Posframe: fixed width of 75% of the frame
+* PR #144: ✨ Posframe: fixed width of 75% of the frame
 :PROPERTIES:
 :PR_NUMBER: 144
 :URL: https://github.com/siainbuletin/dotfiles/pull/144

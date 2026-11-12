@@ -1,4 +1,4 @@
-* PR #93: Merge sp-paths into sp-globals and move my main settings there
+* PR #93: 🔧 Merge sp-paths into sp-globals and move my main settings there
 :PROPERTIES:
 :PR_NUMBER: 93
 :URL: https://github.com/siainbuletin/dotfiles/pull/93

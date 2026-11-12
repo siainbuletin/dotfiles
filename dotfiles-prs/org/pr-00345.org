@@ -1,4 +1,4 @@
-* PR #345: Add BibTeX and DEVONthink page columns to the book section table
+* PR #345: ✨ Add BibTeX and DEVONthink page columns to the book section table
 :PROPERTIES:
 :PR_NUMBER: 345
 :URL: https://github.com/siainbuletin/dotfiles/pull/345

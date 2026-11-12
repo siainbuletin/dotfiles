@@ -1,4 +1,4 @@
-* PR #57: Combine the four graph modules into sp-graphs
+* PR #57: ✨ Combine the four graph modules into sp-graphs
 :PROPERTIES:
 :PR_NUMBER: 57
 :URL: https://github.com/siainbuletin/dotfiles/pull/57

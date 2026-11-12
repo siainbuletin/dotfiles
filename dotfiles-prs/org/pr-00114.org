@@ -1,4 +1,4 @@
-* PR #114: Take nano-modeline's header blocks, divider and M-x frame for the modelines
+* PR #114: ✨ Take nano-modeline's header blocks, divider and M-x frame for the modelines
 :PROPERTIES:
 :PR_NUMBER: 114
 :URL: https://github.com/siainbuletin/dotfiles/pull/114

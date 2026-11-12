@@ -1,4 +1,4 @@
-* PR #17: Tint boxes by file tag and recentre the browser graph on click
+* PR #17: ✨ Tint boxes by file tag and recentre the browser graph on click
 :PROPERTIES:
 :PR_NUMBER: 17
 :URL: https://github.com/siainbuletin/dotfiles/pull/17

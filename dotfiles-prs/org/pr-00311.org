@@ -1,4 +1,4 @@
-* PR #311: Name lint commands -dryrun and -convert (ADR 0025)
+* PR #311: 🔧 Name lint commands -dryrun and -convert (ADR 0025)
 :PROPERTIES:
 :PR_NUMBER: 311
 :URL: https://github.com/siainbuletin/dotfiles/pull/311

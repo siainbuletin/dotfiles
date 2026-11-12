@@ -1,4 +1,4 @@
-* PR #139: Keep the current buffer when a theme is loaded
+* PR #139: 🐛 Keep the current buffer when a theme is loaded
 :PROPERTIES:
 :PR_NUMBER: 139
 :URL: https://github.com/siainbuletin/dotfiles/pull/139

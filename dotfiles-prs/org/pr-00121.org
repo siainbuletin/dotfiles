@@ -1,4 +1,4 @@
-* PR #121: Fix invisible M-x text in the mini-frame
+* PR #121: 🐛 Fix invisible M-x text in the mini-frame
 :PROPERTIES:
 :PR_NUMBER: 121
 :URL: https://github.com/siainbuletin/dotfiles/pull/121

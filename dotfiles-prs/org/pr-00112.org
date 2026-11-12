@@ -1,4 +1,4 @@
-* PR #112: Turn off nerd-icons-dired in Dirvish buffers
+* PR #112: 🐛 Turn off nerd-icons-dired in Dirvish buffers
 :PROPERTIES:
 :PR_NUMBER: 112
 :URL: https://github.com/siainbuletin/dotfiles/pull/112

@@ -1,4 +1,4 @@
-* PR #309: Hammerspoon: open the AeroSpace layer when Shift is held first
+* PR #309: 🐛 Hammerspoon: open the AeroSpace layer when Shift is held first
 :PROPERTIES:
 :PR_NUMBER: 309
 :URL: https://github.com/siainbuletin/dotfiles/pull/309

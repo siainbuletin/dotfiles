@@ -1,4 +1,4 @@
-* PR #71: Combine the academic module docs into one sp-academic.org
+* PR #71: 📝 Combine the academic module docs into one sp-academic.org
 :PROPERTIES:
 :PR_NUMBER: 71
 :URL: https://github.com/siainbuletin/dotfiles/pull/71

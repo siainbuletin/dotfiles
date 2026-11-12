@@ -1,4 +1,4 @@
-* PR #64: Rename sp-splash to sp-dashboard; one Faces heading in its doc
+* PR #64: 🔧 Rename sp-splash to sp-dashboard; one Faces heading in its doc
 :PROPERTIES:
 :PR_NUMBER: 64
 :URL: https://github.com/siainbuletin/dotfiles/pull/64

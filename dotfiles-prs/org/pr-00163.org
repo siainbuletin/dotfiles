@@ -1,4 +1,4 @@
-* PR #163: Bring back the fixed 75% width of the posframe
+* PR #163: 🐛 Bring back the fixed 75% width of the posframe
 :PROPERTIES:
 :PR_NUMBER: 163
 :URL: https://github.com/siainbuletin/dotfiles/pull/163

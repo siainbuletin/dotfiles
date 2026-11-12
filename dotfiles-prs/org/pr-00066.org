@@ -1,4 +1,4 @@
-* PR #66: Move the non-module docs into docs/architecture/
+* PR #66: 📝 Move the non-module docs into docs/architecture/
 :PROPERTIES:
 :PR_NUMBER: 66
 :URL: https://github.com/siainbuletin/dotfiles/pull/66

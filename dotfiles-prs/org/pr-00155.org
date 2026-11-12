@@ -1,4 +1,4 @@
-* PR #155: Add completion for help, info and man links
+* PR #155: ✨ Add completion for help, info and man links
 :PROPERTIES:
 :PR_NUMBER: 155
 :URL: https://github.com/siainbuletin/dotfiles/pull/155

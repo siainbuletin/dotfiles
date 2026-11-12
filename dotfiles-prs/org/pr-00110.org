@@ -1,4 +1,4 @@
-* PR #110: Colour tag chips by family in the note selectors
+* PR #110: ✨ Colour tag chips by family in the note selectors
 :PROPERTIES:
 :PR_NUMBER: 110
 :URL: https://github.com/siainbuletin/dotfiles/pull/110

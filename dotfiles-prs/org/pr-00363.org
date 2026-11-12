@@ -1,4 +1,4 @@
-* PR #363: Let read-priority and relevance-factor be left empty
+* PR #363: ✨ Let read-priority and relevance-factor be left empty
 :PROPERTIES:
 :PR_NUMBER: 363
 :URL: https://github.com/siainbuletin/dotfiles/pull/363

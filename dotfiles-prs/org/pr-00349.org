@@ -1,4 +1,4 @@
-* PR #349: gh-pr-pdf readme: break up into bullet-points
+* PR #349: 📝 gh-pr-pdf readme: break up into bullet-points
 :PROPERTIES:
 :PR_NUMBER: 349
 :URL: https://github.com/siainbuletin/dotfiles/pull/349

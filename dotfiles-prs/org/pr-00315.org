@@ -1,4 +1,4 @@
-* PR #315: Add sp-notes-create, sp-notes-open and :CREATED: on new notes
+* PR #315: ✨ Add sp-notes-create, sp-notes-open and :CREATED: on new notes
 :PROPERTIES:
 :PR_NUMBER: 315
 :URL: https://github.com/siainbuletin/dotfiles/pull/315

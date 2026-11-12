@@ -1,4 +1,4 @@
-* PR #126: Put PR numbers first in the CHANGELOG and file merged PRs in their feature sets
+* PR #126: 📝 Put PR numbers first in the CHANGELOG and file merged PRs in their feature sets
 :PROPERTIES:
 :PR_NUMBER: 126
 :URL: https://github.com/siainbuletin/dotfiles/pull/126

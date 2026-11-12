@@ -1,4 +1,4 @@
-* PR #15: Show file tags and wrap titles in the hierarchy browser and SVG views
+* PR #15: ✨ Show file tags and wrap titles in the hierarchy browser and SVG views
 :PROPERTIES:
 :PR_NUMBER: 15
 :URL: https://github.com/siainbuletin/dotfiles/pull/15

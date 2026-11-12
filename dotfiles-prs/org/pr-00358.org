@@ -1,4 +1,4 @@
-* PR #358: BibTeX lint: apply field order and indentation to the whole file, no batches
+* PR #358: ✨ BibTeX lint: apply field order and indentation to the whole file, no batches
 :PROPERTIES:
 :PR_NUMBER: 358
 :URL: https://github.com/siainbuletin/dotfiles/pull/358

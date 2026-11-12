@@ -1,4 +1,4 @@
-* PR #196: Stable and sandbox Emacs, and a CI check of the tangle
+* PR #196: 🔧 Stable and sandbox Emacs, and a CI check of the tangle
 :PROPERTIES:
 :PR_NUMBER: 196
 :URL: https://github.com/siainbuletin/dotfiles/pull/196

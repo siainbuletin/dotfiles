@@ -1,4 +1,4 @@
-* PR #334: Infer litnote titles from BibTeX (sp-litnotes-titles dryrun/convert)
+* PR #334: ✨ Infer litnote titles from BibTeX (sp-litnotes-titles dryrun/convert)
 :PROPERTIES:
 :PR_NUMBER: 334
 :URL: https://github.com/siainbuletin/dotfiles/pull/334

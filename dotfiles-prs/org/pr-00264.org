@@ -1,4 +1,4 @@
-* PR #264: Remove svg-tag-mode and the Org heading SVG tags
+* PR #264: 🔥 Remove svg-tag-mode and the Org heading SVG tags
 :PROPERTIES:
 :PR_NUMBER: 264
 :URL: https://github.com/siainbuletin/dotfiles/pull/264

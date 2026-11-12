@@ -1,4 +1,4 @@
-* PR #54: Late modules: sp- names, sp-ai at startup with vulpea-mcp and org-mcp, docs
+* PR #54: 🔧 Late modules: sp- names, sp-ai at startup with vulpea-mcp and org-mcp, docs
 :PROPERTIES:
 :PR_NUMBER: 54
 :URL: https://github.com/siainbuletin/dotfiles/pull/54

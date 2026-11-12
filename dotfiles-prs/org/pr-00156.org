@@ -1,4 +1,4 @@
-* PR #156: Reduce sp-posframe to a centred frame with padding
+* PR #156: ✨ Reduce sp-posframe to a centred frame with padding
 :PROPERTIES:
 :PR_NUMBER: 156
 :URL: https://github.com/siainbuletin/dotfiles/pull/156

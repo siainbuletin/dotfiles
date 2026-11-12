@@ -1,4 +1,4 @@
-* PR #355: Make the crossref parent note in sp-litnotes-meta-fill when missing
+* PR #355: ✨ Make the crossref parent note in sp-litnotes-meta-fill when missing
 :PROPERTIES:
 :PR_NUMBER: 355
 :URL: https://github.com/siainbuletin/dotfiles/pull/355

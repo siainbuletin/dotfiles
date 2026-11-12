@@ -1,4 +1,4 @@
-* PR #158: Speed up sp-insert-note with colored tags
+* PR #158: ✨ Speed up sp-insert-note with colored tags
 :PROPERTIES:
 :PR_NUMBER: 158
 :URL: https://github.com/siainbuletin/dotfiles/pull/158

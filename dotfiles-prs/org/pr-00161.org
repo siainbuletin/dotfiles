@@ -1,4 +1,4 @@
-* PR #161: Size the minibuffer text by fontaine and the calling buffer's text scale
+* PR #161: ✨ Size the minibuffer text by fontaine and the calling buffer's text scale
 :PROPERTIES:
 :PR_NUMBER: 161
 :URL: https://github.com/siainbuletin/dotfiles/pull/161

@@ -1,4 +1,4 @@
-* PR #101: Fix sp-env void-function exec-path-from-shell-copy-env
+* PR #101: 🐛 Fix sp-env void-function exec-path-from-shell-copy-env
 :PROPERTIES:
 :PR_NUMBER: 101
 :URL: https://github.com/siainbuletin/dotfiles/pull/101

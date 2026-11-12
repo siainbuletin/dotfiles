@@ -1,4 +1,4 @@
-* PR #318: Remove leftover Denote and org-node pieces
+* PR #318: 🔥 Remove leftover Denote and org-node pieces
 :PROPERTIES:
 :PR_NUMBER: 318
 :URL: https://github.com/siainbuletin/dotfiles/pull/318

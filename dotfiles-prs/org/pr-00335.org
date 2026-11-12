@@ -1,4 +1,4 @@
-* PR #335: Backfill all children of a book at once and show them in its table
+* PR #335: ✨ Backfill all children of a book at once and show them in its table
 :PROPERTIES:
 :PR_NUMBER: 335
 :URL: https://github.com/siainbuletin/dotfiles/pull/335

@@ -1,4 +1,4 @@
-* PR #42: Add run-emacs-modular skill for headless module checks
+* PR #42: 🔧 Add run-emacs-modular skill for headless module checks
 :PROPERTIES:
 :PR_NUMBER: 42
 :URL: https://github.com/siainbuletin/dotfiles/pull/42

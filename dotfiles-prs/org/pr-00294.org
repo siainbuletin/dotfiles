@@ -1,4 +1,4 @@
-* PR #294: Drop CUA: one layer of clipboard and undo keys (Command on Mac, Ctrl elsewhere)
+* PR #294: 🔧 Drop CUA: one layer of clipboard and undo keys (Command on Mac, Ctrl elsewhere)
 :PROPERTIES:
 :PR_NUMBER: 294
 :URL: https://github.com/siainbuletin/dotfiles/pull/294

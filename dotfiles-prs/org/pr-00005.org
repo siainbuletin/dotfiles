@@ -1,4 +1,4 @@
-* PR #5: Remove pulse-line advice that broke C-x o
+* PR #5: 🐛 Remove pulse-line advice that broke C-x o
 :PROPERTIES:
 :PR_NUMBER: 5
 :URL: https://github.com/siainbuletin/dotfiles/pull/5

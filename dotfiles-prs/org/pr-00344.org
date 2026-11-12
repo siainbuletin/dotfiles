@@ -1,4 +1,4 @@
-* PR #344: Fix sp-academic load error: move book table key to C-c w B
+* PR #344: 🐛 Fix sp-academic load error: move book table key to C-c w B
 :PROPERTIES:
 :PR_NUMBER: 344
 :URL: https://github.com/siainbuletin/dotfiles/pull/344

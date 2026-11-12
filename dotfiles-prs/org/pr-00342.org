@@ -1,4 +1,4 @@
-* PR #342: Backfilled litnotes: IDs, CREATED, BibTeX metadata and a visible table
+* PR #342: 🐛 Backfilled litnotes: IDs, CREATED, BibTeX metadata and a visible table
 :PROPERTIES:
 :PR_NUMBER: 342
 :URL: https://github.com/siainbuletin/dotfiles/pull/342

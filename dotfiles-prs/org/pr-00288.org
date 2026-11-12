@@ -1,4 +1,4 @@
-* PR #288: Move the macOS review guide from the README to docs/architecture
+* PR #288: 📝 Move the macOS review guide from the README to docs/architecture
 :PROPERTIES:
 :PR_NUMBER: 288
 :URL: https://github.com/siainbuletin/dotfiles/pull/288

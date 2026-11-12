@@ -1,4 +1,4 @@
-* PR #305: Hammerspoon: load AeroSpace keys first, guard stackline
+* PR #305: 🐛 Hammerspoon: load AeroSpace keys first, guard stackline
 :PROPERTIES:
 :PR_NUMBER: 305
 :URL: https://github.com/siainbuletin/dotfiles/pull/305

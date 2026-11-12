@@ -1,4 +1,4 @@
-* PR #18: Place browser boxes with fCoSE so relations can point in a direction
+* PR #18: ✨ Place browser boxes with fCoSE so relations can point in a direction
 :PROPERTIES:
 :PR_NUMBER: 18
 :URL: https://github.com/siainbuletin/dotfiles/pull/18

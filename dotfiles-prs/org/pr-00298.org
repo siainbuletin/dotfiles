@@ -1,4 +1,4 @@
-* PR #298: Draw dividers between rows of org-table-widget tables
+* PR #298: ✨ Draw dividers between rows of org-table-widget tables
 :PROPERTIES:
 :PR_NUMBER: 298
 :URL: https://github.com/siainbuletin/dotfiles/pull/298

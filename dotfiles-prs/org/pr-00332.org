@@ -1,4 +1,4 @@
-* PR #332: Litnote read fields, status report and chapter backfill
+* PR #332: ✨ Litnote read fields, status report and chapter backfill
 :PROPERTIES:
 :PR_NUMBER: 332
 :URL: https://github.com/siainbuletin/dotfiles/pull/332

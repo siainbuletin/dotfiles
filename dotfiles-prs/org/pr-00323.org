@@ -1,4 +1,4 @@
-* PR #323: Migrate the AeroSpace config to config-version 2
+* PR #323: 🔧 Migrate the AeroSpace config to config-version 2
 :PROPERTIES:
 :PR_NUMBER: 323
 :URL: https://github.com/siainbuletin/dotfiles/pull/323

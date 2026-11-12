@@ -1,4 +1,4 @@
-* PR #9: Move sp-org-issues to libraries/modules/custom/
+* PR #9: 🔧 Move sp-org-issues to libraries/modules/custom/
 :PROPERTIES:
 :PR_NUMBER: 9
 :URL: https://github.com/siainbuletin/dotfiles/pull/9

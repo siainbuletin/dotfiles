@@ -1,4 +1,4 @@
-* PR #265: Bound sp-tab-inbox ripgrep; stop reading the macOS Focus file by default
+* PR #265: ⚡ Bound sp-tab-inbox ripgrep; stop reading the macOS Focus file by default
 :PROPERTIES:
 :PR_NUMBER: 265
 :URL: https://github.com/siainbuletin/dotfiles/pull/265

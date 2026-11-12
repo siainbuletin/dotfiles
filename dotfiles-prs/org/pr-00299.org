@@ -1,4 +1,4 @@
-* PR #299: Bind M-o n n to org-id-get-create
+* PR #299: ✨ Bind M-o n n to org-id-get-create
 :PROPERTIES:
 :PR_NUMBER: 299
 :URL: https://github.com/siainbuletin/dotfiles/pull/299

@@ -1,4 +1,4 @@
-* PR #241: Fix citar-notes-paths error on citation insert
+* PR #241: 🐛 Fix citar-notes-paths error on citation insert
 :PROPERTIES:
 :PR_NUMBER: 241
 :URL: https://github.com/siainbuletin/dotfiles/pull/241

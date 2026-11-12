@@ -1,4 +1,4 @@
-* PR #151: Fix citar "No template for note" error
+* PR #151: 🐛 Fix citar "No template for note" error
 :PROPERTIES:
 :PR_NUMBER: 151
 :URL: https://github.com/siainbuletin/dotfiles/pull/151

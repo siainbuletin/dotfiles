@@ -1,4 +1,4 @@
-* PR #4: Add sp-treemacs: a file tree for the emacs-modular folder on <f9>
+* PR #4: ✨ Add sp-treemacs: a file tree for the emacs-modular folder on <f9>
 :PROPERTIES:
 :PR_NUMBER: 4
 :URL: https://github.com/siainbuletin/dotfiles/pull/4

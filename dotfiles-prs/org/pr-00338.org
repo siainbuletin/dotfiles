@@ -1,4 +1,4 @@
-* PR #338: Backfilled litnotes: plain title, no print_bibliography block
+* PR #338: 🐛 Backfilled litnotes: plain title, no print_bibliography block
 :PROPERTIES:
 :PR_NUMBER: 338
 :URL: https://github.com/siainbuletin/dotfiles/pull/338

@@ -1,4 +1,4 @@
-* PR #124: Stop the slow start-up after deferring the vulpea scan
+* PR #124: 🐛 Stop the slow start-up after deferring the vulpea scan
 :PROPERTIES:
 :PR_NUMBER: 124
 :URL: https://github.com/siainbuletin/dotfiles/pull/124

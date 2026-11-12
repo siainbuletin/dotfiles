@@ -1,4 +1,4 @@
-* PR #65: Remove initback
+* PR #65: 🔥 Remove initback
 :PROPERTIES:
 :PR_NUMBER: 65
 :URL: https://github.com/siainbuletin/dotfiles/pull/65

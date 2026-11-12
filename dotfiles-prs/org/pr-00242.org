@@ -1,4 +1,4 @@
-* PR #242: Fix vulpea-ui sync error: nil note in backlinks filter
+* PR #242: 🐛 Fix vulpea-ui sync error: nil note in backlinks filter
 :PROPERTIES:
 :PR_NUMBER: 242
 :URL: https://github.com/siainbuletin/dotfiles/pull/242

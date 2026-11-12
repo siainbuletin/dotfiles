@@ -1,4 +1,4 @@
-* PR #95: Pick Alacritty's shell per OS; sketch cross-platform setup
+* PR #95: 🔧 Pick Alacritty's shell per OS; sketch cross-platform setup
 :PROPERTIES:
 :PR_NUMBER: 95
 :URL: https://github.com/siainbuletin/dotfiles/pull/95

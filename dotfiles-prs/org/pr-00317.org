@@ -1,4 +1,4 @@
-* PR #317: Remove Denote from sp-refile (split-out notes filed by tag)
+* PR #317: 🔥 Remove Denote from sp-refile (split-out notes filed by tag)
 :PROPERTIES:
 :PR_NUMBER: 317
 :URL: https://github.com/siainbuletin/dotfiles/pull/317

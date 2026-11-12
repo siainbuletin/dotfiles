@@ -1,4 +1,4 @@
-* PR #89: Vendor themes into libraries/themes and load them all with sp-load-theme
+* PR #89: ✨ Vendor themes into libraries/themes and load them all with sp-load-theme
 :PROPERTIES:
 :PR_NUMBER: 89
 :URL: https://github.com/siainbuletin/dotfiles/pull/89

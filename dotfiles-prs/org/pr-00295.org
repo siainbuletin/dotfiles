@@ -1,4 +1,4 @@
-* PR #295: Format "Changes by pull request" entries as nested bullets
+* PR #295: 🔧 Format "Changes by pull request" entries as nested bullets
 :PROPERTIES:
 :PR_NUMBER: 295
 :URL: https://github.com/siainbuletin/dotfiles/pull/295

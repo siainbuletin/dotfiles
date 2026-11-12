@@ -1,4 +1,4 @@
-* PR #320: Remove org-node-grep from sp-search and dg-use-denote
+* PR #320: 🔥 Remove org-node-grep from sp-search and dg-use-denote
 :PROPERTIES:
 :PR_NUMBER: 320
 :URL: https://github.com/siainbuletin/dotfiles/pull/320

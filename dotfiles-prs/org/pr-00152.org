@@ -1,4 +1,4 @@
-* PR #152: Simplify the nano-style M-x prompt to fix glitching text in the posframe
+* PR #152: 🐛 Simplify the nano-style M-x prompt to fix glitching text in the posframe
 :PROPERTIES:
 :PR_NUMBER: 152
 :URL: https://github.com/siainbuletin/dotfiles/pull/152

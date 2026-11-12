@@ -1,4 +1,4 @@
-* PR #99: Header line and mode line for lambda-line (with tag emoji, theme faces); Prot-style sp-prot-modeline
+* PR #99: ✨ Header line and mode line for lambda-line (with tag emoji, theme faces); Prot-style sp-prot-modeline
 :PROPERTIES:
 :PR_NUMBER: 99
 :URL: https://github.com/siainbuletin/dotfiles/pull/99

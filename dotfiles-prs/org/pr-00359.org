@@ -1,4 +1,4 @@
-* PR #359: BibTeX lint: drop author candidates for later and bring them back
+* PR #359: ✨ BibTeX lint: drop author candidates for later and bring them back
 :PROPERTIES:
 :PR_NUMBER: 359
 :URL: https://github.com/siainbuletin/dotfiles/pull/359
