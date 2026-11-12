@@ -238,13 +238,13 @@ type emoji, 1 after it, 4 for the year and 6 for the separators (two columns eac
 
 (defun sp-citations--frame-columns ()
   "Return the columns the `citar' candidates have, from the frame on the screen.
-It is `frame-width' of the selected frame (the parent when a child frame is selected),
-which Emacs counts in characters of the `default' face from the pixel width of the
-frame, less its borders.  While the posframe is on in a graphical frame it takes
+It is the text width of the selected frame (the parent when a child frame is selected)
+in pixels, divided by the pixel width of a character of the `default' face, so a change
+of font size shows at once, before the frame has been resized.  While the posframe is on in a graphical frame it takes
 `sp-posframe-width-fraction' of that, as `sp-posframe-get-size' does; otherwise the
 whole width."
   (let* ((frame (or (frame-parameter nil 'parent-frame) (selected-frame)))
-         (width (frame-width frame)))
+         (width (floor (frame-text-width frame) (frame-char-width frame))))
     (if (and (bound-and-true-p vertico-posframe-mode) (display-graphic-p frame)
              (boundp 'sp-posframe-width-fraction))
         (round (* sp-posframe-width-fraction width))
@@ -276,31 +276,54 @@ get 20 columns once the room is 110 columns or more."
                                      'face 'sp-citar-key)
                          (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
 
-(defvar sp-citations--applied-columns nil
-  "Columns the widths of `citar-templates' were last worked out for.")
+(defvar sp-citations--applied-state nil
+  "What the widths of `citar-templates' were last worked out for.
+A list of the columns, the width of a character, and the family and height of the
+`default' face: the emoji cells depend on the font as well as on the columns.")
+
+(defun sp-citations--repreformat ()
+  "Format the cached `citar' candidates again.
+`citar' keeps each candidate as a pre-formatted string, made when the bibliography is
+read or when the format string changes, and the emoji cells of the type column are in
+it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
+  (when (and (boundp 'citar-cache--bibliographies)
+             (fboundp 'citar-cache--preformat-bibliography))
+    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+             citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)
-  "Work the `citar' widths out for the frame as it is now, if the columns changed.
-With FORCE the widths are always worked out again.  The candidates of `citar' are
-cached, so `citar-refresh' is called when the templates change, and only then."
-  (let ((columns (or sp-citations-layout-columns (sp-citations--frame-columns))))
-    (when (or force (not (equal columns sp-citations--applied-columns)))
-      (setq sp-citations--applied-columns columns)
-      (setq citar-templates (append (sp-citations--layout-templates columns)
-                                    (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
-      (when (fboundp 'citar-refresh) (citar-refresh)))))
+  "Work the `citar' widths out for the frame and font as they are now, if they changed.
+With FORCE the widths are always worked out again.  `citar' formats the candidates
+again by itself when the templates change; when only the font changed (the emoji cells)
+the cached candidates are formatted again here."
+  (let* ((columns (or sp-citations-layout-columns (sp-citations--frame-columns)))
+         (state (list columns (frame-char-width)
+                      (face-attribute 'default :family nil t)
+                      (face-attribute 'default :height nil t))))
+    (when (or force (not (equal state sp-citations--applied-state)))
+      (setq sp-citations--applied-state state)
+      (clrhash sp-citations--cell-cache)
+      (let* ((templates (sp-citations--layout-templates columns))
+             (same (and (equal-including-properties (cdr (assq 'main templates))
+                                                    (cdr (assq 'main citar-templates)))
+                        (equal-including-properties (cdr (assq 'suffix templates))
+                                                    (cdr (assq 'suffix citar-templates))))))
+        (setq citar-templates (append templates
+                                      (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+        (when same (sp-citations--repreformat))))))
 
 (defun sp-citations--before-select (&rest _)
   "Advice before the commands that ask for a reference: fit the widths to the frame."
   (sp-citations--apply-layout))
 
 (defun sp-citations-fit-layout ()
-  "Work the `citar' column widths out again from the frame, and refresh the candidates.
-This is done on its own when the frame changed size; run it after changing the font
-size or `sp-posframe-width-fraction', which it does not notice."
+  "Work the `citar' column widths out again from the frame and the font.
+This is done on its own, before a command that asks for a reference, when the frame
+or the font changed; this command forces it, and the cached candidates are formatted
+again."
   (interactive)
-  (clrhash sp-citations--cell-cache)
-  (sp-citations--apply-layout t))
+  (sp-citations--apply-layout t)
+  (message "citar layout: %S columns" (car sp-citations--applied-state)))
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -338,8 +361,7 @@ size or `sp-posframe-width-fraction', which it does not notice."
   (sp-citations-setup-indicators)
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
-  (setq sp-citations--applied-columns (or sp-citations-layout-columns (sp-citations--frame-columns)))
-  (advice-add 'citar-select-ref :before #'sp-citations--before-select)
+    (advice-add 'citar-select-ref :before #'sp-citations--before-select)
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind

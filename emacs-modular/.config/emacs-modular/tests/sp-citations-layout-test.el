@@ -3,6 +3,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (defvar citar-templates nil)
+(defvar citar-cache--bibliographies nil)
 (defvar vertico-posframe-mode nil)
 (defvar sp-posframe-width-fraction 0.75)
 (defface sp-citar-key '((t)) "" :group 'sp)
@@ -15,7 +16,7 @@
         (while t
           (let ((form (read (current-buffer))))
             (when (and (memq (car-safe form) '(defcustom defconst defun defvar))
-                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|applied-columns\\)\\)"
+                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\)\\)"
                                        (symbol-name (cadr form))))
               (eval form t))))
       (end-of-file nil))))
@@ -74,36 +75,45 @@
   (cl-letf (((symbol-function 'display-graphic-p) (lambda (&rest _) nil)))
     (should (= (string-width (sp-citations--emoji-cell "A" 3)) 3))))
 
-;; The columns follow the frame.
+;; The columns follow the frame and the font.
 (ert-deftest sp-citations-columns-follow-the-frame ()
   (cl-letf (((symbol-function 'display-graphic-p) (lambda (&rest _) t))
             ((symbol-function 'frame-parameter) (lambda (&rest _) nil)))
-    (let ((vertico-posframe-mode t) (width 120))
-      (cl-letf (((symbol-function 'frame-width) (lambda (&rest _) width)))
+    (let ((vertico-posframe-mode t) (pixels 1080) (charw 9))
+      (cl-letf (((symbol-function 'frame-text-width) (lambda (&rest _) pixels))
+                ((symbol-function 'frame-char-width) (lambda (&rest _) charw)))
         (should (= (sp-citations--frame-columns) 90))
-        (setq width 200)
+        (setq pixels 1800)
         (should (= (sp-citations--frame-columns) 150))
+        (setq charw 12)           ; a larger font: fewer columns in the same pixels
+        (should (= (sp-citations--frame-columns) 112))
         (let ((vertico-posframe-mode nil))
-          (should (= (sp-citations--frame-columns) 200)))))))
+          (should (= (sp-citations--frame-columns) 150)))))))
 
-(ert-deftest sp-citations-apply-layout-only-when-the-columns-change ()
-  (let ((refreshed 0) (width 120) (sp-citations--applied-columns nil)
+(ert-deftest sp-citations-apply-layout-follows-frame-and-font ()
+  (let ((reformatted 0) (pixels 1080) (charw 9) (height 150) (sp-citations--applied-state nil)
         (citar-templates '((preview . "p") (main . "m") (suffix . "s")))
-        (vertico-posframe-mode nil))
+        (vertico-posframe-mode nil)
+        (citar-cache--bibliographies (make-hash-table :test 'equal)))
+    (puthash "a.bib" 'bib citar-cache--bibliographies)
     (cl-letf (((symbol-function 'display-graphic-p) (lambda (&rest _) nil))
               ((symbol-function 'frame-parameter) (lambda (&rest _) nil))
-              ((symbol-function 'frame-width) (lambda (&rest _) width))
-              ((symbol-function 'citar-refresh) (lambda () (cl-incf refreshed))))
-      (sp-citations--apply-layout)
-      (sp-citations--apply-layout)
-      (should (= refreshed 1))
+              ((symbol-function 'frame-text-width) (lambda (&rest _) pixels))
+              ((symbol-function 'frame-char-width) (lambda (&rest _) charw))
+              ((symbol-function 'face-attribute) (lambda (&rest _) height))
+              ((symbol-function 'citar-cache--preformat-bibliography) (lambda (_) (cl-incf reformatted))))
+      (sp-citations--apply-layout)           ; first time: templates differ, citar does the rest
+      (should (= reformatted 0))
+      (sp-citations--apply-layout)           ; nothing changed
+      (should (= reformatted 0))
       (let ((wide (cdr (assq 'main citar-templates))))
-        (setq width 240)
-        (sp-citations--apply-layout)
-        (should (= refreshed 2))
+        (setq pixels 2160)
+        (sp-citations--apply-layout)         ; new columns: templates change, citar reformats
+        (should (= reformatted 0))
         (should-not (equal wide (cdr (assq 'main citar-templates)))))
-      (should (assq 'preview citar-templates))
-      (sp-citations--apply-layout t)
-      (should (= refreshed 3)))))
+      (setq height 170)                      ; only the font changed: same columns, same templates
+      (sp-citations--apply-layout)
+      (should (= reformatted 1))             ; cached candidates are formatted again
+      (should (assq 'preview citar-templates)))))
 
 (provide 'sp-citations-layout-test)
