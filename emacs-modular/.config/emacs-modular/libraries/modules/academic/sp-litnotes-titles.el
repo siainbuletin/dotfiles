@@ -71,10 +71,10 @@ Those links are reported, not changed; =id:= links keep working."
   "With this many authors or more, the title lists the first two and `et al.'."
   :type 'integer)
 
-(defcustom sp-litnotes-titles-editor-suffix nil
+(defcustom sp-litnotes-titles-editor-suffix " (ed.)"
   "Text put after the names in the title when they are editors, or nil.
 The names come from `pub-editor' only when the note has no `pub-author'.
-For example \" (ed.)\" gives \"Smith (ed.) (2014) Title\"; nil gives
+\" (ed.)\" gives \"Smith (ed.) (2014) Title\"; nil gives
 \"Smith (2014) Title\", as for an author."
   :type '(choice (const :tag "No marker" nil) string))
 
@@ -254,7 +254,7 @@ Two authors are \"A and B\", three \"A, B and C\"; with
     (format "%s%s (%s) %s" authors
             (if (and sp-litnotes-titles--editors-p sp-litnotes-titles-editor-suffix)
                 sp-litnotes-titles-editor-suffix
-              " (ed.)")
+              "")
             year title)))
 
 ;;;; From BibTeX
