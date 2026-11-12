@@ -84,14 +84,11 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
   "The AppleScript that lists UUID, location and name of the records to browse."
   (format "tell application id \"DNtp\"
   set theRecords to search %s in root of database %s
-  set theUuids to uuid of every item of theRecords
-  set theNames to name of every item of theRecords
-  set theLocations to location of every item of theRecords
-  set AppleScript's text item delimiters to linefeed
   set theOut to {}
-  repeat with i from 1 to count of theUuids
-    set end of theOut to (item i of theUuids) & tab & (item i of theLocations) & tab & (item i of theNames)
+  repeat with r in theRecords
+    set end of theOut to (uuid of r as text) & tab & (location of r as text) & tab & (name of r as text)
   end repeat
+  set AppleScript's text item delimiters to linefeed
   return theOut as text
 end tell"
           (sp-reading--quote sp-devonthink-browse-query)
@@ -257,5 +254,5 @@ Use Embark on a candidate for the other actions."
 
 - See the testing steps in the pull request that added this file.
 - Unknown until tried:
-  - whether =location of every item= and =path of= work on a search result as written;
+  - whether =location of r= and =path of= work on a record as written (the script loops over the records: reading =uuid of every item= returned object references in =sp-reading=);
   - the time of the first listing of 15,000 records.
