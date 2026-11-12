@@ -55,6 +55,8 @@
 (require 'sp-cite-match)
 (require 'sp-reading)
 (require 'sp-devonthink)
+(require 'sp-devonthink-tags)
+(require 'sp-devonthink-browse)
 (require 'sp-see-also)
 
 (use-package asoc

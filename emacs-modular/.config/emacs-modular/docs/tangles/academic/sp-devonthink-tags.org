@@ -1,0 +1,274 @@
+#+TITLE: sp-devonthink-tags.el: read and set DEVONthink tags from Emacs
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-tags.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (section "Browsing the database and setting tags").
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-tags-test.el=; the AppleScript was not run (see the end of this file).
+
+* What it is for
+
+- Tags are read from and written to DEVONthink only, through its scripting interface.
+  - They are never copied into the litnote, so there is no second copy to drift.
+- Setting tags is:
+  - one prompt that completes from the database's existing tags and accepts new ones;
+  - applied to one record (the litnote's) or to many (the marked records of the browser).
+- A tag that does not exist yet is flagged =(new)= in a confirmation, so a typo does not create a stray tag unnoticed.
+- A one-off command splits the comma-joined tag of the =literature= database into separate tags, after a preview.
+
+* Pure helpers
+
+- =sp-devonthink--list-literal= turns a list of strings into an AppleScript list.
+- =sp-devonthink--merge-tags= computes the new tags of a record: =add= (default), =remove= or =set=.
+  - Tags compare without regard to case; the case of the tag already on the record wins.
+- =sp-devonthink--split-tag= splits a comma-joined tag into clean parts.
+- =sp-devonthink--new-tags= lists the tags that are not in the database yet.
+
+#+begin_src emacs-lisp
+;;; sp-devonthink-tags.el --- Read and set DEVONthink tags from Emacs -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Reads and sets the tags of DEVONthink records through `osascript', for one
+;; record or many, and splits the comma-joined tag of the literature database.
+;; macOS only.
+;; Literate source: docs/tangles/academic/sp-devonthink-tags.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'seq)
+(require 'sp-reading)
+(require 'sp-devonthink)
+
+(defvar sp-devonthink-tags--known nil
+  "Cache of the tags of the database, or nil before the first read.")
+
+(defun sp-devonthink--list-literal (strings)
+  "STRINGS as an AppleScript list literal."
+  (concat "{" (mapconcat #'sp-reading--quote strings ", ") "}"))
+
+(defun sp-devonthink--merge-tags (old tags mode)
+  "The tags of a record that has OLD, after applying TAGS in MODE.
+MODE is `add', `remove' or `set'."
+  (let ((has (lambda (tag list) (seq-find (lambda (x) (string-equal-ignore-case x tag)) list))))
+    (pcase mode
+      ('set (seq-uniq tags #'string-equal-ignore-case))
+      ('remove (seq-remove (lambda (x) (funcall has x tags)) old))
+      (_ (append old (seq-remove (lambda (x) (funcall has x old))
+                                 (seq-uniq tags #'string-equal-ignore-case)))))))
+
+(defun sp-devonthink--split-tag (tag)
+  "The parts of the comma-joined TAG, trimmed, without empty parts or repeats."
+  (seq-uniq (seq-remove #'string-empty-p (mapcar #'string-trim (split-string tag ",")))
+            #'string-equal-ignore-case))
+
+(defun sp-devonthink--new-tags (tags known)
+  "The members of TAGS that are not in KNOWN, ignoring case."
+  (seq-remove (lambda (tag) (seq-find (lambda (k) (string-equal-ignore-case k tag)) known)) tags))
+#+end_src
+
+* Reading tags
+
+- =sp-devonthink-database-tags= lists the tags of the literature database (cached; a prefix argument of the callers refreshes it).
+  - If DEVONthink does not answer, the prompt still works: you type tags without completion.
+- =sp-devonthink-record-tags= reads the tags of records by UUID in one call.
+  - The answer is one line per record: the UUID, then each tag, separated by tabs.
+
+#+begin_src emacs-lisp
+;;;; Reading
+
+(defun sp-devonthink--tags-listing-script ()
+  "The AppleScript that lists the names of the tags of the database."
+  (format "tell application id \"DNtp\"
+  set theNames to name of (children of (tags group of database %s))
+  set AppleScript's text item delimiters to linefeed
+  return theNames as text
+end tell"
+          (sp-reading--quote sp-reading-database)))
+
+(defun sp-devonthink-database-tags (&optional refresh)
+  "The tags of the database, from the cache unless REFRESH; nil if it cannot be read."
+  (when (or refresh (null sp-devonthink-tags--known))
+    (setq sp-devonthink-tags--known
+          (condition-case err
+              (split-string (sp-reading--osascript (sp-devonthink--tags-listing-script)) "\n" t)
+            (error (message "sp-devonthink: cannot list the tags (%s)" (error-message-string err))
+                   nil))))
+  sp-devonthink-tags--known)
+
+(defun sp-devonthink--read-tags-script (uuids)
+  "The AppleScript that reads the tags of the records UUIDS."
+  (format "tell application id \"DNtp\"
+  set theOut to {}
+  repeat with theId in %s
+    set r to get record with uuid (theId as text)
+    set theLine to uuid of r
+    repeat with t in (tags of r)
+      set theLine to theLine & tab & (t as text)
+    end repeat
+    set end of theOut to theLine
+  end repeat
+  set AppleScript's text item delimiters to linefeed
+  return theOut as text
+end tell"
+          (sp-devonthink--list-literal uuids)))
+
+(defun sp-devonthink--parse-tags (text)
+  "An alist from UUID to its list of tags, read from TEXT (see the script)."
+  (mapcar (lambda (line)
+            (let ((parts (split-string line "\t")))
+              (cons (car parts) (cdr parts))))
+          (split-string text "\n" t)))
+
+(defun sp-devonthink-record-tags (uuids)
+  "An alist from each UUID in UUIDS to the tags of its record."
+  (sp-devonthink--parse-tags (sp-reading--osascript (sp-devonthink--read-tags-script uuids))))
+#+end_src
+
+* Setting tags
+
+- =sp-devonthink--set-tags-script= writes the full tag list of each record, so the merge logic stays in Emacs where it is tested.
+- =sp-devonthink-apply-tags= reads the current tags, merges, and writes only the records that change.
+- =sp-devonthink-read-tags= is the prompt:
+  - it completes from the database's tags, and also accepts anything typed (comma or the usual =crm= separator);
+  - if some typed tags are new, it shows them marked =(new)= and asks before going on.
+- =sp-devonthink-tag-note= tags the record of the current litnote (keyword or citekey, as in =sp-devonthink-open-from-note=).
+  - A prefix argument removes the tags instead of adding them.
+
+#+begin_src emacs-lisp
+;;;; Setting
+
+(defun sp-devonthink--set-tags-script (changes)
+  "The AppleScript that sets the tags of records: CHANGES is ((UUID . TAGS) ...)."
+  (format "tell application id \"DNtp\"\n%send tell"
+          (mapconcat (lambda (change)
+                       (format "  set tags of (get record with uuid %s) to %s\n"
+                               (sp-reading--quote (car change))
+                               (sp-devonthink--list-literal (cdr change))))
+                     changes "")))
+
+(defun sp-devonthink-apply-tags (uuids tags &optional mode)
+  "Apply TAGS to the records UUIDS in MODE (`add', `remove' or `set').
+Return the number of records that changed."
+  (let (changes)
+    (dolist (entry (sp-devonthink-record-tags uuids))
+      (let ((new (sp-devonthink--merge-tags (cdr entry) tags mode)))
+        (unless (equal new (cdr entry))
+          (push (cons (car entry) new) changes))))
+    (when changes
+      (sp-reading--osascript (sp-devonthink--set-tags-script (nreverse changes)))
+      (setq sp-devonthink-tags--known nil))
+    (length changes)))
+
+(defun sp-devonthink--confirm-new (tags known)
+  "Show TAGS with the ones missing from KNOWN marked (new); ask whether to go on."
+  (let ((new (sp-devonthink--new-tags tags known)))
+    (or (null new) (null known)
+        (y-or-n-p (format "Tags: %s.  Create the new ones? "
+                          (mapconcat (lambda (tag) (if (member tag new) (concat tag " (new)") tag))
+                                     tags ", "))))))
+
+(defun sp-devonthink-read-tags (&optional prompt)
+  "Read tags with PROMPT, completing from the database; confirm tags that are new."
+  (let* ((known (sp-devonthink-database-tags))
+         (input (completing-read-multiple (or prompt "Tags (comma-separated): ") known))
+         (tags (seq-uniq (seq-remove #'string-empty-p (mapcar #'string-trim input))
+                         #'string-equal-ignore-case)))
+    (unless tags (user-error "No tags given"))
+    (unless (sp-devonthink--confirm-new tags known) (user-error "Cancelled"))
+    tags))
+
+;;;###autoload
+(defun sp-devonthink-tag-note (tags &optional remove)
+  "Add TAGS to the DEVONthink record of the current litnote; with REMOVE, remove them."
+  (interactive (list (sp-devonthink-read-tags) current-prefix-arg))
+  (let ((uuid (or (sp-devonthink-note-uuid)
+                  (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
+                  (user-error "No DEVONthink record for this note"))))
+    (message "%s: %d record changed"
+             (if remove "Removed" "Added")
+             (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))))
+#+end_src
+
+* Splitting the comma-joined tag
+
+- The =literature= database has one tag that holds several keywords joined by commas (=negativity,value form,New German Reading of Marx,=).
+- =sp-devonthink-split-comma-tags= picks a tag that contains a comma, then:
+  - lists the records that carry it (one =osascript= call);
+  - shows the plan in a buffer: the tag, the parts it becomes, the number of records;
+  - asks once; nothing is written without a yes.
+- On each record the comma tag is replaced by the parts.
+- The old tag is not deleted: delete it in DEVONthink when you have checked the result.
+
+#+begin_src emacs-lisp
+;;;; Splitting a comma-joined tag
+
+(defun sp-devonthink--lookup-tag-script (tag)
+  "The AppleScript that lists the UUIDs of the records tagged TAG."
+  (format "tell application id \"DNtp\"
+  set theRecords to lookup records with tags {%s} in root of database %s
+  set AppleScript's text item delimiters to linefeed
+  return (uuid of every item of theRecords) as text
+end tell"
+          (sp-reading--quote tag) (sp-reading--quote sp-reading-database)))
+
+(defun sp-devonthink--split-plan (tag uuids)
+  "The text of the plan to split TAG on the records UUIDS."
+  (format "Split tag:\n  %s\ninto:\n%s\non %d record%s.\nThe old tag is kept; delete it in DEVONthink once checked.\n"
+          (sp-reading--quote tag)
+          (mapconcat (lambda (part) (format "  - %s" part)) (sp-devonthink--split-tag tag) "\n")
+          (length uuids) (if (= (length uuids) 1) "" "s")))
+
+;;;###autoload
+(defun sp-devonthink-split-comma-tags (tag)
+  "Split the comma-joined tag TAG into separate tags on every record that has it."
+  (interactive
+   (list (completing-read "Tag with commas: "
+                          (seq-filter (lambda (tag) (string-search "," tag))
+                                      (sp-devonthink-database-tags t))
+                          nil t)))
+  (let* ((parts (sp-devonthink--split-tag tag))
+         (uuids (split-string
+                 (sp-reading--osascript (sp-devonthink--lookup-tag-script tag)) "\n" t))
+         (buffer (get-buffer-create "*devonthink tag split*")))
+    (when (null parts) (user-error "Nothing left of %s after splitting" tag))
+    (with-current-buffer buffer (erase-buffer) (insert (sp-devonthink--split-plan tag uuids)))
+    (display-buffer buffer)
+    (when (and uuids (y-or-n-p "Apply this plan? "))
+      (let ((changes
+             (mapcar (lambda (entry)
+                       (cons (car entry)
+                             (sp-devonthink--merge-tags
+                              (sp-devonthink--merge-tags (cdr entry) (list tag) 'remove)
+                              parts 'add)))
+                     (sp-devonthink-record-tags uuids))))
+        (sp-reading--osascript (sp-devonthink--set-tags-script changes))
+        (setq sp-devonthink-tags--known nil)
+        (message "Split %s on %d records" tag (length changes))))))
+#+end_src
+
+* Keys
+
+- =C-c k d t= tags the record of the current litnote (=C-u= removes).
+
+#+begin_src emacs-lisp
+;;;; Keys
+
+(keymap-set sp-devonthink-map "t" #'sp-devonthink-tag-note)
+
+(provide 'sp-devonthink-tags)
+;;; sp-devonthink-tags.el ends here
+#+end_src
+
+* Testing it by hand on the Mac
+
+- See the testing steps in the pull request that added this file.
+- Unknown until tried:
+  - the way to list tags: =name of (children of (tags group of database ...))=;
+  - =lookup records with tags {...} in root of database ...=;
+  - whether =set tags of= replaces the whole list as assumed.
