@@ -43,6 +43,169 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
                 "[^[:ascii:]]" "" (ucs-normalize-NFKD-string key))))
     (if (string-empty-p ascii) key ascii)))
 
+;;;; Long citation keys
+;; Keys are shown in full in the `citar' candidates up to a limit, so a longer one is
+;; flagged and the user is asked for a shorter one.
+(defcustom sp-bibtex-key-max-length 45
+  "Longest citation key, in characters, that is not flagged as too long.
+`sp-bibtex-fix-long-keys' asks for a shorter key for every key over it, and
+the lint report lists them."
+  :type 'integer
+  :group 'sp-bibtex)
+
+(defconst sp-bibtex--entry-key-regexp
+  "^[ \t]*@\\([[:alpha:]]+\\)[ \t]*[{(][ \t\n]*\\([^,[:space:]]+\\)[ \t\n]*,"
+  "Start of an entry: the type is group 1 and the key group 2.")
+
+(defun sp-bibtex-entry-keys ()
+  "Return the keys of the entries in the current buffer as (KEY BEG END) lists.
+BEG and END delimit the key in the buffer.  `string', `preamble' and `comment'
+are not entries."
+  (let (keys)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward sp-bibtex--entry-key-regexp nil t)
+        (unless (member (downcase (match-string 1)) '("string" "preamble" "comment"))
+          (push (list (match-string-no-properties 2) (match-beginning 2) (match-end 2))
+                keys))))
+    (nreverse keys)))
+
+(defun sp-bibtex-long-keys (&optional max)
+  "Return the entries of this buffer whose key is longer than MAX characters.
+MAX defaults to `sp-bibtex-key-max-length'.  The entries are (KEY BEG END)
+lists, in buffer order, as `sp-bibtex-entry-keys' returns them."
+  (let ((max (or max sp-bibtex-key-max-length)))
+    (seq-filter (lambda (entry) (> (length (car entry)) max))
+                (sp-bibtex-entry-keys))))
+
+(defun sp-bibtex--key-table (&optional files)
+  "Return a hash table of every key in the current buffer and in FILES.
+FILES defaults to `sp-bibtex-files'."
+  (let ((table (make-hash-table :test #'equal)))
+    (dolist (entry (sp-bibtex-entry-keys))
+      (puthash (car entry) t table))
+    (dolist (file (or files (and (boundp 'sp-bibtex-files) sp-bibtex-files)))
+      (when (file-readable-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (dolist (entry (sp-bibtex-entry-keys))
+            (puthash (car entry) t table)))))
+    table))
+
+(defun sp-bibtex--short-key (position max table)
+  "Suggest a key of at most MAX characters for the entry at POSITION.
+It is the key `bibtex-generate-autokey' makes, or the old key cut to MAX
+when that fails, and a letter is added when TABLE, the keys taken, has it."
+  (let* ((old (save-excursion
+                (goto-char position)
+                (when (looking-at "[^,[:space:]]+") (match-string-no-properties 0))))
+         (generated (ignore-errors
+                      (save-excursion
+                        (goto-char position)
+                        (bibtex-beginning-of-entry)
+                        (bibtex-generate-autokey))))
+         (base (if (and (stringp generated) (not (string-empty-p generated))
+                        (<= (length generated) max))
+                   generated
+                 (substring (or old "key") 0 (min max (length (or old "key"))))))
+         (candidate base)
+         (suffix ?a))
+    (while (and (gethash candidate table) (<= suffix ?z))
+      (setq candidate (concat (substring base 0 (min (length base) (1- max)))
+                              (string suffix))
+            suffix (1+ suffix)))
+    candidate))
+
+(defun sp-bibtex--key-problem (key max table)
+  "Return why KEY cannot be a new key of at most MAX characters, or nil.
+TABLE holds the keys already taken."
+  (cond ((string-empty-p key) "the key is empty")
+        ((> (length key) max) (format "%d characters, the limit is %d" (length key) max))
+        ((string-match-p "[][ \t\n,{}()\"#%'\\\\~=]" key) "it has a character BibTeX does not allow")
+        ((gethash key table) "another entry has this key")))
+
+(defun sp-bibtex--read-short-key (old suggestion title max table)
+  "Ask for a key of at most MAX characters to replace OLD, until it is valid.
+SUGGESTION is the initial input and TITLE is shown to recognise the entry.
+Return the new key, or nil when the answer is empty, which keeps OLD.  TABLE
+holds the keys already taken."
+  (let (answer done)
+    (while (not done)
+      (setq answer (string-trim
+                    (read-string (format "%s (%d characters, over %d)\n%s\nShorter key (empty keeps it): "
+                                         old (length old) max (or title "no title"))
+                                 suggestion))
+            done (or (string-empty-p answer)
+                     (let ((problem (sp-bibtex--key-problem answer max table)))
+                       (when problem
+                         (message "%s: %s" answer problem)
+                         (sit-for 1)
+                         (setq suggestion answer)
+                         nil)
+                       (not problem)))))
+    (unless (string-empty-p answer) answer)))
+
+(defun sp-bibtex--entry-title (position)
+  "Return the title of the entry at POSITION, for the prompt, or nil."
+  (save-excursion
+    (goto-char position)
+    (when-let* ((entry (ignore-errors (bibtex-beginning-of-entry) (bibtex-parse-entry)))
+                (title (cdr (assoc "title" entry))))
+      (replace-regexp-in-string "[{}\n ]+" " " (string-trim title "[{\" \n]+" "[}\" \n]+")))))
+
+;;;###autoload
+(defun sp-bibtex-fix-long-keys (file)
+  "Ask for a shorter key for each key of FILE over `sp-bibtex-key-max-length'.
+FILE is the current .bib file, or is read with completion.  For each long key
+the prompt shows the title and suggests a key from `bibtex-generate-autokey';
+an empty answer keeps the key.  The new keys are checked against all the
+registered files.  Afterwards you are asked whether to save the file, with a
+backup first, and a buffer lists the renames: notes, citations and attachment
+names that use an old key are not changed."
+  (interactive (list (sp-bibtex-lint--read-file)))
+  (sp-bibtex-lint--unsaved-check file)
+  (with-current-buffer (find-file-noselect file)
+    (let ((long (sp-bibtex-long-keys))
+          (max sp-bibtex-key-max-length)
+          (table (sp-bibtex--key-table))
+          decisions)
+      (if (null long)
+          (message "No key in %s is longer than %d characters"
+                   (file-name-nondirectory file) max)
+        (pcase-dolist (`(,key ,beg ,end) long)
+          (let ((new (sp-bibtex--read-short-key
+                      key (sp-bibtex--short-key beg max table)
+                      (sp-bibtex--entry-title beg) max table)))
+            (when new
+              (puthash new t table)
+              (push (list key new beg end) decisions))))
+        ;; `decisions' runs from the end of the file, so the positions stay valid.
+        (pcase-dolist (`(,_old ,new ,beg ,end) decisions)
+          (goto-char beg)
+          (delete-region beg end)
+          (insert new))
+        (when decisions
+          (sp-bibtex--show-renames file (reverse decisions) (length long))
+          (when (yes-or-no-p (format "Save %s with %d new key%s (a backup is made first)? "
+                                     (file-name-nondirectory file) (length decisions)
+                                     (if (= 1 (length decisions)) "" "s")))
+            (sp-bibtex-lint--backup file (format-time-string "%Y%m%d-%H%M%S"))
+            (save-buffer)))))))
+
+(defun sp-bibtex--show-renames (file decisions total)
+  "Show the DECISIONS, (OLD NEW BEG END) lists, made for FILE among TOTAL long keys."
+  (with-current-buffer (get-buffer-create "*BibTeX key renames*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (format "%d of %d long keys in %s renamed.\n"
+                      (length decisions) total (file-name-nondirectory file))
+              "Notes, citations and attachment names that use an old key are not changed.\n\n")
+      (dolist (decision decisions)
+        (insert (format "%s\n  -> %s\n" (nth 0 decision) (nth 1 decision))))
+      (goto-char (point-min))
+      (special-mode))
+    (display-buffer (current-buffer))))
+
 (use-package bibtex
   :ensure nil
   :demand t
@@ -88,6 +251,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   (("C-c w b r" . sp-bibtex-register)
    ("C-c w b l" . sp-bibtex-lint-dryrun)
    ("C-c w b L" . sp-bibtex-lint-convert)
+   ("C-c w b k" . sp-bibtex-fix-long-keys)
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
@@ -775,6 +939,11 @@ alist, empty for an entry that is only reported.  The buffer is not changed."
                    (problems (cdr analysis)))
               (when-let* ((first (gethash key seen)))
                 (push (format "duplicate key (also in %s)" (file-name-nondirectory first)) problems))
+              (when-let* ((max (bound-and-true-p sp-bibtex-key-max-length))
+                          ((> (length key) max)))
+                (push (format "key has %d characters, over the limit of %d (see `sp-bibtex-fix-long-keys')"
+                              (length key) max)
+                      problems))
               (puthash key (or (gethash key seen) file) seen)
               (when commented
                 (setq problems (append problems '("has a comment inside, left as it is"))))
