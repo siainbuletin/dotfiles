@@ -5,7 +5,8 @@
 ;; A litnote used to be named after its citation key.  Now the key lives in
 ;; `ROAM_REFS' (see `sp-litnotes-refs'), so the note can carry a readable title.
 ;; This module sets `#+title:' to a Chicago-style reference built from the
-;; `pub-author', `pub-year' and `pub-title' meta lines, for example
+;; `pub-author', `pub-year' and `pub-title' meta lines (or `pub-editor' when
+;; there is no `pub-author', as in a collection or proceedings), for example
 ;; "Reuten (2014) The value form as a social form", and renames the file
 ;; to the citation key alone (`kant2009ideea.org'), keeping the `:ID:'.
 ;;
@@ -70,6 +71,16 @@ Those links are reported, not changed; =id:= links keep working."
   "With this many authors or more, the title lists the first two and `et al.'."
   :type 'integer)
 
+(defcustom sp-litnotes-titles-editor-suffix nil
+  "Text put after the names in the title when they are editors, or nil.
+The names come from `pub-editor' only when the note has no `pub-author'.
+For example \" (ed.)\" gives \"Smith (ed.) (2014) Title\"; nil gives
+\"Smith (2014) Title\", as for an author."
+  :type '(choice (const :tag "No marker" nil) string))
+
+(defvar sp-litnotes-titles--editors-p nil
+  "Non-nil while the title is built from editors instead of authors.")
+
 (defcustom sp-litnotes-titles-format-function #'sp-litnotes-titles-format
   "Function of the author names, the year and the title that returns the new title.
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
@@ -111,7 +122,7 @@ every one the entry has, whatever the note says.  A prefix argument to
 (defun sp-litnotes-titles--parse (file)
   "Read FILE as a plist.
 The keys are :file, :id, :title (the =#+title:=), :pub (the cleaned pub-title),
-:author and :year (raw and cleaned values) and :keys (the citation keys of
+:author, :editor and :year (raw and cleaned values) and :keys (the citation keys of
 =ROAM_REFS=, or of =#+reference:= when there is none).  A meta value is nil when
 the note has no such line before its first heading."
   (with-temp-buffer
@@ -139,10 +150,12 @@ the note has no such line before its first heading."
         (setq keyword (string-trim (match-string 1))))
       (let ((pub (sp-litnotes-titles--meta "pub-title" limit))
             (author (sp-litnotes-titles--meta "pub-author" limit))
+            (editor (sp-litnotes-titles--meta "pub-editor" limit))
             (year (sp-litnotes-titles--meta "pub-year" limit)))
         (list :file file :id (and drawer-end id) :title title
               :pub (and pub (sp-litnotes-titles--clean pub))
               :author author
+              :editor editor
               :year (and year (sp-litnotes-titles--clean year))
               :keys (sp-litnotes-titles--keys (if (and refs (not (string-empty-p refs)))
                                                   refs keyword)))))))
@@ -238,7 +251,11 @@ Two authors are \"A and B\", three \"A, B and C\"; with
                         ((null (cdr last)) (car last))
                         (t (format "%s and %s" (string-join (butlast last) ", ")
                                    (car (last last)))))))
-    (format "%s (%s) %s" authors year title)))
+    (format "%s%s (%s) %s" authors
+            (if (and sp-litnotes-titles--editors-p sp-litnotes-titles-editor-suffix)
+                sp-litnotes-titles-editor-suffix
+              "")
+            year title)))
 
 ;;;; From BibTeX
 
@@ -250,9 +267,9 @@ Two authors are \"A and B\", three \"A, B and C\"; with
                  (cons key entry)))
              keys)))
 
-(defun sp-litnotes-titles--bib-authors (entry)
-  "The names in the author field of ENTRY as a list of (LAST . FIRST), or nil."
-  (when-let* ((raw (cdr (assoc-string "author" entry t))))
+(defun sp-litnotes-titles--bib-authors (entry &optional field)
+  "The names in the author field (or FIELD) of ENTRY as a list of (LAST . FIRST), or nil."
+  (when-let* ((raw (cdr (assoc-string (or field "author") entry t))))
     (let ((text (replace-regexp-in-string
                  "[ \t\n]+" " " (sp-author-notes-latex-to-unicode raw))))
       (delq nil
@@ -273,7 +290,8 @@ Two authors are \"A and B\", three \"A, B and C\"; with
   "PARSED, from `sp-litnotes-titles--parse', with the values of its BibTeX entry.
 Does nothing when `sp-litnotes-titles--bibtex-mode' is nil.  Adds :bib (`found'
 or `no-entry'; nil without a citation key) and :inferred, the fields taken from
-the entry (:author, :year, :pub); :bib-authors holds the author names."
+the entry (:author, :editor, :year, :pub); :bib-authors and :bib-editors hold the
+names.  The editors are taken only when neither the note nor the entry has authors."
   (let ((mode sp-litnotes-titles--bibtex-mode))
     (if (or (null mode) (null (plist-get parsed :keys)))
         parsed
@@ -285,12 +303,19 @@ the entry (:author, :year, :pub); :bib-authors holds the author names."
                  (own (and (plist-get parsed :author)
                            (sp-litnotes-titles--authors (plist-get parsed :author))))
                  (bib-authors (sp-litnotes-titles--bib-authors entry))
+                 (bib-editors (and (null bib-authors)
+                                   (sp-litnotes-titles--bib-authors entry "editor")))
+                 (own-editors (and (plist-get parsed :editor)
+                                   (sp-litnotes-titles--authors (plist-get parsed :editor))))
                  (year (sp-litnotes-meta--year entry))
                  (title (sp-litnotes-meta--field entry "title"))
                  inferred)
             (when (and bib-authors (or always (not (consp own))))
               (setq parsed (plist-put parsed :bib-authors bib-authors))
               (push :author inferred))
+            (when (and bib-editors (not (consp own)) (not (consp own-editors)))
+              (setq parsed (plist-put parsed :bib-editors bib-editors))
+              (push :editor inferred))
             (when (and year (or always (sp-litnotes-titles--blank-p (plist-get parsed :year))))
               (setq parsed (plist-put parsed :year year))
               (push :year inferred))
@@ -312,12 +337,22 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
          (raw (plist-get parsed :author))
          (authors (or (plist-get parsed :bib-authors)
                       (and raw (sp-litnotes-titles--authors raw))))
+         (raw-editor (plist-get parsed :editor))
+         ;; Editors stand in only when there is no author at all.
+         (editors-p (and (null authors)
+                         (or (plist-get parsed :bib-editors) raw-editor)
+                         t))
+         (authors (if editors-p
+                      (or (plist-get parsed :bib-editors)
+                          (sp-litnotes-titles--authors raw-editor))
+                    authors))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
          (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
          (new-title (and (consp authors) year
                          pub (not (string-empty-p pub))
-                         (funcall sp-litnotes-titles-format-function authors year pub)))
+                         (let ((sp-litnotes-titles--editors-p editors-p))
+                           (funcall sp-litnotes-titles-format-function authors year pub))))
          (title-status (cond ((not (plist-get parsed :id)) 'no-id)
                              ((null pub) 'no-pub-title)
                              ((string-empty-p pub) 'empty-title)
@@ -468,7 +503,7 @@ Return the job."
   '((no-id . "No :ID: in a top-level property drawer: skipped altogether")
     (no-pub-title . "No pub-title line: skipped")
     (empty-title . "pub-title has no value: skipped")
-    (no-author . "No pub-author line or no name in it: title left as it is")
+    (no-author . "No pub-author or pub-editor line or no name in it: title left as it is")
     (ambiguous-author . "pub-author has a piece with several commas (one author or several?): title left as it is")
     (no-year . "No pub-year: title left as it is")
     (no-citekey . "No citation key in ROAM_REFS or #+reference:: not renamed")
@@ -522,7 +557,7 @@ Return the job."
               (insert "- title: unchanged\n"))
             (when-let* ((inferred (plist-get plan :inferred)))
               (insert (format "- from BibTeX: %s\n"
-                              (mapconcat (lambda (f) (pcase f (:author "authors") (:year "year")
+                              (mapconcat (lambda (f) (pcase f (:author "authors") (:editor "editors") (:year "year")
                                                        (:pub "title")))
                                          inferred ", "))))
             (if renamed
@@ -539,10 +574,11 @@ Return the job."
           (when group
             (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
-              (insert (format "- %s: title %s; pub-author %s; pub-title %s%s\n"
+              (insert (format "- %s: title %s; pub-author %s; pub-editor %s; pub-title %s%s\n"
                               (sp-batch-report-file-link (plist-get plan :file))
                               (or (plist-get plan :title) "(none)")
                               (or (plist-get plan :author) "(none)")
+                              (or (plist-get plan :editor) "(none)")
                               (or (plist-get plan :pub) "(none)")
                               (if (plist-get plan :new-name)
                                   (format "; would be =%s=" (plist-get plan :new-name))
