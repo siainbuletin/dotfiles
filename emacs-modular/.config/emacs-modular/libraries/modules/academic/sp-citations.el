@@ -120,12 +120,21 @@ left to the other parsers, so this returns only the files it found."
 ;; absent is a blank of the same width.
 (defvar citar--entries)
 
+(defcustom sp-citations-prefix-width 2
+  "Columns the completion UI draws before the indicators of a `citar' candidate.
+Vertico puts its cursor mark (two columns) there.  Every column position below
+is counted from the left of the window, so this is added to them; if the columns
+come out one or two places too far right or left, adjust it."
+  :type 'integer
+  :group 'sp)
+
 (defconst sp-citations-indicator-cell 2
   "Columns of one indicator, the width of an emoji.")
 
 (defun sp-citations--indicator-block-width ()
-  "Columns taken by the indicators of `citar-indicators', and one more to separate them."
-  (1+ (* sp-citations-indicator-cell (length citar-indicators))))
+  "Columns before the first candidate column, counted from the left of the window.
+That is the UI prefix, the indicators of `citar-indicators', and one more to separate them."
+  (+ sp-citations-prefix-width 1 (* sp-citations-indicator-cell (length citar-indicators))))
 
 (defun sp-citations-setup-indicators ()
   "Set `citar-indicators' to the link, file, note and cited emoji."
@@ -182,10 +191,10 @@ transform of `citar-display-transform-functions'."
   :type 'integer
   :group 'sp)
 
-(defcustom sp-citations-column-priorities '(1 2 2 1 1 3)
+(defcustom sp-citations-column-priorities '(1 2 1 2 1 3)
   "Priority of each `*' column of `citar-templates', in order: lower comes first.
 The columns of one priority share what the lower priorities left.  The default
-matches the template: entry type, year and citekey 1, title and authors 2, tags 3."
+matches the template: entry type, year and citekey 1, authors and title 2, tags 3."
   :type '(repeat integer)
   :group 'sp)
 
@@ -322,7 +331,7 @@ when the templates have no `*' column."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . "${=type=:*%etype} ${title:*}   ${author editor:*}   ${year issued date:*}")
+        `((main . "${=type=:*%etype} ${author editor:*}   ${year issued date:*}   ${title:*}")
           (suffix . ,(concat "   "
                              (propertize "${=key= id:*}" 'face 'sp-citar-key)
                              "   ${tags keywords:*}"))
