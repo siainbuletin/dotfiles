@@ -40,6 +40,7 @@ tools/devonthink-move.py check ~/notes
 - What each file gets:
   - a record with that path in DEVONthink: moved with DEVONthink's =move= into the group of the destination folder
   - no record: left alone, or with =--plain-rename= renamed on disk (nothing in DEVONthink to break)
+  - a new name in the same folder (what the key rename of =sp-bibtex-lint= asks for) is a /rename/: DEVONthink renames the record, which renames the file of an indexed record, and the record is filed back in the group it was in if the rename moved it; the name is tried without, then with the extension, and the old name is put back when the file is not where it was asked
   - two records with that path, or the destination exists: blocked and listed
 - =--limit N= moves at most N records. Use =--apply --limit 1= first.
 - After each move the record is read back; the run stops at the first one whose UUID or path is not the expected one, and says so. The moves done are written to =~/.local/state/devonthink-move/moves-*.json= (uuid, from, to), so a run can be undone by moving the files back.
@@ -48,6 +49,7 @@ tools/devonthink-move.py check ~/notes
 
 - The tool has not been run against DEVONthink. The JXA calls =lookupRecordsWithPath=, =getRecordWithUuid= and =move= are from DEVONthink's scripting dictionary and not tried here.
 - The assumption to check with =--limit 1=: moving an indexed record into the group of another folder of the same indexed hierarchy moves the file on disk too. If it does not, the read-back fails and the run stops, with the file where it was.
+- The rename: that setting the name of an indexed record renames the file on disk, and which of the two names it takes. If not, the read-back fails, the old name is put back and the run stops. Try one rename with =--apply --limit 1=.
 - The planning, the safety checks and the reading of notes are covered by =tests/test_devonthink_move.py=, with DEVONthink faked.
 
 * The script
@@ -134,10 +136,10 @@ def plan_moves(moves, found, exists=os.path.exists):
     """Sort MOVES into what to do.  Pure, so it is tested without DEVONthink.
 
     FOUND maps a source path to its record, {"uuid", "database", "count"}, or
-    None.  Returns a dict of lists: `move` (FROM, TO, record), `plain` (FROM, TO:
-    no record), `done` (already at TO), `missing` (no file at FROM) and
-    `blocked` (FROM, TO, why)."""
-    plan = {"move": [], "plain": [], "done": [], "missing": [], "blocked": []}
+    None.  Returns a dict of lists: `move` (FROM, TO, record), `rename` (FROM, TO,
+    record: the same folder, a new name), `plain` (FROM, TO: no record), `done`
+    (already at TO), `missing` (no file at FROM) and `blocked` (FROM, TO, why)."""
+    plan = {"move": [], "rename": [], "plain": [], "done": [], "missing": [], "blocked": []}
     for src, dst in moves:
         record = found.get(src)
         if not exists(src):
@@ -148,6 +150,8 @@ def plan_moves(moves, found, exists=os.path.exists):
             plan["plain"].append((src, dst))
         elif record["count"] > 1:
             plan["blocked"].append((src, dst, "%d records have this path" % record["count"]))
+        elif os.path.dirname(src) == os.path.dirname(dst):
+            plan["rename"].append((src, dst, record))
         else:
             plan["move"].append((src, dst, record))
     return plan
@@ -248,6 +252,32 @@ JSON.stringify(result);
     return jxa(script)
 
 
+def dt_rename(uuid, name, dst):
+    """Rename the record UUID to the file NAME, so the file is at DST; return its new state.
+
+    DEVONthink renames the file of an indexed record with the record.  The name
+    is tried without the extension, then with it; when neither puts the file at
+    DST the old name is restored.  The record is filed back in the group it was
+    in, if the rename moved it.  The result is {"uuid", "path"} as read back, or
+    None."""
+    stem = os.path.splitext(name)[0]
+    script = JS_HEAD + """
+const rec = app.getRecordWithUuid(%s);
+const group = rec.parents()[0];
+const oldName = rec.name();
+for (const candidate of [%s, %s]) {
+  rec.name = candidate;
+  if (rec.path() === %s) break;
+  rec.name = oldName;
+}
+const now = rec.parents()[0];
+if (group && now && now.uuid() !== group.uuid()) app.move({record: rec, to: group});
+const after = app.getRecordWithUuid(%s);
+JSON.stringify(after ? {uuid: after.uuid(), path: after.path()} : null);
+""" % (json.dumps(uuid), json.dumps(stem), json.dumps(name), json.dumps(dst), json.dumps(uuid))
+    return jxa(script)
+
+
 def dt_resolve(uuids):
     """Return {uuid: name or None}: what DEVONthink knows of each UUID."""
     script = JS_HEAD + """
@@ -278,8 +308,9 @@ def run_moves(plan, apply, limit=None, plain_rename=False):
     """Do the PLAN; return a report dict.  Nothing happens without APPLY.
 
     The run stops at the first move DEVONthink did not make as asked."""
-    report = {"applied": apply, "moved": [], "renamed": [], "stopped": None,
-              "to_move": len(plan["move"]), "plain": len(plan["plain"]),
+    report = {"applied": apply, "moved": [], "dt_renamed": [], "renamed": [], "stopped": None,
+              "to_move": len(plan["move"]), "to_rename": len(plan["rename"]),
+              "plain": len(plan["plain"]),
               "done": len(plan["done"]), "missing": [list(m) for m in plan["missing"]],
               "blocked": [list(b) for b in plan["blocked"]]}
     todo = plan["move"][:limit] if limit else plan["move"]
@@ -291,17 +322,29 @@ def run_moves(plan, apply, limit=None, plain_rename=False):
                                      "answer": after}
                 break
             report["moved"].append({"uuid": record["uuid"], "from": src, "to": dst})
+        for src, dst, record in (plan["rename"][:limit] if limit else plan["rename"]):
+            if report["stopped"]:
+                break
+            after = dt_rename(record["uuid"], os.path.basename(dst), dst)
+            if not moved_ok(src, dst, record, after):
+                report["stopped"] = {"from": src, "to": dst, "uuid": record["uuid"],
+                                     "answer": after}
+                break
+            report["dt_renamed"].append({"uuid": record["uuid"], "from": src, "to": dst})
         if plain_rename and not report["stopped"]:
             for src, dst in plan["plain"][:limit] if limit else plan["plain"]:
                 os.rename(src, dst)
                 report["renamed"].append({"from": src, "to": dst})
-        report["manifest"] = str(save_manifest(report["moved"] + report["renamed"]) or "")
+        report["manifest"] = str(save_manifest(report["moved"] + report["dt_renamed"] + report["renamed"]) or "")
     return report
 
 
 def print_report(r):
     mode = "" if r["applied"] else "  (dry run)"
     print("through DEVONthink: %d to move, %d moved%s" % (r["to_move"], len(r["moved"]), mode))
+    if r["to_rename"]:
+        print("renamed through DEVONthink: %d to rename, %d renamed%s"
+              % (r["to_rename"], len(r["dt_renamed"]), mode))
     print("not in DEVONthink: %d%s" % (r["plain"], "; renamed %d" % len(r["renamed"])
                                        if r["renamed"] else "; left alone (--plain-rename moves them on disk)"
                                        if r["plain"] else ""))
@@ -424,6 +467,12 @@ class FakeDT:
                         k for k, v in self.records.items() if v == p)) else None)
                 for p in paths}
 
+    def rename(self, uuid, name, dst):
+        if self.honest:
+            os.rename(self.records[uuid], dst)
+            self.records[uuid] = dst
+        return {"uuid": uuid, "path": self.records[uuid]}
+
     def move(self, uuid, folder):
         if self.honest:
             old = self.records[uuid]
@@ -483,6 +532,15 @@ class Planning(Library):
         self.assertEqual([c], [m[0] for m in plan["plain"]])
         self.assertEqual([b], [m[0] for m in plan["blocked"]])
         self.assertEqual(1, len(plan["missing"]))
+
+    def test_a_new_name_in_the_same_folder_is_a_rename(self):
+        a = self.path("inbox", "a.pdf")
+        new = self.path("inbox", "a-new.pdf")
+        found = {a: {"uuid": U1, "database": "d", "count": 1}}
+        plan = dm.plan_moves([(a, new)], found)
+        self.assertEqual([a], [m[0] for m in plan["rename"]])
+        self.assertEqual([], plan["move"])
+        self.assertEqual([(a, new)], dm.plan_moves([(a, new)], {})["plain"])
 
     def test_two_records_at_one_path_block(self):
         a = self.path("inbox", "a.pdf")
@@ -545,6 +603,31 @@ class Running(Library):
         dt = FakeDT({U1: self.path("inbox", "a.pdf"), U2: self.path("inbox", "c.pdf")})
         r = self.move(dt, limit=1)
         self.assertEqual(1, len(r["moved"]))
+
+    def rename(self, dt, apply=True, **kw):
+        moves = [(self.path("inbox", "a.pdf"), self.path("inbox", "a-new.pdf"))]
+        with mock.patch.object(dm, "dt_rename", dt.rename):
+            return dm.run_moves(dm.plan_moves(moves, dt.lookup([moves[0][0]])), apply, **kw)
+
+    def test_rename_goes_through_devonthink_and_keeps_the_uuid(self):
+        dt = self.dt()
+        r = self.rename(dt)
+        self.assertEqual([{"uuid": U1, "from": self.path("inbox", "a.pdf"),
+                           "to": self.path("inbox", "a-new.pdf")}], r["dt_renamed"])
+        self.assertEqual(self.path("inbox", "a-new.pdf"), dt.records[U1])
+        self.assertTrue((self.lib / "inbox" / "a-new.pdf").exists())
+        self.assertEqual(1, len(json.loads(Path(r["manifest"]).read_text())))
+
+    def test_rename_dry_run_changes_nothing(self):
+        r = self.rename(self.dt(), apply=False)
+        self.assertEqual(1, r["to_rename"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
+
+    def test_rename_stops_when_devonthink_did_not_rename_the_file(self):
+        r = self.rename(self.dt(honest=False))
+        self.assertEqual([], r["dt_renamed"])
+        self.assertEqual(self.path("inbox", "a.pdf"), r["stopped"]["from"])
+        self.assertTrue((self.lib / "inbox" / "a.pdf").exists())
 
 
 class Check(Library):
