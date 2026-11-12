@@ -107,6 +107,80 @@ left to the other parsers, so this returns only the files it found."
             (setq found (append found (sp-citations--find-in-library name)))))))
     (delete-dups found)))
 
+;;;; Citar faces
+;; The three indicator columns and the citekey column of the candidates.
+(defface sp-citar-indicator-link
+  '((t :inherit (bold font-lock-function-name-face)))
+  "Face of the link indicator (L) in `citar' candidates."
+  :group 'sp)
+
+(defface sp-citar-indicator-file
+  '((t :inherit (bold error)))
+  "Face of the file indicator (F) in `citar' candidates."
+  :group 'sp)
+
+(defface sp-citar-indicator-note
+  '((t :inherit (bold success)))
+  "Face of the note indicator (N) in `citar' candidates."
+  :group 'sp)
+
+(defface sp-citar-key
+  '((t :inherit shadow :slant italic))
+  "Face of the citekey column in `citar' candidates."
+  :group 'sp)
+
+(defconst sp-citations-indicator-colors
+  '((sp-citar-indicator-link . blue)
+    (sp-citar-indicator-file . red)
+    (sp-citar-indicator-note . green))
+  "Alist of indicator face and the `modus-themes' palette colour it takes.")
+
+(defun sp-citations-update-indicator-faces (&rest _)
+  "Take the foreground of the indicator faces from the active Modus theme.
+Without a Modus theme the faces keep the colours they inherit."
+  (when (and (fboundp 'modus-themes-get-current-theme)
+             (modus-themes-get-current-theme))
+    (pcase-dolist (`(,face . ,color) sp-citations-indicator-colors)
+      (let ((value (modus-themes-get-color-value color)))
+        (when (stringp value)
+          (set-face-attribute face nil :foreground value))))))
+
+(sp-citations-update-indicator-faces)
+(add-hook 'enable-theme-functions #'sp-citations-update-indicator-faces)
+
+(defun sp-citations--indicator-symbol (kind)
+  "Return the symbol string of the indicator KIND, `link', `file' or `note'.
+A nerd-icons glyph on a graphical display, the letter L, F or N otherwise,
+in both cases in the bold face of KIND."
+  (let ((face (intern (format "sp-citar-indicator-%s" kind))))
+    (or (and (display-graphic-p)
+             (require 'nerd-icons nil t)
+             ;; nerd-icons has no octicon PDF/text glyph, so those two use
+             ;; FontAwesome; link-external maps to the octicon directly.
+             (pcase kind
+               ('file (nerd-icons-faicon "nf-fa-file_pdf_o" :face face))
+               ('note (nerd-icons-faicon "nf-fa-file_text_o" :face face))
+               ('link (nerd-icons-octicon "nf-oct-link_external" :face face))))
+        (propertize (upcase (substring (symbol-name kind) 0 1)) 'face face))))
+
+(defun sp-citations-setup-indicators ()
+  "Set `citar-indicators' to the coloured link, file and note columns.
+The cited column keeps the default of `citar'."
+  (setq citar-indicators
+        (list (citar-indicator-create :symbol (sp-citations--indicator-symbol 'link)
+                                      :padding "  "
+                                      :function #'citar-has-links
+                                      :tag "has:links")
+              (citar-indicator-create :symbol (sp-citations--indicator-symbol 'file)
+                                      :padding "  "
+                                      :function #'citar-has-files
+                                      :tag "has:files")
+              (citar-indicator-create :symbol (sp-citations--indicator-symbol 'note)
+                                      :padding "  "
+                                      :function #'citar-has-notes
+                                      :tag "has:notes")
+              citar-indicator-cited)))
+
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
@@ -133,21 +207,18 @@ left to the other parsers, so this returns only the files it found."
       "url"))   ;; What exactly can you do with these additional fields?
 
   (citar-templates
-        `((main . " ${=key= id:15} ${title:48}")
-          (suffix . "${author editor:30}  ${=type=:12}  ${=beref=:12} ${tags keywords:*}")
+        `((main . " ${title:48}   ${author editor:30}")
+          (suffix . ,(concat "   "
+                             (propertize "${=key= id:15}" 'face 'sp-citar-key)
+                             "   ${=type=:12}   ${=beref=:12}   ${tags keywords:*}"))
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
           (note . ,sp-citar-note)))
 
   :config
   ;; Find a PDF that is not where its `file' field says.
   (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
-  (when (display-graphic-p)
-    ;; nerd-icons has no octicon PDF/text glyph, so those two use
-    ;; FontAwesome; link-external maps to the octicon directly.
-    (setq citar-symbols
-          `((file ,(nerd-icons-faicon  "nf-fa-file_pdf_o"     :face 'error)   . " ")
-            (note ,(nerd-icons-faicon  "nf-fa-file_text_o"    :face 'warning) . " ")
-            (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
+  (sp-citations-setup-indicators)
+  (sp-citations-update-indicator-faces)
 
   :bind
          (("C-c w b o" . citar-open))
