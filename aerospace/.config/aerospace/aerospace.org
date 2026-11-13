@@ -217,6 +217,22 @@ if.app-id = 'com.devon-technologies.think'
 run = 'layout tiling'
 #+end_src
 
+** Emacs vulpea-ui view frame
+
+- Context: =M-o v= (=sp-vulpea-ui-view-toggle=) shows the =vulpea-ui= widgets, backlinks included, in an Emacs frame of its own, see the part =sp-vulpea-ui-view.el= of [[file:../../../emacs-modular/.config/emacs-modular/docs/tangles/vulpea/sp-vulpea.org][sp-vulpea.org]].
+- The frame is named =vulpea-ui-view=, and Emacs uses that name as the window title.
+- A rule is only needed if AeroSpace leaves that frame floating; a normal Emacs frame is detected as a standard window and tiles.
+- Not applied: the rule below is a suggestion, so it is not in =aerospace.toml= (the block is =:tangle no=).
+- To use it, copy it into =aerospace.toml= next to the DEVONthink rules and run =aerospace reload-config=.
+- Check the app id with =aerospace list-windows --all --format '%{app-bundle-id} %{window-title}'=; builds of Emacs for the Mac use different ids.
+
+#+begin_src toml :tangle no
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^vulpea-ui-view$'
+run = 'layout tiling'
+#+end_src
+
 ** Main mode
 
 - =[mode.main.binding]= must exist, but it is empty on purpose.
