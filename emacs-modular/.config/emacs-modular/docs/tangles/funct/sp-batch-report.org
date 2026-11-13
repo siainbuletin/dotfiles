@@ -524,6 +524,133 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
   (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
 #+end_src
 
+* Buffers of the files a batch visits
+
+- A batch run opens many notes; it must not leave them open, and it must not stop to ask about them.
+- =sp-batch-report-save-and-kill= (default =t=) turns this on; =nil= restores the old behaviour (each command's own rule).
+- With it on, the commands that visit a file call these functions:
+  - =sp-batch-report-flush-file FILE &optional BACKUP=: make the open buffer of FILE agree with the disk before the command reads or writes it.
+    - A buffer with unsaved changes is saved; =BACKUP= (called with FILE) copies the disk version first, so the earlier text is kept.
+    - An unchanged buffer that is older than the file is reverted.
+    - A file changed on disk and edited in its buffer: the buffer wins (the backup has the disk text).
+  - =sp-batch-report-close-file FILE=: save the buffer of FILE if needed, then kill it.
+    - It is called for a buffer the command did not open too.
+    - The buffer you are in (the current buffer, or the one in the selected window) is saved but not killed, so a command run from a note never pulls the note from under you.
+    - A command that works on the note it was started from binds =sp-batch-report-keep-buffers= to that buffer (the Works command of an author note does), because it runs the file work in a temporary buffer.
+    - A buffer that cannot be saved is not killed, so no edit is lost.
+  - =sp-batch-report-with-file FILE FUNCTION &optional BACKUP=: flush, run FUNCTION in the buffer of FILE (opened when needed), then close.
+- Nothing is asked: the "file changed on disk" question, the kill questions and the save messages are all silenced (=inhibit-message=, =save-silently=, =use-short-answers=, no kill query).
+- A failure to save or to kill is returned as text (or an error from =sp-batch-report-with-file=) and written to =*Messages*= only; the batch goes on.
+- A file locked by another Emacs is not touched by this: the commands that check =file-locked-p= still skip it.
+- Used by:
+  - =sp-author-notes= (the table filling and the author, editor and Works passes)
+  - =sp-litnotes-refs=, =sp-litnotes-titles=
+  - =sp-litnotes-meta= (status, parent lint, title lint, chapter tables)
+
+#+begin_src emacs-lisp -i
+(defvar use-short-answers)
+(defvar save-silently)
+
+(defcustom sp-batch-report-save-and-kill t
+  "Whether the batch commands save, then kill, the buffers of the files they use.
+Non-nil: a buffer with unsaved changes is saved without asking (the commands
+copy the file to their backup folder first), and every buffer of a processed
+file is killed afterwards, also one that was open before.  nil: each command
+keeps its own rule (skip or refuse a buffer with unsaved changes, leave open
+buffers open)."
+  :type 'boolean
+  :group 'sp-batch-report)
+
+(defvar sp-batch-report-keep-buffers nil
+  "Buffers that `sp-batch-report-close-file' saves but does not kill.")
+
+(defun sp-batch-report--quietly (thunk)
+  "Call THUNK without any question or message to the user."
+  (let ((inhibit-message t)
+        (save-silently t)
+        (use-short-answers t)
+        (use-dialog-box nil)
+        (confirm-kill-processes nil)
+        (kill-buffer-query-functions nil))
+    ;; The "file changed on disk" question: go on and save.
+    (cl-letf (((symbol-function 'ask-user-about-supersession-threat) #'ignore))
+      (funcall thunk))))
+
+(defun sp-batch-report--note-problem (file text)
+  "Record the TEXT about FILE in *Messages* only."
+  (when text
+    (let ((inhibit-message t))
+      (message "sp-batch-report: %s: %s" (file-name-nondirectory file) text))))
+
+(defun sp-batch-report-save-buffer (buffer)
+  "Save BUFFER without asking when it has unsaved changes.
+Return nil, or the text of the error."
+  (when (and (buffer-live-p buffer) (buffer-file-name buffer) (buffer-modified-p buffer))
+    (condition-case err
+        (sp-batch-report--quietly
+         (lambda ()
+           (with-current-buffer buffer
+             ;; Changed on disk too: the buffer wins (callers back the disk text up).
+             (unless (verify-visited-file-modtime) (set-visited-file-modtime))
+             (save-buffer))
+           nil))
+      (error (error-message-string err)))))
+
+(defun sp-batch-report-flush-file (file &optional backup-function)
+  "Make the buffer visiting FILE, if any, agree with the disk, when `sp-batch-report-save-and-kill'.
+Unsaved changes are saved, after BACKUP-FUNCTION (called with FILE) copied the
+disk version.  An unchanged buffer older than the file is reverted.  Return nil,
+or the text of the error."
+  (when sp-batch-report-save-and-kill
+    (when-let* ((buffer (find-buffer-visiting file)))
+      (cond
+       ((buffer-modified-p buffer)
+        (when backup-function (funcall backup-function file))
+        (sp-batch-report-save-buffer buffer))
+       ((not (verify-visited-file-modtime buffer))
+        (condition-case err
+            (sp-batch-report--quietly
+             (lambda () (with-current-buffer buffer (revert-buffer t t t)) nil))
+          (error (error-message-string err))))))))
+
+(defun sp-batch-report-close-file (file)
+  "Save, then kill, the buffer visiting FILE, when `sp-batch-report-save-and-kill'.
+The buffer in use (current, or in the selected window) is saved but not killed.
+A buffer that cannot be saved stays.  Return nil, or the text of the problem;
+it is also written to *Messages*."
+  (when sp-batch-report-save-and-kill
+    (when-let* ((buffer (find-buffer-visiting file)))
+      (let ((problem
+             (or (sp-batch-report-save-buffer buffer)
+                 (unless (or (eq buffer (current-buffer))
+                             (memq buffer sp-batch-report-keep-buffers)
+                             (eq buffer (window-buffer (selected-window))))
+                   (condition-case err
+                       (sp-batch-report--quietly
+                        (lambda ()
+                          (unless (kill-buffer buffer) "the buffer was not killed")))
+                     (error (error-message-string err)))))))
+        (sp-batch-report--note-problem file problem)
+        problem))))
+
+(defun sp-batch-report-with-file (file function &optional backup-function)
+  "Call FUNCTION in the buffer visiting FILE, opening it when needed.
+With `sp-batch-report-save-and-kill' the buffer is flushed first (see
+`sp-batch-report-flush-file') and saved and killed afterwards.  Without it a
+buffer the call opened is killed again unless it has unsaved changes.  Return
+the value of FUNCTION.  A buffer that cannot be saved before the call signals an error."
+  (let ((problem (sp-batch-report-flush-file file backup-function))
+        (open (find-buffer-visiting file)))
+    (when problem (error "%s: %s" (file-name-nondirectory file) problem))
+    (let ((buffer (or open (find-file-noselect file))))
+      (unwind-protect
+          (with-current-buffer buffer (funcall function))
+        (if sp-batch-report-save-and-kill
+            (sp-batch-report-close-file file)
+          (unless (or open (buffer-modified-p buffer))
+            (kill-buffer buffer)))))))
+#+end_src
+
 * Showing a report
 
 - =sp-batch-report-open NAME TEXT= replaces the content of the buffer NAME with TEXT and returns the buffer.
@@ -673,6 +800,119 @@ derived from `sp-batch-report-mode'; the default is that mode."
           (should (eq major-mode 'sp-batch-report-test-mode)))
       (kill-buffer buffer))))
 
+(defun sp-batch-report-test--file (text)
+  (let ((file (make-temp-file "sp-br-" nil ".org")))
+    (with-temp-file file (insert text))
+    file))
+
+(ert-deftest sp-batch-report-close-file-saves-then-kills ()
+  (let ((file (sp-batch-report-test--file "one\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "unsaved "))
+          (should (null (sp-batch-report-close-file file)))
+          (should-not (buffer-live-p buffer))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "unsaved one\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-close-file-off-leaves-the-buffer ()
+  (let ((file (sp-batch-report-test--file "one\n"))
+        (sp-batch-report-save-and-kill nil))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "unsaved "))
+          (should (null (sp-batch-report-close-file file)))
+          (should (buffer-live-p buffer))
+          (should (buffer-modified-p buffer))
+          (with-current-buffer buffer (set-buffer-modified-p nil))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-flush-file-backs-up-the-disk-text-first ()
+  (let ((file (sp-batch-report-test--file "disk\n")) seen)
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "edit "))
+          (sp-batch-report-flush-file
+           file (lambda (f) (setq seen (with-temp-buffer (insert-file-contents f) (buffer-string)))))
+          (should (equal seen "disk\n"))
+          (should-not (buffer-modified-p buffer))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-flush-file-reverts-a-stale-buffer ()
+  (let ((file (sp-batch-report-test--file "old\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (sleep-for 1.1)
+          (with-temp-file file (insert "new\n"))
+          (should-not (verify-visited-file-modtime buffer))
+          (should (null (sp-batch-report-flush-file file)))
+          (should (equal (with-current-buffer buffer (buffer-string)) "new\n"))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-edited-buffer-wins-over-a-changed-file ()
+  (let ((file (sp-batch-report-test--file "old\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "mine "))
+          (sleep-for 1.1)
+          (with-temp-file file (insert "theirs\n"))
+          (should (null (sp-batch-report-close-file file)))
+          (should-not (buffer-live-p buffer))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "mine old\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-opens-and-closes ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (progn
+          (should (equal (sp-batch-report-with-file
+                          file (lambda () (insert "y") (buffer-string)))
+                         "yx\n"))
+          (should-not (find-buffer-visiting file))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "yx\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-keeps-the-buffer-in-use ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer
+            (sp-batch-report-with-file file (lambda () (insert "y")))
+            (should (buffer-live-p buffer))
+            (should-not (buffer-modified-p buffer))
+            (should (equal (buffer-string) "yx\n")))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-off-keeps-an-open-buffer ()
+  (let ((file (sp-batch-report-test--file "x\n"))
+        (sp-batch-report-save-and-kill nil))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (sp-batch-report-with-file file (lambda () nil))
+          (should (buffer-live-p buffer))
+          (kill-buffer buffer)
+          (sp-batch-report-with-file file (lambda () nil))
+          (should-not (find-buffer-visiting file)))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-failed-kill-is-reported-quietly ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer
+            (add-hook 'kill-buffer-query-functions #'ignore nil t)) ; ignored: bound to nil
+          (cl-letf (((symbol-function 'kill-buffer) (lambda (&rest _) nil)))
+            (should (equal (sp-batch-report-close-file file) "the buffer was not killed")))
+          (kill-buffer buffer))
+      (delete-file file))))
+
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here
 #+end_src
@@ -692,3 +932,8 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - Pull request: backups of the current file
   - Added =b= (open a backup) and =D= (diff against a backup) for the file on the line at point, from =sp-backup-lookup=.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/425][#425]]
+  - Added =sp-batch-report-save-and-kill= (default =t=) and =sp-batch-report-flush-file=, =-close-file=, =-with-file=: the batch commands save, then kill, the buffers of the files they process, without asking.
+  - Used by the author notes passes, the litnote references, titles and meta commands (status, parent lint, title lint, chapter tables).
+  - Not run: the real vault.

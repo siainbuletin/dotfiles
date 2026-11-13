@@ -92,5 +92,118 @@
           (should (eq major-mode 'sp-batch-report-test-mode)))
       (kill-buffer buffer))))
 
+(defun sp-batch-report-test--file (text)
+  (let ((file (make-temp-file "sp-br-" nil ".org")))
+    (with-temp-file file (insert text))
+    file))
+
+(ert-deftest sp-batch-report-close-file-saves-then-kills ()
+  (let ((file (sp-batch-report-test--file "one\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "unsaved "))
+          (should (null (sp-batch-report-close-file file)))
+          (should-not (buffer-live-p buffer))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "unsaved one\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-close-file-off-leaves-the-buffer ()
+  (let ((file (sp-batch-report-test--file "one\n"))
+        (sp-batch-report-save-and-kill nil))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "unsaved "))
+          (should (null (sp-batch-report-close-file file)))
+          (should (buffer-live-p buffer))
+          (should (buffer-modified-p buffer))
+          (with-current-buffer buffer (set-buffer-modified-p nil))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-flush-file-backs-up-the-disk-text-first ()
+  (let ((file (sp-batch-report-test--file "disk\n")) seen)
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "edit "))
+          (sp-batch-report-flush-file
+           file (lambda (f) (setq seen (with-temp-buffer (insert-file-contents f) (buffer-string)))))
+          (should (equal seen "disk\n"))
+          (should-not (buffer-modified-p buffer))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-flush-file-reverts-a-stale-buffer ()
+  (let ((file (sp-batch-report-test--file "old\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (sleep-for 1.1)
+          (with-temp-file file (insert "new\n"))
+          (should-not (verify-visited-file-modtime buffer))
+          (should (null (sp-batch-report-flush-file file)))
+          (should (equal (with-current-buffer buffer (buffer-string)) "new\n"))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-edited-buffer-wins-over-a-changed-file ()
+  (let ((file (sp-batch-report-test--file "old\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer (insert "mine "))
+          (sleep-for 1.1)
+          (with-temp-file file (insert "theirs\n"))
+          (should (null (sp-batch-report-close-file file)))
+          (should-not (buffer-live-p buffer))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "mine old\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-opens-and-closes ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (progn
+          (should (equal (sp-batch-report-with-file
+                          file (lambda () (insert "y") (buffer-string)))
+                         "yx\n"))
+          (should-not (find-buffer-visiting file))
+          (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                         "yx\n")))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-keeps-the-buffer-in-use ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer
+            (sp-batch-report-with-file file (lambda () (insert "y")))
+            (should (buffer-live-p buffer))
+            (should-not (buffer-modified-p buffer))
+            (should (equal (buffer-string) "yx\n")))
+          (kill-buffer buffer))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-with-file-off-keeps-an-open-buffer ()
+  (let ((file (sp-batch-report-test--file "x\n"))
+        (sp-batch-report-save-and-kill nil))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (sp-batch-report-with-file file (lambda () nil))
+          (should (buffer-live-p buffer))
+          (kill-buffer buffer)
+          (sp-batch-report-with-file file (lambda () nil))
+          (should-not (find-buffer-visiting file)))
+      (delete-file file))))
+
+(ert-deftest sp-batch-report-failed-kill-is-reported-quietly ()
+  (let ((file (sp-batch-report-test--file "x\n")))
+    (unwind-protect
+        (let ((buffer (find-file-noselect file)))
+          (with-current-buffer buffer
+            (add-hook 'kill-buffer-query-functions #'ignore nil t)) ; ignored: bound to nil
+          (cl-letf (((symbol-function 'kill-buffer) (lambda (&rest _) nil)))
+            (should (equal (sp-batch-report-close-file file) "the buffer was not killed")))
+          (kill-buffer buffer))
+      (delete-file file))))
+
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

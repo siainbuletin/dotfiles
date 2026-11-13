@@ -350,6 +350,108 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
   (setq buffer-read-only t)
   (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
 
+(defvar use-short-answers)
+(defvar save-silently)
+
+(defcustom sp-batch-report-save-and-kill t
+  "Whether the batch commands save, then kill, the buffers of the files they use.
+Non-nil: a buffer with unsaved changes is saved without asking (the commands
+copy the file to their backup folder first), and every buffer of a processed
+file is killed afterwards, also one that was open before.  nil: each command
+keeps its own rule (skip or refuse a buffer with unsaved changes, leave open
+buffers open)."
+  :type 'boolean
+  :group 'sp-batch-report)
+
+(defvar sp-batch-report-keep-buffers nil
+  "Buffers that `sp-batch-report-close-file' saves but does not kill.")
+
+(defun sp-batch-report--quietly (thunk)
+  "Call THUNK without any question or message to the user."
+  (let ((inhibit-message t)
+        (save-silently t)
+        (use-short-answers t)
+        (use-dialog-box nil)
+        (confirm-kill-processes nil)
+        (kill-buffer-query-functions nil))
+    ;; The "file changed on disk" question: go on and save.
+    (cl-letf (((symbol-function 'ask-user-about-supersession-threat) #'ignore))
+      (funcall thunk))))
+
+(defun sp-batch-report--note-problem (file text)
+  "Record the TEXT about FILE in *Messages* only."
+  (when text
+    (let ((inhibit-message t))
+      (message "sp-batch-report: %s: %s" (file-name-nondirectory file) text))))
+
+(defun sp-batch-report-save-buffer (buffer)
+  "Save BUFFER without asking when it has unsaved changes.
+Return nil, or the text of the error."
+  (when (and (buffer-live-p buffer) (buffer-file-name buffer) (buffer-modified-p buffer))
+    (condition-case err
+        (sp-batch-report--quietly
+         (lambda ()
+           (with-current-buffer buffer
+             ;; Changed on disk too: the buffer wins (callers back the disk text up).
+             (unless (verify-visited-file-modtime) (set-visited-file-modtime))
+             (save-buffer))
+           nil))
+      (error (error-message-string err)))))
+
+(defun sp-batch-report-flush-file (file &optional backup-function)
+  "Make the buffer visiting FILE, if any, agree with the disk, when `sp-batch-report-save-and-kill'.
+Unsaved changes are saved, after BACKUP-FUNCTION (called with FILE) copied the
+disk version.  An unchanged buffer older than the file is reverted.  Return nil,
+or the text of the error."
+  (when sp-batch-report-save-and-kill
+    (when-let* ((buffer (find-buffer-visiting file)))
+      (cond
+       ((buffer-modified-p buffer)
+        (when backup-function (funcall backup-function file))
+        (sp-batch-report-save-buffer buffer))
+       ((not (verify-visited-file-modtime buffer))
+        (condition-case err
+            (sp-batch-report--quietly
+             (lambda () (with-current-buffer buffer (revert-buffer t t t)) nil))
+          (error (error-message-string err))))))))
+
+(defun sp-batch-report-close-file (file)
+  "Save, then kill, the buffer visiting FILE, when `sp-batch-report-save-and-kill'.
+The buffer in use (current, or in the selected window) is saved but not killed.
+A buffer that cannot be saved stays.  Return nil, or the text of the problem;
+it is also written to *Messages*."
+  (when sp-batch-report-save-and-kill
+    (when-let* ((buffer (find-buffer-visiting file)))
+      (let ((problem
+             (or (sp-batch-report-save-buffer buffer)
+                 (unless (or (eq buffer (current-buffer))
+                             (memq buffer sp-batch-report-keep-buffers)
+                             (eq buffer (window-buffer (selected-window))))
+                   (condition-case err
+                       (sp-batch-report--quietly
+                        (lambda ()
+                          (unless (kill-buffer buffer) "the buffer was not killed")))
+                     (error (error-message-string err)))))))
+        (sp-batch-report--note-problem file problem)
+        problem))))
+
+(defun sp-batch-report-with-file (file function &optional backup-function)
+  "Call FUNCTION in the buffer visiting FILE, opening it when needed.
+With `sp-batch-report-save-and-kill' the buffer is flushed first (see
+`sp-batch-report-flush-file') and saved and killed afterwards.  Without it a
+buffer the call opened is killed again unless it has unsaved changes.  Return
+the value of FUNCTION.  A buffer that cannot be saved before the call signals an error."
+  (let ((problem (sp-batch-report-flush-file file backup-function))
+        (open (find-buffer-visiting file)))
+    (when problem (error "%s: %s" (file-name-nondirectory file) problem))
+    (let ((buffer (or open (find-file-noselect file))))
+      (unwind-protect
+          (with-current-buffer buffer (funcall function))
+        (if sp-batch-report-save-and-kill
+            (sp-batch-report-close-file file)
+          (unless (or open (buffer-modified-p buffer))
+            (kill-buffer buffer)))))))
+
 (defun sp-batch-report-open (name text &rest args)
   "Show the Org TEXT in the read-only report buffer NAME and return it.
 ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),

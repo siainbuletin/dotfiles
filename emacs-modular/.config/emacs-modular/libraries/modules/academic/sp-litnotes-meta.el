@@ -579,13 +579,16 @@ The values are strings (empty when missing)."
 
 (defun sp-litnotes-meta-set-status (file status)
   "Set the read-status of the litnote FILE to STATUS and save it."
-  (let ((buf (find-buffer-visiting file)))
+  (let ((buf (progn (sp-batch-report-flush-file file)
+                    (find-buffer-visiting file))))
     (when (and buf (buffer-modified-p buf))
       (user-error "%s has unsaved changes; save it first" (file-name-nondirectory file)))
     (with-current-buffer (or buf (find-file-noselect file))
       (sp-litnotes-meta--put "read-status" status)
-      (save-buffer)
-      (unless buf (kill-buffer)))))
+      (save-buffer))
+    (if sp-batch-report-save-and-kill
+        (sp-batch-report-close-file file)
+      (unless buf (kill-buffer (find-buffer-visiting file))))))
 
 (defun sp-litnotes-meta--status-files ()
   "The litnote files the report lists."
@@ -1371,9 +1374,15 @@ CREATE, the blocks are moved under the Sections heading and brought into
 the saved template format.  Return (STATUS . ACTIONS); STATUS is
 `inserted', `changed', `unchanged' or `skipped' (no block and not CREATE).
 The file is saved when it changed, after a copy to the backup folder named
-by `sp-litnotes-meta--table-stamp'; its buffer is killed when it was not open."
-  (let* ((open (find-buffer-visiting file))
+by `sp-litnotes-meta--table-stamp'; its buffer is killed when it was not open
+(and saved and killed with `sp-batch-report-save-and-kill')."
+  (let* ((flushed (sp-batch-report-flush-file
+                   file (lambda (f)
+                          (when sp-litnotes-meta--table-stamp
+                            (sp-litnotes-meta--backup f sp-litnotes-meta--table-stamp)))))
+         (open (find-buffer-visiting file))
          (buffer (or open (find-file-noselect file))))
+    (when flushed (error "%s: %s" (file-name-nondirectory file) flushed))
     (unwind-protect
         (with-current-buffer buffer
           (unless (and (require 'sp-collection-query-org nil t)
@@ -1394,8 +1403,10 @@ by `sp-litnotes-meta--table-stamp'; its buffer is killed when it was not open."
                           ((or actions (not (equal before (buffer-hash)))) 'changed)
                           (t 'unchanged))
                     actions))))
-      (unless (or open (buffer-modified-p buffer))
-        (kill-buffer buffer)))))
+      (if sp-batch-report-save-and-kill
+          (sp-batch-report-close-file file)
+        (unless (or open (buffer-modified-p buffer))
+          (kill-buffer buffer))))))
 
 (defun sp-litnotes-meta--plan-file (file view create)
   "The actions `sp-litnotes-meta--refresh-file' would take on FILE, writing nothing."
@@ -1931,7 +1942,9 @@ made after #+title when missing.  Return non-nil when the buffer changed."
   "Copy FILE to the STAMP sub-folder of `sp-litnotes-meta-backup-directory'."
   (let ((dir (expand-file-name (concat stamp "/") sp-litnotes-meta-backup-directory)))
     (make-directory dir t)
-    (copy-file file (expand-file-name (file-name-nondirectory file) dir) nil t)))
+    ;; The first copy of a run is kept: it is the text from before any save of a buffer.
+    (let ((target (expand-file-name (file-name-nondirectory file) dir)))
+      (unless (file-exists-p target) (copy-file file target nil t)))))
 
 (defun sp-litnotes-meta--apply-plan (plan stamp overwrite)
   "Back up and fill the note of PLAN; return the lines (and \"tag\") that changed."
@@ -2144,15 +2157,19 @@ entry has no crossref, or the crossref has no note.  EXCLUDED lists notes
 DECISION is `remove' to empty the line; anything else sets the expected link,
 or empties the line when there is none.  Return `fixed' or `removed'."
   (let* ((file (plist-get plan :file))
-         (buf (find-buffer-visiting file))
-         (value (and (not (eq decision 'remove)) (plist-get plan :expected))))
+         (value (and (not (eq decision 'remove)) (plist-get plan :expected)))
+         (buf (progn (sp-batch-report-flush-file
+                      file (lambda (f) (sp-litnotes-meta--backup f stamp)))
+                     (find-buffer-visiting file))))
     (when (and buf (buffer-modified-p buf))
       (user-error "%s has unsaved changes" (file-name-nondirectory file)))
     (sp-litnotes-meta--backup file stamp)
     (with-current-buffer (or buf (find-file-noselect file))
       (sp-litnotes-meta--put "bib-parent" (or value ""))
-      (save-buffer)
-      (unless buf (kill-buffer)))
+      (save-buffer))
+    (if sp-batch-report-save-and-kill
+        (sp-batch-report-close-file file)
+      (unless buf (kill-buffer (find-buffer-visiting file))))
     (when (fboundp 'vulpea-db-update-file)
       (ignore-errors (vulpea-db-update-file file)))
     (if value 'fixed 'removed)))
@@ -2280,14 +2297,18 @@ Return the plans."
 (defun sp-litnotes-meta--title-apply (plan stamp)
   "Back up the note of PLAN and remove the quotes of its pub-title; return `fixed'."
   (let* ((file (plist-get plan :file))
-         (buf (find-buffer-visiting file)))
+         (buf (progn (sp-batch-report-flush-file
+                      file (lambda (f) (sp-litnotes-meta--backup f stamp)))
+                     (find-buffer-visiting file))))
     (when (and buf (buffer-modified-p buf))
       (user-error "%s has unsaved changes" (file-name-nondirectory file)))
     (sp-litnotes-meta--backup file stamp)
     (with-current-buffer (or buf (find-file-noselect file))
       (sp-litnotes-meta--put "pub-title" (plist-get plan :expected))
-      (save-buffer)
-      (unless buf (kill-buffer)))
+      (save-buffer))
+    (if sp-batch-report-save-and-kill
+        (sp-batch-report-close-file file)
+      (unless buf (kill-buffer (find-buffer-visiting file))))
     (when (fboundp 'vulpea-db-update-file)
       (ignore-errors (vulpea-db-update-file file)))
     'fixed))

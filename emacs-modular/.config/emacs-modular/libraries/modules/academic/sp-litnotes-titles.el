@@ -668,7 +668,9 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
   "Copy FILE to the STAMP sub-folder of `sp-litnotes-titles-backup-directory'."
   (let ((dir (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)))
     (make-directory dir t)
-    (copy-file file (expand-file-name (file-name-nondirectory file) dir) nil t)))
+    ;; The first copy of a run is kept: it is the text from before any save of a buffer.
+    (let ((target (expand-file-name (file-name-nondirectory file) dir)))
+      (unless (file-exists-p target) (copy-file file target nil t)))))
 
 (defun sp-litnotes-titles--write-title (file title)
   "Set the =#+title:= of FILE to TITLE, after its property drawer when it has none."
@@ -686,10 +688,15 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
 (defun sp-litnotes-titles--apply-plan (plan stamp)
   "Write PLAN, after a backup in STAMP.  Return a plist for the summary."
   (let* ((file (plist-get plan :file))
+         (locked (stringp (file-locked-p file)))
+         (flushed (and (not locked)
+                       (sp-batch-report-flush-file
+                        file (lambda (f) (sp-litnotes-titles--backup f stamp)))))
          (buffer (find-buffer-visiting file))
          (id (plist-get plan :id)))
     (cond
-     ((stringp (file-locked-p file)) (list :file file :status 'skipped :why "locked by another Emacs"))
+     (locked (list :file file :status 'skipped :why "locked by another Emacs"))
+     (flushed (list :file file :status 'skipped :why (format "buffer not saved: %s" flushed)))
      ((and buffer (buffer-modified-p buffer))
       (list :file file :status 'skipped :why "unsaved changes in its buffer"))
      (t

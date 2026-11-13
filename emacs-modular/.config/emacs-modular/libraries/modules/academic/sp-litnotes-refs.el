@@ -401,13 +401,18 @@ An empty REFS leaves =ROAM_REFS= alone."
 A note whose buffer has unsaved changes, or that changed since the report,
 is left alone.  An open buffer without changes is reverted."
   (let* ((file (plist-get plan :file))
+         (flushed (sp-batch-report-flush-file file #'sp-litnotes-refs--backup))
          (buffer (find-buffer-visiting file)))
     (cond
+     (flushed (format "buffer not saved: %s" flushed))
      ((and buffer (buffer-modified-p buffer)) "unsaved changes in its buffer")
      ((not (sp-litnotes-refs--current-p plan)) "changed since the report")
      (t (sp-litnotes-refs--backup file)
         (sp-litnotes-refs--apply file (plist-get plan :refs) create-id)
-        (when buffer (with-current-buffer buffer (revert-buffer t t t)))
+        (when buffer
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-close-file file)
+            (with-current-buffer buffer (revert-buffer t t t))))
         'written))))
 
 ;;;###autoload
