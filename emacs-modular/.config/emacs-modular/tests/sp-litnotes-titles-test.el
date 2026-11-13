@@ -155,8 +155,25 @@
                        '(("kant2009.org" same same-name)
                          ("notitle.org" same same-name))))))))
 
-(ert-deftest sp-litnotes-titles-apply-skips-unsaved-buffer ()
+(ert-deftest sp-litnotes-titles-apply-saves-then-kills-an-unsaved-buffer ()
   (sp-litnotes-titles-test--with-vault
+    (sp-litnotes-titles-test--note dir "alpha.org" "1" "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: Alpha")
+    (let* ((file (expand-file-name "alpha.org" dir))
+           (buffer (find-file-noselect file)))
+      (with-current-buffer buffer (goto-char (point-max)) (insert "mine\n"))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (let ((results (sp-litnotes-titles-convert)))
+          (should (eq (plist-get (car results) :status) 'written))))
+      (should-not (buffer-live-p buffer))
+      (let ((text (sp-litnotes-titles-test--read (car (directory-files dir t "\\.org\\'")))))
+        (should (string-match-p "^mine$" text))
+        (should (string-match-p "^#\\+title: Lee (2000) Alpha$" text))))))
+
+(ert-deftest sp-litnotes-titles-apply-skips-unsaved-buffer-when-save-and-kill-is-off ()
+  (let ((sp-batch-report-save-and-kill nil))
+   (sp-litnotes-titles-test--with-vault
     (sp-litnotes-titles-test--note dir "alpha.org" "1" "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: Alpha")
     (let* ((file (expand-file-name "alpha.org" dir))
            (buffer (find-file-noselect file)))
@@ -169,7 +186,7 @@
                 (should (eq (plist-get (car results) :status) 'skipped))
                 (should (string-match-p "#\\+title: old$" (sp-litnotes-titles-test--read file))))))
         (with-current-buffer buffer (set-buffer-modified-p nil))
-        (kill-buffer buffer)))))
+        (kill-buffer buffer))))))
 
 (ert-deftest sp-litnotes-titles-apply-asks-for-missing-values ()
   (sp-litnotes-titles-test--with-vault

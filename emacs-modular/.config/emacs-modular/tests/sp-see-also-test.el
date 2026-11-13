@@ -550,5 +550,76 @@
       (should (search-forward "Prose under a question" nil t)))
     (kill-buffer "*see-also-concept*")))
 
+(defconst sp-see-also-test--tagged
+  (sp-see-also-test--text
+   "#+title: Tagged"
+   "* Heading with tags :alpha:beta_2:"
+   "Text[fn::[[id:c-one][Concept one]]] here."
+   "* Very long heading title that has to be cut when the window is narrow :t:"
+   "More[fn::[[id:c-one][Concept one]]] here."
+   "* Plain heading"
+   "Last[fn::[[id:c-one][Concept one]]] here."))
+
+(ert-deftest sp-see-also-parse-reads-heading-tags ()
+  (with-temp-buffer
+    (insert sp-see-also-test--tagged)
+    (let ((notes (sp-see-also-parse-buffer)))
+      (should (equal (plist-get (nth 0 notes) :heading-tags) '("alpha" "beta_2")))
+      (should (equal (plist-get (nth 0 notes) :heading) "Heading with tags"))
+      (should (equal (plist-get (nth 1 notes) :heading-tags) '("t")))
+      (should-not (plist-get (nth 2 notes) :heading-tags)))))
+
+(ert-deftest sp-see-also-view-tags-are-flush-right ()
+  (let* ((tags (sp-see-also-view--tags '("a" "bc")))
+         (text (sp-see-also-view--flush-right tags)))
+    (should (equal (substring-no-properties tags) ":a:bc:"))
+    (should (eq (get-text-property 0 'face tags) 'sp-see-also-tags))
+    (should (equal (get-text-property 0 'display text)
+                   '(space :align-to (- right 6))))
+    (should-not (sp-see-also-view--tags nil))))
+
+(ert-deftest sp-see-also-view-shows-heading-tags-and-cuts-the-title ()
+  (sp-see-also-test--with-vault
+    (sp-see-also-test--write root "tagged.org" sp-see-also-test--tagged)
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+              ((symbol-function 'sp-see-also-view--width) (lambda () 50)))
+      (sp-see-also-show-concept "c-one"))
+    (with-current-buffer "*see-also-concept*"
+      (goto-char (point-min))
+      (should (search-forward ":alpha:beta_2:" nil t))
+      (let ((pos (match-beginning 0)))
+        (should (memq 'sp-see-also-tags (ensure-list (get-text-property pos 'face))))
+        ;; the space before the tags is a display space aligned to the right edge
+        (should (equal (get-text-property (1- pos) 'display)
+                       '(space :align-to (- right 14)))))
+      ;; the long title is cut, the tags after it are not
+      (should-not (search-forward "when the window is narrow" nil t))
+      (goto-char (point-min))
+      (should (search-forward "Very long heading" nil t))
+      (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+        (should (string-match-p "…" line))
+        (should (string-match-p ":t:\\'" line)))
+      ;; a heading without tags gets no tag text
+      (goto-char (point-min))
+      (search-forward "Plain heading")
+      (should-not (string-match-p ":[a-z]+:" (buffer-substring (line-beginning-position)
+                                                               (line-end-position)))))
+    (kill-buffer "*see-also-concept*")))
+
+(ert-deftest sp-see-also-view-resize-draws-again-for-a-new-width ()
+  (let ((draws 0))
+    (with-temp-buffer
+      (sp-see-also-view-mode)
+      (setq sp-see-also-view--redraw (lambda () (cl-incf draws))
+            sp-see-also-view--width 50)
+      (cl-letf (((symbol-function 'get-buffer-window) (lambda (&rest _) t))
+                ((symbol-function 'sp-see-also-view--width) (lambda () 50)))
+        (sp-see-also-view--resize)
+        (should (= draws 0)))
+      (cl-letf (((symbol-function 'get-buffer-window) (lambda (&rest _) t))
+                ((symbol-function 'sp-see-also-view--width) (lambda () 70)))
+        (sp-see-also-view--resize)
+        (should (= draws 1))))))
+
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here

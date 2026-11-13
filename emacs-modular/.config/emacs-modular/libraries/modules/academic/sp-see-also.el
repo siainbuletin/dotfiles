@@ -165,8 +165,8 @@ QUOTE are quote and verse blocks."
 
 (defun sp-see-also--headings (keywords skip)
   "Return the headings of the buffer in order, outside the SKIP ranges.
-Each is a plist of :pos, :level, :keyword (when it is one of KEYWORDS), :title
-and :id."
+Each is a plist of :pos, :level, :keyword (when it is one of KEYWORDS), :title,
+:tags (the tags on the heading line itself, a list of strings) and :id."
   (let ((case-fold-search nil)
         headings)
     (save-excursion
@@ -187,6 +187,9 @@ and :id."
                            t t)))
               (push (list :pos pos :level level :keyword keyword
                           :title (sp-see-also--plain title)
+                          :tags (and (string-match
+                                      "[ \t]+:\\([[:alnum:]_@#%:]+\\):[ \t]*\\'" rest)
+                                     (split-string (match-string 1 rest) ":" t))
                           :id (sp-see-also--heading-id))
                     headings))))))
     (nreverse headings)))
@@ -421,7 +424,7 @@ the definition.  Each is a plist:
 :beg, :end, :label, :text, :links (a list of (ID . DESCRIPTION)), :snippet,
 :where (`quote' or `prose'), :question (keyword of the nearest question
 heading above, or nil), :open (non-nil when that question is open),
-:question-title, :question-pos, :heading, :heading-id.
+:question-title, :question-pos, :heading, :heading-tags, :heading-id.
 When SECTIONS is non-nil, every `id:' link in a \"See also\" section is
 returned as well, one item for each link, with :where `section'.  Its context
 (:heading, :heading-id, :question) is that of the parent of the section, so it
@@ -499,6 +502,7 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
                              :question-title (and question (plist-get question :title))
                              :question-pos (and question (plist-get question :pos))
                              :heading (and nearest (plist-get nearest :title))
+                             :heading-tags (and nearest (plist-get nearest :tags))
                              :heading-id (and with-id (plist-get with-id :id))))
                       result))))
           (nreverse result))))))
@@ -518,7 +522,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
           (push (append (list :id (car link) :desc (cdr link)) base) mentions))))
     (nreverse mentions)))
 
-(defconst sp-see-also--cache-version 4
+(defconst sp-see-also--cache-version 5
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
@@ -971,6 +975,15 @@ It inherits `sp-highlight', which follows the Modus palette (bg-hl-line)."
   "Face of the marks and the small print of an entry."
   :group 'sp-see-also)
 
+(defface sp-see-also-tags
+  '((t :inherit org-tag :extend t))
+  "Face of the Org tags of the heading of an entry, at the right edge.
+It inherits `org-tag', which the Modus themes style, so it follows the theme."
+  :group 'sp-see-also)
+
+(defvar-local sp-see-also-view--width nil
+  "Width of the window the current see-also view was last drawn for.")
+
 (defvar-local sp-see-also-view--redraw nil
   "Function that draws the current see-also view again.")
 
@@ -981,6 +994,24 @@ It inherits `sp-highlight', which follows the Modus palette (bg-hl-line)."
   "Return the marker text of MENTION: ❝ for a quote, ? under an open question."
   (concat (if (eq (plist-get mention :where) 'quote) "❝" " ")
           (if (plist-get mention :open) "?" " ")))
+
+(defun sp-see-also-view--width ()
+  "Return the width in columns of the window that shows this buffer, or 80."
+  (let ((window (get-buffer-window (current-buffer) t)))
+    (if window (window-body-width window) 80)))
+
+(defun sp-see-also-view--tags (tags)
+  "Return TAGS (a list of strings) as `:a:b:' in `sp-see-also-tags', or nil."
+  (when tags
+    (propertize (concat ":" (mapconcat #'identity tags ":") ":")
+                'face 'sp-see-also-tags)))
+
+(defun sp-see-also-view--flush-right (text)
+  "Return TEXT preceded by a space that pushes it to the right edge of the window.
+The space is a `display' spec relative to the window (`right'), so the text
+stays at the edge when the window is resized without drawing the view again."
+  (concat (propertize " " 'display `(space :align-to (- right ,(string-width text))))
+          text))
 
 (defun sp-see-also-view--stop ()
   "Remember the line at point as a place for `sp-see-also-view-next'."
@@ -1002,21 +1033,31 @@ It inherits `sp-highlight', which follows the Modus palette (bg-hl-line)."
 (defun sp-see-also-view--entry (file mention label)
   "Insert the entry of MENTION, found in FILE, under the heading LABEL.
 The heading and the context are buttons that visit the footnote; the whole entry
-has the `sp-see-also-match' background, and TAB folds the context."
+has the `sp-see-also-match' background, and TAB folds the context.
+The Org tags of the source heading (`:heading-tags') are at the right edge of
+the heading line.  When the line is too long for the window, LABEL is cut with
+an ellipsis; the tags are not."
   (let* ((start (point))
          (jump (lambda () (sp-see-also-visit file (plist-get mention :beg))))
          (snippet (let ((s (plist-get mention :snippet)))
                     (if (string-empty-p s) (or (plist-get mention :heading) "…") s)))
          (desc (plist-get mention :desc))
-         (under (plist-get mention :question-title)))
+         (under (plist-get mention :question-title))
+         (marks (sp-see-also-view--marks mention))
+         (place (format "[%s%s]" (plist-get mention :where)
+                        (if under (concat " · " under) "")))
+         (tags (sp-see-also-view--tags (plist-get mention :heading-tags)))
+         ;; "  " marks " " label "  " place, then a space and the tags
+         (room (- (sp-see-also-view--width)
+                  (+ 2 (string-width marks) 1 2 (string-width place)
+                     (if tags (+ 2 (string-width tags)) 0))))
+         (label (truncate-string-to-width label (max room 8) nil nil "…")))
     (sp-see-also-view--stop)
-    (insert "  " (propertize (sp-see-also-view--marks mention) 'face 'sp-see-also-marks) " ")
+    (insert "  " (propertize marks 'face 'sp-see-also-marks) " ")
     (sp-see-also-view--button label 'sp-see-also-heading "Visit this footnote" jump)
-    (insert "  "
-            (propertize (format "[%s%s]" (plist-get mention :where)
-                                (if under (concat " · " under) ""))
-                        'face 'sp-see-also-marks)
-            "\n")
+    (insert "  " (propertize place 'face 'sp-see-also-marks))
+    (when tags (insert (sp-see-also-view--flush-right tags)))
+    (insert "\n")
     (let ((body (point)))
       (insert "      ")
       (let ((text (point)))
@@ -1100,7 +1141,18 @@ RET or a click on a heading or a context visits it.")
   (setq-local revert-buffer-function
               (lambda (&rest _)
                 (when sp-see-also-view--redraw (funcall sp-see-also-view--redraw))))
-  (setq-local truncate-lines nil))
+  (setq-local truncate-lines nil)
+  (add-hook 'window-configuration-change-hook #'sp-see-also-view--resize nil t))
+
+(defun sp-see-also-view--resize ()
+  "Draw the view again when its window got a different width.
+Run from `window-configuration-change-hook' in the buffer.  The tags stay at
+the right edge by themselves; this only cuts the entry titles again.
+A fold is lost."
+  (when (and sp-see-also-view--redraw
+             (get-buffer-window (current-buffer) t)
+             (not (eql sp-see-also-view--width (sp-see-also-view--width))))
+    (funcall sp-see-also-view--redraw)))
 
 (defun sp-see-also-view--show (name redraw)
   "Draw the buffer NAME with REDRAW (a function that inserts) and show it."
@@ -1110,6 +1162,7 @@ RET or a click on a heading or a context visits it.")
           (lambda ()
             (let ((inhibit-read-only t)
                   (line (line-number-at-pos)))
+              (setq sp-see-also-view--width (sp-see-also-view--width))
               (remove-overlays (point-min) (point-max) 'sp-see-also-fold t)
               (erase-buffer)
               (setq sp-see-also-view--stops nil)
@@ -1117,8 +1170,9 @@ RET or a click on a heading or a context visits it.")
               (setq sp-see-also-view--stops (nreverse sp-see-also-view--stops))
               (goto-char (point-min))
               (forward-line (1- line)))))
-    (funcall sp-see-also-view--redraw))
-  (pop-to-buffer name))
+    ;; shown first, so the width of the window is known when it is drawn
+    (pop-to-buffer (current-buffer))
+    (funcall sp-see-also-view--redraw)))
 
 (defun sp-see-also-view--title (file)
   "Return the title of the litnote FILE."

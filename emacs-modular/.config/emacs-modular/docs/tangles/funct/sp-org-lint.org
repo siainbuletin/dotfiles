@@ -2812,7 +2812,10 @@ of FILE with unsaved changes is saved first (and FILE is recorded in
     (unless (member file sp-author-notes--excluded)
       (when dirty
         (cl-pushnew file (sp-author-notes--run-saved run) :test #'string=)
-        (when apply (with-current-buffer visiting (save-buffer))))
+        (when apply
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-flush-file file (lambda (f) (sp-author-notes--backup run f)))
+            (with-current-buffer visiting (save-buffer)))))
       (with-temp-buffer
         (if (and dirty (not apply))
             (insert (with-current-buffer visiting
@@ -2825,7 +2828,9 @@ of FILE with unsaved changes is saved first (and FILE is recorded in
             (let ((coding-system-for-write 'utf-8))
               (write-region (point-min) (point-max) file nil 'silent))
             (when visiting
-              (with-current-buffer visiting (revert-buffer t t t)))
+              (if sp-batch-report-save-and-kill
+                  (sp-batch-report-close-file file)
+                (with-current-buffer visiting (revert-buffer t t t))))
             (when (fboundp 'vulpea-db-update-file)
               (ignore-errors (vulpea-db-update-file file))))
           (list result))))))
@@ -2850,8 +2855,11 @@ WITH-EDITED is as for `sp-author-notes--person-pass'."
 The note is saved when that changed it, after a copy to the backup
 folder.  A failure is recorded as a problem."
   (condition-case err
-      (let* ((visiting (find-buffer-visiting file))
+      (let* ((flushed (sp-batch-report-flush-file
+                       file (lambda (f) (sp-author-notes--backup run f))))
+             (visiting (find-buffer-visiting file))
              (buffer (or visiting (find-file-noselect file))))
+        (when flushed (error "%s" flushed))
         (unwind-protect
             (with-current-buffer buffer
               (let ((modified (buffer-modified-p))
@@ -2871,7 +2879,9 @@ folder.  A failure is recorded as a problem."
                   (sp-author-notes--backup run file)
                   (save-buffer))
                 (push file (sp-author-notes--run-filled run))))
-          (unless visiting (kill-buffer buffer))))
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-close-file file)
+            (unless visiting (kill-buffer buffer)))))
     (error (sp-author-notes--problem
             run file nil (format "The table was not filled: %s" (error-message-string err))))))
 
@@ -3647,6 +3657,7 @@ COUNTS is (WORKS . EDITED).  APPLY says whether the note was written."
   "Fill the Works tables of the author note in the current buffer; write it when APPLY.
 Return the message to show."
   (let* ((file (sp-author-notes--works-target))
+         (sp-batch-report-keep-buffers (list (current-buffer)))
          (sp-author-notes--excluded nil)
          (run (sp-author-notes--make-run
                :apply apply :stamp (format-time-string "%Y%m%dT%H%M%S")
@@ -4933,13 +4944,18 @@ An empty REFS leaves =ROAM_REFS= alone."
 A note whose buffer has unsaved changes, or that changed since the report,
 is left alone.  An open buffer without changes is reverted."
   (let* ((file (plist-get plan :file))
+         (flushed (sp-batch-report-flush-file file #'sp-litnotes-refs--backup))
          (buffer (find-buffer-visiting file)))
     (cond
+     (flushed (format "buffer not saved: %s" flushed))
      ((and buffer (buffer-modified-p buffer)) "unsaved changes in its buffer")
      ((not (sp-litnotes-refs--current-p plan)) "changed since the report")
      (t (sp-litnotes-refs--backup file)
         (sp-litnotes-refs--apply file (plist-get plan :refs) create-id)
-        (when buffer (with-current-buffer buffer (revert-buffer t t t)))
+        (when buffer
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-close-file file)
+            (with-current-buffer buffer (revert-buffer t t t))))
         'written))))
 
 ;;;###autoload
@@ -5762,7 +5778,9 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
   "Copy FILE to the STAMP sub-folder of `sp-litnotes-titles-backup-directory'."
   (let ((dir (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)))
     (make-directory dir t)
-    (copy-file file (expand-file-name (file-name-nondirectory file) dir) nil t)))
+    ;; The first copy of a run is kept: it is the text from before any save of a buffer.
+    (let ((target (expand-file-name (file-name-nondirectory file) dir)))
+      (unless (file-exists-p target) (copy-file file target nil t)))))
 
 (defun sp-litnotes-titles--write-title (file title)
   "Set the =#+title:= of FILE to TITLE, after its property drawer when it has none."
@@ -5780,10 +5798,15 @@ Reading is done in slices; the report opens, and CALLBACK runs, when it is done.
 (defun sp-litnotes-titles--apply-plan (plan stamp)
   "Write PLAN, after a backup in STAMP.  Return a plist for the summary."
   (let* ((file (plist-get plan :file))
+         (locked (stringp (file-locked-p file)))
+         (flushed (and (not locked)
+                       (sp-batch-report-flush-file
+                        file (lambda (f) (sp-litnotes-titles--backup f stamp)))))
          (buffer (find-buffer-visiting file))
          (id (plist-get plan :id)))
     (cond
-     ((stringp (file-locked-p file)) (list :file file :status 'skipped :why "locked by another Emacs"))
+     (locked (list :file file :status 'skipped :why "locked by another Emacs"))
+     (flushed (list :file file :status 'skipped :why (format "buffer not saved: %s" flushed)))
      ((and buffer (buffer-modified-p buffer))
       (list :file file :status 'skipped :why "unsaved changes in its buffer"))
      (t

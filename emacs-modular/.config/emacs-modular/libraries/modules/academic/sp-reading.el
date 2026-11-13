@@ -68,41 +68,89 @@ Nil means the root of the database."
 
 (defun sp-reading--listing-script ()
   "The JavaScript for Automation that lists UUID and name of every PDF in the database.
-It reads the fields of all records in bulk, as `tools/devonthink-to-litdb.py' does."
+It reads the fields of all records in bulk, as `tools/devonthink-to-litdb.py' does,
+and keeps the records whose file path ends in .pdf.  DEVONthink often keeps a
+record name without the extension, so `.pdf' is added to the name when missing."
   (format "const app = Application(\"DEVONthink\");
 const c = app.databases.byName(%s).contents;
-const ids = c.uuid(), names = c.name();
+const ids = c.uuid(), names = c.name(), paths = c.path();
 const out = [];
-for (let i = 0; i < ids.length; i++)
-  if (names[i].toLowerCase().endsWith(\".pdf\")) out.push(ids[i] + \"\\t\" + names[i]);
+for (let i = 0; i < ids.length; i++) {
+  if (!paths[i] || !paths[i].toLowerCase().endsWith(\".pdf\")) continue;
+  const name = names[i].toLowerCase().endsWith(\".pdf\") ? names[i] : names[i] + \".pdf\";
+  out.push(ids[i] + \"\\t\" + name);
+}
 out.join(\"\\n\");"
           (json-encode-string sp-reading-database)))
 
+(defun sp-reading--diagnose-script ()
+  "The JavaScript for Automation that describes what the listing sees, as JSON."
+  (format "const app = Application(\"DEVONthink\");
+const dbs = app.databases.name();
+const c = app.databases.byName(%s).contents;
+const ids = c.uuid(), names = c.name(), paths = c.path(), kinds = c.kind();
+let pdfByPath = 0, pdfByName = 0;
+const sample = [];
+for (let i = 0; i < ids.length; i++) {
+  if (paths[i] && paths[i].toLowerCase().endsWith(\".pdf\")) pdfByPath++;
+  if (names[i].toLowerCase().endsWith(\".pdf\")) pdfByName++;
+  if (sample.length < 8 && kinds[i] && /pdf/i.test(kinds[i])) sample.push({name: names[i], path: paths[i], kind: kinds[i]});
+}
+JSON.stringify({databases: dbs, records: ids.length, pdf_by_path: pdfByPath, pdf_by_name: pdfByName, sample: sample}, null, 2);"
+          (json-encode-string sp-reading-database)))
+
+(defun sp-reading-diagnose ()
+  "Show what the DEVONthink listing sees: databases, record counts and a few PDFs.
+Use it when `sp-reading-refresh' finds no PDFs."
+  (interactive)
+  (let ((text (sp-reading--jxa (sp-reading--diagnose-script)))
+        (buffer (get-buffer-create "*sp-reading diagnose*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert text "\n")
+        (goto-char (point-min))))
+    (display-buffer buffer)
+    text))
+
 (defun sp-reading-refresh ()
-  "Read the citekeys and UUIDs of the PDFs in DEVONthink into `sp-reading-index'."
+  "Read the citekeys and UUIDs of the PDFs in DEVONthink into `sp-reading-index'.
+When none is found, say so and point to `sp-reading-diagnose'."
   (interactive)
   (setq sp-reading-index
         (sp-reading--parse-listing (sp-reading--jxa (sp-reading--listing-script))))
-  (message "sp-reading: %d PDFs in %s" (hash-table-count sp-reading-index) sp-reading-database)
+  (if (zerop (hash-table-count sp-reading-index))
+      (message "sp-reading: 0 PDFs in %s; run M-x sp-reading-diagnose to see why" sp-reading-database)
+    (message "sp-reading: %d PDFs in %s" (hash-table-count sp-reading-index) sp-reading-database))
   sp-reading-index)
 
 (defun sp-reading--lookup-script (key)
-  "The AppleScript that finds the UUID of the record named KEY.pdf."
-  (format "tell application id \"DNtp\"
-  set theRecords to search %s in root of database %s
-  repeat with r in theRecords
-    if (name of r) is %s then return uuid of r
-  end repeat
-  return \"\"
-end tell"
-          (sp-reading--quote (concat "name:" key ".pdf"))
-          (sp-reading--quote sp-reading-database)
-          (sp-reading--quote (concat key ".pdf"))))
+  "The JavaScript that finds the UUID of the record for KEY, or an empty string.
+A record matches when its name or the file name of its path, without a
+trailing .pdf and ignoring case, equals KEY."
+  (format "const app = Application(\"DEVONthink\");
+const key = %s.toLowerCase();
+const stem = s => (s || \"\").toLowerCase().replace(/\\.pdf$/, \"\");
+const base = p => stem((p || \"\").split(\"/\").pop());
+const db = app.databases.byName(%s);
+let found = \"\";
+const hits = app.search(\"name:\" + key, {in: db.root()});
+for (const r of hits) {
+  if (stem(r.name()) === key || base(r.path()) === key) { found = r.uuid(); break; }
+}
+found;"
+          (json-encode-string key)
+          (json-encode-string sp-reading-database)))
 
 (defun sp-reading-uuid (key)
-  "The DEVONthink UUID of the record for the citekey KEY, or nil."
+  "The DEVONthink UUID of the record for the citekey KEY, or nil.
+Looks in the cache, then asks DEVONthink for that record, then rebuilds
+the cache from the whole database once and looks again."
   (or (and sp-reading-index (gethash key sp-reading-index))
-      (let ((uuid (sp-reading--osascript (sp-reading--lookup-script key))))
+      (let ((uuid (string-trim (sp-reading--jxa (sp-reading--lookup-script key)))))
+        (when (string-empty-p uuid)
+          (sp-reading-refresh)
+          (setq uuid (or (gethash key sp-reading-index) "")))
         (unless (string-empty-p uuid)
           (unless sp-reading-index
             (setq sp-reading-index (make-hash-table :test 'equal)))
