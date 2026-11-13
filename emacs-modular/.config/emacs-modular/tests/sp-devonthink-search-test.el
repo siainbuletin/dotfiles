@@ -61,5 +61,18 @@
   (with-current-buffer "*devonthink preview*"
     (should (string-match-p "smith-2017-x.pdf\n\nSome text" (buffer-string)))))
 
+(ert-deftest sp-devonthink-search-similar-to-note-uses-the-note-resolver ()
+  (let (script)
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid)
+               (lambda (&optional action)
+                 (when action (error "read-only command must not ask"))
+                 "U-PARENT"))
+              ((symbol-function 'sp-devonthink-search--choose)
+               (lambda (s _prompt) (setq script s))))
+      (sp-devonthink-similar-to-note)
+      (should (string-match-p "U-PARENT" script)))
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) nil)))
+      (should-error (sp-devonthink-similar-to-note) :type 'user-error))))
+
 (provide 'sp-devonthink-search-test)
 ;;; sp-devonthink-search-test.el ends here

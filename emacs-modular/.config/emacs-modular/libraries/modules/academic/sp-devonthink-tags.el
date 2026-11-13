@@ -136,9 +136,8 @@ Return the number of records that changed."
 (defun sp-devonthink-tag-note (tags &optional remove)
   "Add TAGS to the DEVONthink record of the current litnote; with REMOVE, remove them."
   (interactive (list (sp-devonthink-read-tags) current-prefix-arg))
-  (let ((uuid (or (sp-devonthink-note-uuid)
-                  (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
-                  (user-error "No DEVONthink record for this note"))))
+  (let ((uuid (or (sp-devonthink-note-record-uuid "tag")
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (message "%s: %d record changed"
              (if remove "Removed" "Added")
              (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))))

@@ -134,9 +134,8 @@ const records = app.compare({record: app.getRecordWithUuid(%s), to: db});
 (defun sp-devonthink-similar-to-note ()
   "List the records similar to the record of the current litnote."
   (interactive)
-  (let ((uuid (or (sp-devonthink-note-uuid)
-                  (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
-                  (user-error "No DEVONthink record for this note"))))
+  (let ((uuid (or (sp-devonthink-note-record-uuid)
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (sp-devonthink-search--choose (sp-devonthink-search--similar-script uuid)
                                   "Similar records: ")))
 
