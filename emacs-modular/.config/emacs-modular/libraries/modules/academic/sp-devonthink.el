@@ -296,23 +296,34 @@ Interactively, always asks for the page; an empty answer links the whole record.
 
 (defconst sp-devonthink--front-script
   "tell application id \"DNtp\"
-  try
-    set theWindow to think window 1
-    set theRecord to content record of theWindow
-    set thePage to \"\"
+  set bestLine to \"\"
+  set firstLine to \"\"
+  repeat with theWindow in (every window)
     try
-      set thePage to (current page of theWindow) as text
+      set theRecord to content record of theWindow
+      set thePage to \"\"
+      try
+        set thePage to (current page of theWindow) as text
+      end try
+      set theText to \"\"
+      try
+        set theText to (selected text of theWindow) as text
+      end try
+      set theLine to (uuid of theRecord) & tab & (name of theRecord) & tab & thePage & tab & theText
+      if firstLine is \"\" then set firstLine to theLine
+      if theText is not \"\" then
+        set bestLine to theLine
+        exit repeat
+      end if
     end try
-    set theText to \"\"
-    try
-      set theText to (selected text of theWindow) as text
-    end try
-    return (uuid of theRecord) & tab & (name of theRecord) & tab & thePage & tab & theText
-  on error
-    return \"\"
-  end try
+  end repeat
+  if bestLine is not \"\" then return bestLine
+  return firstLine
 end tell"
-  "AppleScript that reads the record, page and selected text of DEVONthink's front window.")
+  "AppleScript that reads the record, page and selected text from DEVONthink's windows.
+Windows are visited front to back, whatever their kind (main window, tab,
+separate document viewer).  The first window with a selection wins; without
+any selection, the frontmost window that has a record wins.")
 
 (defun sp-devonthink--parse-front (output)
   "Parse OUTPUT of `sp-devonthink--front-script' into a plist, or nil.
@@ -333,7 +344,7 @@ The plist has :uuid, :key, :page (from 1, or nil) and :text."
   (interactive)
   (let ((front (sp-devonthink--parse-front
                 (sp-reading--osascript sp-devonthink--front-script))))
-    (unless front (user-error "DEVONthink has no record open in its front window"))
+    (unless front (user-error "DEVONthink has no open window with a record (open the PDF in DEVONthink first)"))
     (let ((link (concat "devonthink:"
                         (sp-devonthink-link-path (plist-get front :uuid) (plist-get front :page))))
           (desc (sp-devonthink--description (plist-get front :key) (plist-get front :page))))

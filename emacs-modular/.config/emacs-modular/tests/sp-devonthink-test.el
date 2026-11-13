@@ -125,6 +125,19 @@
       (should (equal (buffer-string)
                      (format "[[devonthink:%s::6][smith-2017-x p. 6]]" sp-devonthink-test--uuid))))))
 
+(ert-deftest sp-devonthink-front-script-visits-all-windows ()
+  (should (string-match-p "repeat with theWindow in (every window)" sp-devonthink--front-script))
+  (should-not (string-match-p "think window 1" sp-devonthink--front-script))
+  (should (string-match-p "content record of theWindow" sp-devonthink--front-script))
+  (should (string-match-p "exit repeat" sp-devonthink--front-script)))
+
+(ert-deftest sp-devonthink-store-link-multiline-selection ()
+  (let* ((org-stored-links nil) (kill-ring nil)
+         (out (format "%s\tsmith-2017-x.pdf\t3\tline one\nline two\n" sp-devonthink-test--uuid)))
+    (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) out)))
+      (sp-devonthink-store-link)
+      (should (equal (car kill-ring) "line one\nline two")))))
+
 (ert-deftest sp-devonthink-first-page-parses-ranges-and-odd-values ()
   (should (= (sp-devonthink-first-page "45--67") 45))
   (should (= (sp-devonthink-first-page "45-67") 45))
