@@ -3859,3 +3859,8 @@ What each pull request changed in these modules, newest last; the one-line summa
   - Not tested in a running Emacs. The change is one =:bind= entry.
 - [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
   - ✨ The property conversion preview and the keyword conversion preview open in the shared =sp-batch-report-mode= buffer, with every note file as an Org link.
+- [[https://github.com/siainbuletin/dotfiles/pull/450][#450]]
+  - ✨ Added =sp-vulpea-backlink-check=: =M-x sp-vulpea-backlink-check= says in the echo area whether the heading at point (with an =ID=) is backlinked, for example =3 backlinks from 2 notes=
+    - the result is an Embark target (=sp-vulpea-backlinks=); =embark-act= opens a buffer with each backlink's note, heading, line and context, and =RET= jumps to it.
+  - 18 ERT tests in headless Emacs 29.3 (Vulpea stubbed)
+    - not run with real Vulpea, Embark or the GUI.
