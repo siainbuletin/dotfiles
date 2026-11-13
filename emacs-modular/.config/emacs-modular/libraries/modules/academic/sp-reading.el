@@ -14,6 +14,7 @@
 (require 'json)
 
 (declare-function citar-get-files "citar")
+(declare-function sp-devonthink-resolve "sp-devonthink")
 
 (defgroup sp-reading nil
   "Read cited works in DEVONthink."
@@ -213,9 +214,16 @@ PAGE (counted from 0) is the page to open; interactively a prefix argument asks.
   (interactive
    (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))
          (when current-prefix-arg (1- (read-number "Page: ")))))
-  (let ((uuid (sp-reading-uuid key)))
-    (if uuid
-        (sp-reading--open-url (sp-reading--url uuid page))
+  (let* ((uuid (sp-reading-uuid key))
+         (via (and (not uuid) (fboundp 'sp-devonthink-resolve) (sp-devonthink-resolve key))))
+    (cond
+     (uuid (sp-reading--open-url (sp-reading--url uuid page)))
+     (via
+      (when (plist-get via :note) (message "%s" (plist-get via :note)))
+      (let ((chapter (plist-get via :page)))
+        (sp-reading--open-url
+         (sp-reading--url (plist-get via :uuid) (or page (and chapter (1- chapter)))))))
+     (t
       (let ((file (sp-reading--pdf key)))
         (if (not file)
             (progn (message "sp-reading: no PDF for %s (try sp-fetch-academic)" key) nil)
@@ -223,7 +231,7 @@ PAGE (counted from 0) is the page to open; interactively a prefix argument asks.
             ("Index in DEVONthink"
              (sp-reading--open-url (sp-reading--url (sp-reading-index-file key file) page)))
             ("Open in Preview"
-             (apply #'sp-reading--run (append sp-reading-preview-command (list file))))))))))
+             (apply #'sp-reading--run (append sp-reading-preview-command (list file)))))))))))
 
 ;;; Provide
 

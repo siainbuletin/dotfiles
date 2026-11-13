@@ -218,6 +218,10 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - =sp-devonthink-keyword= is the name of the litnote keyword that holds the UUID.
 - =sp-devonthink-store-page-offset= is added to the page DEVONthink reports when a link is stored.
   - It is 0 until tried: if stored links open one page off, set it to 1 or -1.
+- =sp-devonthink-page-offset= is added to the printed page of a chapter or article when its record is the parent's PDF.
+  - The offset is PDF page minus printed page: a book whose first numbered page is the 9th PDF page has offset 8.
+  - It is 0 by default, since the printed page and the PDF page often agree for proceedings and offprints.
+- =sp-devonthink-parent-page-offsets= is an alist =(PARENT-CITEKEY . OFFSET)= that overrides the default for one book.
 
 #+begin_src emacs-lisp
 ;;; sp-devonthink.el --- DEVONthink records from Org and litnotes -*- lexical-binding: t; -*-
@@ -250,6 +254,17 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 (defcustom sp-devonthink-store-page-offset 0
   "Number added to the page DEVONthink reports when a link is stored."
   :type 'integer :group 'sp-devonthink)
+
+(defcustom sp-devonthink-page-offset 0
+  "Number added to a printed page to get the PDF page, for chapters in a parent's PDF.
+PDF page minus printed page; see `sp-devonthink-parent-page-offsets'."
+  :type 'integer :group 'sp-devonthink)
+
+(defcustom sp-devonthink-parent-page-offsets nil
+  "Alist of (PARENT-CITEKEY . OFFSET) overriding `sp-devonthink-page-offset'."
+  :type '(alist :key-type string :value-type integer) :group 'sp-devonthink)
+
+(declare-function citar-get-value "citar")
 #+end_src
 
 * Links: the pure parts
@@ -365,8 +380,13 @@ UUID defaults to the record named after the note's citekey."
   (let* ((key (or (sp-devonthink-note-citekey)
                   (user-error "This note has no citekey (ROAM_REFS or #+reference:)")))
          (uuid (or uuid
-                   (sp-reading-uuid key)
-                   (user-error "No DEVONthink record named %s.pdf" key)))
+                   (let ((rec (sp-devonthink-record key)))
+                     (when (and rec (plist-get rec :via)
+                                (not (y-or-n-p (format "%s has no record; use the one of %s? "
+                                                       key (plist-get rec :via)))))
+                       (user-error "Keyword not written"))
+                     (plist-get rec :uuid))
+                   (user-error "No DEVONthink record named %s.pdf (nor one for its crossref)" key)))
          (old (sp-devonthink-note-uuid)))
     (unless (sp-devonthink--uuid-p uuid)
       (user-error "Not a DEVONthink UUID: %s" uuid))
@@ -386,17 +406,116 @@ UUID defaults to the record named after the note's citekey."
     uuid))
 #+end_src
 
+* Which record a citekey means
+
+- One resolver, =sp-devonthink-record=, decides for every command; no command asks =sp-reading-uuid= directly any more.
+  - It returns the entry's own record when there is one.
+  - Otherwise it follows =crossref= (or =xref=) to the parent and returns the parent's record, with =:via= naming the parent.
+- =sp-devonthink-resolve= adds the page for a record that is the parent's.
+  - First page of =pages= (=45--67=, =45-67=, =e123= give 45, 45, 123; roman numerals give none), plus the offset.
+  - The offset is =sp-devonthink-page-offset= or the per-parent entry in =sp-devonthink-parent-page-offsets=.
+- =crossref= and =pages= are read with =citar-get-value=, then from =citar-get-entry= if that gives nothing.
+- =sp-devonthink-note-record-uuid= is the same decision for the current litnote: the =#+devonthink:= keyword, else the record of its citekey, else the parent's.
+  - It always says which record it is using when that is the parent's.
+  - A command that changes things asks first (=ACTION=), because the change would reach the whole book.
+- Used by =sp-devonthink-open-from-note=, =sp-devonthink-insert-link=, =sp-devonthink-set-keyword= and =sp-devonthink-citar-open=.
+- Not used where the command works on the contents of the note's own record (highlights, tags, sync); a chapter's note must not take the whole book's highlights or tags.
+
+#+begin_src emacs-lisp
+;;;; Chapters in a parent's PDF
+
+(defun sp-devonthink-first-page (pages)
+  "The first page number in the BibTeX PAGES string, or nil.
+Takes the part before a range or list separator (--, -, en dash, comma), and
+accepts a plain number or a number with a letter prefix such as e123 or S45.
+Roman numerals and other text give nil."
+  (when (and (stringp pages) (not (string-empty-p (string-trim pages))))
+    (let ((first (car (split-string (string-trim pages) "[-–—,;]+" t "[ \t]+"))))
+      (when (and first (string-match "\\`[A-Za-z]?\\([0-9]+\\)\\'" first))
+        (let ((n (string-to-number (match-string 1 first))))
+          (and (>= n 1) n))))))
+
+(defun sp-devonthink--field (field key)
+  "The value of the BibTeX FIELD (a symbol) of the entry KEY, or nil when empty.
+Asks `citar-get-value'; when that gives nothing, reads the field from the
+alist of `citar-get-entry', ignoring case."
+  (let ((value (and (fboundp 'citar-get-value) (citar-get-value field key))))
+    (when (and (not (stringp value)) (fboundp 'citar-get-entry))
+      (setq value (cdr (assoc-string (symbol-name field) (citar-get-entry key) t))))
+    (and (stringp value) (not (string-empty-p (string-trim value)))
+         (string-trim value))))
+
+(defun sp-devonthink--parent-key (key)
+  "The citekey of the entry that KEY cross-references, or nil."
+  (or (sp-devonthink--field 'crossref key)
+      (sp-devonthink--field 'xref key)))
+
+(defun sp-devonthink-record (key)
+  "The DEVONthink record that stands for the work KEY, as a plist, or nil.
+This is the one place that decides which record a citekey means.  The plist has
+:uuid, :supplier (the citekey whose record it is) and :via (the crossref parent
+when the record is the parent's, else nil).  KEY's own record wins; otherwise
+the record of the entry named by its =crossref= (or =xref=) field."
+  (if-let* ((own (sp-reading-uuid key)))
+      (list :uuid own :supplier key)
+    (when-let* ((parent (sp-devonthink--parent-key key))
+                (uuid (sp-reading-uuid parent)))
+      (list :uuid uuid :supplier parent :via parent))))
+
+(defun sp-devonthink-note-record-uuid (&optional action)
+  "The DEVONthink record UUID for the current litnote, or nil.
+The `#+devonthink:' keyword wins; then the record of the note's citekey; then
+the record of its crossref parent.  When the record is the parent's, say so.
+ACTION, a verb such as \"tag\", makes it ask first (the action would reach the
+whole parent book); declining signals a `user-error'."
+  (or (sp-devonthink-note-uuid)
+      (when-let* ((key (sp-devonthink-note-citekey))
+                  (rec (sp-devonthink-record key)))
+        (when-let* ((parent (plist-get rec :via)))
+          (if action
+              (unless (y-or-n-p (format "%s has no record of its own. %s the record of %s (the whole book)? "
+                                        key (concat (upcase (substring action 0 1)) (substring action 1)) parent))
+                (user-error "Cancelled"))
+            (message "%s has no record of its own: using the record of %s" key parent)))
+        (plist-get rec :uuid))))
+
+(defun sp-devonthink-resolve (key)
+  "Where to open the work KEY in DEVONthink: `sp-devonthink-record' plus the page.
+Adds :page (PDF page counted from 1, or nil) and :note (a message, or nil)
+when the record is the parent's: the first page of KEY's =pages= plus the offset."
+  (when-let* ((found (sp-devonthink-record key)))
+    (if-let* ((parent (plist-get found :via)))
+        (let* ((printed (sp-devonthink-first-page (sp-devonthink--field 'pages key)))
+               (offset (or (cdr (assoc parent sp-devonthink-parent-page-offsets))
+                           sp-devonthink-page-offset))
+               (page (and printed (max 1 (+ printed offset)))))
+          (append found
+                  (list :page page
+                        :note (if page
+                                  (format "%s is in %s: PDF page %d (printed page %d, offset %+d)"
+                                          key parent page printed offset)
+                                (format "%s is in %s: no usable pages field, using the start"
+                                        key parent)))))
+      found)))
+#+end_src
+
 * Commands
 
 - =sp-devonthink-open-from-note=: the UUID comes from the keyword, or from the citekey when the keyword is missing.
   - A prefix argument asks for a page (counted from 1).
 - =sp-devonthink-insert-link=: choose a citekey with =citar=, then always ask for a page, and insert the Org link.
+  - An entry without a record of its own links the crossref parent's record; the page prompt starts with the entry's first page (plus offset), which you can change or clear.
   - The page prompt accepts a number (from 1); an empty answer links the whole record.
   - It used to ask only with a prefix argument, so a plain =M-x= never offered a page.
 - =sp-devonthink-store-link=: store a link to the record (and page) now showing in DEVONthink, for =org-insert-link=.
   - The selected text, if any, goes to the kill ring so a quotation can be pasted next to the link.
   - The script asks DEVONthink's front window; it returns nothing when there is none.
 - =sp-devonthink-citar-open=: the =citar= / Embark action; opens the record of a citekey at a page.
+  - If the entry has no record of its own, it follows =crossref= to the parent (the book or proceedings) and opens the parent's PDF at the entry's first page.
+  - The first page is read from the =pages= field (=45--67=, =45-67=, =e123= give 45, 45, 123); roman numerals and other non-numeric pages give no page, and the parent opens at the start with a message.
+  - =sp-devonthink-page-offset= (or the per-parent alist) converts the printed page into the PDF page.
+  - A prefix argument still asks for a page, which then wins over =pages= and is used as given (no offset).
+  - With no record for the entry or its parent, the old behaviour stays (offer to index the entry's own PDF, or say there is no PDF).
 
 #+begin_src emacs-lisp
 ;;;; Commands
@@ -405,12 +524,14 @@ UUID defaults to the record named after the note's citekey."
   "Ask for a page (counted from 1) when a prefix argument is given, else nil."
   (when current-prefix-arg (read-number "Page: " 1)))
 
-(defun sp-devonthink--read-page-optional ()
+(defun sp-devonthink--read-page-optional (&optional default)
   "Always ask for a page (counted from 1); an empty answer gives nil (whole record).
+DEFAULT, a page number, is offered as the initial answer.
 Asks again until the answer is empty or a whole number of at least 1."
   (let (page)
     (while (progn
-             (let ((answer (string-trim (read-string "Page (empty = whole record): "))))
+             (let ((answer (string-trim (read-string "Page (empty = whole record): "
+                                                     (and default (number-to-string default))))))
                (cond ((string-empty-p answer) (setq page nil) nil)
                      ((string-match-p "\\`[0-9]+\\'" answer)
                       (setq page (string-to-number answer))
@@ -422,10 +543,17 @@ Asks again until the answer is empty or a whole number of at least 1."
 (defun sp-devonthink-open-from-note (&optional page)
   "Open the DEVONthink record of the current litnote, at PAGE (from 1) if given."
   (interactive (list (sp-devonthink--read-page)))
-  (let* ((uuid (or (sp-devonthink-note-uuid)
-                   (when-let* ((key (sp-devonthink-note-citekey)))
-                     (sp-reading-uuid key))
-                   (user-error "No DEVONthink record for this note"))))
+  (let* ((key (sp-devonthink-note-citekey))
+         (found (and key (sp-devonthink-resolve key)))
+         (uuid (or (sp-devonthink-note-uuid)
+                   (plist-get found :uuid)
+                   (user-error "No DEVONthink record for this note")))
+         (page (or page
+                   (and (equal uuid (plist-get found :uuid)) (plist-get found :via)
+                        (plist-get found :page)))))
+    (when (and found (plist-get found :via) (equal uuid (plist-get found :uuid))
+               (plist-get found :note))
+      (message "%s" (plist-get found :note)))
     (sp-reading--open-url (sp-devonthink-url (sp-devonthink-link-path uuid page)))))
 
 (defun sp-devonthink--description (key page)
@@ -437,9 +565,12 @@ Asks again until the answer is empty or a whole number of at least 1."
   "Insert a `devonthink:' link to the record of the citekey KEY, at PAGE (from 1).
 Interactively, always asks for the page; an empty answer links the whole record."
   (interactive
-   (let ((key (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))))
-     (list key (sp-devonthink--read-page-optional))))
-  (let ((uuid (or (sp-reading-uuid key) (user-error "No DEVONthink record named %s.pdf" key))))
+   (let* ((key (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: ")))
+          (found (sp-devonthink-resolve key)))
+     (when (and found (plist-get found :note)) (message "%s" (plist-get found :note)))
+     (list key (sp-devonthink--read-page-optional (plist-get found :page)))))
+  (let ((uuid (or (plist-get (sp-devonthink-record key) :uuid)
+                  (user-error "No DEVONthink record named %s.pdf, and no record for its crossref" key))))
     (insert (org-link-make-string (concat "devonthink:" (sp-devonthink-link-path uuid page))
                                   (sp-devonthink--description key page)))))
 
@@ -494,10 +625,22 @@ The plist has :uuid, :key, :page (from 1, or nil) and :text."
 
 ;;;###autoload
 (defun sp-devonthink-citar-open (key)
-  "Open the DEVONthink record of the citekey KEY; a prefix argument asks for a page."
+  "Open the DEVONthink record of the citekey KEY; a prefix argument asks for a page.
+An entry without a record of its own opens its crossref parent's PDF at the
+entry's first page (see `sp-devonthink-resolve')."
   (interactive (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))))
-  (let ((page (sp-devonthink--read-page)))
-    (sp-reading-open key (and page (1- page)))))
+  (let* ((asked (sp-devonthink--read-page))
+         (found (sp-devonthink-resolve key)))
+    (cond
+     ((and found (plist-get found :via))
+      (when (plist-get found :note) (message "%s" (plist-get found :note)))
+      (let ((page (or asked (plist-get found :page))))
+        (sp-reading--open-url (sp-reading--url (plist-get found :uuid) (and page (1- page))))))
+     (t
+      (when (and (not found) (sp-devonthink--parent-key key))
+        (message "%s has a crossref (%s), but neither has a DEVONthink record"
+                 key (sp-devonthink--parent-key key)))
+      (sp-reading-open key (and asked (1- asked)))))))
 #+end_src
 
 * Keys and Embark

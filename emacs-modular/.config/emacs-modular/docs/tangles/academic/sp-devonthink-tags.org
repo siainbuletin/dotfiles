@@ -140,6 +140,8 @@ end tell"
 - =sp-devonthink-tag-note= tags the record of the current litnote (keyword or citekey, as in =sp-devonthink-open-from-note=).
   - A prefix argument removes the tags instead of adding them.
 
+- =sp-devonthink-tag-note= follows =crossref=: a chapter's note with no record of its own tags the parent's record, but only after asking, since that tags the whole book.
+
 #+begin_src emacs-lisp
 ;;;; Setting
 
@@ -187,9 +189,8 @@ Return the number of records that changed."
 (defun sp-devonthink-tag-note (tags &optional remove)
   "Add TAGS to the DEVONthink record of the current litnote; with REMOVE, remove them."
   (interactive (list (sp-devonthink-read-tags) current-prefix-arg))
-  (let ((uuid (or (sp-devonthink-note-uuid)
-                  (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
-                  (user-error "No DEVONthink record for this note"))))
+  (let ((uuid (or (sp-devonthink-note-record-uuid "tag")
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (message "%s: %d record changed"
              (if remove "Removed" "Added")
              (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))))

@@ -113,9 +113,8 @@ PAGES is ((PAGE . HIGHLIGHTS) ...); UUID and KEY name the record."
 Only highlights that are not in the section yet are added; the note is not saved."
   (interactive)
   (let* ((key (sp-devonthink-note-citekey))
-         (uuid (or (sp-devonthink-note-uuid)
-                   (and key (sp-reading-uuid key))
-                   (user-error "No DEVONthink record for this note")))
+         (uuid (or (sp-devonthink-note-record-uuid "import highlights from")
+                   (user-error "No DEVONthink record for this note (nor for its crossref)")))
          (pages (sp-devonthink-highlights--fetch uuid))
          (items (sp-devonthink-highlights--missing pages uuid (or key uuid))))
     (cond ((null pages) (message "No highlights in the PDF"))
