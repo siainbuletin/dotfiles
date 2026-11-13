@@ -124,6 +124,61 @@ real, in a temporary directory, and the database stub knows them."
     (with-temp-buffer
       (should-not (sp-vulpea-backlink-check-target)))))
 
+(ert-deftest sp-vulpea-backlink-check-test-restore-a-copied-result ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (let ((sp-vulpea-backlink-check--history nil))
+      (with-temp-buffer
+        (insert "* H\n:PROPERTIES:\n:ID: target\n:END:\n")
+        (org-mode)
+        (sp-vulpea-backlink-check))
+      (setq sp-vulpea-backlink-check--last nil)
+      (let ((s (sp-vulpea-backlink-check-restore
+                "Copied: 3 backlinks from 2 notes")))
+        (should (equal s "3 backlinks from 2 notes"))
+        (should (equal (get-text-property 0 'sp-vulpea-backlink-check s)
+                       "target"))
+        (should (equal (car sp-vulpea-backlink-check--last) "target"))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-restore-ignores-other-text ()
+  (let ((sp-vulpea-backlink-check--history '(("3 backlinks from 2 notes" . "t"))))
+    (should-not (sp-vulpea-backlink-check-restore "hello"))))
+
+;; sp-helper-funct needs the whole config to load: evaluate only the hook
+;; variable and the command from it.
+(defconst sp-vulpea-backlink-check-test--helper-file
+  (expand-file-name
+   "../libraries/modules/funct/sp-helper-funct.el"
+   (file-name-directory (or load-file-name buffer-file-name)))
+  "The file that holds `sp-copy-last-message'.")
+
+(defun sp-vulpea-backlink-check-test--load-copy-last-message ()
+  (with-temp-buffer
+    (insert-file-contents sp-vulpea-backlink-check-test--helper-file)
+    (goto-char (point-min))
+    (condition-case nil
+        (while t
+          (let ((form (read (current-buffer))))
+            (when (and (memq (car-safe form) '(defvar defun))
+                       (string-prefix-p "sp-copy-last-message"
+                                        (symbol-name (cadr form))))
+              (eval form t))))
+      (end-of-file nil))))
+
+(ert-deftest sp-vulpea-backlink-check-test-copy-last-message-uses-the-hook ()
+  (sp-vulpea-backlink-check-test--load-copy-last-message)
+  (let ((sp-copy-last-message-functions
+         (list (lambda (text) (propertize text 'sp-vulpea-backlink-check "id"))))
+        shown)
+    (with-current-buffer (get-buffer-create "*Messages*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "old\n3 backlinks from 2 notes\n")))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (setq shown (apply #'format fmt args)))))
+      (sp-copy-last-message))
+    (should (equal shown "Copied: 3 backlinks from 2 notes"))
+    (should (equal (car kill-ring) "3 backlinks from 2 notes"))))
+
 (ert-deftest sp-vulpea-backlink-check-test-locations-have-heading-and-context ()
   (sp-vulpea-backlink-check-test--with-vault
     (let* ((groups (sp-vulpea-backlink-check--locations "target"))

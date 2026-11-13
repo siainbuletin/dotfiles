@@ -3248,12 +3248,18 @@ How Embark finds the result, since the echo area is not a buffer:
 - =sp-vulpea-backlink-check-target= is added to =embark-target-finders= at the front.
 - It returns the result when the echo area still shows it (=current-message=).
 - It also returns it for =sp-vulpea-backlink-check-timeout= seconds after the command ran, in case the message was already replaced.
-- It also works on the line of the result in the =*Messages*= buffer, from the text property.
+- It also works on the line of the result in the =*Messages*= buffer, from the text property (if =*Messages*= keeps it).
+- If the message is already gone, run =M-x sp-copy-last-message= and then =embark-act=:
+  - =sp-copy-last-message= runs =sp-copy-last-message-functions= on the copied text.
+  - =sp-vulpea-backlink-check-restore= is on that hook; it finds the text among the last =sp-vulpea-backlink-check-history-size= results (20).
+  - The =Copied: ...= message is then the propertized result again, so =embark-act= works on it.
+  - If two headings gave the same text, the newest one wins.
 - Embark is configured with =with-eval-after-load=, as the other modules do, so this file does not load it.
 
 Customisation:
 
 - =sp-vulpea-backlink-check-timeout=: seconds the last result stays an Embark target after the echo area changes (default 10).
+- =sp-vulpea-backlink-check-history-size=: results remembered for =sp-copy-last-message= (default 20).
 - =sp-vulpea-backlink-check-context-width=: columns of the line of context in the buffer (default 100).
 
 ** Header and requires
@@ -3316,6 +3322,32 @@ Customisation:
   (seq-remove (lambda (link) (equal (plist-get link :source) id))
               (vulpea-db-query-links-to id)))
 
+(defvar sp-vulpea-backlink-check--history nil
+  "Alist of (TEXT . ID) of the latest results, newest first.")
+
+(defcustom sp-vulpea-backlink-check-history-size 20
+  "Number of results kept to make them Embark targets again.
+See `sp-vulpea-backlink-check-restore'."
+  :type 'natnum
+  :group 'sp-vulpea-backlink-check)
+
+(defun sp-vulpea-backlink-check--propertize (text id)
+  "Return TEXT as a result string for the heading ID."
+  (propertize text
+              'sp-vulpea-backlink-check id
+              'face (if (equal text "not backlinked") 'shadow 'success)
+              'help-echo "embark-act: list the backlinks"))
+
+(defun sp-vulpea-backlink-check-restore (text)
+  "Return TEXT as a result string again, if it is a recent result, else nil.
+For `sp-copy-last-message-functions': the text copied out of *Messages*
+has lost its properties.  This also makes the heading the target for
+`sp-vulpea-backlink-check-timeout' seconds."
+  (when-let* ((cell (assoc (string-remove-prefix "Copied: " text)
+                           sp-vulpea-backlink-check--history)))
+    (setq sp-vulpea-backlink-check--last (cons (cdr cell) (float-time)))
+    (sp-vulpea-backlink-check--propertize (car cell) (cdr cell))))
+
 (defun sp-vulpea-backlink-check--format (id links)
   "Return the echo-area result for ID with LINKS, a propertized string."
   (let* ((n (length links))
@@ -3326,10 +3358,7 @@ Customisation:
                  (format "%d backlink%s from %d note%s"
                          n (if (= n 1) "" "s")
                          sources (if (= sources 1) "" "s")))))
-    (propertize text
-                'sp-vulpea-backlink-check id
-                'face (if (zerop n) 'shadow 'success)
-                'help-echo "embark-act: list the backlinks")))
+    (sp-vulpea-backlink-check--propertize text id)))
 
 (defun sp-vulpea-backlink-check--id-at-point ()
   "Return the ID of the heading at point, or signal a `user-error'."
@@ -3349,6 +3378,11 @@ on it lists the backlinks.  Return the result string."
          (result (sp-vulpea-backlink-check--format
                   id (sp-vulpea-backlink-check--links id))))
     (setq sp-vulpea-backlink-check--last (cons id (float-time)))
+    (setq sp-vulpea-backlink-check--history
+          (seq-take (cons (cons (substring-no-properties result) id)
+                          (assoc-delete-all (substring-no-properties result)
+                                            sp-vulpea-backlink-check--history))
+                    sp-vulpea-backlink-check-history-size))
     (message "%s" result)
     result))
 #+end_src
@@ -3563,6 +3597,10 @@ echo area, or for `sp-vulpea-backlink-check-timeout' seconds after a check."
   (add-to-list 'embark-default-action-overrides
                '(sp-vulpea-backlinks . sp-vulpea-backlink-check-show))
   (add-to-list 'embark-target-finders #'sp-vulpea-backlink-check-target))
+
+;; `sp-copy-last-message' (sp-helper-funct) calls this hook with the text.
+(defvar sp-copy-last-message-functions)
+(add-hook 'sp-copy-last-message-functions #'sp-vulpea-backlink-check-restore)
 #+end_src
 
 ** Provide
@@ -3730,6 +3768,66 @@ real, in a temporary directory, and the database stub knows them."
   (let ((sp-vulpea-backlink-check--last nil))
     (with-temp-buffer
       (should-not (sp-vulpea-backlink-check-target)))))
+#+end_src
+
+*** Restoring a result from *Messages*
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-restore-a-copied-result ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (let ((sp-vulpea-backlink-check--history nil))
+      (with-temp-buffer
+        (insert "* H\n:PROPERTIES:\n:ID: target\n:END:\n")
+        (org-mode)
+        (sp-vulpea-backlink-check))
+      (setq sp-vulpea-backlink-check--last nil)
+      (let ((s (sp-vulpea-backlink-check-restore
+                "Copied: 3 backlinks from 2 notes")))
+        (should (equal s "3 backlinks from 2 notes"))
+        (should (equal (get-text-property 0 'sp-vulpea-backlink-check s)
+                       "target"))
+        (should (equal (car sp-vulpea-backlink-check--last) "target"))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-restore-ignores-other-text ()
+  (let ((sp-vulpea-backlink-check--history '(("3 backlinks from 2 notes" . "t"))))
+    (should-not (sp-vulpea-backlink-check-restore "hello"))))
+
+;; sp-helper-funct needs the whole config to load: evaluate only the hook
+;; variable and the command from it.
+(defconst sp-vulpea-backlink-check-test--helper-file
+  (expand-file-name
+   "../libraries/modules/funct/sp-helper-funct.el"
+   (file-name-directory (or load-file-name buffer-file-name)))
+  "The file that holds `sp-copy-last-message'.")
+
+(defun sp-vulpea-backlink-check-test--load-copy-last-message ()
+  (with-temp-buffer
+    (insert-file-contents sp-vulpea-backlink-check-test--helper-file)
+    (goto-char (point-min))
+    (condition-case nil
+        (while t
+          (let ((form (read (current-buffer))))
+            (when (and (memq (car-safe form) '(defvar defun))
+                       (string-prefix-p "sp-copy-last-message"
+                                        (symbol-name (cadr form))))
+              (eval form t))))
+      (end-of-file nil))))
+
+(ert-deftest sp-vulpea-backlink-check-test-copy-last-message-uses-the-hook ()
+  (sp-vulpea-backlink-check-test--load-copy-last-message)
+  (let ((sp-copy-last-message-functions
+         (list (lambda (text) (propertize text 'sp-vulpea-backlink-check "id"))))
+        shown)
+    (with-current-buffer (get-buffer-create "*Messages*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "old\n3 backlinks from 2 notes\n")))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (setq shown (apply #'format fmt args)))))
+      (sp-copy-last-message))
+    (should (equal shown "Copied: 3 backlinks from 2 notes"))
+    (should (equal (car kill-ring) "3 backlinks from 2 notes"))))
 #+end_src
 
 *** The locations buffer

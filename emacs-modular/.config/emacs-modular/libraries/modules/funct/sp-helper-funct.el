@@ -145,6 +145,12 @@
   (clipboard-yank)
   (deactivate-mark))
 
+(defvar sp-copy-last-message-functions nil
+  "Abnormal hook run by `sp-copy-last-message' with the copied text.
+A function returns the text as a propertized string for the echo area,
+for example to make it an Embark target, or nil.  The first non-nil
+value is shown.")
+
 (defun sp-copy-last-message ()
   "Copy the last message logged in *Messages* to the kill ring.
 Show the copied text in the echo area.  Messages the echo area
@@ -159,7 +165,10 @@ showed without logging them cannot be recovered."
                        (line-beginning-position) (point)))))
             ((not (string-empty-p text))))
       (progn (kill-new text)
-             (message "Copied: %s" text))
+             (message "Copied: %s"
+                      (or (run-hook-with-args-until-success
+                           'sp-copy-last-message-functions text)
+                          text)))
     (user-error "No message to copy")))
 
 ;;;;;; Useful Buffers
