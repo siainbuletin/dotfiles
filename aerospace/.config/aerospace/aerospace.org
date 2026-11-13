@@ -191,6 +191,32 @@ outer.top =        8
 outer.right =      8
 #+end_src
 
+** DEVONthink windows
+
+- Problem: a PDF opened by =DT Open PDF= gets a DEVONthink window of its own, and AeroSpace did not tile it.
+- Likely cause: AeroSpace tiles only windows it detects as standard windows; DEVONthink's document windows can be detected as floating.
+- Fix: two =[[on-window-detected]]= rules run =layout tiling= for every window of DEVONthink.
+- App ids:
+   + =com.devon-technologies.think3= is DEVONthink 3.
+   + =com.devon-technologies.think= is DEVONthink 4.
+   + The id that is not installed never matches, so both are listed.
+- Check which id is yours with =aerospace list-windows --all --format '%{app-bundle-id} %{window-title}'=.
+- If the window still floats, it is not registered at all: =aerospace list-windows --all= does not list it, and the rule cannot help.
+- Not done: a rule for a window title; all DEVONthink windows tile, the main window too.
+
+#+begin_src toml
+# DEVONthink windows (DT Open PDF makes one per PDF) must be tiled. They are not
+# always detected as standard windows, so AeroSpace left them floating.
+# The first id is DEVONthink 3, the second is DEVONthink 4.
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think3'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think'
+run = 'layout tiling'
+#+end_src
+
 ** Main mode
 
 - =[mode.main.binding]= must exist, but it is empty on purpose.
