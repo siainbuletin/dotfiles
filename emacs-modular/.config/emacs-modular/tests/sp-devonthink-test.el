@@ -141,7 +141,8 @@
   (cl-letf (((symbol-function 'sp-reading-uuid)
              (lambda (k) (and (equal k "child-2001-x") "U-OWN")))
             ((symbol-function 'citar-get-value) (lambda (&rest _) "parent-2000-b")))
-    (should (equal (sp-devonthink-resolve "child-2001-x") '(:uuid "U-OWN")))))
+    (should (equal (sp-devonthink-resolve "child-2001-x")
+                   '(:uuid "U-OWN" :supplier "child-2001-x")))))
 
 (ert-deftest sp-devonthink-resolve-through-crossref-with-offset ()
   (let ((sp-devonthink-page-offset 0)
@@ -218,6 +219,88 @@
     (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (pop answers))))
       (should (= (sp-devonthink--read-page-optional) 7))
       (should (null answers)))))
+
+(defmacro sp-devonthink-test--with-crossref (&rest body)
+  "Run BODY with an entry child-2001-x that has no record but a parent with one."
+  `(cl-letf (((symbol-function 'sp-reading-uuid)
+              (lambda (k) (and (equal k "parent-2000-b") sp-devonthink-test--uuid)))
+             ((symbol-function 'citar-get-value)
+              (lambda (field _key)
+                (pcase field ('crossref "parent-2000-b") ('pages "45--67"))))
+             ((symbol-function 'citar-select-ref) (lambda () "child-2001-x")))
+     (let ((sp-devonthink-page-offset 2) (sp-devonthink-parent-page-offsets nil)
+           (current-prefix-arg nil))
+       ,@body)))
+
+(ert-deftest sp-devonthink-record-is-the-one-resolver ()
+  (sp-devonthink-test--with-crossref
+   (let ((r (sp-devonthink-record "child-2001-x")))
+     (should (equal (plist-get r :uuid) sp-devonthink-test--uuid))
+     (should (equal (plist-get r :via) "parent-2000-b"))
+     (should (equal (plist-get r :supplier) "parent-2000-b"))))
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) nil))
+            ((symbol-function 'citar-get-value) (lambda (&rest _) nil)))
+    (should-not (sp-devonthink-record "alone-2001-z"))))
+
+(ert-deftest sp-devonthink-field-falls-back-to-citar-get-entry ()
+  (cl-letf (((symbol-function 'citar-get-value) (lambda (&rest _) nil))
+            ((symbol-function 'citar-get-entry)
+             (lambda (_) '(("Crossref" . " parent-2000-b ") ("pages" . "")))))
+    (should (equal (sp-devonthink--parent-key "k") "parent-2000-b"))
+    (should-not (sp-devonthink--field 'pages "k"))))
+
+(ert-deftest sp-devonthink-insert-link-for-an-entry-with-only-a-crossref ()
+  ;; The real interactive path: citar picks the entry, the page prompt starts
+  ;; with the chapter's first page (45 + offset 2), and the answer is taken as is.
+  (sp-devonthink-test--with-crossref
+   (let (initial)
+     (cl-letf (((symbol-function 'message) #'ignore)
+               ((symbol-function 'read-string)
+                (lambda (_prompt &optional init &rest _) (setq initial init) init)))
+       (with-temp-buffer
+         (call-interactively #'sp-devonthink-insert-link)
+         (should (equal initial "47"))
+         (should (equal (buffer-string)
+                        (format "[[devonthink:%s::47][child-2001-x p. 47]]"
+                                sp-devonthink-test--uuid))))))))
+
+(ert-deftest sp-devonthink-insert-link-crossref-page-can-be-cleared ()
+  (sp-devonthink-test--with-crossref
+   (cl-letf (((symbol-function 'message) #'ignore)
+             ((symbol-function 'read-string) (lambda (&rest _) "")))
+     (with-temp-buffer
+       (call-interactively #'sp-devonthink-insert-link)
+       (should (equal (buffer-string)
+                      (format "[[devonthink:%s][child-2001-x]]" sp-devonthink-test--uuid)))))))
+
+(ert-deftest sp-devonthink-insert-link-no-record-anywhere ()
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) nil))
+            ((symbol-function 'citar-get-value) (lambda (&rest _) nil)))
+    (with-temp-buffer
+      (should-error (sp-devonthink-insert-link "alone-2001-z" nil) :type 'user-error))))
+
+(ert-deftest sp-devonthink-open-from-note-uses-crossref-parent ()
+  (sp-devonthink-test--with-crossref
+   (let (opened)
+     (cl-letf (((symbol-function 'sp-reading--open-url) (lambda (u) (setq opened u)))
+               ((symbol-function 'message) #'ignore))
+       (with-temp-buffer
+         (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n")
+         (sp-devonthink-open-from-note)
+         ;; page 47 (from 1) is ?page=46 in DEVONthink's URL
+         (should (string-match-p "\\?page=46\\'" opened))
+         (should (string-match-p sp-devonthink-test--uuid opened)))))))
+
+(ert-deftest sp-devonthink-set-keyword-asks-before-using-the-parents-record ()
+  (sp-devonthink-test--with-crossref
+   (with-temp-buffer
+     (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n")
+     (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+       (should-error (sp-devonthink-set-keyword) :type 'user-error))
+     (should-not (sp-devonthink-note-uuid))
+     (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+       (sp-devonthink-set-keyword))
+     (should (equal (sp-devonthink-note-uuid) sp-devonthink-test--uuid)))))
 
 (provide 'sp-devonthink-test)
 ;;; sp-devonthink-test.el ends here
