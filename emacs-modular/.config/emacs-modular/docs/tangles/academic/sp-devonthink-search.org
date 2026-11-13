@@ -166,6 +166,7 @@ With a prefix argument CHOOSE-ENGINE, choose the engine first (DEVONthink or lit
 - DEVONthink's =compare= returns the records most like a given one.
 - =sp-devonthink-similar= lists them as hits (the same list, annotations and actions).
 - =sp-devonthink-similar-to-note= does it for the record of the current litnote.
+  - Without a record of its own, the note's crossref parent's record is used, and the echo area says so (nothing is written, so it does not ask).
 
 #+begin_src emacs-lisp
 ;;;; Similar records
@@ -191,9 +192,8 @@ const records = app.compare({record: app.getRecordWithUuid(%s), to: db});
 (defun sp-devonthink-similar-to-note ()
   "List the records similar to the record of the current litnote."
   (interactive)
-  (let ((uuid (or (sp-devonthink-note-uuid)
-                  (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
-                  (user-error "No DEVONthink record for this note"))))
+  (let ((uuid (or (sp-devonthink-note-record-uuid)
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (sp-devonthink-search--choose (sp-devonthink-search--similar-script uuid)
                                   "Similar records: ")))
 #+end_src
