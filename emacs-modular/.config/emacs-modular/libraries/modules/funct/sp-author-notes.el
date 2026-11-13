@@ -1007,7 +1007,10 @@ of FILE with unsaved changes is saved first (and FILE is recorded in
     (unless (member file sp-author-notes--excluded)
       (when dirty
         (cl-pushnew file (sp-author-notes--run-saved run) :test #'string=)
-        (when apply (with-current-buffer visiting (save-buffer))))
+        (when apply
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-flush-file file (lambda (f) (sp-author-notes--backup run f)))
+            (with-current-buffer visiting (save-buffer)))))
       (with-temp-buffer
         (if (and dirty (not apply))
             (insert (with-current-buffer visiting
@@ -1020,7 +1023,9 @@ of FILE with unsaved changes is saved first (and FILE is recorded in
             (let ((coding-system-for-write 'utf-8))
               (write-region (point-min) (point-max) file nil 'silent))
             (when visiting
-              (with-current-buffer visiting (revert-buffer t t t)))
+              (if sp-batch-report-save-and-kill
+                  (sp-batch-report-close-file file)
+                (with-current-buffer visiting (revert-buffer t t t))))
             (when (fboundp 'vulpea-db-update-file)
               (ignore-errors (vulpea-db-update-file file))))
           (list result))))))
@@ -1037,8 +1042,11 @@ WITH-EDITED is as for `sp-author-notes--person-pass'."
 The note is saved when that changed it, after a copy to the backup
 folder.  A failure is recorded as a problem."
   (condition-case err
-      (let* ((visiting (find-buffer-visiting file))
+      (let* ((flushed (sp-batch-report-flush-file
+                       file (lambda (f) (sp-author-notes--backup run f))))
+             (visiting (find-buffer-visiting file))
              (buffer (or visiting (find-file-noselect file))))
+        (when flushed (error "%s" flushed))
         (unwind-protect
             (with-current-buffer buffer
               (let ((modified (buffer-modified-p))
@@ -1058,7 +1066,9 @@ folder.  A failure is recorded as a problem."
                   (sp-author-notes--backup run file)
                   (save-buffer))
                 (push file (sp-author-notes--run-filled run))))
-          (unless visiting (kill-buffer buffer))))
+          (if sp-batch-report-save-and-kill
+              (sp-batch-report-close-file file)
+            (unless visiting (kill-buffer buffer)))))
     (error (sp-author-notes--problem
             run file nil (format "The table was not filled: %s" (error-message-string err))))))
 
@@ -1822,6 +1832,7 @@ COUNTS is (WORKS . EDITED).  APPLY says whether the note was written."
   "Fill the Works tables of the author note in the current buffer; write it when APPLY.
 Return the message to show."
   (let* ((file (sp-author-notes--works-target))
+         (sp-batch-report-keep-buffers (list (current-buffer)))
          (sp-author-notes--excluded nil)
          (run (sp-author-notes--make-run
                :apply apply :stamp (format-time-string "%Y%m%dT%H%M%S")
