@@ -49,6 +49,10 @@
 
 (require 'sp-vulpea-grouped-backlinks-widget)
 
+;; Is this heading backlinked? (echo area result, Embark action)
+
+(require 'sp-vulpea-backlink-check)
+
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
 (require 'sp-refile)
 
