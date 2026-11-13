@@ -125,17 +125,18 @@
       (should (equal (buffer-string)
                      (format "[[devonthink:%s::6][smith-2017-x p. 6]]" sp-devonthink-test--uuid))))))
 
-(ert-deftest sp-devonthink-first-page-parses-ranges-and-odd-values ()
-  (should (= (sp-devonthink-first-page "45--67") 45))
-  (should (= (sp-devonthink-first-page "45-67") 45))
-  (should (= (sp-devonthink-first-page " 45 – 67 ") 45))
-  (should (= (sp-devonthink-first-page "e123") 123))
-  (should (= (sp-devonthink-first-page "12,15") 12))
-  (should (= (sp-devonthink-first-page "7") 7))
-  (should-not (sp-devonthink-first-page "xii--xv"))
-  (should-not (sp-devonthink-first-page "0"))
-  (should-not (sp-devonthink-first-page ""))
-  (should-not (sp-devonthink-first-page nil)))
+(ert-deftest sp-devonthink-first-page-label-keeps-the-text-as-written ()
+  (should (equal (sp-devonthink-first-page-label "45--67") "45"))
+  (should (equal (sp-devonthink-first-page-label "45-67") "45"))
+  (should (equal (sp-devonthink-first-page-label " 45 – 67 ") "45"))
+  (should (equal (sp-devonthink-first-page-label "pp. 45--67") "45"))
+  (should (equal (sp-devonthink-first-page-label "e123") "e123"))
+  (should (equal (sp-devonthink-first-page-label "12,15") "12"))
+  (should (equal (sp-devonthink-first-page-label "7+") "7"))
+  (should (equal (sp-devonthink-first-page-label "xii--xv") "xii"))
+  (should-not (sp-devonthink-first-page-label "2:45"))
+  (should-not (sp-devonthink-first-page-label ""))
+  (should-not (sp-devonthink-first-page-label nil)))
 
 (ert-deftest sp-devonthink-resolve-own-record-wins ()
   (cl-letf (((symbol-function 'sp-reading-uuid)
@@ -143,25 +144,48 @@
             ((symbol-function 'citar-get-value) (lambda (&rest _) "parent-2000-b")))
     (should (equal (sp-devonthink-resolve "child-2001-x") '(:uuid "U-OWN")))))
 
-(ert-deftest sp-devonthink-resolve-through-crossref-with-offset ()
-  (let ((sp-devonthink-page-offset 0)
-        (sp-devonthink-parent-page-offsets '(("parent-2000-b" . 8))))
-    (cl-letf (((symbol-function 'sp-reading-uuid)
-               (lambda (k) (and (equal k "parent-2000-b") "U-PARENT")))
-              ((symbol-function 'citar-get-value)
-               (lambda (field _key)
-                 (pcase field ('crossref "parent-2000-b") ('pages "45--67")))))
-      (let ((r (sp-devonthink-resolve "child-2001-x")))
-        (should (equal (plist-get r :uuid) "U-PARENT"))
+(defmacro sp-devonthink-test--with-parent (pages hit &rest body)
+  "Run BODY with the entry c in the parent p (record U-P, PDF /x/p.pdf); HIT is what the reader says."
+  (declare (indent 2))
+  `(cl-letf (((symbol-function 'sp-reading-uuid) (lambda (k) (and (equal k "p") "U-P")))
+             ((symbol-function 'sp-reading--pdf) (lambda (k) (and (equal k "p") "/x/p.pdf")))
+             ((symbol-function 'citar-get-value)
+              (lambda (field _key) (pcase field ('crossref "p") ('pages ,pages))))
+             ((symbol-function 'sp-devonthink-pdf-page-for-label)
+              (lambda (file label) (list :asked (list file label)) ,hit)))
+     ,@body))
+
+(ert-deftest sp-devonthink-resolve-through-crossref-uses-the-pdf-labels ()
+  (let (asked)
+    (sp-devonthink-test--with-parent "45--67" (progn (setq asked (list file label)) '(:page 53))
+      (let ((r (sp-devonthink-resolve "c")))
+        (should (equal asked '("/x/p.pdf" "45")))
+        (should (equal (plist-get r :uuid) "U-P"))
         (should (= (plist-get r :page) 53))
-        (should (equal (plist-get r :via) "parent-2000-b"))))
-    (let ((sp-devonthink-parent-page-offsets nil))
-      (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (k) (and (equal k "p") "U-P")))
-                ((symbol-function 'citar-get-value)
-                 (lambda (field _key) (pcase field ('crossref "p") ('pages "xii--xv")))))
-        (let ((r (sp-devonthink-resolve "c")))
-          (should (null (plist-get r :page)))
-          (should (string-match-p "no usable pages" (plist-get r :note))))))))
+        (should (equal (plist-get r :via) "p"))))))
+
+(ert-deftest sp-devonthink-resolve-explains-why-there-is-no-page ()
+  (dolist (case '(("xii--xv" (:why no-labels) "no page labels")
+                  ("xii--xv" (:why not-found) "labelled xii")
+                  ("xii--xv" (:why error :message "boom") "boom")
+                  ("2:45" (:page 9) "no usable pages")))
+    (sp-devonthink-test--with-parent (car case) (cadr case)
+      (let ((r (sp-devonthink-resolve "c")))
+        (should-not (plist-get r :page))
+        (should (string-match-p (nth 2 case) (plist-get r :note)))))))
+
+(ert-deftest sp-devonthink-resolve-parent-without-pdf ()
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (k) (and (equal k "p") "U-P")))
+            ((symbol-function 'sp-reading--pdf) (lambda (_) nil))
+            ((symbol-function 'citar-get-value)
+             (lambda (field _key) (pcase field ('crossref "p") ('pages "45--67")))))
+    (let ((r (sp-devonthink-resolve "c")))
+      (should-not (plist-get r :page))
+      (should (string-match-p "no PDF file found" (plist-get r :note))))))
+
+(ert-deftest sp-devonthink-no-offset-variables-left ()
+  (should-not (boundp 'sp-devonthink-page-offset))
+  (should-not (boundp 'sp-devonthink-parent-page-offsets)))
 
 (ert-deftest sp-devonthink-resolve-no-parent-record ()
   (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) nil))
@@ -173,15 +197,17 @@
     (should-not (sp-devonthink-resolve "alone-2001-x"))))
 
 (ert-deftest sp-devonthink-citar-open-opens-parent-at-first-page ()
-  (let (opened (sp-devonthink-page-offset 2) (current-prefix-arg nil))
+  (let (opened (current-prefix-arg nil))
     (cl-letf (((symbol-function 'sp-reading-uuid)
                (lambda (k) (and (equal k "parent-2000-b") "U-PARENT")))
+              ((symbol-function 'sp-reading--pdf) (lambda (_) "/x/parent.pdf"))
               ((symbol-function 'citar-get-value)
                (lambda (field _key) (pcase field ('crossref "parent-2000-b") ('pages "45--67"))))
+              ((symbol-function 'sp-devonthink-pdf-page-for-label) (lambda (&rest _) '(:page 47)))
               ((symbol-function 'sp-reading--open-url) (lambda (u) (setq opened u)))
               ((symbol-function 'message) #'ignore))
       (sp-devonthink-citar-open "child-2001-x")
-      ;; printed 45 + offset 2 = PDF page 47, URL counts from 0
+      ;; PDF page 47 counted from 1; the URL counts from 0
       (should (equal opened "x-devonthink-item://U-PARENT?page=46")))))
 
 (ert-deftest sp-devonthink-citar-open-falls-back-to-reading-open ()
@@ -219,5 +245,40 @@
       (should (= (sp-devonthink--read-page-optional) 7))
       (should (null answers)))))
 
-(provide 'sp-devonthink-test)
+
 ;;; sp-devonthink-test.el ends here
+
+;;;; The real reader script
+
+(defun sp-devonthink-test--pikepdf-p ()
+  (and (executable-find "python3")
+       (eq 0 (call-process "python3" nil nil nil "-c" "import pikepdf"))))
+
+(ert-deftest sp-devonthink-pdf-page-for-label-runs-the-script ()
+  (skip-unless (sp-devonthink-test--pikepdf-p))
+  (let* ((tools (expand-file-name "tools" (locate-dominating-file
+                                           (or load-file-name buffer-file-name default-directory)
+                                           "tools")))
+         (sp-devonthink-label-script (expand-file-name "pdf-labels-read.py" tools))
+         (pdf (make-temp-file "sp-labels" nil ".pdf")))
+    (unwind-protect
+        (progn
+          (should (eq 0 (call-process "python3" nil nil nil "-c"
+                                      "import sys, pikepdf; p = pikepdf.new(); [p.add_blank_page() for _ in range(12)]; p.save(sys.argv[1])"
+                                      pdf)))
+          (should (eq 'no-labels (plist-get (sp-devonthink-pdf-page-for-label pdf "1") :why)))
+          (should (eq 0 (call-process "python3" nil nil nil
+                                      (expand-file-name "pdf-labels-book.py" tools)
+                                      pdf "--first-page" "9" "--apply"
+                                      "--library" "/nonexistent" "--bib" "/nonexistent.bib"
+                                      "--backup-dir" (make-temp-file "sp-bk" t))))
+          (should (equal (sp-devonthink-pdf-page-for-label pdf "1") '(:page 9)))
+          (should (equal (sp-devonthink-pdf-page-for-label pdf "4") '(:page 12)))
+          (should (eq 'not-found (plist-get (sp-devonthink-pdf-page-for-label pdf "5") :why))))
+      (delete-file pdf))))
+
+(ert-deftest sp-devonthink-pdf-page-for-label-reports-a-missing-program ()
+  (let ((sp-devonthink-label-command '("/nonexistent/python")))
+    (should (eq 'error (plist-get (sp-devonthink-pdf-page-for-label "/x.pdf" "1") :why)))))
+
+(provide 'sp-devonthink-test)

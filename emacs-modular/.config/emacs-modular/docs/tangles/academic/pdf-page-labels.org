@@ -1,0 +1,1307 @@
+#+TITLE: pdf-page-labels: print the real page numbers into the PDFs
+#+PROPERTY: header-args:python :tangle ../../../tools/pdf_page_labels.py :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for four tools and their tests.
+
+- Every line of the files below lives in the =python= blocks of this document, in order.
+- The blocks under each heading tangle to the file named in the heading's =header-args= property:
+  - =tools/pdf_page_labels.py=: the shared library (the top of this file, before "The article tool");
+  - =tools/pdf-labels-articles.py=: batch tool for journal articles;
+  - =tools/pdf-labels-book.py=: one-book tool, run by hand;
+  - =tools/pdf-labels-read.py=: the reader that Emacs calls;
+  - =tests/test_pdf_page_labels.py=: the tests.
+- Decision and reasons: [[file:../../../../../adr/0032-page-labels-live-in-the-pdf.org][ADR 0032]].
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]]. This doc is not picked up by =tools/tangle-all.el= (it only covers =sp-*.org= docs that write into =libraries/modules/=), so tangle it yourself after editing:
+
+#+begin_example
+emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/pdf-page-labels.org")'
+#+end_example
+
+* What it is for
+
+- A PDF can carry /page labels/ (the =/PageLabels= entry): a rule that says "physical page 1 is called 360, page 2 is 361, ...".
+- A PDF viewer then shows the printed number, and a program can turn a printed number back into the physical page.
+- Why it is needed here:
+  - a journal PDF numbered 1 to 5 holds the pages 360 to 364 of the journal;
+  - a book PDF has a cover and front matter, so printed page 1 is the 9th physical page.
+- =sp-devonthink= opens a chapter in its parent's PDF at the chapter's first page; it needs printed page -> physical page.
+- The information lives *in the PDF file* (ADR 0032), not in Emacs variables, not in the BibTeX file, and not in DEVONthink.
+- Nothing here touches DEVONthink. DEVONthink only sees a file whose bytes changed.
+
+* Using it
+
+- All tools need =pikepdf= (it bundles qpdf): =pip install pikepdf=. Each script also has a PEP 723 header, so =uv run tools/pdf-labels-articles.py= works without installing anything.
+- Every tool that can write is a *dry run unless you pass =--apply=*.
+  - The dry run opens the PDFs read-only and prints what it would change.
+  - With =--apply=, the original is copied to =~/.local/state/pdf-page-labels/backups/TIMESTAMP/...= first (change it with =--backup-dir=).
+  - The new file is written next to the PDF under a temporary name, checked (same page count, same labels), and only then moved over the original.
+
+** Articles, in batch
+
+#+begin_example
+tools/pdf-labels-articles.py                        # dry run over every .bib in ~/Documents/bibliography
+tools/pdf-labels-articles.py --only smith-2017-x    # one entry (repeatable)
+tools/pdf-labels-articles.py --apply --only smith-2017-x
+tools/pdf-labels-articles.py --apply                # all of them
+#+end_example
+
+- It handles an entry when all of this holds:
+  - the BibTeX type is =article=, =inproceedings=, =conference= or =suppperiodical= (change it with =--types=);
+  - it has no =crossref= or =xref= (an entry tied to a parent is a chapter or paper in someone else's PDF);
+  - it has a =pages= field whose first page it can read;
+  - exactly one PDF is found for it.
+- It skips, and reports why, every other entry: =book=, =collection=, =incollection=, =inbook=, =proceedings=, theses and reports (their =pages= is often a page count), and so on.
+- The first page of =pages= becomes the label of physical page 1:
+  - =360--364=, =360-364= and =360, 365= give 360;
+  - =e123= gives the label =e123= (prefix =e=, then 123, 124, ...);
+  - =xii--xv= gives roman numerals starting at xii; =XII= gives upper case;
+  - anything else (=2:45=, =A-5=, an empty field) is skipped and reported.
+- A PDF that already has different labels is skipped unless you pass =--force=; the same labels are reported as unchanged, so running it twice is safe.
+- A warning is printed (and the PDF is still labelled) when the page range is not as long as the PDF, for example a 5-page range in a 6-page PDF with a cover sheet.
+- Files are found as =sp-citations= finds them: the =file= field (relative to =~/Documents/literature=), then the same file name anywhere below the library.
+
+** One book, by hand
+
+#+begin_example
+tools/pdf-labels-book.py smith-2017-x --first-page 9                       # dry run
+tools/pdf-labels-book.py smith-2017-x --first-page 9 --front-roman         # pages 1-8 are i-viii
+tools/pdf-labels-book.py smith-2017-x --first-page 11 --front-roman --front-roman-from 3
+tools/pdf-labels-book.py ~/Documents/literature/x.pdf --first-page 9 --apply
+#+end_example
+
+- The target is a citekey or the path of a PDF.
+- =--first-page N= is the physical page of the PDF where *printed page 1* starts (1 is the first page of the file).
+- It never reads the BibTeX =pages= field: for a book that field is not about this PDF.
+  - The citekey is only used to find the file.
+- =--front-roman= numbers the pages before =--first-page= as i, ii, iii, ...; =--front-roman-upper= gives I, II, III.
+  - =--front-roman-from N= starts the roman numbers at physical page N (default 1); pages before it get no label.
+- Without =--front-roman=, pages before =--first-page= get no label (an empty label).
+- It replaces any existing labels (you asked for it), after the backup.
+
+** Reading, for Emacs
+
+#+begin_example
+tools/pdf-labels-read.py FILE.pdf --resolve 45     # prints the physical page (counted from 1)
+tools/pdf-labels-read.py FILE.pdf --list           # physical page TAB label
+tools/pdf-labels-read.py FILE.pdf --describe       # the label rules
+#+end_example
+
+- Exit status of =--resolve=: 0 found (the page is printed); 3 the PDF has no page labels; 4 no page has that label; 2 any other problem (message on stderr).
+- If two pages share a label, the first is printed and a warning goes to stderr.
+
+* The library: =tools/pdf_page_labels.py=
+
+** Header
+
+- =pikepdf= is imported lazily so that the pure parts (parsing =pages=, the BibTeX reader) work, and are tested, without it.
+- The default folders are the ones the rest of the configuration uses.
+
+#+begin_src python
+"""Read and write PDF page labels for the literature tools.
+
+Shared by tools/pdf-labels-articles.py, tools/pdf-labels-book.py and
+tools/pdf-labels-read.py.  Needs pikepdf for anything that opens a PDF.
+
+Tangled from docs/tangles/academic/pdf-page-labels.org; edit that file.
+"""
+
+import io
+import os
+import re
+import shutil
+import sys
+import tempfile
+import unicodedata
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+try:
+    import pikepdf
+except ImportError:          # require_pikepdf() explains it when a command needs it
+    pikepdf = None
+
+DEFAULT_LIBRARY = Path.home() / "Documents" / "literature"
+DEFAULT_BIB_DIR = Path.home() / "Documents" / "bibliography"
+DEFAULT_BACKUP_DIR = Path.home() / ".local" / "state" / "pdf-page-labels" / "backups"
+
+
+def require_pikepdf():
+    """Stop with an install hint when pikepdf is missing."""
+    if pikepdf is None:
+        sys.exit("pikepdf is needed to read PDFs: pip install pikepdf "
+                 "(it bundles qpdf), or run the script with `uv run`.")
+#+end_src
+
+** Label rules
+
+- A =LabelRange= is one entry of the =/PageLabels= number tree:
+  - =index= is the 0-based physical page where the rule starts, and it holds until the next rule;
+  - =style= is =D= (1, 2, 3), =r= (i, ii), =R= (I, II) or None (no number);
+  - =start= is the number the first page of the rule gets;
+  - =prefix= is text put before the number (=e= gives =e123=).
+
+#+begin_src python
+@dataclass(frozen=True)
+class LabelRange:
+    """One page-label rule: from physical page INDEX (0-based) on."""
+    index: int
+    style: str = None
+    start: int = 1
+    prefix: str = ""
+
+
+class Unparseable(ValueError):
+    """A pages field (or a roman numeral) that cannot give a first page."""
+#+end_src
+
+** Reading the =pages= field
+
+- =first_page_token= cuts the first page out of the field:
+  - it drops a leading =p.= or =pp.=;
+  - it cuts at the first range or list separator (=--=, =-=, en dash, em dash, comma, semicolon);
+  - it drops a trailing =+=.
+- =parse_first_page= turns the token into a =LabelRange= for physical page 1:
+  - letters followed by digits (=e123=, =S45=) give prefix and decimal style;
+  - digits give the decimal style;
+  - a valid roman numeral gives style =r=, or =R= if written in capitals;
+  - a number below 1, or anything else, raises =Unparseable= with the reason.
+
+#+begin_src python
+_ROMAN_RE = re.compile(
+    r"(?=[mdclxvi])m{0,3}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", re.I)
+_ROMAN_VALUES = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100, "d": 500, "m": 1000}
+_SEPARATOR_RE = re.compile(r"\s*[-\u2013\u2014,;]+\s*")
+
+
+def roman_to_int(text):
+    """The value of the roman numeral TEXT, or Unparseable."""
+    if not _ROMAN_RE.fullmatch(text):
+        raise Unparseable(f"{text!r} is not a roman numeral")
+    total, previous = 0, 0
+    for char in reversed(text.lower()):
+        value = _ROMAN_VALUES[char]
+        if value < previous:
+            total -= value
+        else:
+            total += value
+            previous = value
+    return total
+
+
+def _clean_pages(pages):
+    text = (pages or "").strip().strip("{}").strip()
+    return re.sub(r"^pp?\.?\s*", "", text, flags=re.I)
+
+
+def first_page_token(pages):
+    """The text of the first page in the BibTeX PAGES string."""
+    text = _clean_pages(pages)
+    if not text:
+        raise Unparseable("empty pages field")
+    return _SEPARATOR_RE.split(text, maxsplit=1)[0].strip().rstrip("+").strip()
+
+
+def parse_first_page(pages):
+    """The LabelRange that makes physical page 1 carry the first page of PAGES."""
+    token = first_page_token(pages)
+    match = re.fullmatch(r"([A-Za-z]{1,4})?(\d+)", token)
+    if match:
+        number = int(match.group(2))
+        if number < 1:
+            raise Unparseable(f"page {number} is not positive")
+        return LabelRange(0, "D", number, match.group(1) or "")
+    try:
+        number = roman_to_int(token)
+    except Unparseable:
+        raise Unparseable(f"cannot read a first page from {pages!r}") from None
+    return LabelRange(0, "R" if token.isupper() else "r", number)
+
+
+def page_span(pages):
+    """How many pages the decimal range in PAGES covers, or None.
+
+    =360--364= gives 5.  An abbreviated end (=1234--45=) is completed from the start."""
+    parts = _SEPARATOR_RE.split(_clean_pages(pages))
+    if len(parts) != 2:
+        return None
+    first, last = parts[0].strip(), parts[1].strip()
+    if not (first.isdigit() and last.isdigit()):
+        return None
+    if len(last) < len(first):
+        last = first[:len(first) - len(last)] + last
+    span = int(last) - int(first) + 1
+    return span if span >= 1 else None
+#+end_src
+
+** Reading and writing labels in a PDF
+
+- =labels_of= gives the label of every physical page (pikepdf's =Page.label=, which follows the PDF's rules, and is the page number when there are none).
+- =existing_ranges= gives the rules a PDF has, as =LabelRange= values, so a dry run can say what would be replaced, and a second run can see "unchanged".
+- =set_labels= replaces the =/PageLabels= tree with a flat list of rules.
+- =find_pages= is the reverse lookup used by Emacs: label -> physical pages counted from 1; case is ignored only when there is no exact match.
+
+#+begin_src python
+def open_pdf(path):
+    """Open PATH from memory, so that the file can be replaced while open."""
+    require_pikepdf()
+    return pikepdf.open(io.BytesIO(Path(path).read_bytes()))
+
+
+def has_labels(pdf):
+    return "/PageLabels" in pdf.Root
+
+
+def labels_of(pdf):
+    """The label of every page, in physical order."""
+    return [page.label for page in pdf.pages]
+
+
+def existing_ranges(pdf):
+    """The label rules of PDF as a list of LabelRange, empty when it has none."""
+    if not has_labels(pdf):
+        return []
+    ranges = []
+    for index, rule in sorted(pikepdf.NumberTree(pdf.Root.PageLabels).items()):
+        style = str(rule.S)[1:] if "/S" in rule else None
+        prefix = str(rule.P) if "/P" in rule else ""
+        start = int(rule.St) if "/St" in rule else 1
+        ranges.append(LabelRange(int(index), style, start, prefix))
+    return ranges
+
+
+def set_labels(pdf, ranges):
+    """Replace the page labels of PDF with RANGES."""
+    nums = pikepdf.Array()
+    for item in sorted(ranges, key=lambda r: r.index):
+        rule = pikepdf.Dictionary()
+        if item.style:
+            rule["/S"] = pikepdf.Name("/" + item.style)
+        if item.prefix:
+            rule["/P"] = pikepdf.String(item.prefix)
+        if item.start != 1:
+            rule["/St"] = item.start
+        nums.append(item.index)
+        nums.append(rule)
+    pdf.Root["/PageLabels"] = pdf.make_indirect(pikepdf.Dictionary(Nums=nums))
+
+
+def find_pages(pdf, label):
+    """The physical pages (counted from 1) whose label is LABEL."""
+    labels = labels_of(pdf)
+    exact = [i + 1 for i, found in enumerate(labels) if found == label]
+    return exact or [i + 1 for i, found in enumerate(labels)
+                     if found.casefold() == label.casefold()]
+
+
+def describe(ranges):
+    """A short text for RANGES, for reports."""
+    if not ranges:
+        return "no page labels"
+    names = {"D": "1,2,3", "r": "i,ii,iii", "R": "I,II,III", None: "no number"}
+    return "; ".join(
+        f"from PDF page {r.index + 1}: {r.prefix}{r.start} ({names.get(r.style, r.style)})"
+        if r.style else f"from PDF page {r.index + 1}: unnumbered"
+        for r in ranges)
+#+end_src
+
+** Writing a PDF safely
+
+- =write_labels= is the only function that changes a file:
+  1. it reads the PDF and sets the labels in memory;
+  2. it saves to a temporary file in the same folder;
+  3. it reopens the temporary file and checks the page count and the label rules;
+  4. it copies the *original* to the backup folder;
+  5. it replaces the original with the temporary file.
+- If any step fails, the temporary file is removed and the original is untouched.
+- The backup path repeats the original's folders, so two PDFs with the same name do not clash.
+- The modification time is not kept: it changes, so tools that watch files notice.
+
+#+begin_src python
+def backup_path(path, backup_root):
+    """Where the backup of PATH goes below BACKUP_ROOT."""
+    return Path(backup_root).joinpath(*Path(path).resolve().parts[1:])
+
+
+def new_backup_root(base):
+    """A fresh folder for one run's backups, named by the time."""
+    return Path(base).expanduser() / datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def write_labels(path, ranges, backup_root):
+    """Back PATH up below BACKUP_ROOT, then rewrite it with the labels RANGES.
+
+    Returns the path of the backup."""
+    path = Path(path)
+    ranges = sorted(ranges, key=lambda r: r.index)
+    pdf = open_pdf(path)
+    pages = len(pdf.pages)
+    set_labels(pdf, ranges)
+    handle, temp = tempfile.mkstemp(suffix=".pdf", prefix=".labels-", dir=path.parent)
+    os.close(handle)
+    try:
+        pdf.save(temp)
+        with pikepdf.open(temp) as check:
+            if len(check.pages) != pages or existing_ranges(check) != ranges:
+                raise RuntimeError("the saved file does not match: left the original alone")
+        backup = backup_path(path, backup_root)
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, backup)
+        shutil.copymode(path, temp)
+        os.replace(temp, path)
+    except BaseException:
+        if os.path.exists(temp):
+            os.remove(temp)
+        raise
+    return backup
+#+end_src
+
+** Reading BibTeX
+
+- A small reader, enough for citekey, type and fields; it does not expand macros or concatenations.
+- Field names are lower-cased, values have braces around the whole value removed and white space collapsed.
+- =@string=, =@comment= and =@preamble= are ignored.
+- A citekey that occurs twice keeps the first entry, and the duplicate is reported by =load_bibs=.
+
+#+begin_src python
+_ENTRY_START = re.compile(r"@\s*([A-Za-z]+)\s*([{(])\s*([^,\s{}()]*)\s*(,?)")
+_FIELD_START = re.compile(r"[\s,]*([A-Za-z][\w:\-]*)\s*=\s*")
+_NOT_ENTRIES = {"string", "comment", "preamble"}
+
+
+@dataclass
+class Entry:
+    key: str
+    type: str
+    fields: dict
+    source: Path = None
+
+
+def _balanced(text, start, open_char, close_char):
+    """The index just after the bracket that closes the one at TEXT[START]."""
+    depth, i = 0, start
+    while i < len(text):
+        char = text[i]
+        if char == "\\":
+            i += 2
+            continue
+        if char == open_char:
+            depth += 1
+        elif char == close_char:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return len(text)
+
+
+def _parse_fields(body):
+    fields, i = {}, 0
+    while True:
+        match = _FIELD_START.match(body, i)
+        if not match or match.end() >= len(body):
+            return fields
+        name, i = match.group(1).lower(), match.end()
+        if body[i] == "{":
+            end = _balanced(body, i, "{", "}")
+            value = body[i + 1:end - 1]
+        elif body[i] == '"':
+            end = i + 1
+            depth = 0
+            while end < len(body) and not (body[end] == '"' and depth == 0):
+                if body[end] == "\\":
+                    end += 1
+                elif body[end] == "{":
+                    depth += 1
+                elif body[end] == "}":
+                    depth -= 1
+                end += 1
+            value = body[i + 1:end]
+            end += 1
+        else:
+            end = re.compile(r"[^,]*").match(body, i).end()
+            value = body[i:end].strip()
+        fields.setdefault(name, " ".join(value.split()))
+        i = end
+
+
+def parse_bib(text, source=None):
+    """The entries of the BibTeX TEXT, as a list of Entry."""
+    entries, position = [], 0
+    while True:
+        match = _ENTRY_START.search(text, position)
+        if not match:
+            return entries
+        close = "}" if match.group(2) == "{" else ")"
+        end = _balanced(text, match.start(2), match.group(2), close)
+        position = end
+        kind = match.group(1).lower()
+        if kind in _NOT_ENTRIES or not match.group(4):
+            continue
+        entries.append(Entry(match.group(3), kind,
+                             _parse_fields(text[match.end():end - 1]), source))
+
+
+def bib_files(bib_dir):
+    """Every .bib file directly in BIB_DIR."""
+    return sorted(Path(bib_dir).expanduser().glob("*.bib"))
+
+
+def load_bibs(paths):
+    """Entries of the .bib files PATHS by citekey, and the keys found twice."""
+    entries, duplicates = {}, []
+    for path in paths:
+        for entry in parse_bib(Path(path).read_text(encoding="utf-8", errors="replace"), path):
+            if entry.key in entries:
+                duplicates.append(entry.key)
+            else:
+                entries[entry.key] = entry
+    return entries, duplicates
+#+end_src
+
+** Finding the PDF of an entry
+
+- It follows =sp-citations= (=sp-citations-parser-library=):
+  - the =file= field is split at =;= (a JabRef =description:path:type= triple gives its middle part);
+  - a path is relative to the library unless it is absolute or starts with =~=;
+  - a name that does not exist is looked up by file name, ignoring case and Unicode form, anywhere below the library;
+  - an entry with no =file= field is looked up as =CITEKEY.pdf=.
+- The index of the library is built once, the first time a lookup misses.
+
+#+begin_src python
+def _normal(name):
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+class Library:
+    """The literature folder, with a lazy index of its files by name."""
+
+    def __init__(self, root):
+        self.root = Path(root).expanduser()
+        self._index = None
+
+    def find(self, name):
+        """The files below the library called like the path NAME."""
+        if self._index is None:
+            self._index = {}
+            for folder, dirs, files in os.walk(self.root):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                for file in files:
+                    self._index.setdefault(_normal(file), []).append(Path(folder) / file)
+        return self._index.get(_normal(Path(name).name), [])
+
+    def pdfs_of(self, entry):
+        """The existing PDFs of ENTRY, without duplicates."""
+        found = []
+        pieces = [p.strip() for p in entry.fields.get("file", "").split(";") if p.strip()]
+        for piece in pieces:
+            parts = piece.split(":")
+            if len(parts) >= 3:
+                piece = parts[1]
+            if not piece.lower().endswith(".pdf"):
+                continue
+            path = Path(piece).expanduser()
+            if not path.is_absolute():
+                path = self.root / path
+            found.extend([path] if path.is_file() else self.find(piece))
+        if not pieces:
+            found.extend(self.find(entry.key + ".pdf"))
+        return list(dict.fromkeys(p for p in found if p.suffix.lower() == ".pdf"))
+#+end_src
+
+** Command line parts
+
+- =add_common_arguments= gives both writing tools the same options.
+- =Report= prints one line per entry and a count at the end, so both tools look the same.
+
+#+begin_src python
+def add_common_arguments(parser):
+    parser.add_argument("--apply", action="store_true",
+                        help="write the labels (the default is a dry run)")
+    parser.add_argument("--library", default=str(DEFAULT_LIBRARY),
+                        help="the folder of the PDFs (default %(default)s)")
+    parser.add_argument("--bib-dir", default=str(DEFAULT_BIB_DIR),
+                        help="the folder of the .bib files (default %(default)s)")
+    parser.add_argument("--bib", action="append", default=[],
+                        help="a .bib file; repeat it; replaces --bib-dir")
+    parser.add_argument("--backup-dir", default=str(DEFAULT_BACKUP_DIR),
+                        help="where originals are copied before they change (default %(default)s)")
+
+
+def bib_paths(args):
+    """The .bib files the arguments select."""
+    return [Path(b).expanduser() for b in args.bib] or bib_files(args.bib_dir)
+
+
+class Report:
+    """Collects one outcome per file and prints them."""
+
+    def __init__(self, apply):
+        self.apply = apply
+        self.counts = {}
+
+    def line(self, status, name, text="", show=True):
+        self.counts[status] = self.counts.get(status, 0) + 1
+        if show:
+            print(f"{status:<10} {name}" + (f"  {text}" if text else ""))
+
+    def summary(self):
+        print()
+        print(", ".join(f"{n} {status}" for status, n in sorted(self.counts.items())) or "nothing to do")
+        if not self.apply and any(s in self.counts for s in ("would-label",)):
+            print("This was a dry run: nothing was written.  Add --apply to write.")
+#+end_src
+
+* The article tool: =tools/pdf-labels-articles.py=
+:PROPERTIES:
+:header-args:python: :tangle ../../../tools/pdf-labels-articles.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+- It walks the BibTeX entries once and decides for each: label, unchanged, or skip with a reason.
+- =plan_entry= does the deciding and writes nothing, so the dry run and the real run share it.
+- Skips for an unwanted type are counted but not printed unless =--verbose=, since most of a library is books.
+
+#+begin_src python
+#!/usr/bin/env python3
+# /// script
+# dependencies = ["pikepdf"]
+# ///
+"""Write PDF page labels from the BibTeX `pages` field, for articles.
+
+    pdf-labels-articles.py [--only KEY] [--apply]
+
+A dry run unless --apply is given.  Only entries that are not tied to a book:
+type article (or inproceedings, conference, suppperiodical) without crossref.
+For books use pdf-labels-book.py.
+
+Tangled from docs/tangles/academic/pdf-page-labels.org; edit that file.
+"""
+
+import argparse
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pdf_page_labels as pl  # noqa: E402
+
+DEFAULT_TYPES = ("article", "inproceedings", "conference", "suppperiodical")
+
+
+@dataclass
+class Plan:
+    key: str
+    status: str                  # label, unchanged or skip
+    reason: str = ""
+    path: Path = None
+    ranges: list = field(default_factory=list)
+    warning: str = ""
+    quiet: bool = False          # a skip that is only counted
+
+
+def plan_entry(entry, library, types, force):
+    """What to do for ENTRY.  Opens its PDF read-only; never writes."""
+    if entry.type not in types:
+        return Plan(entry.key, "skip", f"type {entry.type} is not handled", quiet=True)
+    for tie in ("crossref", "xref"):
+        if entry.fields.get(tie):
+            return Plan(entry.key, "skip", f"tied to {entry.fields[tie]} ({tie}); use pdf-labels-book.py",
+                        quiet=True)
+    pages = entry.fields.get("pages", "")
+    if not pages.strip():
+        return Plan(entry.key, "skip", "no pages field")
+    try:
+        wanted = pl.parse_first_page(pages)
+    except pl.Unparseable as error:
+        return Plan(entry.key, "skip", str(error))
+    pdfs = library.pdfs_of(entry)
+    if not pdfs:
+        return Plan(entry.key, "skip", "no PDF found")
+    if len(pdfs) > 1:
+        return Plan(entry.key, "skip", "several PDFs: " + ", ".join(p.name for p in pdfs))
+    path = pdfs[0]
+    try:
+        pdf = pl.open_pdf(path)
+        count = len(pdf.pages)
+        current = pl.existing_ranges(pdf)
+    except Exception as error:   # encrypted, damaged, not a PDF
+        return Plan(entry.key, "skip", f"cannot open {path.name}: {error}", path)
+    plan = Plan(entry.key, "label", f"pages {pages!r} -> first page {wanted.prefix}{wanted.start}",
+                path, [wanted])
+    span = pl.page_span(pages)
+    if span and span != count:
+        plan.warning = f"range has {span} pages, the PDF has {count}: check for a cover sheet"
+    if current == [wanted]:
+        plan.status = "unchanged"
+    elif current and not force:
+        plan.status = "skip"
+        plan.reason = f"already has labels ({pl.describe(current)}); --force replaces them"
+    return plan
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    pl.add_common_arguments(parser)
+    parser.add_argument("--only", action="append", default=[], metavar="KEY",
+                        help="only this citekey; repeat it")
+    parser.add_argument("--types", default=",".join(DEFAULT_TYPES),
+                        help="comma-separated BibTeX types to handle (default %(default)s)")
+    parser.add_argument("--force", action="store_true",
+                        help="replace page labels the PDF already has")
+    parser.add_argument("--verbose", action="store_true",
+                        help="also list the entries skipped for their type or crossref")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    pl.require_pikepdf()
+    entries, duplicates = pl.load_bibs(pl.bib_paths(args))
+    for key in duplicates:
+        print(f"warning: citekey {key} occurs twice; the first entry is used", file=sys.stderr)
+    types = {t.strip().lower() for t in args.types.split(",") if t.strip()}
+    library = pl.Library(args.library)
+    report = pl.Report(args.apply)
+    backup_root = pl.new_backup_root(args.backup_dir)
+    wanted_keys = set(args.only)
+    for missing in sorted(wanted_keys - set(entries)):
+        report.line("skip", missing, "not in the .bib files")
+    for entry in entries.values():
+        if wanted_keys and entry.key not in wanted_keys:
+            continue
+        plan = plan_entry(entry, library, types, args.force)
+        suffix = f" [warning: {plan.warning}]" if plan.warning else ""
+        if plan.status == "skip":
+            report.line("skip", entry.key, plan.reason, show=args.verbose or not plan.quiet)
+        elif plan.status == "unchanged":
+            report.line("unchanged", entry.key, plan.path.name, show=args.verbose)
+        elif not args.apply:
+            report.line("would-label", entry.key, f"{plan.path.name}: {plan.reason}{suffix}")
+        else:
+            try:
+                pl.write_labels(plan.path, plan.ranges, backup_root)
+                report.line("labelled", entry.key, f"{plan.path.name}: {plan.reason}{suffix}")
+            except Exception as error:
+                report.line("failed", entry.key, f"{plan.path.name}: {error}")
+    report.summary()
+    if args.apply and report.counts.get("labelled"):
+        print(f"Originals are in {backup_root}")
+    return 1 if report.counts.get("failed") else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+* The book tool: =tools/pdf-labels-book.py=
+:PROPERTIES:
+:header-args:python: :tangle ../../../tools/pdf-labels-book.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+- Run by hand for one PDF, when you notice that its pages are offset.
+- It never reads =pages=; the only BibTeX use is to turn a citekey into a file.
+- =book_ranges= is a pure function from the arguments to label rules, so it is tested without a PDF.
+  - Rule 1 (optional): roman numerals from physical page =roman_from=; pages before it are unnumbered.
+  - Rule 2: decimal numbers from physical page =first_page=, starting at 1.
+  - Without roman numerals, everything before =first_page= is unnumbered.
+
+#+begin_src python
+#!/usr/bin/env python3
+# /// script
+# dependencies = ["pikepdf"]
+# ///
+"""Write PDF page labels for one book, from the page where printed page 1 starts.
+
+    pdf-labels-book.py CITEKEY-OR-PDF --first-page N [--front-roman] [--apply]
+
+A dry run unless --apply is given.  It does not read the BibTeX `pages` field.
+
+Tangled from docs/tangles/academic/pdf-page-labels.org; edit that file.
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pdf_page_labels as pl  # noqa: E402
+
+
+def book_ranges(first_page, front_roman=False, roman_upper=False, roman_from=1):
+    """The label rules for a book whose printed page 1 is physical page FIRST_PAGE."""
+    if first_page < 1:
+        raise ValueError("--first-page counts from 1")
+    ranges = []
+    if front_roman:
+        if not 1 <= roman_from < first_page:
+            raise ValueError("--front-roman-from must be at least 1 and before --first-page")
+        if roman_from > 1:
+            ranges.append(pl.LabelRange(0))
+        ranges.append(pl.LabelRange(roman_from - 1, "R" if roman_upper else "r", 1))
+    elif first_page > 1:
+        ranges.append(pl.LabelRange(0))
+    ranges.append(pl.LabelRange(first_page - 1, "D", 1))
+    return ranges
+
+
+def find_pdf(target, library, bib_files):
+    """The PDF for TARGET, a path or a citekey; exits with a message when not exactly one."""
+    path = Path(target).expanduser()
+    if path.suffix.lower() == ".pdf" and path.is_file():
+        return path
+    entries, _ = pl.load_bibs(bib_files)
+    if target in entries:
+        pdfs = library.pdfs_of(entries[target])
+    else:
+        pdfs = library.find(target + ".pdf")
+    if not pdfs:
+        sys.exit(f"no PDF found for {target}")
+    if len(pdfs) > 1:
+        sys.exit(f"several PDFs for {target}; pass the path of one:\n  "
+                 + "\n  ".join(map(str, pdfs)))
+    return pdfs[0]
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("target", help="a citekey, or the path of a PDF")
+    pl.add_common_arguments(parser)
+    parser.add_argument("--first-page", type=int, required=True, metavar="N",
+                        help="the PDF page (1 is the first page of the file) where printed page 1 is")
+    parser.add_argument("--front-roman", action="store_true",
+                        help="number the pages before --first-page i, ii, iii, ...")
+    parser.add_argument("--front-roman-upper", action="store_true",
+                        help="with --front-roman: I, II, III")
+    parser.add_argument("--front-roman-from", type=int, default=1, metavar="N",
+                        help="with --front-roman: the PDF page where i is (default 1)")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    pl.require_pikepdf()
+    try:
+        ranges = book_ranges(args.first_page, args.front_roman,
+                             args.front_roman_upper, args.front_roman_from)
+    except ValueError as error:
+        sys.exit(str(error))
+    path = find_pdf(args.target, pl.Library(args.library), pl.bib_paths(args))
+    pdf = pl.open_pdf(path)
+    count = len(pdf.pages)
+    if args.first_page > count:
+        sys.exit(f"{path.name} has {count} pages, --first-page {args.first_page} is past the end")
+    current = pl.existing_ranges(pdf)
+    print(f"file:     {path}")
+    print(f"pages:    {count}")
+    print(f"current:  {pl.describe(current)}")
+    print(f"new:      {pl.describe(ranges)}")
+    if current == ranges:
+        print("nothing to do: the labels are already these")
+        return 0
+    if not args.apply:
+        print("This was a dry run: nothing was written.  Add --apply to write.")
+        return 0
+    backup = pl.write_labels(path, ranges, pl.new_backup_root(args.backup_dir))
+    print(f"written; the original is {backup}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+* The reader: =tools/pdf-labels-read.py=
+:PROPERTIES:
+:header-args:python: :tangle ../../../tools/pdf-labels-read.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+- Emacs calls this to turn a printed page into a physical page (=sp-devonthink-pdf-page-for-label=).
+- It only reads. Its exit status is the answer (see "Using it").
+
+#+begin_src python
+#!/usr/bin/env python3
+# /// script
+# dependencies = ["pikepdf"]
+# ///
+"""Read the page labels of a PDF.
+
+    pdf-labels-read.py FILE --resolve LABEL   print the PDF page (from 1)
+    pdf-labels-read.py FILE --list            print PDF page and label
+    pdf-labels-read.py FILE --describe        print the label rules
+
+Exit status of --resolve: 0 found, 3 no page labels, 4 no such label, 2 error.
+
+Tangled from docs/tangles/academic/pdf-page-labels.org; edit that file.
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pdf_page_labels as pl  # noqa: E402
+
+EXIT_NO_LABELS, EXIT_NOT_FOUND, EXIT_ERROR = 3, 4, 2
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("file")
+    what = parser.add_mutually_exclusive_group(required=True)
+    what.add_argument("--resolve", metavar="LABEL")
+    what.add_argument("--list", action="store_true")
+    what.add_argument("--describe", action="store_true")
+    args = parser.parse_args(argv)
+    pl.require_pikepdf()
+    try:
+        pdf = pl.open_pdf(args.file)
+    except Exception as error:
+        print(f"cannot open {args.file}: {error}", file=sys.stderr)
+        return EXIT_ERROR
+    if args.describe:
+        print(pl.describe(pl.existing_ranges(pdf)))
+        return 0
+    if args.list:
+        for number, label in enumerate(pl.labels_of(pdf), 1):
+            print(f"{number}\t{label}")
+        return 0
+    if not pl.has_labels(pdf):
+        print("the PDF has no page labels", file=sys.stderr)
+        return EXIT_NO_LABELS
+    pages = pl.find_pages(pdf, args.resolve)
+    if not pages:
+        print(f"no page is labelled {args.resolve}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    if len(pages) > 1:
+        print(f"warning: {len(pages)} pages are labelled {args.resolve}; using the first",
+              file=sys.stderr)
+    print(pages[0])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:python: :tangle ../../../tests/test_pdf_page_labels.py :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Run from =.config/emacs-modular=:
+
+#+begin_example
+python3 -m unittest tests/test_pdf_page_labels.py
+#+end_example
+
+- The parsing and BibTeX tests need no PDF library.
+- The tests that open PDFs are skipped when =pikepdf= is missing; they build small PDFs in a temporary folder.
+- The tools are loaded by path because their names have dashes.
+
+#+begin_src python
+"""Tests for tools/pdf_page_labels.py and the three pdf-labels-* tools.
+
+Run from emacs-modular/.config/emacs-modular:
+    python3 -m unittest tests/test_pdf_page_labels.py
+
+Tangled from docs/tangles/academic/pdf-page-labels.org; edit that file.
+"""
+
+import contextlib
+import importlib.util
+import io
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+HERE = Path(__file__).resolve().parent
+TOOLS = HERE.parent / "tools"
+sys.path.insert(0, str(TOOLS))
+import pdf_page_labels as pl  # noqa: E402
+
+
+def load_tool(name):
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), TOOLS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+articles = load_tool("pdf-labels-articles")
+book = load_tool("pdf-labels-book")
+reader = load_tool("pdf-labels-read")
+
+needs_pikepdf = unittest.skipIf(pl.pikepdf is None, "pikepdf is not installed")
+
+
+def make_pdf(path, pages):
+    pdf = pl.pikepdf.new()
+    for _ in range(pages):
+        pdf.add_blank_page()
+    pdf.save(path)
+    return Path(path)
+
+
+def run(main, *argv):
+    """Run a tool's main(); returns (status, stdout, stderr)."""
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            status = main(list(map(str, argv)))
+        except SystemExit as exit_:
+            status = exit_.code
+    return status, out.getvalue(), err.getvalue()
+#+end_src
+
+** The =pages= field
+
+#+begin_src python
+class ParsePagesTest(unittest.TestCase):
+    def first(self, pages):
+        r = pl.parse_first_page(pages)
+        return (r.prefix, r.style, r.start)
+
+    def test_decimal_ranges(self):
+        for pages in ("360--364", "360-364", " 360 – 364 ", "360—364", "360, 365", "360", "pp. 360--4", "360+"):
+            self.assertEqual(self.first(pages), ("", "D", 360), pages)
+
+    def test_letter_prefix(self):
+        self.assertEqual(self.first("e123"), ("e", "D", 123))
+        self.assertEqual(self.first("S45--S52"), ("S", "D", 45))
+
+    def test_roman(self):
+        self.assertEqual(self.first("xii--xv"), ("", "r", 12))
+        self.assertEqual(self.first("XIV"), ("", "R", 14))
+        self.assertEqual(self.first("iv"), ("", "r", 4))
+
+    def test_unparseable(self):
+        for pages in ("", "   ", None, "0", "A-5", "2:45", "abc", "iiii", "{}", "--"):
+            with self.assertRaises(pl.Unparseable, msg=repr(pages)):
+                pl.parse_first_page(pages)
+
+    def test_page_span(self):
+        self.assertEqual(pl.page_span("360--364"), 5)
+        self.assertEqual(pl.page_span("1234--45"), 12)
+        self.assertIsNone(pl.page_span("360"))
+        self.assertIsNone(pl.page_span("xii--xv"))
+        self.assertIsNone(pl.page_span("364--360"))
+#+end_src
+
+** BibTeX reader
+
+#+begin_src python
+BIB = r"""
+@comment{ ignored @article{nope, pages = {1}} }
+@string{j = "Journal"}
+@Article{smith-2017-x,
+  author = {Smith, {J}ohn and Doe, A.},
+  title = {A title, with {braces} and a comma},
+  pages = {360--364},
+  year = 2017,
+  note = "quoted, value",
+  file = {a/smith.pdf;b/other.pdf},
+}
+@incollection{chap-2001-y,
+  crossref = {book-2000-z},
+  pages = "45--67"
+}
+@book(book-2000-z, title = {Book}, file = {:book.pdf:PDF})
+"""
+
+
+class BibTest(unittest.TestCase):
+    def test_parse_entries_and_fields(self):
+        entries = {e.key: e for e in pl.parse_bib(BIB)}
+        self.assertEqual(list(entries), ["smith-2017-x", "chap-2001-y", "book-2000-z"])
+        smith = entries["smith-2017-x"]
+        self.assertEqual(smith.type, "article")
+        self.assertEqual(smith.fields["pages"], "360--364")
+        self.assertEqual(smith.fields["year"], "2017")
+        self.assertEqual(smith.fields["note"], "quoted, value")
+        self.assertEqual(smith.fields["title"], "A title, with {braces} and a comma")
+        self.assertEqual(entries["chap-2001-y"].fields["crossref"], "book-2000-z")
+        self.assertEqual(entries["chap-2001-y"].fields["pages"], "45--67")
+        self.assertEqual(entries["book-2000-z"].type, "book")
+
+    def test_first_duplicate_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp, "a.bib"), Path(tmp, "b.bib")
+            a.write_text("@article{k, pages={1--2}}")
+            b.write_text("@article{k, pages={9--10}}")
+            entries, duplicates = pl.load_bibs([a, b])
+        self.assertEqual(entries["k"].fields["pages"], "1--2")
+        self.assertEqual(duplicates, ["k"])
+
+
+class LibraryTest(unittest.TestCase):
+    def test_file_field_and_name_lookup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "inbox").mkdir()
+            (root / "inbox" / "Smith.PDF").write_bytes(b"x")
+            (root / "key-a.pdf").write_bytes(b"x")
+            lib = pl.Library(root)
+            by_field = pl.Entry("k", "article", {"file": "inbox/Smith.PDF"})
+            moved = pl.Entry("k", "article", {"file": "elsewhere/smith.pdf"})
+            triple = pl.Entry("k", "article", {"file": ":inbox/Smith.PDF:PDF"})
+            nofield = pl.Entry("key-a", "article", {})
+            notpdf = pl.Entry("k", "article", {"file": "notes.txt"})
+            self.assertEqual(lib.pdfs_of(by_field), [root / "inbox" / "Smith.PDF"])
+            self.assertEqual(lib.pdfs_of(moved), [root / "inbox" / "Smith.PDF"])
+            self.assertEqual(lib.pdfs_of(triple), [root / "inbox" / "Smith.PDF"])
+            self.assertEqual(lib.pdfs_of(nofield), [root / "key-a.pdf"])
+            self.assertEqual(lib.pdfs_of(notpdf), [])
+#+end_src
+
+** Labels in a PDF
+
+- The round trip: write labels, reopen, and check what a viewer would show and what =find_pages= answers.
+
+#+begin_src python
+@needs_pikepdf
+class LabelsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.backups = self.dir / "backups"
+
+    def test_article_labels_round_trip(self):
+        path = make_pdf(self.dir / "a.pdf", 5)
+        pl.write_labels(path, [pl.parse_first_page("360--364")], self.backups)
+        pdf = pl.open_pdf(path)
+        self.assertEqual(pl.labels_of(pdf), ["360", "361", "362", "363", "364"])
+        self.assertEqual(pl.find_pages(pdf, "362"), [3])
+        self.assertEqual(pl.find_pages(pdf, "999"), [])
+
+    def test_prefix_and_roman(self):
+        path = make_pdf(self.dir / "a.pdf", 3)
+        pl.write_labels(path, [pl.parse_first_page("e123")], self.backups)
+        self.assertEqual(pl.labels_of(pl.open_pdf(path)), ["e123", "e124", "e125"])
+        pl.write_labels(path, [pl.parse_first_page("xii--xv")], self.backups)
+        self.assertEqual(pl.labels_of(pl.open_pdf(path)), ["xii", "xiii", "xiv"])
+        self.assertEqual(pl.find_pages(pl.open_pdf(path), "XIII"), [2])
+
+    def test_backup_is_the_original_and_no_temp_file_is_left(self):
+        path = make_pdf(self.dir / "a.pdf", 2)
+        before = path.read_bytes()
+        backup = pl.write_labels(path, [pl.LabelRange(0, "D", 10)], self.backups)
+        self.assertEqual(backup.read_bytes(), before)
+        self.assertNotEqual(path.read_bytes(), before)
+        self.assertEqual([p.name for p in self.dir.iterdir() if p.suffix == ".pdf" or p.name.startswith(".")],
+                         ["a.pdf"])
+
+    def test_existing_ranges_read_back(self):
+        path = make_pdf(self.dir / "a.pdf", 6)
+        rules = [pl.LabelRange(0, "r", 1), pl.LabelRange(2, "D", 1), pl.LabelRange(4, "D", 50, "A-")]
+        pl.write_labels(path, rules, self.backups)
+        self.assertEqual(pl.existing_ranges(pl.open_pdf(path)), rules)
+        self.assertEqual(pl.labels_of(pl.open_pdf(path)), ["i", "ii", "1", "2", "A-50", "A-51"])
+
+    def test_a_failed_save_leaves_the_original(self):
+        path = make_pdf(self.dir / "a.pdf", 2)
+        before = path.read_bytes()
+        with mock.patch.object(pl, "existing_ranges", return_value=[]):   # the check of the saved file fails
+            with self.assertRaises(RuntimeError):
+                pl.write_labels(path, [pl.LabelRange(0, "D", 5)], self.backups)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual([p.name for p in self.dir.iterdir() if p.is_file()], ["a.pdf"])
+#+end_src
+
+** The article tool
+
+#+begin_src python
+@needs_pikepdf
+class ArticleToolTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.lib = self.dir / "lit"
+        self.lib.mkdir()
+        for name, pages in (("art.pdf", 5), ("odd.pdf", 6), ("inc.pdf", 4), ("bk.pdf", 20),
+                            ("rom.pdf", 3), ("two.pdf", 2), ("two2.pdf", 2), ("done.pdf", 2)):
+            make_pdf(self.lib / name, pages)
+        pl.write_labels(self.lib / "done.pdf", [pl.LabelRange(0, "D", 7)], self.dir / "b0")
+        self.bib = self.dir / "x.bib"
+        self.bib.write_text("""
+@article{art, pages = {360--364}, file = {art.pdf}}
+@article{odd, pages = {10--14}, file = {odd.pdf}}
+@article{rom, pages = {xii--xiv}, file = {rom.pdf}}
+@article{nopages, file = {art.pdf}}
+@article{weird, pages = {2:45}, file = {art.pdf}}
+@article{nofile, pages = {1--2}, file = {gone.pdf}}
+@article{two, pages = {1--2}, file = {two.pdf;two2.pdf}}
+@article{done, pages = {7--8}, file = {done.pdf}}
+@incollection{inc, pages = {45--48}, file = {inc.pdf}, crossref = {bk}}
+@inproceedings{inpr, pages = {45--48}, file = {inc.pdf}, crossref = {bk}}
+@book{bk, pages = {300}, file = {bk.pdf}}
+""")
+        self.args = ["--bib", self.bib, "--library", self.lib, "--backup-dir", self.dir / "backups"]
+
+    def labels(self, name):
+        return pl.labels_of(pl.open_pdf(self.lib / name))
+
+    def test_dry_run_writes_nothing(self):
+        before = {p.name: p.read_bytes() for p in self.lib.iterdir()}
+        status, out, _ = run(articles.main, *self.args)
+        self.assertEqual(status, 0)
+        self.assertEqual({p.name: p.read_bytes() for p in self.lib.iterdir()}, before)
+        self.assertFalse((self.dir / "backups").exists())
+        self.assertIn("would-label art", out)
+        self.assertIn("dry run", out)
+
+    def test_apply_labels_articles_only(self):
+        status, out, _ = run(articles.main, *self.args, "--apply")
+        self.assertEqual(status, 0)
+        self.assertEqual(self.labels("art.pdf"), ["360", "361", "362", "363", "364"])
+        self.assertEqual(self.labels("rom.pdf"), ["xii", "xiii", "xiv"])
+        self.assertEqual(self.labels("odd.pdf")[0], "10")
+        self.assertEqual(self.labels("inc.pdf"), ["1", "2", "3", "4"])       # crossref: untouched
+        self.assertEqual(self.labels("bk.pdf")[0], "1")                      # book: untouched
+        self.assertEqual(self.labels("two.pdf"), ["1", "2"])                 # several PDFs: skipped
+        self.assertIn("range has 5 pages, the PDF has 6", out)
+        self.assertEqual(len(list((self.dir / "backups").rglob("*.pdf"))), 3)
+
+    def test_skips_are_reported_with_reasons(self):
+        _, out, _ = run(articles.main, *self.args)
+        self.assertIn("no pages field", out)
+        self.assertIn("cannot read a first page from '2:45'", out)
+        self.assertIn("no PDF found", out)
+        self.assertIn("several PDFs", out)
+        self.assertNotIn("type book", out)               # counted, not listed
+        _, verbose, _ = run(articles.main, *self.args, "--verbose")
+        self.assertIn("type book is not handled", verbose)
+        self.assertIn("tied to bk (crossref)", verbose)
+
+    def test_second_run_is_unchanged_and_other_labels_need_force(self):
+        run(articles.main, *self.args, "--apply")
+        _, out, _ = run(articles.main, *self.args, "--apply")
+        self.assertNotIn("labelled", out.replace("unlabelled", ""))
+        self.assertIn("unchanged", out)
+        make_pdf(self.lib / "art.pdf", 5)
+        pl.write_labels(self.lib / "art.pdf", [pl.LabelRange(0, "D", 99)], self.dir / "b1")
+        _, out, _ = run(articles.main, *self.args, "--apply", "--only", "art")
+        self.assertIn("already has labels", out)
+        self.assertEqual(self.labels("art.pdf")[0], "99")
+        run(articles.main, *self.args, "--apply", "--only", "art", "--force")
+        self.assertEqual(self.labels("art.pdf")[0], "360")
+
+    def test_only_and_types(self):
+        _, out, _ = run(articles.main, *self.args, "--only", "art")
+        self.assertIn("art", out)
+        self.assertNotIn("odd", out)
+        _, out, _ = run(articles.main, *self.args, "--only", "nosuchkey")
+        self.assertIn("not in the .bib files", out)
+        _, out, _ = run(articles.main, *self.args, "--types", "book", "--only", "bk")
+        self.assertIn("would-label bk", out)    # the user may widen the types
+#+end_src
+
+** The book tool
+
+#+begin_src python
+class BookRangesTest(unittest.TestCase):
+    def test_plain_offset(self):
+        self.assertEqual(book.book_ranges(9), [pl.LabelRange(0), pl.LabelRange(8, "D", 1)])
+
+    def test_first_page_one_has_no_blank_rule(self):
+        self.assertEqual(book.book_ranges(1), [pl.LabelRange(0, "D", 1)])
+
+    def test_front_roman(self):
+        self.assertEqual(book.book_ranges(9, True), [pl.LabelRange(0, "r", 1), pl.LabelRange(8, "D", 1)])
+        self.assertEqual(book.book_ranges(9, True, True)[0].style, "R")
+        self.assertEqual(book.book_ranges(9, True, False, 3),
+                         [pl.LabelRange(0), pl.LabelRange(2, "r", 1), pl.LabelRange(8, "D", 1)])
+
+    def test_bad_arguments(self):
+        for call in (lambda: book.book_ranges(0), lambda: book.book_ranges(1, True),
+                     lambda: book.book_ranges(5, True, False, 5), lambda: book.book_ranges(5, True, False, 0)):
+            with self.assertRaises(ValueError):
+                call()
+
+
+@needs_pikepdf
+class BookToolTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.lib = self.dir / "lit"
+        self.lib.mkdir()
+        self.pdf = make_pdf(self.lib / "bk.pdf", 14)
+        self.bib = self.dir / "x.bib"
+        self.bib.write_text("@book{book-2000-z, pages = {999}, file = {bk.pdf}}")
+        self.args = ["--bib", self.bib, "--library", self.lib, "--backup-dir", self.dir / "backups"]
+
+    def test_dry_run_then_apply_by_citekey(self):
+        before = self.pdf.read_bytes()
+        status, out, _ = run(book.main, "book-2000-z", "--first-page", 9, *self.args)
+        self.assertEqual(status, 0)
+        self.assertEqual(self.pdf.read_bytes(), before)
+        self.assertIn("dry run", out)
+        run(book.main, "book-2000-z", "--first-page", 9, "--front-roman", *self.args, "--apply")
+        labels = pl.labels_of(pl.open_pdf(self.pdf))
+        self.assertEqual(labels[:3], ["i", "ii", "iii"])
+        self.assertEqual(labels[7:11], ["viii", "1", "2", "3"])       # page 9 is printed page 1
+        self.assertEqual(len(list((self.dir / "backups").rglob("bk.pdf"))), 1)
+
+    def test_the_bibtex_pages_field_is_not_used(self):
+        run(book.main, "book-2000-z", "--first-page", 3, *self.args, "--apply")
+        labels = pl.labels_of(pl.open_pdf(self.pdf))
+        self.assertEqual(labels[2], "1")                  # not 999
+        self.assertEqual(labels[0], "")
+
+    def test_by_path_and_replaces_existing_labels(self):
+        run(book.main, self.pdf, "--first-page", 3, *self.args, "--apply")
+        run(book.main, self.pdf, "--first-page", 5, *self.args, "--apply")
+        self.assertEqual(pl.labels_of(pl.open_pdf(self.pdf))[4], "1")
+
+    def test_errors(self):
+        status, _, _ = run(book.main, "book-2000-z", "--first-page", 99, *self.args)
+        self.assertNotEqual(status, 0)
+        status, _, _ = run(book.main, "no-such-key", "--first-page", 2, *self.args)
+        self.assertNotEqual(status, 0)
+#+end_src
+
+** The reader
+
+#+begin_src python
+@needs_pikepdf
+class ReaderToolTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.pdf = make_pdf(self.dir / "a.pdf", 12)
+
+    def test_resolve_codes(self):
+        status, out, _ = run(reader.main, self.pdf, "--resolve", "3")
+        self.assertEqual(status, reader.EXIT_NO_LABELS)               # no labels yet
+        pl.write_labels(self.pdf, book.book_ranges(9, True), self.dir / "b")
+        self.assertEqual(run(reader.main, self.pdf, "--resolve", "1")[:2], (0, "9\n"))
+        self.assertEqual(run(reader.main, self.pdf, "--resolve", "4")[:2], (0, "12\n"))
+        self.assertEqual(run(reader.main, self.pdf, "--resolve", "vi")[:2], (0, "6\n"))
+        self.assertEqual(run(reader.main, self.pdf, "--resolve", "5")[0], reader.EXIT_NOT_FOUND)
+        self.assertEqual(run(reader.main, self.dir / "missing.pdf", "--resolve", "1")[0], reader.EXIT_ERROR)
+
+    def test_list_and_describe(self):
+        pl.write_labels(self.pdf, [pl.LabelRange(0, "D", 360)], self.dir / "b")
+        _, out, _ = run(reader.main, self.pdf, "--list")
+        self.assertEqual(out.splitlines()[:2], ["1\t360", "2\t361"])
+        _, out, _ = run(reader.main, self.pdf, "--describe")
+        self.assertIn("from PDF page 1: 360", out)
+
+    def test_runs_as_a_script(self):
+        pl.write_labels(self.pdf, [pl.LabelRange(0, "D", 360)], self.dir / "b")
+        done = subprocess.run([sys.executable, str(TOOLS / "pdf-labels-read.py"), str(self.pdf),
+                               "--resolve", "362"], capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stdout), (0, "3\n"))
+
+
+if __name__ == "__main__":
+    unittest.main()
+#+end_src
