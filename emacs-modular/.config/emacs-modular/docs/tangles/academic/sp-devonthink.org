@@ -708,5 +708,6 @@ collection it sits in.  The buffer is left unsaved."
   - In a chapter's litnote, =C-c k d C= asks and stores its keywords; =C-c k d c= shows them at the bottom of the note.
 - Unknown until tried:
   - whether =current page= and =selected text= exist on the =think window= and whether the page is 0- or 1-based (hence =sp-devonthink-store-page-offset=);
+  - whether the chapter keywords in a record's comment are findable enough in DEVONthink (search, =comment:= operator, Smart Groups); if not, prefixed tags are the fallback;
   - whether =comment of= a record can be read and set with =get record with uuid= (the chapter keywords depend on it);
   - whether the citar Embark map is called =citar-embark-map= in the installed version.
