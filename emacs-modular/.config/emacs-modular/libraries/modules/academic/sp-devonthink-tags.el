@@ -15,8 +15,15 @@
 (require 'sp-reading)
 (require 'sp-devonthink)
 
+(declare-function sp-litnotes-meta--put "sp-litnotes-meta" (key value))
+
 (defvar sp-devonthink-tags--known nil
   "Cache of the tags of the database, or nil before the first read.")
+
+(defcustom sp-devonthink-keywords-key "keywords"
+  "Meta key of the litnote line that mirrors the DEVONthink tags, or nil for none."
+  :type '(choice (const :tag "No mirror" nil) string)
+  :group 'sp-devonthink)
 
 (defun sp-devonthink--list-literal (strings)
   "STRINGS as an AppleScript list literal."
@@ -140,7 +147,57 @@ Return the number of records that changed."
                   (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (message "%s: %d record changed"
              (if remove "Removed" "Added")
-             (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))))
+             (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))
+    (sp-devonthink--mirror-tags uuid)))
+
+;;;; Mirror in the litnote
+
+(defun sp-devonthink-keywords-value (tags)
+  "The text of the litnote keywords line for TAGS: parts comma-joined, no repeats."
+  (mapconcat #'identity
+             (seq-uniq (mapcan #'sp-devonthink--split-tag tags) #'string-equal-ignore-case)
+             ", "))
+
+(defun sp-devonthink-write-keywords (tags)
+  "Write TAGS as the `sp-devonthink-keywords-key' meta line of the current buffer.
+Do nothing when that option is nil.  Return the line's value, or nil."
+  (when sp-devonthink-keywords-key
+    (require 'sp-litnotes-meta)
+    (let ((value (sp-devonthink-keywords-value tags)))
+      (sp-litnotes-meta--put sp-devonthink-keywords-key value)
+      value)))
+
+(defun sp-devonthink--own-record-p ()
+  "Non-nil when the record of the current litnote is its own, not its parent's."
+  (or (sp-devonthink-note-uuid)
+      (when-let* ((key (sp-devonthink-note-citekey))
+                  (rec (sp-devonthink-record key)))
+        (null (plist-get rec :via)))))
+
+(defun sp-devonthink--mirror-tags (uuid)
+  "Refresh the keywords line of the current litnote from the tags of record UUID.
+Skip, with a message, when the note's record is its crossref parent's."
+  (cond ((not sp-devonthink-keywords-key) nil)
+        ((not (sp-devonthink--own-record-p))
+         (message "Keywords line not written: the tags belong to the parent's record")
+         nil)
+        (t (sp-devonthink-write-keywords
+            (cdr (assoc uuid (sp-devonthink-record-tags (list uuid))))))))
+
+;;;###autoload
+(defun sp-devonthink-keywords-sync ()
+  "Write the current DEVONthink tags of this litnote's record into its keywords line."
+  (interactive)
+  (let ((uuid (or (sp-devonthink-note-uuid)
+                  (when-let* ((key (sp-devonthink-note-citekey))
+                              (rec (sp-devonthink-record key)))
+                    (plist-get rec :uuid))
+                  (user-error "No DEVONthink record for this note")))
+        (own (sp-devonthink--own-record-p)))
+    (unless own
+      (user-error "This note has no record of its own; sync in the litnote of its parent"))
+    (sp-devonthink--mirror-tags uuid)
+    (message "Keywords line updated (buffer not saved)")))
 
 ;;;; Splitting a comma-joined tag
 
@@ -190,6 +247,7 @@ end tell"
 ;;;; Keys
 
 (keymap-set sp-devonthink-map "t" #'sp-devonthink-tag-note)
+(keymap-set sp-devonthink-map "T" #'sp-devonthink-keywords-sync)
 
 (provide 'sp-devonthink-tags)
 ;;; sp-devonthink-tags.el ends here

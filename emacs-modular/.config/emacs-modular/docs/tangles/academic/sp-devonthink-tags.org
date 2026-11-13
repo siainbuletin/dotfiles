@@ -11,12 +11,14 @@ Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: 
 
 * What it is for
 
-- Tags are read from and written to DEVONthink only, through its scripting interface.
-  - They are never copied into the litnote, so there is no second copy to drift.
+- DEVONthink is the source of truth for tags; they are read and written through its scripting interface.
+  - The litnote keeps a mirror, the meta line =- keywords :: a, b, c=, rewritten from DEVONthink after every tag change in the note.
+  - The mirror is only for searching Org files; it is never read back, so editing it by hand changes nothing in DEVONthink.
 - Setting tags is:
   - one prompt that completes from the database's existing tags and accepts new ones;
   - applied to one record (the litnote's) or to many (the marked records of the browser).
 - A tag that does not exist yet is flagged =(new)= in a confirmation, so a typo does not create a stray tag unnoticed.
+- Command =sp-devonthink-keywords-sync= refreshes the mirror without changing any tag.
 - A one-off command splits the comma-joined tag of the =literature= database into separate tags, after a preview.
 
 * Pure helpers
@@ -45,8 +47,15 @@ Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: 
 (require 'sp-reading)
 (require 'sp-devonthink)
 
+(declare-function sp-litnotes-meta--put "sp-litnotes-meta" (key value))
+
 (defvar sp-devonthink-tags--known nil
   "Cache of the tags of the database, or nil before the first read.")
+
+(defcustom sp-devonthink-keywords-key "keywords"
+  "Meta key of the litnote line that mirrors the DEVONthink tags, or nil for none."
+  :type '(choice (const :tag "No mirror" nil) string)
+  :group 'sp-devonthink)
 
 (defun sp-devonthink--list-literal (strings)
   "STRINGS as an AppleScript list literal."
@@ -140,6 +149,7 @@ end tell"
 - =sp-devonthink-tag-note= tags the record of the current litnote (keyword or citekey, as in =sp-devonthink-open-from-note=).
   - A prefix argument removes the tags instead of adding them.
 
+- After the change, =sp-devonthink-tag-note= re-reads the record's tags and mirrors them in the litnote's keywords line (see the next section); the buffer is left unsaved.
 - =sp-devonthink-tag-note= follows =crossref=: a chapter's note with no record of its own tags the parent's record, but only after asking, since that tags the whole book.
 
 #+begin_src emacs-lisp
@@ -193,7 +203,80 @@ Return the number of records that changed."
                   (user-error "No DEVONthink record for this note (nor for its crossref)"))))
     (message "%s: %d record changed"
              (if remove "Removed" "Added")
-             (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))))
+             (sp-devonthink-apply-tags (list uuid) tags (if remove 'remove 'add)))
+    (sp-devonthink--mirror-tags uuid)))
+#+end_src
+
+* Mirroring the tags in the litnote
+
+- Why a meta line:
+  - =- keywords :: a, b, c= is a vulpea meta line, like =pub-author= or =bib-parent=, so vulpea sees it as a note's meta.
+  - It sits in the first section with the other meta lines, which the Org-side tooling and =sp-vulpea-meta-order= already handle.
+- Format (kept the same on every write, so searches are predictable):
+  - comma and one space between tags: =- keywords :: negativity, value form, Money=;
+  - the order DEVONthink returns, no sorting, no repeats;
+  - a tag that itself holds commas (the legacy joined tag) is written as its parts;
+  - no tags: the line stays with an empty value, so the key is still there to fill.
+- Searching it:
+  - ripgrep: =rg -i '^- keywords ::.*value form' ~/notes/litnotes=;
+  - Emacs: =M-x rgrep= or consult-ripgrep with the same regexp; vulpea meta search on key =keywords=.
+- =sp-devonthink-keywords-value= builds the value; =sp-devonthink-write-keywords= puts it in the current buffer (unsaved, like every other edit of =sp-litnotes-meta=).
+- The mirror is written only when the record is the note's own:
+  - a chapter without a record of its own tags its parent's record (the whole book); its tags are the book's, not the chapter's, so the chapter's note is left alone;
+  - the chapter's own keywords are a different thing (the =keywords= of its BibTeX entry, stored in the parent's record comment by the chapter-keywords commands); they never go into this line;
+  - run =sp-devonthink-keywords-sync= in the parent's litnote to refresh the book's line.
+- Marking several records in the browser tags them without touching their litnotes; run the sync command in each litnote afterwards.
+- =sp-devonthink-keywords-sync= reads the tags from DEVONthink and writes them to the line; with no record it signals a =user-error=.
+
+#+begin_src emacs-lisp
+;;;; Mirror in the litnote
+
+(defun sp-devonthink-keywords-value (tags)
+  "The text of the litnote keywords line for TAGS: parts comma-joined, no repeats."
+  (mapconcat #'identity
+             (seq-uniq (mapcan #'sp-devonthink--split-tag tags) #'string-equal-ignore-case)
+             ", "))
+
+(defun sp-devonthink-write-keywords (tags)
+  "Write TAGS as the `sp-devonthink-keywords-key' meta line of the current buffer.
+Do nothing when that option is nil.  Return the line's value, or nil."
+  (when sp-devonthink-keywords-key
+    (require 'sp-litnotes-meta)
+    (let ((value (sp-devonthink-keywords-value tags)))
+      (sp-litnotes-meta--put sp-devonthink-keywords-key value)
+      value)))
+
+(defun sp-devonthink--own-record-p ()
+  "Non-nil when the record of the current litnote is its own, not its parent's."
+  (or (sp-devonthink-note-uuid)
+      (when-let* ((key (sp-devonthink-note-citekey))
+                  (rec (sp-devonthink-record key)))
+        (null (plist-get rec :via)))))
+
+(defun sp-devonthink--mirror-tags (uuid)
+  "Refresh the keywords line of the current litnote from the tags of record UUID.
+Skip, with a message, when the note's record is its crossref parent's."
+  (cond ((not sp-devonthink-keywords-key) nil)
+        ((not (sp-devonthink--own-record-p))
+         (message "Keywords line not written: the tags belong to the parent's record")
+         nil)
+        (t (sp-devonthink-write-keywords
+            (cdr (assoc uuid (sp-devonthink-record-tags (list uuid))))))))
+
+;;;###autoload
+(defun sp-devonthink-keywords-sync ()
+  "Write the current DEVONthink tags of this litnote's record into its keywords line."
+  (interactive)
+  (let ((uuid (or (sp-devonthink-note-uuid)
+                  (when-let* ((key (sp-devonthink-note-citekey))
+                              (rec (sp-devonthink-record key)))
+                    (plist-get rec :uuid))
+                  (user-error "No DEVONthink record for this note")))
+        (own (sp-devonthink--own-record-p)))
+    (unless own
+      (user-error "This note has no record of its own; sync in the litnote of its parent"))
+    (sp-devonthink--mirror-tags uuid)
+    (message "Keywords line updated (buffer not saved)")))
 #+end_src
 
 * Splitting the comma-joined tag
@@ -255,12 +338,14 @@ end tell"
 
 * Keys
 
-- =C-c k d t= tags the record of the current litnote (=C-u= removes).
+- =C-c k d t= tags the record of the current litnote (=C-u= removes) and refreshes its keywords line.
+- =C-c k d T= refreshes the keywords line only.
 
 #+begin_src emacs-lisp
 ;;;; Keys
 
 (keymap-set sp-devonthink-map "t" #'sp-devonthink-tag-note)
+(keymap-set sp-devonthink-map "T" #'sp-devonthink-keywords-sync)
 
 (provide 'sp-devonthink-tags)
 ;;; sp-devonthink-tags.el ends here
@@ -272,4 +357,5 @@ end tell"
 - Unknown until tried:
   - the way to list tags: =name of (children of (tags group of database ...))=;
   - =lookup records with tags {...} in root of database ...=;
-  - whether =set tags of= replaces the whole list as assumed.
+  - whether =set tags of= replaces the whole list as assumed;
+  - whether =tags of r= comes back in the order shown in DEVONthink (the keywords line follows it).
