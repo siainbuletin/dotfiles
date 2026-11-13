@@ -29,6 +29,17 @@
   "Number added to the page DEVONthink reports when a link is stored."
   :type 'integer :group 'sp-devonthink)
 
+(defcustom sp-devonthink-page-offset 0
+  "Number added to a printed page to get the PDF page, for chapters in a parent's PDF.
+PDF page minus printed page; see `sp-devonthink-parent-page-offsets'."
+  :type 'integer :group 'sp-devonthink)
+
+(defcustom sp-devonthink-parent-page-offsets nil
+  "Alist of (PARENT-CITEKEY . OFFSET) overriding `sp-devonthink-page-offset'."
+  :type '(alist :key-type string :value-type integer) :group 'sp-devonthink)
+
+(declare-function citar-get-value "citar")
+
 ;;;; Links
 
 (defconst sp-devonthink--uuid-regexp
@@ -239,12 +250,71 @@ The plist has :uuid, :key, :page (from 1, or nil) and :text."
       (message "Stored %s%s" desc
                (if (string-empty-p (plist-get front :text)) "" " (selection in the kill ring)")))))
 
+;;;; Chapters in a parent's PDF
+
+(defun sp-devonthink-first-page (pages)
+  "The first page number in the BibTeX PAGES string, or nil.
+Takes the part before a range or list separator (--, -, en dash, comma), and
+accepts a plain number or a number with a letter prefix such as e123 or S45.
+Roman numerals and other text give nil."
+  (when (and (stringp pages) (not (string-empty-p (string-trim pages))))
+    (let ((first (car (split-string (string-trim pages) "[-–—,;]+" t "[ \t]+"))))
+      (when (and first (string-match "\\`[A-Za-z]?\\([0-9]+\\)\\'" first))
+        (let ((n (string-to-number (match-string 1 first))))
+          (and (>= n 1) n))))))
+
+(defun sp-devonthink--field (field key)
+  "The value of the BibTeX FIELD (a symbol) of the entry KEY, or nil when empty."
+  (when (fboundp 'citar-get-value)
+    (let ((value (citar-get-value field key)))
+      (and (stringp value) (not (string-empty-p (string-trim value)))
+           (string-trim value)))))
+
+(defun sp-devonthink--parent-key (key)
+  "The citekey of the entry that KEY cross-references, or nil."
+  (or (sp-devonthink--field 'crossref key)
+      (sp-devonthink--field 'xref key)))
+
+(defun sp-devonthink-resolve (key)
+  "Where to open the work KEY in DEVONthink, as a plist, or nil.
+The plist has :uuid, :page (PDF page counted from 1, or nil), :via (the parent
+citekey, or nil) and :note (a message for the user, or nil).  KEY's own record
+is used when there is one; otherwise the record of its crossref parent, at the
+first page of KEY's =pages= plus the offset."
+  (let ((own (sp-reading-uuid key)))
+    (if own
+        (list :uuid own)
+      (when-let* ((parent (sp-devonthink--parent-key key))
+                  (uuid (sp-reading-uuid parent)))
+        (let* ((printed (sp-devonthink-first-page (sp-devonthink--field 'pages key)))
+               (offset (or (cdr (assoc parent sp-devonthink-parent-page-offsets))
+                           sp-devonthink-page-offset))
+               (page (and printed (max 1 (+ printed offset)))))
+          (list :uuid uuid :page page :via parent
+                :note (if page
+                          (format "%s is in %s: opening PDF page %d (printed page %d, offset %+d)"
+                                  key parent page printed offset)
+                        (format "%s is in %s: no usable pages field, opening it at the start"
+                                key parent))))))))
+
 ;;;###autoload
 (defun sp-devonthink-citar-open (key)
-  "Open the DEVONthink record of the citekey KEY; a prefix argument asks for a page."
+  "Open the DEVONthink record of the citekey KEY; a prefix argument asks for a page.
+An entry without a record of its own opens its crossref parent's PDF at the
+entry's first page (see `sp-devonthink-resolve')."
   (interactive (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))))
-  (let ((page (sp-devonthink--read-page)))
-    (sp-reading-open key (and page (1- page)))))
+  (let* ((asked (sp-devonthink--read-page))
+         (found (sp-devonthink-resolve key)))
+    (cond
+     ((and found (plist-get found :via))
+      (when (plist-get found :note) (message "%s" (plist-get found :note)))
+      (let ((page (or asked (plist-get found :page))))
+        (sp-reading--open-url (sp-reading--url (plist-get found :uuid) (and page (1- page))))))
+     (t
+      (when (and (not found) (sp-devonthink--parent-key key))
+        (message "%s has a crossref (%s), but neither has a DEVONthink record"
+                 key (sp-devonthink--parent-key key)))
+      (sp-reading-open key (and asked (1- asked)))))))
 
 ;;;; Keys
 
