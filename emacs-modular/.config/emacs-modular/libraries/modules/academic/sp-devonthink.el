@@ -214,7 +214,7 @@ whole parent book); declining signals a `user-error'."
         (when-let* ((parent (plist-get rec :via)))
           (if action
               (unless (y-or-n-p (format "%s has no record of its own. %s the record of %s (the whole book)? "
-                                        key (capitalize action) parent))
+                                        key (concat (upcase (substring action 0 1)) (substring action 1)) parent))
                 (user-error "Cancelled"))
             (message "%s has no record of its own: using the record of %s" key parent)))
         (plist-get rec :uuid))))
