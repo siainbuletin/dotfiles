@@ -70,5 +70,19 @@
     (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) "a\nb")))
       (should (equal (sp-devonthink-database-tags t) '("a" "b"))))))
 
+(ert-deftest sp-devonthink-tags-tag-note-asks-before-tagging-the-parent ()
+  (let (applied)
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid)
+               (lambda (&optional action)
+                 (unless (equal action "tag") (error "wrong action"))
+                 "U-PARENT"))
+              ((symbol-function 'sp-devonthink-apply-tags)
+               (lambda (uuids tags mode) (setq applied (list uuids tags mode)) 1))
+              ((symbol-function 'message) #'ignore))
+      (sp-devonthink-tag-note '("a") nil)
+      (should (equal applied '(("U-PARENT") ("a") add))))
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) nil)))
+      (should-error (sp-devonthink-tag-note '("a") nil) :type 'user-error))))
+
 (provide 'sp-devonthink-tags-test)
 ;;; sp-devonthink-tags-test.el ends here
