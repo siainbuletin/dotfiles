@@ -3149,6 +3149,9 @@ Candidate layout (=citar-templates=):
 - the =beref= field is no longer shown, to leave the room to the titles and citekeys.
 - the candidates are cached by =citar= as pre-formatted strings (there is no =citar-refresh= any more): after a change to the table of types, run =M-x sp-citations-fit-layout=, which formats them again.
 - the citekey comes after the title, in the =sp-citar-key= face (=shadow= and italic, a faded grey in every theme).
+  - the italic was lost once =citar-templates= had no =completion= entry: =citar= then makes that template with =(propertize suffix 'face 'citar)=, and =propertize= replaces every face of the suffix, the citekey's too, with =citar=;
+  - =sp-citations--completion-template= makes the =completion= entry instead: the main part in =citar-highlight=, as =citar= does, and the =citar= face added after the faces the suffix has (=add-face-text-property= with append), so the citekey is drawn in =sp-citar-key= first;
+  - =citar= reads the face of each field from the template at the place of the field, so the face is on the formatted candidate.
 - columns are two spaces apart.
 - every column has a fixed width, so the columns are padded with spaces and line up in a monospaced font.
 
@@ -3432,16 +3435,29 @@ get 20 columns once the room is 110 columns or more."
          (title (max 20 (- room author key))))
     (list :author author :title title :key key :tags (max 0 (- tags 2)))))
 
+(defun sp-citations--completion-template (main suffix)
+  "Return the `completion' template of `citar' for the MAIN and SUFFIX templates.
+Without a `completion' entry `citar' makes it as `(concat (propertize main 'face
+'citar-highlight) (propertize suffix 'face 'citar))', and `propertize' replaces every
+face of SUFFIX, so the faded italic of the citekey is lost.  Here the `citar' face is
+added after the ones the suffix has, so the citekey keeps `sp-citar-key' first."
+  (let ((suffix (copy-sequence suffix)))
+    (add-face-text-property 0 (length suffix) 'citar t suffix)
+    (concat (propertize main 'face 'citar-highlight) suffix)))
+
 (defun sp-citations--layout-templates (&optional columns)
-  "Return the `main' and `suffix' entries of `citar-templates' for COLUMNS."
+  "Return the `main', `suffix' and `completion' entries of `citar-templates' for COLUMNS."
   (let* ((layout (sp-citations--layout columns))
-         (tags (plist-get layout :tags)))
-    `((main . ,(format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
+         (tags (plist-get layout :tags))
+         (main (format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
                        (plist-get layout :author) (plist-get layout :title)))
-      (suffix . ,(concat "  "
+         (suffix (concat "  "
                          (propertize (format "${=key= id:%d}" (plist-get layout :key))
                                      'face 'sp-citar-key)
-                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
+                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))
+    `((main . ,main)
+      (suffix . ,suffix)
+      (completion . ,(sp-citations--completion-template main suffix)))))
 
 (defvar sp-citations--applied-state nil
   "What the widths of `citar-templates' were last worked out for.
@@ -3476,7 +3492,7 @@ the cached candidates are formatted again here."
                         (equal-including-properties (cdr (assq 'suffix templates))
                                                     (cdr (assq 'suffix citar-templates))))))
         (setq citar-templates (append templates
-                                      (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+                                      (assq-delete-all 'completion (assq-delete-all 'suffix (assq-delete-all 'main citar-templates)))))
         (when same (sp-citations--repreformat))))))
 
 (defun sp-citations--before-select (&rest _)
