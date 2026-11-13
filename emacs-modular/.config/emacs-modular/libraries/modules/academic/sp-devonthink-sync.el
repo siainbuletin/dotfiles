@@ -70,13 +70,17 @@
 
 ;;;; Comparing
 
-(defun sp-devonthink-sync--compare (notes records &optional bib-keys)
+(defun sp-devonthink-sync--compare (notes records &optional bib-keys parent-fn)
   "Compare NOTES (plists) with RECORDS (hash of citekey to UUID) and BIB-KEYS.
 BIB-KEYS is a hash of keys, or nil when the .bib files are not known.
+PARENT-FN maps a citekey to its crossref parent's key, or nil; a note with no
+record of its own whose parent has one is covered by the parent (section
+:via-parent) and, when it has no keyword, can be backfilled with the
+parent's UUID (section :backfill-parent), not counted as a note with no PDF.
 Return a plist of the sections of the report."
   (let ((uuids (make-hash-table :test 'equal))
         (note-keys (make-hash-table :test 'equal))
-        pdf-no-note note-no-pdf pdf-not-bib dead differs backfill)
+        pdf-no-note note-no-pdf pdf-not-bib dead differs backfill via-parent backfill-parent)
     (maphash (lambda (_key uuid) (puthash (upcase uuid) t uuids)) records)
     (dolist (note notes) (puthash (plist-get note :key) t note-keys))
     (maphash (lambda (key _uuid)
@@ -86,8 +90,14 @@ Return a plist of the sections of the report."
     (dolist (note notes)
       (let* ((key (plist-get note :key))
              (uuid (plist-get note :uuid))
-             (record (gethash key records)))
-        (unless record (push note note-no-pdf))
+             (record (gethash key records))
+             (parent (and (not record) parent-fn (funcall parent-fn key)))
+             (parent-record (and parent (gethash parent records))))
+        (cond (parent-record
+               (let ((covered (plist-put (copy-sequence note) :via parent)))
+                 (push covered via-parent)
+                 (unless uuid (push covered backfill-parent))))
+              ((not record) (push note note-no-pdf)))
         (cond ((and uuid (not (gethash (upcase uuid) uuids))) (push note dead))
               ((and uuid record (not (string-equal-ignore-case uuid record))) (push note differs))
               ((and (not uuid) record) (push note backfill)))))
@@ -96,7 +106,9 @@ Return a plist of the sections of the report."
           :pdf-not-bib (sort pdf-not-bib #'string<)
           :dead (nreverse dead)
           :differs (nreverse differs)
-          :backfill (nreverse backfill))))
+          :backfill (nreverse backfill)
+          :via-parent (nreverse via-parent)
+          :backfill-parent (nreverse backfill-parent))))
 
 (defun sp-devonthink-sync--bib-keys ()
   "A hash of the keys of the registered .bib files, or nil when they cannot be read."
@@ -129,7 +141,11 @@ Return a plist of the sections of the report."
             "* PDFs not in any .bib\nThe .bib files could not be read.\n\n")
           (sp-devonthink-sync--section "Litnotes with a dead UUID" (plist-get result :dead) t)
           (sp-devonthink-sync--section "Litnotes whose UUID differs" (plist-get result :differs) t)
-          (sp-devonthink-sync--section "To backfill" (plist-get result :backfill) t)))
+          (sp-devonthink-sync--section "To backfill" (plist-get result :backfill) t)
+          (sp-devonthink-sync--section "Covered by the record of the crossref parent"
+                                       (plist-get result :via-parent) t)
+          (sp-devonthink-sync--section "To backfill with the parent's record (asks first)"
+                                       (plist-get result :backfill-parent) t)))
 
 (defun sp-devonthink-sync--show (text)
   "Show TEXT in the report buffer."
@@ -151,7 +167,8 @@ Nothing is written."
   (let* ((records (sp-devonthink-sync--records))
          (bib (sp-devonthink-sync--bib-keys))
          (result (sp-devonthink-sync--compare
-                  (sp-devonthink-sync--scan sp-devonthink-sync-directory) records bib)))
+                  (sp-devonthink-sync--scan sp-devonthink-sync-directory) records bib
+                  #'sp-devonthink--parent-key)))
     (sp-devonthink-sync--show (sp-devonthink-sync--report-text result bib))
     result))
 
@@ -179,8 +196,14 @@ LIMIT, a prefix argument, limits how many notes are done."
   (interactive "P")
   (let* ((records (sp-devonthink-sync--records))
          (result (sp-devonthink-sync--compare
-                  (sp-devonthink-sync--scan sp-devonthink-sync-directory) records))
-         (todo (plist-get result :backfill))
+                  (sp-devonthink-sync--scan sp-devonthink-sync-directory) records nil
+                  #'sp-devonthink--parent-key))
+         (todo (append (plist-get result :backfill)
+                       (let ((chapters (plist-get result :backfill-parent)))
+                         (when (and chapters
+                                    (y-or-n-p (format "%d note%s have no record of their own; their crossref parent has one. Also write the PARENT's UUID into them (each then points at a whole book)? "
+                                                      (length chapters) (if (cdr chapters) "s" ""))))
+                           chapters))))
          (todo (if (integerp limit) (seq-take todo limit)
                  (if (and limit (listp limit)) (seq-take todo (car limit)) todo)))
          (folder (expand-file-name (format-time-string "%Y%m%d-%H%M%S/")
@@ -196,7 +219,8 @@ LIMIT, a prefix argument, limits how many notes are done."
           (if (and buffer (buffer-modified-p buffer))
               (push file skipped)
             (sp-devonthink-sync--backup file folder)
-            (when (sp-devonthink-sync--write-keyword file (gethash (plist-get note :key) records))
+            (when (sp-devonthink-sync--write-keyword
+                       file (gethash (or (plist-get note :via) (plist-get note :key)) records))
               (cl-incf done)
               (when buffer (with-current-buffer buffer (revert-buffer t t t)))))))
       (message "Wrote the keyword into %d note%s%s" done (if (= done 1) "" "s")
@@ -226,8 +250,7 @@ end tell"
 ;;;###autoload
 (defun sp-devonthink-sync-probe-field (uuid)
   "Try the metadata field on the record UUID: set a value, read it back, clear it."
-  (interactive (list (or (sp-devonthink-note-uuid)
-                         (when-let* ((key (sp-devonthink-note-citekey))) (sp-reading-uuid key))
+  (interactive (list (or (sp-devonthink-note-record-uuid "write the test value on")
                          (read-string "Record UUID: "))))
   (let ((answer (sp-reading--osascript (sp-devonthink-sync--probe-script uuid))))
     (message "DEVONthink field %s: %s" sp-devonthink-sync-record-field answer)

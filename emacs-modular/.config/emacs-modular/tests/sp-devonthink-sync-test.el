@@ -140,5 +140,48 @@
       (should (equal opened "ID2"))
       (should-error (sp-devonthink-protocol-note '(:x 1)) :type 'user-error))))
 
+(ert-deftest sp-devonthink-sync-compare-follows-crossref ()
+  (let* ((parent-of (lambda (key) (cdr (assoc key '(("chap-2005-q" . "a-2000-x")
+                                                    ("chap-2006-r" . "gone-1990-g"))))))
+         (notes (list (sp-devonthink-sync-test--note "chap-2005-q")
+                      (sp-devonthink-sync-test--note "chap-2006-r")
+                      (sp-devonthink-sync-test--note "nopdf-1999-q")))
+         (r (sp-devonthink-sync--compare notes (sp-devonthink-sync-test--records) nil parent-of))
+         (keys (lambda (section) (mapcar (lambda (n) (plist-get n :key)) (plist-get r section)))))
+    (should (equal (funcall keys :via-parent) '("chap-2005-q")))
+    (should (equal (funcall keys :backfill-parent) '("chap-2005-q")))
+    (should (equal (plist-get (car (plist-get r :via-parent)) :via) "a-2000-x"))
+    (should (equal (funcall keys :note-no-pdf) '("chap-2006-r" "nopdf-1999-q")))
+    (should-not (plist-get r :backfill))
+    (should (string-match-p "Covered by the record of the crossref parent (1)"
+                            (sp-devonthink-sync--report-text r nil)))))
+
+(ert-deftest sp-devonthink-sync-backfill-asks-before-writing-the-parents-uuid ()
+  (let* ((dir (make-temp-file "dtsync" t))
+         (sp-devonthink-sync-directory dir)
+         (sp-devonthink-sync-backup-directory (expand-file-name "bk/" dir))
+         (c (expand-file-name "c.org" dir))
+         prompts)
+    (unwind-protect
+        (progn
+          (with-temp-file c (insert "#+title: C\n#+reference: chap-2005-q\n"))
+          (cl-letf (((symbol-function 'sp-devonthink-sync--records) #'sp-devonthink-sync-test--records)
+                    ((symbol-function 'sp-devonthink--parent-key)
+                     (lambda (key) (and (equal key "chap-2005-q") "a-2000-x")))
+                    ((symbol-function 'display-buffer) #'ignore)
+                    ((symbol-function 'message) #'ignore))
+            ;; no for the parent question: nothing to do
+            (cl-letf (((symbol-function 'y-or-n-p) (lambda (p) (push p prompts) nil)))
+              (should-error (sp-devonthink-sync-backfill) :type 'user-error))
+            (should (string-match-p "crossref parent has one" (car prompts)))
+            (with-temp-buffer (insert-file-contents c)
+                              (should-not (string-match-p "#\\+devonthink" (buffer-string))))
+            ;; yes to both: the parent's UUID is written
+            (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+              (sp-devonthink-sync-backfill))
+            (with-temp-buffer (insert-file-contents c)
+                              (should (string-match-p "#\\+devonthink: 11111111" (buffer-string))))))
+      (delete-directory dir t))))
+
 (provide 'sp-devonthink-sync-test)
 ;;; sp-devonthink-sync-test.el ends here
