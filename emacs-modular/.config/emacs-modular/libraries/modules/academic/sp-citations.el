@@ -216,6 +216,64 @@ pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
        "\U0001F4C4\uFE0F")
    3))
 
+;;;; Citar author names
+;; The author column shows the last name first, then the first names: "Smith, John;
+;; Doe, Jane".  A BibTeX name is "Last, First" or "First Last", whichever way it was typed.
+(defconst sp-citations--name-particles
+  '("von" "van" "de" "der" "den" "del" "della" "di" "da" "do" "dos" "du" "la" "le" "ten" "ter" "al" "el" "bin" "ibn")
+  "Lower-case words that belong to the last name when they come before it.")
+
+(defconst sp-citations--name-suffixes
+  '("Jr." "Jr" "Sr." "Sr" "II" "III" "IV")
+  "Words after a last name that are not a first name.")
+
+(defun sp-citations--unbrace (string)
+  "Return STRING without the braces BibTeX uses to protect it."
+  (replace-regexp-in-string "[{}]" "" string))
+
+(defun sp-citations--last-first-name (name)
+  "Return the personal NAME of a BibTeX author as \"Last, First\".
+NAME is \"Last, First\", \"Last, Jr, First\" or \"First Last\".  A last name keeps its
+particles (\"van Beethoven, Ludwig\") and a suffix (\"King Jr., Martin\").  A name in braces,
+the name of an organisation, a single word and \"others\" are left as they are."
+  (let ((name (string-trim name)))
+    (cond
+     ((string-empty-p name) "")
+     ((string= name "others") "et al.")
+     ((string-match-p "\\`{.*}\\'" name) (sp-citations--unbrace name))
+     ((string-match-p "," name)
+      (let ((parts (mapcar (lambda (part) (string-trim (sp-citations--unbrace part)))
+                           (split-string name "," t))))
+        (pcase parts
+          (`(,last ,jr ,first) (format "%s %s, %s" last jr first))
+          (`(,last . ,rest) (if rest (format "%s, %s" last (string-join rest " ")) last)))))
+     (t
+      (let ((words (split-string (sp-citations--unbrace name) "[ \t]+" t))
+            (suffix nil))
+        (if (= (length words) 1)
+            (car words)
+          ;; a suffix after the last name is moved behind it: "King Jr., Martin"
+          (while (and (> (length words) 2)
+                      (member (car (last words)) sp-citations--name-suffixes))
+            (push (car (last words)) suffix)
+            (setq words (butlast words)))
+          (let ((surname (list (car (last words))))
+                (given (butlast words)))
+            ;; the particles just before the last name belong to it: "van Beethoven"
+            (while (and given (member (car (last given)) sp-citations--name-particles))
+              (push (car (last given)) surname)
+              (setq given (butlast given)))
+            (let ((last (string-join (append surname suffix) " ")))
+              (if given (format "%s, %s" last (string-join given " ")) last)))))))))
+
+(defun sp-citations--last-first (names)
+  "Return the BibTeX NAMES of authors or editors with the last name first.
+The names are separated by \" and \" in the field and by \"; \" here, since a name has a comma
+of its own.  Used as the `lastfirst' transform of `citar-display-transform-functions'."
+  (mapconcat #'sp-citations--last-first-name
+             (split-string (or names "") "[ \t\n]+and[ \t\n]+" t)
+             "; "))
+
 ;;;; Citar layout
 ;; The widths in `citar-templates' are numbers, so they are worked out here from the
 ;; columns of the frame Emacs has on the screen, as the posframe takes them, at the size
@@ -279,7 +337,7 @@ added after the ones the suffix has, so the citekey keeps `sp-citar-key' first."
   "Return the `main', `suffix' and `completion' entries of `citar-templates' for COLUMNS."
   (let* ((layout (sp-citations--layout columns))
          (tags (plist-get layout :tags))
-         (main (format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
+         (main (format "${=type=:3%%etype} ${author editor:%d%%lastfirst}  ${year issued date:4}  ${title:%d}"
                        (plist-get layout :author) (plist-get layout :title)))
          (suffix (concat "  "
                          (propertize (format "${=key= id:%d}" (plist-get layout :key))
@@ -373,6 +431,7 @@ again."
   (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (sp-citations-setup-indicators)
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
+  (add-to-list 'citar-display-transform-functions '(lastfirst . (sp-citations--last-first)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
     (advice-add 'citar-select-ref :before #'sp-citations--before-select)
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
