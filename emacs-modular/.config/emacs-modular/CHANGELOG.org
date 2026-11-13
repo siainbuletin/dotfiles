@@ -4,7 +4,7 @@
 Changes to the Emacs configuration, grouped by the feature they build or fix. Within a set the pull requests follow the order they depend on each other, the base first. For the reason behind a change, open the pull request or the decision record linked from the set. Paths are relative to this folder. Each line starts with its pull request number, then the author, then what happened: ✨ Added, 🔧 Changed, 🐛 Fixed, 🔥 Removed, 💡 Proposed; the category headings are not repeated.
 
 * Being developed
-/2026-11-12./ Features that are still open: an open pull request, or merged but not yet tried where it matters. Each feature has its own heading with what is merged, what is not tested and what is still to do, each on its own line. When one is finished its heading moves into its feature set below, and the details stay in the pull requests and the docs.
+/2026-11-13./ Features that are still open: an open pull request, or merged but not yet tried where it matters. Each feature has its own heading with what is merged, what is not tested and what is still to do, each on its own line. When one is finished its heading moves into its feature set below, and the details stay in the pull requests and the docs.
 
 ** Global keybindings in one keymap per feature
 - Merged: [[https://github.com/siainbuletin/dotfiles/pull/278][#278]], [[https://github.com/siainbuletin/dotfiles/pull/283][#283]], [[https://github.com/siainbuletin/dotfiles/pull/284][#284]], [[https://github.com/siainbuletin/dotfiles/pull/294][#294]], [[https://github.com/siainbuletin/dotfiles/pull/296][#296]], [[https://github.com/siainbuletin/dotfiles/pull/297][#297]].
@@ -49,20 +49,34 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - Not tested: needs testing on the Mac.
 
 ** DEVONthink, litdb and literature notes
-- Pull requests: [[https://github.com/siainbuletin/dotfiles/pull/209][#209]], [[https://github.com/siainbuletin/dotfiles/pull/210][#210]], [[https://github.com/siainbuletin/dotfiles/pull/216][#216]], [[https://github.com/siainbuletin/dotfiles/pull/215][#215]], [[https://github.com/siainbuletin/dotfiles/pull/324][#324]] (their lines are in the DEVONthink set below).
+- Pull requests: [[https://github.com/siainbuletin/dotfiles/pull/209][#209]], [[https://github.com/siainbuletin/dotfiles/pull/210][#210]], [[https://github.com/siainbuletin/dotfiles/pull/216][#216]], [[https://github.com/siainbuletin/dotfiles/pull/215][#215]], [[https://github.com/siainbuletin/dotfiles/pull/324][#324]] and the DEVONthink stack below (their lines are in the DEVONthink set).
 - Done:
-  - the design;
+  - the design, in =docs/tangles/academic/sp-devonthink.org= (the design note =docs/architecture/devonthink-emacs-integration.org= goes away with [[https://github.com/siainbuletin/dotfiles/pull/419][#419]]);
   - =citar-vulpea= with a report and conversion to =ROAM_REFS= (dry run read on the real litnotes, conversion not run);
   - the =litdb= index and =sp-litdb= search (indexer run on one record).
 - Merged, not run on the Mac:
   - [[https://github.com/siainbuletin/dotfiles/pull/324][#324]]: the =reading= database script;
   - [[https://github.com/siainbuletin/dotfiles/pull/343][#343]]: =sp-cite-match=, =sp-reading= and the Hammerspoon hotkey;
   - [[https://github.com/siainbuletin/dotfiles/pull/372][#372]]: =tools/devonthink-move.py=;
-  - [[https://github.com/siainbuletin/dotfiles/pull/379][#379]], [[https://github.com/siainbuletin/dotfiles/pull/382][#382]], [[https://github.com/siainbuletin/dotfiles/pull/384][#384]]: the =devonthink-open= applet (see the [[file:../../../CHANGELOG.org][dotfiles changelog]]).
+  - [[https://github.com/siainbuletin/dotfiles/pull/379][#379]], [[https://github.com/siainbuletin/dotfiles/pull/382][#382]], [[https://github.com/siainbuletin/dotfiles/pull/384][#384]], [[https://github.com/siainbuletin/dotfiles/pull/394][#394]]: the =devonthink-open= applet (see the [[file:../../../CHANGELOG.org][dotfiles changelog]]);
+  - [[https://github.com/siainbuletin/dotfiles/pull/414][#414]]: =sp-devonthink= (the =devonthink:= link, the =#+devonthink:= keyword, open, insert and store a link);
+  - [[https://github.com/siainbuletin/dotfiles/pull/422][#422]], [[https://github.com/siainbuletin/dotfiles/pull/426][#426]], [[https://github.com/siainbuletin/dotfiles/pull/430][#430]]: finding the records (listing, name without =.pdf=);
+  - [[https://github.com/siainbuletin/dotfiles/pull/434][#434]], [[https://github.com/siainbuletin/dotfiles/pull/435][#435]], [[https://github.com/siainbuletin/dotfiles/pull/436][#436]], [[https://github.com/siainbuletin/dotfiles/pull/437][#437]]: the page prompt, the viewer windows, chapters in the parent's PDF and the one resolver =sp-devonthink-record= that follows =crossref=.
+- Open (#415, #418, #419, #420 and #421 are stacked, each on the one before):
+  - [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]: =sp-devonthink-tags= and =sp-devonthink-browse= (=C-c k d t=, =C-c k d b=);
+  - [[https://github.com/siainbuletin/dotfiles/pull/418][#418]]: =sp-devonthink-search= (=C-c k d f=) over DEVONthink and litdb, similar records (=C-c k d a=);
+  - [[https://github.com/siainbuletin/dotfiles/pull/419][#419]]: docs only: the design merged into the =sp-devonthink= doc and ADRs 0027 to 0031 (it deletes =docs/architecture/devonthink-emacs-integration.org=);
+  - [[https://github.com/siainbuletin/dotfiles/pull/420][#420]]: =sp-devonthink-highlights-import= (=C-c k d h=);
+  - [[https://github.com/siainbuletin/dotfiles/pull/421][#421]]: =sp-devonthink-sync-report= (=C-c k d y=), backfill of =#+devonthink:= and the record-side link (ADR 0030, proposed);
+  - [[https://github.com/siainbuletin/dotfiles/pull/438][#438]]: PDF page labels (ADR 0032): the PDF itself says that its 9th page is page 1; it replaces =sp-devonthink-page-offset= and =sp-devonthink-parent-page-offsets=, which are removed;
+  - [[https://github.com/siainbuletin/dotfiles/pull/441][#441]]: a chapter's own keywords in a block of its parent's DEVONthink record comment (=C-c k d C= stores, =C-c k d c= shows in the note);
+  - [[https://github.com/siainbuletin/dotfiles/pull/439][#439]]: the faded italic citekey in the =citar= candidates (see "Citar candidates: columns and emoji").
 - Still open:
   - the conversion on the real vault;
   - the Embark commands in a session;
-  - the citation layer of the relationship annotator ([[https://github.com/siainbuletin/dotfiles/pull/215][#215]], design only).
+  - the citation layer of the relationship annotator ([[https://github.com/siainbuletin/dotfiles/pull/215][#215]], design only);
+  - whether the comment alone is enough to find chapter keywords in DEVONthink ([[https://github.com/siainbuletin/dotfiles/pull/441][#441]]), whether DEVONthink counts pages from 0 as documented, and whether =current page= is 0- or 1-based.
+- Not tested: none of the AppleScript of #414 and of the open pull requests was run on the Mac. The pure Emacs Lisp (parsing, plans, merging) is covered by ERT tests in the container.
 
 ** Literature notes filled from BibTeX, book and chapter tables
 - Merged: [[https://github.com/siainbuletin/dotfiles/pull/329][#329]], [[https://github.com/siainbuletin/dotfiles/pull/330][#330]], [[https://github.com/siainbuletin/dotfiles/pull/331][#331]], [[https://github.com/siainbuletin/dotfiles/pull/332][#332]], [[https://github.com/siainbuletin/dotfiles/pull/333][#333]], [[https://github.com/siainbuletin/dotfiles/pull/334][#334]], [[https://github.com/siainbuletin/dotfiles/pull/337][#337]], [[https://github.com/siainbuletin/dotfiles/pull/342][#342]], [[https://github.com/siainbuletin/dotfiles/pull/343][#343]], [[https://github.com/siainbuletin/dotfiles/pull/345][#345]], [[https://github.com/siainbuletin/dotfiles/pull/346][#346]], [[https://github.com/siainbuletin/dotfiles/pull/347][#347]], [[https://github.com/siainbuletin/dotfiles/pull/348][#348]], [[https://github.com/siainbuletin/dotfiles/pull/352][#352]], [[https://github.com/siainbuletin/dotfiles/pull/353][#353]], [[https://github.com/siainbuletin/dotfiles/pull/354][#354]], [[https://github.com/siainbuletin/dotfiles/pull/355][#355]], [[https://github.com/siainbuletin/dotfiles/pull/356][#356]], [[https://github.com/siainbuletin/dotfiles/pull/360][#360]], [[https://github.com/siainbuletin/dotfiles/pull/361][#361]], [[https://github.com/siainbuletin/dotfiles/pull/362][#362]], [[https://github.com/siainbuletin/dotfiles/pull/363][#363]], [[https://github.com/siainbuletin/dotfiles/pull/364][#364]], [[https://github.com/siainbuletin/dotfiles/pull/367][#367]], [[https://github.com/siainbuletin/dotfiles/pull/368][#368]], [[https://github.com/siainbuletin/dotfiles/pull/369][#369]], [[https://github.com/siainbuletin/dotfiles/pull/372][#372]], [[https://github.com/siainbuletin/dotfiles/pull/375][#375]], [[https://github.com/siainbuletin/dotfiles/pull/377][#377]], [[https://github.com/siainbuletin/dotfiles/pull/378][#378]], [[https://github.com/siainbuletin/dotfiles/pull/380][#380]], [[https://github.com/siainbuletin/dotfiles/pull/381][#381]], [[https://github.com/siainbuletin/dotfiles/pull/383][#383]], [[https://github.com/siainbuletin/dotfiles/pull/386][#386]].
@@ -131,12 +145,13 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - [[https://github.com/siainbuletin/dotfiles/pull/238][#238]] (Claude) ✨ Added =sp-modeline-parts-clock-rename=: right click on the clocked task edits its heading; the agenda moved to middle click. Details: [[file:docs/tangles/tooling/sp-modeline-parts.org::*Changes by pull request][=sp-modeline-parts= doc]].
 
 * Posframe (=M-x= and other prompts)
-/2026-10-26 to 2026-10-28./ The centred frame that holds =M-x= and the note selectors (#119 to #179): =sp-mini-frame= hung Emacs on macOS and was replaced by =vertico-posframe= as =sp-posframe= (#136, #137), and the text typed in =M-x= glitched through every nano-style attempt (#114 to #154) until #156 stripped it to a centred frame with padding, which fixed it.
+/2026-10-26 to 2026-11-12./ The centred frame that holds =M-x= and the note selectors (#119 to #179): =sp-mini-frame= hung Emacs on macOS and was replaced by =vertico-posframe= as =sp-posframe= (#136, #137), and the text typed in =M-x= glitched through every nano-style attempt (#114 to #154) until #156 stripped it to a centred frame with padding, which fixed it.
 The width (#163) was brought back; the text size was tried twice (#161, #174) and removed again (#179), and the nano prompt, the dotted line and the dimming are still gone.
 The table of what was tried, why each failed, and the rebuild plan: [[file:docs/tangles/ui/sp-posframe.org::*Problems with getting the centred posframe right][=sp-posframe= doc]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/174][#174]] (Claude) 🔧 Changed the larger minibuffer text: removed =sp-minibuffer= and its =minibuffer-setup-hook= line (#161), whose per-prompt face remap mirrored the minibuffer. Details: [[file:docs/tangles/ui/sp-posframe.org::*Text size][=sp-posframe= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/179][#179]] (Claude) 🔥 Removed the larger minibuffer and posframe text of #174 (=sp-posframe-update-font=), which drew the scratch buffer and the dashboard overlapping. Details: [[file:docs/tangles/ui/sp-posframe.org::*Text size][=sp-posframe= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/431][#431]] (Claude) ✨ Added a switch to turn off the centred minibuffer posframe.
 
 * Themes
 /2026-10-25 to 2026-11-02./ The =sp= themes, the registry that loads them and what repaints after a theme change.
@@ -175,7 +190,7 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/commit/0031c8c953b5d8e75771f175fdac6105c97b086a][0031c8c]] (Sia) ✨ Added the tags =computing= and =networking= to =sp-org-tag-registry=.
 
 * BibTeX and academic tools
-/2026-10-24 to 2026-11-11./ One citation-key scheme and one bibliography list, then fetching papers.
+/2026-10-24 to 2026-11-12./ One citation-key scheme and one bibliography list, then fetching papers.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/90][#90]] (Claude) 🔧 Changed: overhauled the BibTeX setup: one citation-key scheme and one registered list of =.bib= files. Details: [[file:docs/tangles/academic/sp-academic.org::*Changes by pull request][=sp-academic= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/92][#92]], [[https://github.com/siainbuletin/dotfiles/pull/118][#118]] (Claude) ✨ Added =sp-fetch-academic= (search, DOI look-up, PDF download) and made =sp-bibliography-dir= the only bibliography folder option. Details: [[file:docs/tangles/academic/sp-fetch-academic.org::*Changes by pull request][=sp-fetch-academic= doc]].
@@ -191,10 +206,23 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/371][#371]] (Claude) ✨ Added =sp-bibtex-lint-fix-prefixes= (also in =sp-bibtex-lint-convert= and as a report button): names written as =biblatex= key=value text by an old Zotero export (=family=, =given=, =prefix=) become =von Hayek, Friedrich A.=, and prefixes after the last name move in front of it. Not run on the real =.bib= files. Details: [[file:docs/tangles/academic/sp-academic.org::*Changes by pull request][=sp-academic= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/372][#372]] (Claude) ✨ Added an attachment paths fix (=bdsk-file= to =file=) to the lint, and =tools/devonthink-move.py=, which moves the PDFs through DEVONthink so its records follow. Needs testing. Details: [[file:docs/tangles/academic/sp-academic.org::*Changes by pull request][=sp-academic= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/377][#377]] (Claude) 🐛 Fixed citar not finding PDFs that are not where the =file= field says: a parser in =citar-file-parser-functions= looks the file up by name below =sp-literature-dir=, replacing the fallback in the query tables. Needs testing. Details: [[file:docs/tangles/academic/sp-academic.org::*Changes by pull request][=sp-academic= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/410][#410]] (Claude) ✨ Added a =sp-bibtex-lint= check for citekeys over 45 characters, and updating what uses a renamed key.
+
+* Citar candidates: columns and emoji
+/2026-11-12 to 2026-11-13./ How the =citar= candidates look in the minibuffer: styled columns, entry types as emoji, a stable column order. The width fitting was tried, reverted and redone.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/405][#405]] (Claude) ✨ Added styling for the citar minibuffer columns.
+- [[https://github.com/siainbuletin/dotfiles/pull/406][#406]] (Claude) ✨ Added fitting the candidate columns to the posframe width.
+- [[https://github.com/siainbuletin/dotfiles/pull/409][#409]] (Claude) ✨ Added aligned columns, citekeys served first and emoji indicators.
+- [[https://github.com/siainbuletin/dotfiles/pull/411][#411]] (Claude) ✨ Added BibTeX entry types as emoji in citar, and their Org tags.
+- [[https://github.com/siainbuletin/dotfiles/pull/427][#427]] (Claude) 🐛 Fixed the alignment of the citar columns; the order is emoji, author, year, title, citekey.
+- [[https://github.com/siainbuletin/dotfiles/pull/429][#429]] (Claude) 🔧 Reverted the column fitting; the emoji, the entry types and the column order stay.
+- [[https://github.com/siainbuletin/dotfiles/pull/432][#432]] (Claude) ✨ Added fitting the columns to a half frame, and made the emoji cells exact.
+- [[https://github.com/siainbuletin/dotfiles/pull/433][#433]] (Claude) ✨ Changed the column widths to be computed from the frame on the screen.
 
 * DEVONthink, litdb and literature notes
 
-/2026-10-31 to 2026-11-11./ Finding what was highlighted in the PDFs kept in DEVONthink, and one note per publication keyed by its citation key.
+/2026-10-31 to 2026-11-13./ Finding what was highlighted in the PDFs kept in DEVONthink, and one note per publication keyed by its citation key.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/209][#209]] (Claude) 💡 Proposed the DEVONthink and Emacs integration: search with =litdb=, page-level links, a two-way link between a record and its litnote. Details: [[file:docs/architecture/devonthink-emacs-integration.org][devonthink-emacs-integration doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/210][#210]] (Claude) 🔧 Changed =sp-litnotes= to use =citar-vulpea= only. ✨ Added =sp-litnotes-refs=: a report and a conversion of =#+reference:= keys to =ROAM_REFS=. Details: [[file:docs/tangles/funct/sp-org-lint.org::*sp-litnotes-refs.el][=sp-org-lint= doc]].
@@ -202,6 +230,14 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/324][#324]] (Claude) ✨ Added =tools/devonthink-reading.py=: =create= makes a small =reading= database (one group per =.bib= file) and =send= moves into it the PDFs whose litnote =read-status= is =to-be-read= (or other statuses) and whose citekey is in the chosen =.bib= files, within a 20 GB budget, so only =reading= has to sync to the iPad; =--return= moves the rest back. Dry run unless =--apply=. Literate source and usage: [[file:docs/tangles/academic/devonthink-reading.org][devonthink-reading doc]]. Tested with DEVONthink faked; not run on the Mac.
 - [[https://github.com/siainbuletin/dotfiles/pull/339][#339]] (Claude) 💡 Proposed matching a selected citation (Chicago, APA, IEEE or a full bibliography entry) to BibTeX and DEVONthink records, with weights and thresholds, a hotkey that sends the selection to Emacs, and a generated =Cited works= section. Details: [[file:docs/architecture/citation-matching-from-selection.org][the design note]].
 - [[https://github.com/siainbuletin/dotfiles/pull/343][#343]] (Claude) ✨ Added, on macOS, =sp-cite-match= (scores a selected citation against the BibTeX entries and answers accept, ambiguous or none; writes a =Cited works= table with read status and priority; =org-protocol://sp-cite-match=), =sp-reading= (citekey to DEVONthink record, opened at a page) and the Hammerspoon hotkey Ctrl+Shift+K. Needs testing: the score thresholds are guesses and the AppleScript was written from memory. Details: [[file:docs/tangles/academic/sp-cite-match.org::*Changes by pull request][=sp-cite-match= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/414][#414]] (Claude) ✨ Added =sp-devonthink=: the =devonthink:UUID::PAGE= Org link, the =#+devonthink:= keyword of a litnote and commands to open, link and store links (=C-c k d=). Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/422][#422]] (Claude) 🐛 Fixed =sp-reading-refresh= printing object references instead of UUIDs and names.
+- [[https://github.com/siainbuletin/dotfiles/pull/426][#426]] (Claude) 🐛 Fixed listing PDFs by their file path, and added =sp-reading-diagnose= for an empty listing.
+- [[https://github.com/siainbuletin/dotfiles/pull/430][#430]] (Claude) 🐛 Fixed records whose name lacks =.pdf= not being found, with a full-refresh fallback. Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/434][#434]] (Claude) 🐛 Fixed =sp-devonthink-insert-link= never offering a page: it always asks now. Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/435][#435]] (Claude) 🐛 Fixed =sp-devonthink-store-link= failing when the record is in a separate DEVONthink viewer window: it reads every window. Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/436][#436]] (Claude) ✨ Added opening a chapter at its first page in the PDF of its crossref parent (=D= in the citar Embark menu). The page uses an offset that #438 replaces with PDF page labels. Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/437][#437]] (Claude) 🐛 Fixed the commands that looked up a record differently: one resolver, =sp-devonthink-record=, now follows =crossref= to the parent in every command. Details: [[file:docs/tangles/academic/sp-devonthink.org::*Changes by pull request][=sp-devonthink= doc]].
 
 * Author and literature note lint
 
@@ -247,7 +283,7 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/215][#215]] (Claude) 💡 Proposed a switchable layer of possible citations for the relationship annotator. Design only. Details: [[file:docs/architecture/relationship-annotator-citation-layer.org][relationship-annotator-citation-layer doc]].
 
 * Literature notes filled from BibTeX
-/2026-11-08 to 2026-11-10./ A litnote gets its authors, title, year, pages and parent from the BibTeX entry of its citation key, always with a dry run first and a backup before =convert=. It builds on =sp-litnotes-meta= ([[https://github.com/siainbuletin/dotfiles/pull/280][#280]]).
+/2026-11-08 to 2026-11-12./ A litnote gets its authors, title, year, pages and parent from the BibTeX entry of its citation key, always with a dry run first and a backup before =convert=. It builds on =sp-litnotes-meta= ([[https://github.com/siainbuletin/dotfiles/pull/280][#280]]).
 
 - [[https://github.com/siainbuletin/dotfiles/pull/332][#332]] (Claude) ✨ Added =read-status= (set to =02-preparing=), =relevance-factor= and =read-priority= (=01= to =05=) to =sp-litnotes-meta-fill=, =M-x sp-litnotes-meta-status-report= (every litnote with counts per status) and =M-x sp-litnotes-meta-backfill-children= (makes the notes of the BibTeX entries that cross-reference a book). The =base-text= schema requires the three keys. Details: [[file:docs/tangles/academic/sp-litnotes-meta.org::*Changes by pull request][=sp-litnotes-meta= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/336][#336]] (Claude) ✨ Added marking and changing several notes at once in the status report: =m= and =u= work on the active region, =s= changes the read status of the marked notes. Follows #332. Details: [[file:docs/tangles/academic/sp-litnotes-meta.org::*Changes by pull request][=sp-litnotes-meta= doc]].
@@ -266,6 +302,10 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/363][#363]] (Claude) 🐛 Fixed =read-priority= and =relevance-factor= being forced: =(none)= is now the default and writes nothing. Details: [[file:docs/tangles/academic/sp-litnotes-meta.org::*Changes by pull request][=sp-litnotes-meta= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/365][#365]] (Claude) ✨ Added a lint that finds and strips quotes around the whole =pub-title=. Details: [[file:docs/tangles/academic/sp-litnotes-meta.org::*Changes by pull request][=sp-litnotes-meta= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/369][#369]] (Claude) ✨ Changed =citar-create-note= (so also opening a =[cite:]= link with no note) to make the note the way the backfill does; =sp-litnotes-meta-citar-create= turns it off. Needs testing. Details: [[file:docs/tangles/academic/sp-litnotes-meta.org::*Changes by pull request][=sp-litnotes-meta= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/404][#404]] (Claude) 🐛 Fixed =sp-litnotes-meta-fill-all= changing notes again on every re-run: it now converges, so a second run reports nothing to do.
+- [[https://github.com/siainbuletin/dotfiles/pull/413][#413]] (Claude) ✨ Added using =pub-editor= for the title of a litnote that has no =pub-author=.
+- [[https://github.com/siainbuletin/dotfiles/pull/423][#423]] (Claude) 🐛 Fixed every title getting the =(ed.)= marker: the marker for editors is now put in by the fill itself, not by a hand edit.
+- [[https://github.com/siainbuletin/dotfiles/commit/87a4fbb7c9d1aeb0113b364c16f006c3fce98ef8][87a4fbb]] (Sia) 🔧 Added the =(ed.)= suffix to titles by hand; replaced by [[https://github.com/siainbuletin/dotfiles/pull/423][#423]]. Needs testing.
 
 * Listing notes and work: query tables and the morning list
 /2026-10-23 to 2026-11-01./ Tables of notes built from one query description, and one ranked list of what to do first. The table decisions are in [[file:../../adr/0015-collection-query-tables.org][ADR 0015]].
@@ -290,7 +330,7 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/239][#239]] (Claude) ✨ Added links in the =:refs= column (to the =.bib= entry) and in the =pub-title= column (to the note). Details: [[file:docs/tangles/funct/sp-collection-query-tables.org::*Changes by pull request][=sp-collection-query-tables= doc]].
 
 * Book and collection tables
-/2026-11-08 to 2026-11-11./ A table of the sections of a book or the chapters of a collection, on top of the query tables above. The decisions are in [[file:../../adr/0015-collection-query-tables.org][ADR 0015]].
+/2026-11-08 to 2026-11-12./ A table of the sections of a book or the chapters of a collection, on top of the query tables above. The decisions are in [[file:../../adr/0015-collection-query-tables.org][ADR 0015]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/329][#329]] (Claude) ✨ Added =sp-collection-query-tables-book=: a table of the sections of a =book= or =collection= note (notes whose =bib-parent= links to it) sorted by page, a =:pages= column, and a "Book position" =vulpea-ui= widget. Needs testing. Details: [[file:docs/tangles/funct/sp-collection-query-tables.org::*Changes by pull request][=sp-collection-query-tables= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/330][#330]] (Claude) ✨ Added view templates for dynamic blocks (=:view "name"=, =sp-collec-query-insert-view-dblock=), the built-in views =book-sections=, =collection-articles= and =bib-parent-mismatches=, and a =:check= column that flags a wrong =bib-parent=. Details: [[file:docs/tangles/funct/sp-collection-query-tables.org::*Changes by pull request][=sp-collection-query-tables= doc]].
@@ -300,24 +340,34 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/345][#345]] (Claude) ✨ Added the =:bibtex= (citation keys as links) and =:dt-page= (page in the DEVONthink record, with option =sp-collec-query-dt-page-offset= and the =pdf-offset= meta key) columns to the book table. The page offset is a guess until set. Details: [[file:docs/tangles/funct/sp-collection-query-tables.org::*Changes by pull request][=sp-collection-query-tables= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/386][#386]] (Claude) ✨ Added chapter tables for books, collections, reference works and encyclopedias, and a command that refreshes them all. Needs testing. Details: [[file:docs/tangles/funct/sp-collection-query-tables.org::*Changes by pull request][=sp-collection-query-tables= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/387][#387]] (Claude) 🔧 Renamed =sp-collection-query-tables= to =sp-collection-query= and made one grouped command insert every dynamic block; the =vulpea-ui= insert command refuses while its block is disabled. Details: [[file:docs/tangles/funct/sp-collection-query.org::*Changes by pull request][=sp-collection-query= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/408][#408]] (Claude) ✨ Added the chapter table block to every book, collection, reference and encyclopedia litnote.
+- [[https://github.com/siainbuletin/dotfiles/pull/412][#412]] (Claude) ✨ Added putting the chapter tables under a =Sections= heading; the command can be run again where it stopped.
+- [[https://github.com/siainbuletin/dotfiles/pull/399][#399]] (Claude) 🐛 Fixed a recursive =require= of =sp-collection-query-book= in =sp-org-ext=.
+- [[https://github.com/siainbuletin/dotfiles/pull/424][#424]] (Claude) ✨ Added keeping the chapter tables under =Sections= in the saved template format: an existing heading is reused, and a table block is never left outside it. Follows #408 and #412.
 
 * Batch reports for the lint and convert commands
-/2026-11-09 to 2026-11-11./ One report buffer, one set of keys and one batch prompt for every command that previews, then converts.
+/2026-11-09 to 2026-11-12./ One report buffer, one set of keys and one batch prompt for every command that previews, then converts.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/351][#351]] (Claude) 🔧 Added =sp-batch-report=, a shared report buffer, so the batch conversion reports link their files and notes. Details: [[file:docs/tangles/funct/sp-batch-report.org::*Changes by pull request][=sp-batch-report= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/353][#353]] (Claude) 🔧 Moved the author notes, litnote, tag lint and normalise reports onto =sp-batch-report-mode= with the same keys (=d= drop, =u= restore, =A= apply, =g=, =RET=, =n=, =p=); the old views stay, obsolete. Details: [[file:docs/tangles/funct/sp-batch-report.org::*Changes by pull request][=sp-batch-report= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/368][#368]] (Claude) ✨ Added =g= (global) to the per-batch prompt: apply this batch and all later ones, with nothing more asked. Details: [[file:docs/tangles/funct/sp-batch-report.org::*Changes by pull request][=sp-batch-report= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/364][#364]] (Claude) ✨ Added =sp-backup-lookup=: finds the backups of the visited file in every module's backup folder, newest first, to open or diff. Details: [[file:docs/tangles/funct/sp-backup-lookup.org::*Changes by pull request][=sp-backup-lookup= doc]].
 - [[https://github.com/siainbuletin/dotfiles/commit/ef144dfd8c6ce76cdf785a26cb08015294384ec2][ef144df]] (Sia) 📝 Added to the =sp-batch-report= doc why the reports are Org.
+- [[https://github.com/siainbuletin/dotfiles/pull/425][#425]] (Claude) ✨ Added saving, then killing, the buffers of the files that the batch commands process, without asking.
 
 * See also footnotes (=sp-see-also=)
-/2026-11-09 to 2026-11-12./ Concepts left in litnotes as footnotes or "See also" sections, ranked and shown in dashboards and the margin.
+/2026-11-09 to 2026-11-13./ Concepts left in litnotes as footnotes or "See also" sections, ranked and shown in dashboards and the margin.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/366][#366]] (Claude) ✨ Added =sp-see-also=: reads the "see also" reminders left in litnotes as footnotes (=[fn::[[id:..][Concept]]]=), records their context (quote or prose, the open question above), ranks them and shows dashboards. Details: [[file:docs/tangles/academic/sp-see-also.org::*Changes by pull request][=sp-see-also= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/373][#373]] (Claude) 🐛 Fixed =sp-see-also= finding no footnotes in real litnotes, which use numbered definition footnotes (=[fn:1]=); added interactive show commands. Details: [[file:docs/tangles/academic/sp-see-also.org::*Changes by pull request][=sp-see-also= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/367][#367]] (Claude) ✨ Added =sp-reading-sidenotes=: in =sp-reading-mode= each see-also footnote is a small number in the text and a sidenote in the right margin (overlays only; the file is unchanged). Details: [[file:docs/tangles/ui/sp-reading-sidenotes.org::*Changes by pull request][=sp-reading-sidenotes= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/388][#388]] (Claude) ✨ Added reading "See also" sections as mentions in =sp-see-also=. Details: [[file:docs/tangles/academic/sp-see-also.org::*Changes by pull request][=sp-see-also= doc]].
 - [[https://github.com/siainbuletin/dotfiles/commit/0a755ce579a7e03dfb5dbee9b7efb88024194c3c][0a755ce]] (Sia) 📝 Started working through the =sp-see-also= doc by hand.
+- [[https://github.com/siainbuletin/dotfiles/pull/396][#396]] (Claude) ✨ Added decorations in the see-also views.
+- [[https://github.com/siainbuletin/dotfiles/pull/398][#398]] (Claude) ✨ Added =sp-see-also-show-concept-by-name=: pick the concept by its title.
+- [[https://github.com/siainbuletin/dotfiles/pull/403][#403]] (Claude) ✨ Added reading =seealso= meta lines as section-level mentions.
+- [[https://github.com/siainbuletin/dotfiles/pull/428][#428]] (Claude) ✨ Added the Org tags of the heading an entry comes from, at the right edge of the entries in =*see-also*= and =*see-also-concept*=.
+- [[https://github.com/siainbuletin/dotfiles/pull/440][#440]] (Claude) ✨ Changed =sp-see-also= and =sp-see-also-show-concept= into one view, =sp-see-also-show=, with every way a note is referenced. Replaces the two separate commands.
 
 * Org tables and dynamic blocks
 
@@ -381,12 +431,13 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - Proposed =sp-reload=, not in the repository yet: =M-x sp-reload-changed= reloads the modules that differ from the last synchronised revision (see [[file:../../adr/0018-emacs-pr-sandbox-and-reload.org][ADR 0018]]).
 
 * Agenda, capture and task keywords
-/2026-10-19 to 2026-10-24./ One owner per agenda setting. The decisions are in [[file:../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]], [[file:../../adr/0010-phase-out-denote.org][ADR 0010]], [[file:../../adr/0012-org-super-agenda-per-view.org][ADR 0012]], [[file:../../adr/0013-org-gtd-keywords-and-inbox.org][ADR 0013]].
+/2026-10-19 to 2026-11-12./ One owner per agenda setting. The decisions are in [[file:../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]], [[file:../../adr/0010-phase-out-denote.org][ADR 0010]], [[file:../../adr/0012-org-super-agenda-per-view.org][ADR 0012]], [[file:../../adr/0013-org-gtd-keywords-and-inbox.org][ADR 0013]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/3][#3]], [[https://github.com/siainbuletin/dotfiles/pull/9][#9]] (Claude) ✨ Added =sp-org-issues=: an issue tracker kept as a vulpea-para area, with the issue board and =sp-org-issues-start= for a worktree per issue.
 - [[https://github.com/siainbuletin/dotfiles/pull/14][#14]] (Claude) 🔧 Changed every custom agenda view to live in =sp-agenda-views=.
 - [[https://github.com/siainbuletin/dotfiles/pull/67][#67]] (Claude) 🔧 Changed =vulpea-para= to decide the agenda files, =sp-org-keywords= to set the keywords, and =sp-org-capture= and =sp-agenda-views= to assign their settings once.
 - [[https://github.com/siainbuletin/dotfiles/pull/70][#70]] (Claude) ✨ Added an =org-ql= view (=q=) and per-view =org-super-agenda= groups, and removed =org-gtd-keyword-mapping=.
+- [[https://github.com/siainbuletin/dotfiles/pull/395][#395]] (Claude) ✨ Added flagging inline keywords in Org text as agenda problems.
 
 * Quick capture (=sp-quick-capture=)
 /2026-10-27./ A global hotkey that writes a task into the inbox without opening the notes.
@@ -396,7 +447,7 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/198][#198]] (Claude) ✨ Added a queue to quick capture: =tools/quick-capture-native= writes the line to =~/.local/state/quick-capture= and returns at once, and =sp-quick-capture-drain= files it in =inbox.org= when Emacs is free (busy, hung, restarted or not yet started), with the capture time for =:CREATED:= and relative dates. Follows #159. Details: [[file:docs/tangles/text/sp-quick-capture.org::*The queue][=sp-quick-capture= doc, The queue]]. Tested in Emacs 29.3 in batch and with a stopped and a dead daemon; not run on macOS.
 
 * Links in notes
-/2026-10-27 to 2026-11-08./ Completion and following for =help:=, =info:= and =man:= links, and links to the configuration docs.
+/2026-10-27 to 2026-11-12./ Completion and following for =help:=, =info:= and =man:= links, and links to the configuration docs.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] (Claude) ✨ Added =sp-org-insert-config-doc-link= (=C-c l c= in Org): inserts a =file:= link to a configuration doc from any note, picked with the fuzzy search of =sp-find-file= (new =sp-find-file-pick=) in =docs/= and described by its =#+title=; the vulpea database is not used. Details: [[file:docs/tangles/text/sp-org-id-link.org::*Link to the configuration docs][=sp-org-id-link= doc]]. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/155][#155]] (Claude) ✨ Added completion for =help:=, =info:= and =man:= links in =org-insert-link= (=C-c C-l=): =help:= reads a function, variable or face, =info:= a manual and node, =man:= a page (and follows =man:= with =man= when Org has no follow function for it). Details: [[file:docs/tangles/text/sp-org-id-link.org::*Completion for help, info and man links][=sp-org-id-link= doc]]. Not run in Emacs (none in the container).
@@ -405,9 +456,10 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/325][#325]] (Claude) 🔧 Changed the grouped backlinks view to the =sp-vulpea-grouped-backlinks= prefix, with the Org view named =sp-vulpea-grouped-backlinks-org-detached=; old names are gone (ADR 0025). Not run with the real vault.
 - [[https://github.com/siainbuletin/dotfiles/pull/326][#326]] (merged as [[https://github.com/siainbuletin/dotfiles/pull/390][#390]]) (Claude) ✨ Added a grouped backlinks sidebar that follows the main note. Needs testing: not run in the real Emacs or with the vault; it relies on private =vulpea-ui= functions.
 - [[https://github.com/siainbuletin/dotfiles/pull/327][#327]] (merged as [[https://github.com/siainbuletin/dotfiles/pull/392][#392]]) (Claude) ✨ Added the grouped backlinks as a =vulpea-ui= widget. Needs testing, as above.
+- [[https://github.com/siainbuletin/dotfiles/pull/407][#407]] (Claude) ✨ Added splitting the grouped backlink =Mentions= by the kind of source note.
 
 * Notes vault tools
-/2026-10-23 to 2026-11-11./ Commands that read or tidy the notes, always preview first.
+/2026-10-23 to 2026-11-12./ Commands that read or tidy the notes, always preview first.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/36][#36]] (Claude) ✨ Added =sp-thesis-dump=: a brain dump becomes annotated Org tasks, citekeys and open questions through =claude -p=.
 - [[https://github.com/siainbuletin/dotfiles/pull/201][#201]] (Claude) ✨ Added =sp-thesis-dump-trust-local-variables= (off by default). Details: [[file:docs/planned/sp-thesis-dump.org][sp-thesis-dump doc]].
@@ -428,9 +480,10 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/321][#321]] (Claude) 🔥 Removed =consult-notes=: =C-c w d g=, the notes search key and the =sp-search= notes menu use =sp-search-in-notes= (ripgrep) instead.
 - [[https://github.com/siainbuletin/dotfiles/pull/374][#374]] (Claude) ✨ Added =sp-writing-projects= (default =~/Documents/writing/=); Vulpea now indexes the notes folder, the Emacs config and the writing projects. Details: [[file:docs/tangles/base/sp-globals.org::*Changes by pull request][=sp-globals= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/375][#375]] (Claude) 🐛 Fixed Projectile not searching the writing projects: the =:init= value was overridden by =:custom=; =sp-writing-projects= is now searched at depth 1. Needs testing. Details: [[file:docs/tangles/tooling/sp-workspaces.org::*Changes by pull request][=sp-workspaces= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/397][#397]] (Claude) ✨ Extended the =sp-notes= commands to the writing projects.
 
 * Startup, load order and configuration hygiene
-/2026-10-18 to 2026-11-07./ What loads when, where settings live, and the errors found along the way.
+/2026-10-18 to 2026-11-12./ What loads when, where settings live, and the errors found along the way.
 
 - [[https://github.com/siainbuletin/dotfiles/pull/1][#1]] (Claude) 🐛 Fixed =emacsclient -c= frames closing, by defining =sp-frame-recenter=.
 - [[https://github.com/siainbuletin/dotfiles/pull/5][#5]] (Claude) 🐛 Fixed =C-x o= after =pulse= loads.
@@ -468,6 +521,9 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 - [[https://github.com/siainbuletin/dotfiles/pull/268][#268]] (Claude) ✨ Added =sp-vault-perf=: cheaper defaults for the 10,000-note vault and =M-x sp-vault-perf-report=. Details: [[file:docs/tangles/text/sp-vault-perf.org::*Changes by pull request][=sp-vault-perf= doc]]. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/270][#270]] (Claude) 🐛 Fixed the start-up work of =vulpea-db-autosync-mode=: the select-cache prewarm is off and autosync waits 30 idle seconds (=sp-vulpea-autosync-delay=). Details: [[file:docs/tangles/vulpea/sp-vulpea.org::*Changes by pull request][=sp-vulpea= doc]]. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/308][#308]] (Claude) 🔧 Changed =sp-ai-load= to say "already loaded" on a second call and to wait for Elpaca, so the packages and MCP servers are ready when it returns (also from =emacsclient -s mcp -e '(sp-ai-load)'=). Follows #267.
+- [[https://github.com/siainbuletin/dotfiles/pull/416][#416]] (Claude) ✨ Changed the vulpea autosync to be enabled once after start-up.
+- [[https://github.com/siainbuletin/dotfiles/pull/400][#400]] (Claude) 🐛 Fixed dired buffers being saved in the tabspaces session: they are skipped.
+- [[https://github.com/siainbuletin/dotfiles/pull/402][#402]] (Claude) 🐛 Fixed =sp-buffers=: ibuffer filter groups are now active and the columns wider.
 
 * Reviewing and merging in Magit
 /2026-10-21 to 2026-11-04./ Tools and notes for reviewing AI-made changes on the Mac. The decisions are ADRs 0001 to 0008.
