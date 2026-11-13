@@ -202,6 +202,23 @@ the record of the entry named by its =crossref= (or =xref=) field."
                 (uuid (sp-reading-uuid parent)))
       (list :uuid uuid :supplier parent :via parent))))
 
+(defun sp-devonthink-note-record-uuid (&optional action)
+  "The DEVONthink record UUID for the current litnote, or nil.
+The `#+devonthink:' keyword wins; then the record of the note's citekey; then
+the record of its crossref parent.  When the record is the parent's, say so.
+ACTION, a verb such as \"tag\", makes it ask first (the action would reach the
+whole parent book); declining signals a `user-error'."
+  (or (sp-devonthink-note-uuid)
+      (when-let* ((key (sp-devonthink-note-citekey))
+                  (rec (sp-devonthink-record key)))
+        (when-let* ((parent (plist-get rec :via)))
+          (if action
+              (unless (y-or-n-p (format "%s has no record of its own. %s the record of %s (the whole book)? "
+                                        key (capitalize action) parent))
+                (user-error "Cancelled"))
+            (message "%s has no record of its own: using the record of %s" key parent)))
+        (plist-get rec :uuid))))
+
 (defun sp-devonthink-resolve (key)
   "Where to open the work KEY in DEVONthink: `sp-devonthink-record' plus the page.
 Adds :page (PDF page counted from 1, or nil) and :note (a message, or nil)

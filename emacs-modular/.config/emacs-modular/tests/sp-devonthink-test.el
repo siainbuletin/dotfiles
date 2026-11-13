@@ -302,5 +302,19 @@
        (sp-devonthink-set-keyword))
      (should (equal (sp-devonthink-note-uuid) sp-devonthink-test--uuid)))))
 
+(ert-deftest sp-devonthink-note-record-uuid-follows-crossref-and-asks ()
+  (sp-devonthink-test--with-crossref
+   (with-temp-buffer
+     (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n")
+     (let (said)
+       (cl-letf (((symbol-function 'message) (lambda (fmt &rest a) (setq said (apply #'format fmt a)))))
+         (should (equal (sp-devonthink-note-record-uuid) sp-devonthink-test--uuid))
+         (should (string-match-p "using the record of parent-2000-b" said)))
+       (cl-letf (((symbol-function 'y-or-n-p) (lambda (p) (setq said p) nil)))
+         (should-error (sp-devonthink-note-record-uuid "tag") :type 'user-error)
+         (should (string-match-p "Tag the record of parent-2000-b (the whole book)" said)))
+       (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+         (should (equal (sp-devonthink-note-record-uuid "tag") sp-devonthink-test--uuid)))))))
+
 (provide 'sp-devonthink-test)
 ;;; sp-devonthink-test.el ends here

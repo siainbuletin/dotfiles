@@ -131,4 +131,19 @@
       (should (equal (sp-reading-uuid "a-2001-b") "U-5"))
       (should (equal (gethash "a-2001-b" sp-reading-index) "U-5")))))
 
+(ert-deftest sp-reading-test-open-follows-crossref-parent ()
+  (let ((sp-reading-index (make-hash-table :test 'equal)) opened)
+    (puthash "parent-2000-b" "U-PARENT" sp-reading-index)
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) ""))
+              ((symbol-function 'sp-reading-refresh) (lambda () sp-reading-index))
+              ((symbol-function 'sp-devonthink-resolve)
+               (lambda (k) (and (equal k "child-2001-x")
+                                (list :uuid "U-PARENT" :via "parent-2000-b" :page 47 :note "n"))))
+              ((symbol-function 'sp-reading--open-url) (lambda (u) (setq opened u)))
+              ((symbol-function 'message) #'ignore))
+      (sp-reading-open "child-2001-x")
+      (should (equal opened "x-devonthink-item://U-PARENT?page=46"))
+      (sp-reading-open "child-2001-x" 9)
+      (should (equal opened "x-devonthink-item://U-PARENT?page=9")))))
+
 ;;; sp-reading-test.el ends here
