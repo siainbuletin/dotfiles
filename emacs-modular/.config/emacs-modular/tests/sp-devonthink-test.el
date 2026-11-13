@@ -138,5 +138,30 @@
       (sp-devonthink-store-link)
       (should (equal (car kill-ring) "line one\nline two")))))
 
+(ert-deftest sp-devonthink-insert-link-always-asks-for-a-page ()
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) sp-devonthink-test--uuid))
+            ((symbol-function 'citar-select-ref) (lambda () "smith-2017-x"))
+            ((symbol-function 'read-string) (lambda (&rest _) "12")))
+    (with-temp-buffer
+      (let ((current-prefix-arg nil))
+        (call-interactively #'sp-devonthink-insert-link))
+      (should (equal (buffer-string)
+                     (format "[[devonthink:%s::12][smith-2017-x p. 12]]" sp-devonthink-test--uuid))))))
+
+(ert-deftest sp-devonthink-insert-link-empty-page-links-whole-record ()
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) sp-devonthink-test--uuid))
+            ((symbol-function 'citar-select-ref) (lambda () "smith-2017-x"))
+            ((symbol-function 'read-string) (lambda (&rest _) "  ")))
+    (with-temp-buffer
+      (call-interactively #'sp-devonthink-insert-link)
+      (should (equal (buffer-string)
+                     (format "[[devonthink:%s][smith-2017-x]]" sp-devonthink-test--uuid))))))
+
+(ert-deftest sp-devonthink-read-page-optional-reasks-on-bad-input ()
+  (let ((answers '("abc" "0" "7")))
+    (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (pop answers))))
+      (should (= (sp-devonthink--read-page-optional) 7))
+      (should (null answers)))))
+
 (provide 'sp-devonthink-test)
 ;;; sp-devonthink-test.el ends here

@@ -152,6 +152,19 @@ UUID defaults to the record named after the note's citekey."
   "Ask for a page (counted from 1) when a prefix argument is given, else nil."
   (when current-prefix-arg (read-number "Page: " 1)))
 
+(defun sp-devonthink--read-page-optional ()
+  "Always ask for a page (counted from 1); an empty answer gives nil (whole record).
+Asks again until the answer is empty or a whole number of at least 1."
+  (let (page)
+    (while (progn
+             (let ((answer (string-trim (read-string "Page (empty = whole record): "))))
+               (cond ((string-empty-p answer) (setq page nil) nil)
+                     ((string-match-p "\\`[0-9]+\\'" answer)
+                      (setq page (string-to-number answer))
+                      (< page 1))
+                     (t t)))))
+    page))
+
 ;;;###autoload
 (defun sp-devonthink-open-from-note (&optional page)
   "Open the DEVONthink record of the current litnote, at PAGE (from 1) if given."
@@ -168,10 +181,11 @@ UUID defaults to the record named after the note's citekey."
 
 ;;;###autoload
 (defun sp-devonthink-insert-link (key &optional page)
-  "Insert a `devonthink:' link to the record of the citekey KEY, at PAGE (from 1)."
+  "Insert a `devonthink:' link to the record of the citekey KEY, at PAGE (from 1).
+Interactively, always asks for the page; an empty answer links the whole record."
   (interactive
-   (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))
-         (sp-devonthink--read-page)))
+   (let ((key (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))))
+     (list key (sp-devonthink--read-page-optional))))
   (let ((uuid (or (sp-reading-uuid key) (user-error "No DEVONthink record named %s.pdf" key))))
     (insert (org-link-make-string (concat "devonthink:" (sp-devonthink-link-path uuid page))
                                   (sp-devonthink--description key page)))))
