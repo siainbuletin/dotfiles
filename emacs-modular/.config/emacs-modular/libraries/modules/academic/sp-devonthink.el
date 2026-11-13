@@ -29,16 +29,17 @@
   "Number added to the page DEVONthink reports when a link is stored."
   :type 'integer :group 'sp-devonthink)
 
-(defcustom sp-devonthink-page-offset 0
-  "Number added to a printed page to get the PDF page, for chapters in a parent's PDF.
-PDF page minus printed page; see `sp-devonthink-parent-page-offsets'."
-  :type 'integer :group 'sp-devonthink)
+(defcustom sp-devonthink-label-command '("python3")
+  "Program and arguments, before the script path, that run Python with pikepdf."
+  :type '(repeat string) :group 'sp-devonthink)
 
-(defcustom sp-devonthink-parent-page-offsets nil
-  "Alist of (PARENT-CITEKEY . OFFSET) overriding `sp-devonthink-page-offset'."
-  :type '(alist :key-type string :value-type integer) :group 'sp-devonthink)
+(defcustom sp-devonthink-label-script
+  (expand-file-name "tools/pdf-labels-read.py" user-emacs-directory)
+  "The script that turns a printed page into a PDF page using the PDF's page labels."
+  :type 'file :group 'sp-devonthink)
 
 (declare-function citar-get-value "citar")
+(declare-function sp-reading--pdf "sp-reading")
 
 ;;;; Links
 
@@ -252,16 +253,42 @@ The plist has :uuid, :key, :page (from 1, or nil) and :text."
 
 ;;;; Chapters in a parent's PDF
 
-(defun sp-devonthink-first-page (pages)
-  "The first page number in the BibTeX PAGES string, or nil.
-Takes the part before a range or list separator (--, -, en dash, comma), and
-accepts a plain number or a number with a letter prefix such as e123 or S45.
-Roman numerals and other text give nil."
+(defun sp-devonthink-first-page-label (pages)
+  "The first page of the BibTeX PAGES string as written, or nil.
+=45--67= and =45-67= give \"45\", =e123= gives \"e123\", =xii--xv= gives \"xii\".
+A leading p. or pp. and a trailing + are dropped.  The result is looked up among
+the page labels of the PDF, so it is a string, not a number."
   (when (and (stringp pages) (not (string-empty-p (string-trim pages))))
-    (let ((first (car (split-string (string-trim pages) "[-–—,;]+" t "[ \t]+"))))
-      (when (and first (string-match "\\`[A-Za-z]?\\([0-9]+\\)\\'" first))
-        (let ((n (string-to-number (match-string 1 first))))
-          (and (>= n 1) n))))))
+    (let* ((text (replace-regexp-in-string "\\`pp?\\.?[ \t]*" "" (string-trim pages) t t))
+           (first (car (split-string text "[-–—,;]+" t "[ \t]+"))))
+      (when first
+        (setq first (string-trim-right first "\\++"))
+        (and (string-match-p "\\`\\(?:[A-Za-z]\\{1,4\\}[0-9]+\\|[0-9]+\\|[A-Za-z]+\\)\\'" first)
+             first)))))
+
+(defun sp-devonthink-pdf-page-for-label (file label)
+  "The PDF page (counted from 1) of FILE whose page label is LABEL, as a plist.
+Asks `sp-devonthink-label-script'.  The plist is (:page N), or (:why WHY :message TEXT)
+with WHY one of `no-labels' (the PDF has none), `not-found' (no page has LABEL) and
+`error' (anything else, such as pikepdf missing)."
+  (let* ((errfile (make-temp-file "sp-pdf-labels"))
+         (out nil)
+         (status (condition-case err
+                     (with-temp-buffer
+                       (prog1 (apply #'call-process (car sp-devonthink-label-command) nil
+                                     (list t errfile) nil
+                                     (append (cdr sp-devonthink-label-command)
+                                             (list sp-devonthink-label-script file "--resolve" label)))
+                         (setq out (string-trim (buffer-string)))))
+                   (error (error-message-string err))))
+         (message (string-trim (with-temp-buffer (insert-file-contents errfile) (buffer-string)))))
+    (delete-file errfile)
+    (cond
+     ((and (eq status 0) (string-match-p "\\`[1-9][0-9]*\\'" out))
+      (list :page (string-to-number out)))
+     ((eq status 3) (list :why 'no-labels :message message))
+     ((eq status 4) (list :why 'not-found :message message))
+     (t (list :why 'error :message (if (stringp status) status message))))))
 
 (defun sp-devonthink--field (field key)
   "The value of the BibTeX FIELD (a symbol) of the entry KEY, or nil when empty."
@@ -280,22 +307,33 @@ Roman numerals and other text give nil."
 The plist has :uuid, :page (PDF page counted from 1, or nil), :via (the parent
 citekey, or nil) and :note (a message for the user, or nil).  KEY's own record
 is used when there is one; otherwise the record of its crossref parent, at the
-first page of KEY's =pages= plus the offset."
+PDF page whose page label is the first page of KEY's =pages= (see
+`sp-devonthink-pdf-page-for-label')."
   (let ((own (sp-reading-uuid key)))
     (if own
         (list :uuid own)
       (when-let* ((parent (sp-devonthink--parent-key key))
                   (uuid (sp-reading-uuid parent)))
-        (let* ((printed (sp-devonthink-first-page (sp-devonthink--field 'pages key)))
-               (offset (or (cdr (assoc parent sp-devonthink-parent-page-offsets))
-                           sp-devonthink-page-offset))
-               (page (and printed (max 1 (+ printed offset)))))
+        (let* ((label (sp-devonthink-first-page-label (sp-devonthink--field 'pages key)))
+               (pdf (and label (sp-reading--pdf parent)))
+               (hit (and pdf (sp-devonthink-pdf-page-for-label pdf label)))
+               (page (plist-get hit :page)))
           (list :uuid uuid :page page :via parent
-                :note (if page
-                          (format "%s is in %s: opening PDF page %d (printed page %d, offset %+d)"
-                                  key parent page printed offset)
-                        (format "%s is in %s: no usable pages field, opening it at the start"
-                                key parent))))))))
+                :note (cond
+                       (page (format "%s is in %s: opening PDF page %d (printed page %s, from the PDF's page labels)"
+                                     key parent page label))
+                       ((not label) (format "%s is in %s: no usable pages field, opening it at the start"
+                                            key parent))
+                       ((not pdf) (format "%s is in %s: no PDF file found for %s, opening the record at the start"
+                                          key parent parent))
+                       ((eq (plist-get hit :why) 'no-labels)
+                        (format "%s is in %s: its PDF has no page labels, opening at the start (run tools/pdf-labels-book.py %s --first-page N)"
+                                key parent parent))
+                       ((eq (plist-get hit :why) 'not-found)
+                        (format "%s is in %s: no page of its PDF is labelled %s, opening at the start"
+                                key parent label))
+                       (t (format "%s is in %s: could not read the page labels (%s), opening at the start"
+                                  key parent (plist-get hit :message))))))))))
 
 ;;;###autoload
 (defun sp-devonthink-citar-open (key)

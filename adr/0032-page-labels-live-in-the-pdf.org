@@ -1,0 +1,35 @@
+#+title: 0032 Printed page numbers live in the PDF as page labels
+#+date: 2026-11-13
+#+status: accepted
+
+* Context
+- A chapter or article often has no PDF of its own: its =crossref= parent (a book) holds the PDF, and the chapter's =pages= field gives printed page numbers (=45--67=).
+- DEVONthink and PDF viewers count physical pages: a book with a cover and a preface has printed page 1 on the 9th physical page.
+- PR #436 converted printed to physical pages with an Emacs offset (=sp-devonthink-page-offset=, =sp-devonthink-parent-page-offsets=).
+- I rejected offsets that belong to Emacs or to a record: the PDF is the thing that has the offset, so the information should be in the file.
+- A journal article PDF is the same problem in a smaller form: pages numbered 1 to 5 of a paper whose real pages are 360 to 364.
+- I have not started using DEVONthink properly, so rewriting the PDFs is acceptable now.
+
+* Decision
+- The mapping is stored in each PDF as page labels (the PDF =/PageLabels= entry), which viewers show and programs can read back.
+- Two tools write them, both dry runs unless =--apply= is given, both backing up the original first:
+  - =tools/pdf-labels-articles.py=, a batch tool for entries that are not tied to a book; it takes the first page of the BibTeX =pages= field;
+  - =tools/pdf-labels-book.py=, run by hand per book when its pages are noticed to be offset; it takes the physical page where printed page 1 starts and never reads =pages=.
+- =sp-devonthink= asks =tools/pdf-labels-read.py= which physical page has the label of the entry's first page; the two offset variables are removed.
+- Nothing is implemented inside DEVONthink: no custom metadata, no AppleScript for this.
+- When a PDF has no labels, or none matches, the parent opens at the start with a message, not at a guessed page.
+
+* Alternatives considered
+- *Offset variables in Emacs* (PR #436): not tied to the file, lost if the PDF is replaced or opened elsewhere. Rejected.
+- *An offset in the BibTeX entry or the litnote*: a second place to keep in step with the file; only Emacs could use it. Rejected.
+- *DEVONthink custom metadata or AppleScript*: ties the data to one application. Rejected on request.
+- *Labels from =pages= for books too*: for a book the =pages= field is usually a page count or empty, so it cannot give the offset. Books are labelled by hand.
+- *qpdf instead of pikepdf*: it can write labels only through JSON editing of the object tree and has no label lookup; pikepdf wraps qpdf and has both.
+
+* Consequences
+- =pikepdf= has to be installed where the tools and Emacs run (=pip install pikepdf=, or =uv run= with the script's inline dependency).
+- PDFs are rewritten: their bytes and modification time change. Backups are kept in =~/.local/state/pdf-page-labels/backups/=.
+- Every other program that reads the PDF (viewers, Zotero, Skim) shows the printed numbers too.
+- A PDF whose labels were set wrongly gives a wrong page; run the book tool again to replace them.
+- Only the journal-article case is automatic. A book that nobody has labelled opens its chapters at the start.
+- DEVONthink's own page counting was *not* verified for this: see the PR.
