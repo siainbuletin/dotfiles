@@ -25,6 +25,8 @@
 (declare-function vulpea-db-get-by-id "vulpea-db")
 (declare-function vulpea-note-path "vulpea-note")
 (declare-function vulpea-note-title "vulpea-note")
+(declare-function vulpea-note-id "vulpea-note")
+(declare-function vulpea-select "vulpea-select")
 (declare-function org-entry-get "org")
 (declare-function org-reveal "org")
 
@@ -91,6 +93,13 @@ when the index has not been built.  A higher number comes first."
 QUESTION is a plist with :keyword, :title and :pos.  MENTIONS are the see-also
 mentions under it.  A higher number comes first."
   :type 'function)
+
+(defcustom sp-see-also-reference-kinds '(footnote section link parent cite)
+  "The ways a note is referenced that the \"Referenced by\" view shows.
+`footnote' is a see-also footnote, `section' a \"See also\" section or a
+`seealso ::' line, `link' any other `id:' link, `parent' a `parent ::' line and
+`cite' a citation of the note's `#+reference:' citekey."
+  :type '(set (const footnote) (const section) (const link) (const parent) (const cite)))
 
 (defconst sp-see-also--fallback-states
   '(("QUESTION" "SCOPING" "READING" "SYNTHESIZING" "REVIEW")
@@ -878,6 +887,135 @@ the whole-vault index is used."
                   (string< (plist-get a :title) (plist-get b :title))
                 (> na nb)))))))
 
+(defun sp-see-also--citekey (file)
+  "Return the citekey in the `#+reference:' line of FILE, or nil."
+  (with-temp-buffer
+    (ignore-errors (insert-file-contents file nil 0 4096))
+    (let ((case-fold-search t))
+      (when (re-search-forward
+             "^#\\+reference:[ \t]*\\(?:cite:\\|@\\)?\\([^ \t\n]+\\)" nil t)
+        (match-string-no-properties 1)))))
+
+(defun sp-see-also--other-refs-in-buffer (id citekey covered)
+  "Return the references to ID and CITEKEY in the buffer that are not mentions.
+COVERED are the ranges already read as mentions.  Source and example blocks
+and comments are left out.  Each item is a plist of :beg, :end, :where (`link',
+`parent' or `cite'), :snippet, :heading, :heading-tags and :heading-id."
+  (let* ((case-fold-search t)
+         (skip (car (sp-see-also--block-ranges)))
+         (specs (delq nil
+                      (list (cons 'link (format "\\[\\[id:%s\\(?:::[^]\n]*\\)?\\]"
+                                                (regexp-quote id)))
+                            (and citekey
+                                 (cons 'cite
+                                       (format "\\(?:@\\|cite[[:alpha:]]*:\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
+                                               (regexp-quote citekey)))))))
+         (headings 'unread)
+         items)
+    (save-excursion
+      (dolist (spec specs)
+        (goto-char (point-min))
+        (while (re-search-forward (cdr spec) nil t)
+          (let* ((beg (match-beginning 0))
+                 (end (if (eq (car spec) 'cite) (match-beginning 1) (match-end 0))))
+            (goto-char end)
+            (unless (or (sp-see-also--in-ranges-p beg skip)
+                        (sp-see-also--in-ranges-p beg covered)
+                        (sp-see-also--commented-p beg))
+              (when (eq headings 'unread)
+                (setq headings (sp-see-also--headings nil skip)))
+              (let ((nearest (car (last (seq-take-while
+                                         (lambda (h) (< (plist-get h :pos) beg))
+                                         headings)))))
+                (push (list :beg beg :end end
+                            :where (cond ((eq (car spec) 'cite) 'cite)
+                                         ((save-excursion
+                                            (goto-char beg)
+                                            (beginning-of-line)
+                                            (looking-at-p "[ \t]*\\(?:[-+][ \t]+\\)?parent[ \t]*::"))
+                                          'parent)
+                                         (t 'link))
+                            :snippet (sp-see-also--snippet beg end)
+                            :heading (and nearest (plist-get nearest :title))
+                            :heading-tags (and nearest (plist-get nearest :tags))
+                            :heading-id (and nearest (plist-get nearest :id)))
+                      items)))))))
+    (sort items (lambda (a b) (< (plist-get a :beg) (plist-get b :beg))))))
+
+(defun sp-see-also--call-on-text (file function)
+  "Call FUNCTION in a buffer that holds the text of FILE, and return its value.
+An unsaved buffer visiting FILE is used as it is; otherwise FILE is read from
+disk in a temporary buffer, so no buffer is left behind."
+  (let ((buffer (get-file-buffer file)))
+    (if (and buffer (buffer-modified-p buffer))
+        (with-current-buffer buffer
+          (save-restriction (widen) (funcall function)))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (funcall function)))))
+
+(defun sp-see-also--kind (mention)
+  "Return the way MENTION references a note: one of `sp-see-also-reference-kinds'."
+  (pcase (plist-get mention :where)
+    ((or 'prose 'quote) 'footnote)
+    (where where)))
+
+(defun sp-see-also--references-in-file (file id citekey)
+  "Return every reference to ID (or CITEKEY) in FILE, as decorated mentions.
+They are the see-also mentions of the concept plus the other ways in
+`sp-see-also-reference-kinds'; see `sp-see-also--decorate'."
+  (when-let* ((data (sp-see-also-file-data file)))
+    (let* ((mentions (plist-get data :mentions))
+           (mine (seq-filter (lambda (m) (equal (plist-get m :id) id)) mentions))
+           (covered (mapcan (lambda (m)
+                              (list (cons (plist-get m :beg) (plist-get m :end))
+                                    (cons (or (plist-get m :def-beg) 0)
+                                          (or (plist-get m :def-end) 0))))
+                            mentions))
+           (extra (and (seq-intersection '(link parent cite) sp-see-also-reference-kinds)
+                       (condition-case nil
+                           (sp-see-also--call-on-text
+                            file (lambda ()
+                                   (sp-see-also--other-refs-in-buffer id citekey covered)))
+                         (error nil)))))
+      (mapcar (lambda (m) (sp-see-also--decorate file data m))
+              (seq-filter (lambda (m) (memq (sp-see-also--kind m) sp-see-also-reference-kinds))
+                          (append mine extra))))))
+
+(defun sp-see-also-references (id &optional citekey exclude-file)
+  "Return every litnote that references the note ID, with each way it does so.
+A list of plists as `sp-see-also-concept-usage' returns them, most references
+first: :file, :id, :title and :mentions (in file order), where each mention has
+a :where of `prose', `quote', `section', `link', `parent' or `cite'.
+Only the kinds in `sp-see-also-reference-kinds' are returned.  CITEKEY is the
+`#+reference:' citekey of the note, when it has one, whose citations count too.
+EXCLUDE-FILE is not read, so a note is not listed as referencing itself.  The
+Vulpea database narrows the files to read, unless a citekey is looked for."
+  (let* ((files (if citekey
+                    (funcall sp-see-also-files-function)
+                  (or (sp-see-also--db-files id)
+                      (funcall sp-see-also-files-function))))
+         (skip (and exclude-file (expand-file-name exclude-file)))
+         result)
+    (dolist (file (delete-dups (mapcar #'expand-file-name files)))
+      (unless (equal file skip)
+        (when-let* ((mentions (sp-see-also--references-in-file file id citekey)))
+          (setq mentions (sort mentions
+                               (lambda (a b) (< (plist-get a :beg) (plist-get b :beg)))))
+          (push (list :file file
+                      :id (plist-get (car mentions) :litnote-id)
+                      :title (or (plist-get (car mentions) :litnote-title)
+                                 (file-name-base file))
+                      :mentions mentions)
+                result))))
+    (sort result
+          (lambda (a b)
+            (let ((na (length (plist-get a :mentions)))
+                  (nb (length (plist-get b :mentions))))
+              (if (= na nb)
+                  (string< (plist-get a :title) (plist-get b :title))
+                (> na nb)))))))
+
 (defun sp-see-also--filter-usage (usage where open)
   "Keep the mentions of USAGE in WHERE and, when OPEN, under an open question."
   (delq nil
@@ -1178,87 +1316,162 @@ A fold is lost."
   "Return the title of the litnote FILE."
   (or (plist-get (sp-see-also-file-data file) :title) (file-name-base file)))
 
+(defface sp-see-also-section
+  '((t :inherit (bold shadow) :extend t))
+  "Face of the divider that starts a part of a see-also view."
+  :group 'sp-see-also)
+
+(defun sp-see-also-view--section (title)
+  "Insert the divider TITLE that starts a part of the view."
+  (unless (bobp) (insert "\n"))
+  (sp-see-also-view--stop)
+  (insert (propertize (format "── %s ──" title) 'face 'sp-see-also-section) "\n"))
+
+(defun sp-see-also-view--kinds (mentions)
+  "Return the small print for MENTIONS: their number, then the count of each kind."
+  (format "×%d · %s" (length mentions)
+          (mapconcat
+           (lambda (kind)
+             (format "%s %d" kind (seq-count (lambda (m) (eq (sp-see-also--kind m) kind))
+                                             mentions)))
+           (seq-filter (lambda (kind)
+                         (seq-some (lambda (m) (eq (sp-see-also--kind m) kind)) mentions))
+                       sp-see-also-reference-kinds)
+           " · ")))
+
+(defun sp-see-also--file-of-id (id)
+  "Return the file of the note ID: from Vulpea, else the litnote that has it."
+  (or (and (fboundp 'vulpea-db-get-by-id)
+           (when-let* ((note (ignore-errors (vulpea-db-get-by-id id))))
+             (vulpea-note-path note)))
+      (seq-find (lambda (file)
+                  (equal (plist-get (sp-see-also-file-data file) :id) id))
+                (funcall sp-see-also-files-function))))
+
+(defun sp-see-also--resolve (target)
+  "Return the note that TARGET names, as a plist.
+TARGET is nil (the file of the current buffer), a file name or a note ID.  The
+plist has :file (or nil), :id (or nil), :title, :citekey and :own, which is
+non-nil when :id is the ID of the file itself, so the file's own footnotes are
+about this note."
+  (let* ((id-p (and target (not (file-name-absolute-p target))))
+         (file (cond (id-p (sp-see-also--file-of-id target))
+                     (target (expand-file-name target))
+                     (t (expand-file-name
+                         (or buffer-file-name (user-error "This buffer visits no file"))))))
+         (data (and file (sp-see-also-file-data file)))
+         (id (if id-p target (plist-get data :id)))
+         (own (and file (or (not id-p) (equal id (plist-get data :id))))))
+    (list :file file :id id :own own
+          :title (or (plist-get data :title)
+                     (and file (not id-p) (file-name-base file))
+                     (sp-see-also--concept-title id nil))
+          :citekey (and own file (sp-see-also--citekey file)))))
+
+(defun sp-see-also--pick-id ()
+  "Pick a note by its title and return its ID, or nil."
+  (and-let* ((note (if (fboundp 'sp-select-note)
+                       (sp-select-note "Note: " :require-match t :grouped t)
+                     (vulpea-select "Note" :require-match t))))
+    (vulpea-note-id note)))
+
+(defun sp-see-also-view--outgoing (file concepts questions)
+  "Insert the CONCEPTS and open QUESTIONS that the litnote FILE mentions."
+  (sp-see-also-view--section "This note mentions")
+  (if (and (null concepts) (null questions))
+      (insert "No see-also footnotes found.\n")
+    (dolist (c concepts)
+      (sp-see-also-view--group
+       (plist-get c :title) 'sp-see-also-file-heading "Show where this concept is referenced"
+       (let ((id (plist-get c :id))) (lambda () (sp-see-also-show id)))
+       (format "%.1f · ×%d%s%s" (plist-get c :score) (plist-get c :count)
+               (if (> (plist-get c :quotes) 0) (format " · ❝%d" (plist-get c :quotes)) "")
+               (if (> (plist-get c :questions) 0) (format " · ?%d" (plist-get c :questions)) "")))
+      (dolist (m (plist-get c :mentions))
+        (sp-see-also-view--entry file m (or (plist-get m :heading) "file"))))
+    (when questions
+      (sp-see-also-view--group
+       "Open questions" 'sp-see-also-file-heading nil #'ignore nil)
+      (dolist (q questions)
+        (sp-see-also-view--group
+         (format "%s %s" (plist-get q :keyword) (plist-get q :title))
+         'sp-see-also-heading "Visit this question"
+         (let ((pos (plist-get q :pos))) (lambda () (sp-see-also-visit file pos)))
+         (format "%.1f · %d" (plist-get q :priority) (plist-get q :count)))
+        (dolist (m (plist-get q :mentions))
+          (sp-see-also-view--entry file m (or (plist-get m :desc) (plist-get m :id))))))))
+
+(defun sp-see-also-view--incoming (usage)
+  "Insert the litnotes of USAGE, each with every way it references the note."
+  (sp-see-also-view--section "Referenced by")
+  (if (null usage)
+      (insert "Nothing references this note yet.\n")
+    (dolist (entry usage)
+      (let ((file (plist-get entry :file)))
+        (sp-see-also-view--group
+         (plist-get entry :title) 'sp-see-also-file-heading "Visit this litnote"
+         (lambda () (sp-see-also-visit file (point-min)))
+         (sp-see-also-view--kinds (plist-get entry :mentions)))
+        (dolist (m (plist-get entry :mentions))
+          (sp-see-also-view--entry file m (or (plist-get m :heading) "file")))))))
+
 ;;;###autoload
-(defun sp-see-also-show (&optional file)
-  "Show the see-also concepts and open questions of FILE in a buffer.
-FILE defaults to the file of the current buffer.  This needs no sidebar.
-Each concept and each open question is a coloured heading with its mentions
-below it; a click or RET on a heading or a context visits it."
-  (interactive)
-  (let ((file (expand-file-name
-               (or file buffer-file-name (user-error "This buffer visits no file")))))
+(defun sp-see-also-show (&optional target)
+  "Show everything see-also knows about a note, in the buffer `*see-also*'.
+TARGET is nil (the litnote of the current buffer), a file name or a note ID.
+Interactively, a prefix argument picks the note by its title, with the groups of
+`sp-find-note', and no ID is typed.
+
+The view has two parts, each a coloured heading for each concept, open question
+or litnote, with its entries below:
+- \"This note mentions\": the concepts and open questions of the litnote.  It is
+  left out for a note that has no file of its own.
+- \"Referenced by\": every litnote that references the note, and in which of the
+  ways in `sp-see-also-reference-kinds' (footnote, section, link, parent, cite).
+A click or RET on a heading or a context visits it."
+  (interactive (list (and current-prefix-arg
+                          (or (sp-see-also--pick-id) (user-error "No note picked")))))
+  (let* ((note (sp-see-also--resolve target))
+         (file (plist-get note :file))
+         (id (plist-get note :id)))
     (sp-see-also-view--show
      "*see-also*"
      (lambda ()
-       (let ((concepts (sp-see-also-concepts-for-file file))
-             (questions (sp-see-also-questions-for-file file)))
-         (sp-see-also-view--stop)
-         (sp-see-also-view--button
-          (format "See also: %s" (sp-see-also-view--title file))
-          'sp-see-also-file-heading "Visit this litnote"
-          (lambda () (sp-see-also-visit file (point-min))))
-         (insert "\n")
-         (if (null concepts)
-             (insert "\nNo see-also footnotes found.\n")
-           (dolist (c concepts)
-             (sp-see-also-view--group
-              (plist-get c :title) 'sp-see-also-file-heading "Show where this concept is mentioned"
-              (let ((id (plist-get c :id))) (lambda () (sp-see-also-show-concept id)))
-              (format "%.1f · ×%d%s%s" (plist-get c :score) (plist-get c :count)
-                      (if (> (plist-get c :quotes) 0) (format " · ❝%d" (plist-get c :quotes)) "")
-                      (if (> (plist-get c :questions) 0) (format " · ?%d" (plist-get c :questions)) "")))
-             (dolist (m (plist-get c :mentions))
-               (sp-see-also-view--entry file m (or (plist-get m :heading) "file")))))
-         (when questions
-           (sp-see-also-view--group
-            "Open questions" 'sp-see-also-file-heading nil #'ignore nil)
-           (dolist (q questions)
-             (sp-see-also-view--group
-              (format "%s %s" (plist-get q :keyword) (plist-get q :title))
-              'sp-see-also-heading "Visit this question"
-              (let ((pos (plist-get q :pos))) (lambda () (sp-see-also-visit file pos)))
-              (format "%.1f · %d" (plist-get q :priority) (plist-get q :count)))
-             (dolist (m (plist-get q :mentions))
-               (sp-see-also-view--entry file m (or (plist-get m :desc) (plist-get m :id)))))))))))
+       (sp-see-also-view--stop)
+       (if (and file (plist-get note :own))
+           (sp-see-also-view--button
+            (format "See also: %s" (plist-get note :title))
+            'sp-see-also-file-heading "Visit this litnote"
+            (lambda () (sp-see-also-visit file (point-min))))
+         (insert (propertize (format "See also: %s" (plist-get note :title))
+                             'face 'sp-see-also-file-heading)))
+       (insert "\n")
+       (when (and file (plist-get note :own))
+         (sp-see-also-view--outgoing file
+                                     (sp-see-also-concepts-for-file file)
+                                     (sp-see-also-questions-for-file file)))
+       (if id
+           (sp-see-also-view--incoming
+            (sp-see-also-references id (plist-get note :citekey)
+                                    (and (plist-get note :own) file)))
+         (insert "\nThis note has no ID, so nothing can reference it.\n"))))))
 
 ;;;###autoload
 (defun sp-see-also-show-concept (id)
-  "Show the litnotes that mention concept ID in a see-also footnote.
-Interactively, ID is the :ID: of the entry at point.  Each litnote is a coloured
-heading, with one entry for each mention."
+  "Show where the note ID is referenced; the same view as `sp-see-also-show'.
+Interactively, ID is the :ID: of the entry at point."
   (interactive (list (progn (require 'org) (or (org-entry-get nil "ID" t)
                                                (read-string "Concept ID: ")))))
-  (sp-see-also-view--show
-   "*see-also-concept*"
-   (lambda ()
-     (let ((usage (sp-see-also-concept-usage id)))
-       (sp-see-also-view--stop)
-       (insert (propertize (format "Concept: %s" (sp-see-also--concept-title id nil))
-                           'face 'sp-see-also-file-heading)
-               "\n")
-       (if (null usage)
-           (insert "\nNo litnote mentions this concept in a see-also footnote.\n")
-         (dolist (entry usage)
-           (let ((file (plist-get entry :file)))
-             (sp-see-also-view--group
-              (plist-get entry :title) 'sp-see-also-file-heading "Visit this litnote"
-              (lambda () (sp-see-also-visit file (point-min)))
-              (format "×%d" (length (plist-get entry :mentions))))
-             (dolist (m (plist-get entry :mentions))
-               (sp-see-also-view--entry file m (or (plist-get m :heading) "file"))))))))))
+  (sp-see-also-show id))
 
 ;;;###autoload
 (defun sp-see-also-show-concept-by-name ()
-  "Pick a note by its title and show where it is mentioned in see-also footnotes.
-Like `sp-see-also-show-concept', but the note is chosen in the minibuffer
-with the groups of `sp-find-note' (notes, writing projects, config), not
-taken from the entry at point, and no ID is typed."
+  "Pick a note by its title and show it; the same as \\[universal-argument] `sp-see-also-show'.
+The note is chosen in the minibuffer with the groups of `sp-find-note' (notes,
+writing projects, config), not taken from the entry at point."
   (interactive)
-  (and-let* ((note (if (fboundp 'sp-select-note)
-                       (sp-select-note "Concept: " :require-match t :grouped t)
-                     (vulpea-select "Concept" :require-match t)))
-             (id (vulpea-note-id note)))
-    (sp-see-also-show-concept id)))
+  (and-let* ((id (sp-see-also--pick-id)))
+    (sp-see-also-show id)))
 
 (with-eval-after-load 'vulpea-ui
   (condition-case err

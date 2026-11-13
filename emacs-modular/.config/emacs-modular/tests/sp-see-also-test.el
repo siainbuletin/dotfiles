@@ -530,7 +530,7 @@
                (lambda (&rest a) (setq args a) 'a-note))
               ((symbol-function 'vulpea-note-id)
                (lambda (n) (and (eq n 'a-note) "c-one")))
-              ((symbol-function 'sp-see-also-show-concept)
+              ((symbol-function 'sp-see-also-show)
                (lambda (id) (setq shown id))))
       (sp-see-also-show-concept-by-name)
       (should (equal shown "c-one"))
@@ -542,13 +542,13 @@
     (sp-see-also-test--write root "view.org" sp-see-also-test--note)
     (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
       (sp-see-also-show-concept "c-one"))
-    (with-current-buffer "*see-also-concept*"
+    (with-current-buffer "*see-also*"
       (goto-char (point-min))
       (search-forward "Litnote on X")
       (should (eq (get-text-property (match-beginning 0) 'face)
                   'sp-see-also-file-heading))
       (should (search-forward "Prose under a question" nil t)))
-    (kill-buffer "*see-also-concept*")))
+    (kill-buffer "*see-also*")))
 
 (defconst sp-see-also-test--tagged
   (sp-see-also-test--text
@@ -584,7 +584,7 @@
     (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
               ((symbol-function 'sp-see-also-view--width) (lambda () 50)))
       (sp-see-also-show-concept "c-one"))
-    (with-current-buffer "*see-also-concept*"
+    (with-current-buffer "*see-also*"
       (goto-char (point-min))
       (should (search-forward ":alpha:beta_2:" nil t))
       (let ((pos (match-beginning 0)))
@@ -604,7 +604,7 @@
       (search-forward "Plain heading")
       (should-not (string-match-p ":[a-z]+:" (buffer-substring (line-beginning-position)
                                                                (line-end-position)))))
-    (kill-buffer "*see-also-concept*")))
+    (kill-buffer "*see-also*")))
 
 (ert-deftest sp-see-also-view-resize-draws-again-for-a-new-width ()
   (let ((draws 0))
@@ -620,6 +620,113 @@
                 ((symbol-function 'sp-see-also-view--width) (lambda () 70)))
         (sp-see-also-view--resize)
         (should (= draws 1))))))
+
+(defconst sp-see-also-test--referrer
+  (sp-see-also-test--text
+   ":PROPERTIES:"
+   ":ID: ref-id"
+   ":END:"
+   "#+title: Referrer"
+   "A footnote[fn::[[id:lit-id][Litnote on X]]] here."
+   "* Heading :tag:"
+   "Plain link to [[id:lit-id][the litnote]] and a cite [cite:@smith2020] in prose."
+   "- parent :: [[id:lit-id][Litnote on X]]"
+   "#+begin_src emacs-lisp"
+   "(message \"[[id:lit-id]] cite:smith2020\")"
+   "#+end_src"
+   "# a comment with [[id:lit-id]]"
+   "Not it: cite:smith2020b and [[id:other]]."))
+
+(defconst sp-see-also-test--litnote
+  (sp-see-also-test--text
+   ":PROPERTIES:"
+   ":ID: lit-id"
+   ":END:"
+   "#+title: Litnote on X"
+   "#+reference: smith2020"
+   "Own text, [[id:lit-id][itself]] and a thought[fn::[[id:c-one][Concept one]]]."))
+
+(ert-deftest sp-see-also-references-lists-every-way ()
+  (sp-see-also-test--with-vault
+    (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)
+    (sp-see-also-test--write root "ref.org" sp-see-also-test--referrer)
+    (let* ((usage (sp-see-also-references "lit-id" "smith2020"
+                                          (expand-file-name "litnotes/lit.org" root)))
+           (entry (car usage)))
+      (should (= (length usage) 1))
+      (should (equal (plist-get entry :title) "Referrer"))
+      (should (equal (mapcar (lambda (m) (plist-get m :where))
+                             (plist-get entry :mentions))
+                     '(prose link cite parent)))
+      ;; the link in the footnote is a footnote mention only, once
+      (should (= (seq-count (lambda (m) (eq (sp-see-also--kind m) 'footnote))
+                            (plist-get entry :mentions))
+                 1))
+      (should (equal (plist-get (nth 1 (plist-get entry :mentions)) :heading-tags)
+                     '("tag")))
+      ;; without a citekey nothing is cited
+      (should-not (seq-some (lambda (m) (eq (plist-get m :where) 'cite))
+                            (plist-get (seq-find (lambda (e) (equal (plist-get e :title) "Referrer"))
+                                                 (sp-see-also-references "lit-id"))
+                                       :mentions))))))
+
+(ert-deftest sp-see-also-references-honours-the-kinds-and-skips-the-file-itself ()
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
+      (sp-see-also-test--write root "ref.org" sp-see-also-test--referrer)
+      (let ((sp-see-also-reference-kinds '(cite)))
+        (should (equal (mapcar (lambda (m) (plist-get m :where))
+                               (plist-get (car (sp-see-also-references "lit-id" "smith2020"))
+                                          :mentions))
+                       '(cite))))
+      ;; the note's own file links to itself, and is not listed
+      (should (equal (mapcar (lambda (e) (plist-get e :title))
+                             (sp-see-also-references "lit-id" "smith2020" lit))
+                     '("Referrer")))
+      (should (equal (sort (mapcar (lambda (e) (plist-get e :title))
+                                   (sp-see-also-references "lit-id" "smith2020"))
+                           #'string<)
+                     '("Litnote on X" "Referrer"))))))
+
+(ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
+      (should (equal (sp-see-also--citekey lit) "smith2020"))
+      (should-not (sp-see-also--citekey
+                   (sp-see-also-test--write root "none.org" "#+title: No key\n"))))))
+
+(ert-deftest sp-see-also-show-one-view-for-a-litnote ()
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
+      (sp-see-also-test--write root "ref.org" sp-see-also-test--referrer)
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        ;; by file and by ID give the same view as the current buffer does
+        (dolist (target (list lit "lit-id"))
+          (sp-see-also-show target)
+          (with-current-buffer "*see-also*"
+            (let ((text (buffer-string)))
+              (should (string-match-p "This note mentions" text))
+              (should (string-match-p "Concept one" text))
+              (should (string-match-p "Referenced by" text))
+              (should (string-match-p "Referrer" text))
+              (should (string-match-p "footnote 1 · link 1 · parent 1 · cite 1" text))
+              (should (string-match-p "\\[cite\\]" text)))))
+        ;; a concept without a file has only the second part
+        (sp-see-also-show "c-one")
+        (with-current-buffer "*see-also*"
+          (should (string-match-p "Referenced by" (buffer-string))))
+        (with-temp-buffer
+          (setq buffer-file-name lit)
+          (sp-see-also-show)
+          (should (string-match-p "See also: Litnote on X"
+                                  (with-current-buffer "*see-also*" (buffer-string))))))
+      (kill-buffer "*see-also*"))))
+
+(ert-deftest sp-see-also-show-concept-is-the-same-view ()
+  (let (shown)
+    (cl-letf (((symbol-function 'sp-see-also-show) (lambda (id) (setq shown id))))
+      (sp-see-also-show-concept "c-one")
+      (should (equal shown "c-one")))))
 
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here
