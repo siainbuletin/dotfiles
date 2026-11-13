@@ -373,6 +373,159 @@ entry's first page (see `sp-devonthink-resolve')."
                  key (sp-devonthink--parent-key key)))
       (sp-reading-open key (and asked (1- asked)))))))
 
+;;;; Chapter keywords
+
+(defconst sp-devonthink--chapter-end "-- end sp-chapter --"
+  "The line that closes a chapter block in a record's comment.")
+
+(defun sp-devonthink--keyword-list (string)
+  "The words of STRING (separated by comma, semicolon or newline), without duplicates."
+  (let (out)
+    (dolist (word (split-string (or string "") "[,;\n]+" t "[ \t]+"))
+      (unless (member-ignore-case word out) (push word out)))
+    (nreverse out)))
+
+(defun sp-devonthink--chapter-block-regexp (key)
+  "A regexp matching the whole block of the chapter KEY, with its final newline."
+  (concat "^-- sp-chapter: " (regexp-quote key) " --\n\\(?:.*\n\\)*?"
+          (regexp-quote sp-devonthink--chapter-end) "\\(?:\n\\|\\'\\)"))
+
+(defun sp-devonthink-chapter-keywords-in (comment key)
+  "The keywords stored for the chapter KEY in the record COMMENT, as a list, or nil."
+  (when (and (stringp comment)
+             (string-match (sp-devonthink--chapter-block-regexp key) comment))
+    (let ((block (match-string 0 comment)))
+      (when (string-match "^keywords:[ \t]*\\(.*\\)$" block)
+        (sp-devonthink--keyword-list (match-string 1 block))))))
+
+(defun sp-devonthink-chapter-comment-with (comment key keywords)
+  "COMMENT with the block of the chapter KEY set to the list KEYWORDS.
+Text outside the block is left alone.  An empty KEYWORDS removes the block."
+  (let* ((comment (or comment ""))
+         (block (when keywords
+                  (format "-- sp-chapter: %s --\nkeywords: %s\n%s\n"
+                          key (string-join keywords ", ") sp-devonthink--chapter-end)))
+         (regexp (sp-devonthink--chapter-block-regexp key)))
+    (cond
+     ((string-match regexp comment)
+      (concat (substring comment 0 (match-beginning 0))
+              (or block "")
+              (substring comment (match-end 0))))
+     ((null block) comment)
+     ((string-empty-p (string-trim comment)) block)
+     (t (concat (string-trim-right comment "\n+") "\n\n" block)))))
+
+(defun sp-devonthink--record-comment (uuid)
+  "The comment of the DEVONthink record UUID."
+  (sp-reading--osascript
+   (format "tell application id \"DNtp\" to return comment of (get record with uuid %s)"
+           (sp-reading--quote uuid))))
+
+(defun sp-devonthink--set-record-comment (uuid text)
+  "Set the comment of the DEVONthink record UUID to TEXT."
+  (sp-reading--osascript
+   (format "tell application id \"DNtp\" to set comment of (get record with uuid %s) to %s"
+           (sp-reading--quote uuid) (sp-reading--quote text))))
+
+(defun sp-devonthink--chapter-context ()
+  "Plist :key, :parent and :uuid for the current litnote, a chapter of a parent's record.
+Signals a `user-error' when the note has no citekey, when no record is found,
+or when the entry has a record of its own (it is not a chapter)."
+  (let* ((key (or (sp-devonthink-note-citekey) (user-error "This note has no citekey")))
+         (rec (or (sp-devonthink-record key)
+                  (user-error "No DEVONthink record for %s or its crossref" key)))
+         (parent (plist-get rec :via)))
+    (unless parent
+      (user-error "%s has a record of its own; its keywords belong on that record" key))
+    (list :key key :parent parent :uuid (plist-get rec :uuid))))
+
+(defun sp-devonthink--parent-kind (parent)
+  "The word for what the entry PARENT is: collection, book or work."
+  (let ((type (and (fboundp 'citar-get-value) (citar-get-value '=type= parent))))
+    (pcase (and (stringp type) (downcase type))
+      ((or "collection" "proceedings" "mvcollection") "collection")
+      ((or "book" "mvbook") "book")
+      (_ "work"))))
+
+(defun sp-devonthink--chapter-heading (parent)
+  "The heading text of the keywords section for the parent PARENT."
+  (let ((title (sp-devonthink--field 'title parent)))
+    (format "Keywords in the %s %s(%s)" (sp-devonthink--parent-kind parent)
+            (if title (format "\"%s\" " title) "") parent)))
+
+;;;###autoload
+(defun sp-devonthink-chapter-keywords-store (&optional edit)
+  "Store the keywords of this chapter in its parent's DEVONthink record.
+The keywords come from the chapter's BibTeX =keywords= field; EDIT (a prefix
+argument) lets you change them first.  They go into the chapter's own block in
+the record's comment: the record's tags are not touched.  Asks before writing."
+  (interactive "P")
+  (let* ((ctx (sp-devonthink--chapter-context))
+         (key (plist-get ctx :key))
+         (parent (plist-get ctx :parent))
+         (uuid (plist-get ctx :uuid))
+         (found (sp-devonthink--keyword-list (sp-devonthink--field 'keywords key)))
+         (keywords (if edit
+                       (sp-devonthink--keyword-list
+                        (read-string (format "Keywords of %s: " key) (string-join found ", ")))
+                     found)))
+    (when (and (null keywords) (not edit))
+      (user-error "%s has no keywords field (use C-u to type them)" key))
+    (unless (y-or-n-p (if keywords
+                          (format "Write the keywords of %s (%s) into the record of %s, in this chapter's section of its comment (its tags stay as they are)? "
+                                  key (string-join keywords ", ") parent)
+                        (format "Remove the keywords of %s from the record of %s? " key parent)))
+      (user-error "Cancelled"))
+    (sp-devonthink--set-record-comment
+     uuid (sp-devonthink-chapter-comment-with (sp-devonthink--record-comment uuid) key keywords))
+    (message "%s: %s in the record of %s" key
+             (if keywords (format "stored %d keyword(s)" (length keywords)) "keywords removed")
+             parent)))
+
+(defun sp-devonthink--chapter-section-put (parent heading keywords)
+  "Write the KEYWORDS section for PARENT, under HEADING, at the bottom of the buffer.
+A section with the property SP_CHAPTER_OF equal to PARENT has its body rewritten;
+otherwise a new level 1 heading is appended.  Does not save."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let ((line (string-join keywords ", "))
+            (pos (org-find-property "SP_CHAPTER_OF" parent)))
+        (if pos
+            (progn
+              (goto-char pos)
+              (org-back-to-heading t)
+              (let ((end (save-excursion (org-end-of-subtree t t) (point))))
+                (forward-line 1)
+                (when (looking-at-p "[ \t]*:PROPERTIES:")
+                  (re-search-forward "^[ \t]*:END:[ \t]*\n?" end t))
+                (unless (bolp) (insert "\n"))
+                (delete-region (point) end)
+                (insert line "\n")))
+          (goto-char (point-max))
+          (unless (bolp) (insert "\n"))
+          (insert (format "* %s\n:PROPERTIES:\n:SP_CHAPTER_OF: %s\n:END:\n%s\n"
+                          heading parent line)))))))
+
+;;;###autoload
+(defun sp-devonthink-chapter-keywords-show ()
+  "Show the keywords stored for this chapter at the bottom of the litnote.
+Reads the chapter's block from the comment of its parent's record (nothing is
+written to DEVONthink) and puts it under a heading naming the book or
+collection it sits in.  The buffer is left unsaved."
+  (interactive)
+  (let* ((ctx (sp-devonthink--chapter-context))
+         (key (plist-get ctx :key))
+         (parent (plist-get ctx :parent))
+         (keywords (sp-devonthink-chapter-keywords-in
+                    (sp-devonthink--record-comment (plist-get ctx :uuid)) key)))
+    (unless keywords
+      (user-error "No keywords stored for %s in the record of %s (run `sp-devonthink-chapter-keywords-store')"
+                  key parent))
+    (sp-devonthink--chapter-section-put parent (sp-devonthink--chapter-heading parent) keywords)
+    (message "%d keyword(s) of %s, as stored in the record of %s (not saved)"
+             (length keywords) key parent)))
+
 ;;;; Keys
 
 (defvar-keymap sp-devonthink-map
@@ -381,6 +534,8 @@ entry's first page (see `sp-devonthink-resolve')."
   "l" #'sp-devonthink-insert-link
   "s" #'sp-devonthink-store-link
   "k" #'sp-devonthink-set-keyword
+  "c" #'sp-devonthink-chapter-keywords-show
+  "C" #'sp-devonthink-chapter-keywords-store
   "r" #'sp-reading-refresh)
 
 (keymap-global-set "C-c k d" sp-devonthink-map)
