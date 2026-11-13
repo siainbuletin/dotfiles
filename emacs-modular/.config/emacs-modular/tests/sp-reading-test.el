@@ -21,10 +21,12 @@
   (let ((sp-reading-index (make-hash-table :test 'equal))
         (calls 0))
     (puthash "known" "U-KNOWN" sp-reading-index)
-    (cl-letf (((symbol-function 'sp-reading--osascript)
+    (cl-letf (((symbol-function 'sp-reading--jxa)
                (lambda (script)
-                 (cl-incf calls)
-                 (if (string-match-p "newkey" script) "U-NEW" ""))))
+                 (if (string-match-p "app.search" script)
+                     (progn (cl-incf calls)
+                            (if (string-match-p "newkey" script) "U-NEW" ""))
+                   ""))))
       (should (equal (sp-reading-uuid "known") "U-KNOWN"))
       (should (= calls 0))
       (should (equal (sp-reading-uuid "newkey") "U-NEW"))
@@ -44,7 +46,8 @@
         (file (make-temp-file "sp-reading" nil ".pdf"))
         opened indexed called)
     (unwind-protect
-        (cl-letf (((symbol-function 'sp-reading--osascript)
+        (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) ""))
+                  ((symbol-function 'sp-reading--osascript)
                    (lambda (script)
                      (if (string-match-p "index path" script)
                          (progn (setq indexed script) "U-NEW")
@@ -68,11 +71,10 @@
 
 (ert-deftest sp-reading-test-no-pdf ()
   (let ((sp-reading-index (make-hash-table :test 'equal)))
-    (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) ""))
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) ""))
               ((symbol-function 'sp-reading--pdf) (lambda (_) nil)))
       (should-not (sp-reading-open "none")))))
 
-;;; sp-reading-test.el ends here
 
 (ert-deftest sp-reading-test-listing-is-bulk-jxa-and-refresh-parses-it ()
   (let ((script (sp-reading--listing-script)))
@@ -85,3 +87,48 @@
       (sp-reading-refresh))
     (should (equal (gethash "smith-2017-x" sp-reading-index) "U-1"))
     (should (= (hash-table-count sp-reading-index) 2))))
+
+(ert-deftest sp-reading-test-listing-filters-on-path-and-diagnose ()
+  (let ((script (sp-reading--listing-script)))
+    (should (string-match-p "c.path()" script))
+    (should (string-match-p "paths\\[i\\].toLowerCase().endsWith" script))
+    (should (string-match-p "names\\[i\\] [+] \"[.]pdf\"" script)))
+  (should (string-match-p "pdf_by_path" (sp-reading--diagnose-script)))
+  (let ((sp-reading-index nil) message-text)
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) ""))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args) (setq message-text (apply #'format fmt args)))))
+      (sp-reading-refresh))
+    (should (string-match-p "0 PDFs in literature; run M-x sp-reading-diagnose" message-text)))
+  (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "{\"records\": 3}"))
+            ((symbol-function 'display-buffer) #'ignore))
+    (should (string-match-p "records" (sp-reading-diagnose)))
+    (with-current-buffer "*sp-reading diagnose*"
+      (should (string-match-p "\"records\": 3" (buffer-string))))))
+
+(ert-deftest sp-reading-test-lookup-accepts-name-without-extension-and-path ()
+  (let ((script (sp-reading--lookup-script "arthur-2004-value-negat")))
+    (should (string-match-p "\"arthur-2004-value-negat\".toLowerCase()" script))
+    (should (string-match-p "stem(r.name()) === key" script))
+    (should (string-match-p "base(r.path()) === key" script))
+    (should-not (string-match-p "tell application" script))))
+
+(ert-deftest sp-reading-test-uuid-falls-back-to-full-refresh ()
+  (let ((sp-reading-index nil) (calls 0))
+    (cl-letf (((symbol-function 'sp-reading--jxa)
+               (lambda (script)
+                 (cl-incf calls)
+                 (if (string-match-p "app.search" script)
+                     ""
+                   "U-9\tarthur-2004-value-negat.pdf"))))
+      (should (equal (sp-reading-uuid "arthur-2004-value-negat") "U-9"))
+      (should (= calls 2))
+      (should (null (sp-reading-uuid "missing-2000-x"))))))
+
+(ert-deftest sp-reading-test-uuid-uses-direct-lookup-first ()
+  (let ((sp-reading-index nil))
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "U-5\n")))
+      (should (equal (sp-reading-uuid "a-2001-b") "U-5"))
+      (should (equal (gethash "a-2001-b" sp-reading-index) "U-5")))))
+
+;;; sp-reading-test.el ends here

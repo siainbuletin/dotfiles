@@ -639,6 +639,37 @@
               (should (= 1 (length made)))))
         (delete-file file)))))
 
+(ert-deftest sp-litnotes-meta-set-status-saves-an-unsaved-buffer-and-kills-it ()
+  (let* ((dir (make-temp-file "sp-meta-status" t))
+         (file (expand-file-name "a.org" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n- read-status :: 01-new\n\nbody\n"))
+          (let ((buffer (find-file-noselect file)))
+            (with-current-buffer buffer (goto-char (point-max)) (insert "mine\n"))
+            (sp-litnotes-meta-set-status file "05-done")
+            (should-not (buffer-live-p buffer))
+            (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+              (should (string-match-p "read-status :: 05-done" text))
+              (should (string-match-p "^mine$" text)))))
+      (delete-directory dir t))))
+
+(ert-deftest sp-litnotes-meta-set-status-keeps-the-unsaved-guard-when-off ()
+  (let* ((dir (make-temp-file "sp-meta-status" t))
+         (file (expand-file-name "a.org" dir))
+         (sp-batch-report-save-and-kill nil))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n- read-status :: 01-new\n"))
+          (let ((buffer (find-file-noselect file)))
+            (with-current-buffer buffer (goto-char (point-max)) (insert "mine\n"))
+            (should-error (sp-litnotes-meta-set-status file "05-done") :type 'user-error)
+            (with-current-buffer buffer (set-buffer-modified-p nil))
+            (kill-buffer buffer)))
+      (delete-directory dir t))))
+
 (provide 'sp-litnotes-meta-test)
 ;;; sp-litnotes-meta-test.el ends here
 
