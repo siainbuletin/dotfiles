@@ -68,7 +68,9 @@ Literate source for =libraries/modules/academic/sp-devonthink-highlights.el=. De
 
 * Reading and formatting
 
-- =sp-devonthink-highlights--fetch= asks DEVONthink for the file, runs the script and returns =((PAGE . (TEXT ...)) ...)=.
+- =sp-devonthink-highlights--file= asks DEVONthink for the file of a record.
+- =sp-devonthink-highlights--run= runs the script on it (with optional flags) and returns its output.
+- =sp-devonthink-highlights--fetch= parses that into =((PAGE . (TEXT ...)) ...)=.
 - =sp-devonthink-highlights--item= makes one list item.
 - =sp-devonthink-highlights--norm= is the comparison form of a text: whitespace collapsed, lower case.
 
@@ -80,17 +82,27 @@ Literate source for =libraries/modules/academic/sp-devonthink-highlights.el=. De
   (mapcar (lambda (page) (cons (alist-get 'page page) (alist-get 'highlights page)))
           (json-parse-string json-text :object-type 'alist :array-type 'list)))
 
-(defun sp-devonthink-highlights--fetch (uuid)
-  "The highlights of the PDF of the record UUID, as (PAGE . HIGHLIGHTS) pairs."
+(defun sp-devonthink-highlights--file (uuid)
+  "The file on disk of the record UUID; signals a `user-error' when there is none."
   (let ((file (sp-reading--osascript (sp-devonthink-browse--path-script uuid))))
     (unless (and (not (string-empty-p file)) (file-exists-p file))
       (user-error "The record has no file on disk (is it indexed?)"))
+    file))
+
+(defun sp-devonthink-highlights--run (uuid &rest flags)
+  "The output of the highlights script, with FLAGS, on the file of the record UUID."
+  (let ((file (sp-devonthink-highlights--file uuid)))
     (require 'sp-litdb)
     (with-temp-buffer
-      (let ((status (call-process sp-litdb-python nil (list (current-buffer) nil) nil
-                                  (expand-file-name sp-devonthink-highlights-script) file)))
+      (let ((status (apply #'call-process sp-litdb-python nil (list (current-buffer) nil) nil
+                           (expand-file-name sp-devonthink-highlights-script)
+                           (append flags (list file)))))
         (unless (eql status 0) (error "devonthink-highlights failed (status %s)" status))
-        (sp-devonthink-highlights--parse (buffer-string))))))
+        (buffer-string)))))
+
+(defun sp-devonthink-highlights--fetch (uuid)
+  "The highlights of the PDF of the record UUID, as (PAGE . HIGHLIGHTS) pairs."
+  (sp-devonthink-highlights--parse (sp-devonthink-highlights--run uuid)))
 
 (defun sp-devonthink-highlights--norm (text)
   "TEXT without extra whitespace, in lower case, for comparing."
@@ -185,13 +197,150 @@ Only highlights that are not in the section yet are added; the note is not saved
 
 (keymap-set sp-devonthink-map "h" #'sp-devonthink-highlights-import)
 
+;;;; Links to single annotations
+
+(defcustom sp-devonthink-annotation-default 'choose
+  "What `sp-devonthink-insert-annotation-link' does without a prefix argument.
+`latest' links the most recently created annotation; `choose' asks which one.
+A prefix argument does the other."
+  :type '(choice (const :tag "Choose from a list" choose)
+                 (const :tag "Most recently created" latest))
+  :group 'sp-devonthink-highlights)
+
+(defun sp-devonthink-annotations--parse (json-text)
+  "The annotations read from JSON-TEXT, as plists (:page :text :note :created :modified)."
+  (mapcar (lambda (a)
+            (list :page (alist-get 'page a)
+                  :text (or (alist-get 'text a) "")
+                  :note (or (alist-get 'note a) "")
+                  :created (alist-get 'created a)
+                  :modified (alist-get 'modified a)))
+          (json-parse-string json-text :object-type 'alist :array-type 'list :null-object nil)))
+
+(defun sp-devonthink-annotations--mode (prefix)
+  "The mode to use: `sp-devonthink-annotation-default', or the other one when PREFIX is non-nil."
+  (if prefix
+      (if (eq sp-devonthink-annotation-default 'latest) 'choose 'latest)
+    sp-devonthink-annotation-default))
+
+(defun sp-devonthink-annotations--fetch (uuid)
+  "Every highlight of the PDF of the record UUID, as plists, in file order."
+  (sp-devonthink-annotations--parse (sp-devonthink-highlights--run uuid "--annotations")))
+
+(defun sp-devonthink-annotations--date (annotation)
+  "The creation date of ANNOTATION (ISO string), else its modification date, else nil."
+  (or (plist-get annotation :created) (plist-get annotation :modified)))
+
+(defun sp-devonthink-annotations--latest (annotations)
+  "The most recently created of ANNOTATIONS.
+Without dates, or on a tie, the one that comes last in the file wins."
+  (let (best)
+    (dolist (a annotations best)
+      (when (or (null best)
+                (not (string-lessp (or (sp-devonthink-annotations--date a) "")
+                                   (or (sp-devonthink-annotations--date best) ""))))
+        (setq best a)))))
+
+(defun sp-devonthink-annotations--label (annotation)
+  "The line that stands for ANNOTATION in the list: page, date, text, comment."
+  (let ((date (sp-devonthink-annotations--date annotation)))
+    (format "p. %-4d %s  %s%s"
+            (plist-get annotation :page)
+            (if date (substring date 0 (min 10 (length date))) "----------")
+            (truncate-string-to-width
+             (replace-regexp-in-string "[ \t\n]+" " " (plist-get annotation :text)) 100 nil nil "…")
+            (if (string-empty-p (plist-get annotation :note)) ""
+              (format "  [%s]" (truncate-string-to-width (plist-get annotation :note) 40 nil nil "…"))))))
+
+(defun sp-devonthink-annotations--read (annotations prompt)
+  "Ask which of ANNOTATIONS to use; the list keeps the order of the file."
+  (let* ((table (mapcar (lambda (a) (cons (sp-devonthink-annotations--label a) a)) annotations))
+         (collection (lambda (string pred action)
+                       (if (eq action 'metadata)
+                           '(metadata (display-sort-function . identity)
+                                      (cycle-sort-function . identity))
+                         (complete-with-action action table string pred)))))
+    (cdr (assoc (completing-read prompt collection nil t) table))))
+
+(defun sp-devonthink-annotations--link (key annotation uuid)
+  "The Org link for ANNOTATION of the record UUID, named after the citekey KEY."
+  (let ((page (plist-get annotation :page)))
+    (org-link-make-string (concat "devonthink:" (sp-devonthink-link-path uuid page))
+                          (sp-devonthink--description key page))))
+
+;;;###autoload
+(defun sp-devonthink-insert-annotation-link (key &optional mode)
+  "Insert a `devonthink:' link to a highlight of the record of the citekey KEY.
+MODE is `latest' (the most recently created highlight) or `choose' (pick from a
+list showing page, date and text).  Interactively it is
+`sp-devonthink-annotation-default', and a prefix argument takes the other.
+An entry without a record of its own uses its crossref parent's record, whose
+highlights are those of the whole book."
+  (interactive
+   (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))
+         (sp-devonthink-annotations--mode current-prefix-arg)))
+  (let* ((found (or (sp-devonthink-record key)
+                    (user-error "No DEVONthink record named %s.pdf, and no record for its crossref" key)))
+         (uuid (plist-get found :uuid))
+         (annotations (or (sp-devonthink-annotations--fetch uuid)
+                          (user-error "No highlights in the PDF of %s" (plist-get found :supplier))))
+         (annotation (if (eq mode 'latest)
+                         (sp-devonthink-annotations--latest annotations)
+                       (sp-devonthink-annotations--read
+                        annotations (format "Highlight of %s: " (plist-get found :supplier))))))
+    (when-let* ((parent (plist-get found :via)))
+      (message "%s has no record of its own: highlight of %s (the whole book)" key parent))
+    (insert (sp-devonthink-annotations--link key annotation uuid))))
+
+;;;###autoload
+(defun sp-devonthink-insert-latest-annotation-link (key)
+  "Insert a link to the most recently created highlight of the citekey KEY."
+  (interactive (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))))
+  (sp-devonthink-insert-annotation-link key 'latest))
+
+(keymap-set sp-devonthink-map "A" #'sp-devonthink-insert-annotation-link)
+(keymap-set sp-devonthink-map "L" #'sp-devonthink-insert-latest-annotation-link)
+
 (provide 'sp-devonthink-highlights)
 ;;; sp-devonthink-highlights.el ends here
 #+end_src
+
+* Links to single annotations
+
+- Purpose: put a link to /one/ highlight into any Org buffer, not copy all of them.
+- =sp-devonthink-insert-annotation-link= asks for a citekey (citar), then has two modes:
+  - =latest=: the most recently created highlight, no further question;
+  - =choose=: a list of the record's highlights to pick from.
+- Which mode runs:
+  - =sp-devonthink-annotation-default= (=choose= unless changed);
+  - a prefix argument takes the other mode.
+- =sp-devonthink-insert-latest-annotation-link= (=C-c k d L=) is the thin command for =latest=; =C-c k d A= is the switchable one.
+- The list:
+  - one line per highlight: page, creation date, the text (cut at 100 characters), the comment in brackets if there is one;
+  - kept in the order of the file (not sorted by the completion UI);
+  - a highlight without a date shows =----------=.
+- "Most recently created":
+  - the creation date of the annotation, or its modification date when the PDF has none;
+  - ties and undated highlights: the one later in the file wins.
+- Which record: =sp-devonthink-record=, the shared resolver, so a chapter without its own record uses its crossref parent's record.
+  - Then the list holds the whole book's highlights, and a message says so.
+- The link:
+  - the same =devonthink:UUID::PAGE= link as =sp-devonthink-insert-link=, with the highlight's page;
+  - the text is =key p. N=;
+  - opening it goes to the page, not to the highlight itself.
+- Where the data comes from:
+  - DEVONthink's AppleScript only gives the number of annotations of a record, not the annotations themselves;
+  - so the file is read with PyMuPDF (=tools/devonthink-highlights.py --annotations=), as for the import above.
+- Page labels (PR #438) do not apply yet:
+  - the page in the list and in the link is the physical PDF page, the one DEVONthink's =?page=N= uses;
+  - printed pages from the PDF's page labels could be shown in the list once #438 is merged.
 
 * Testing it by hand on the Mac
 
 - See the testing steps in the pull request that added this file.
 - Unknown until tried:
   - whether =path of= on a record returns the file for indexed PDFs (the browser's =p= action uses the same call);
-  - whether highlights made in DEVONthink's own PDF viewer are stored in the file as standard highlight annotations (the annotation count of the one PDF compared said yes).
+  - whether highlights made in DEVONthink's own PDF viewer are stored in the file as standard highlight annotations (the annotation count of the one PDF compared said yes);
+  - whether those annotations carry a creation date (=/CreationDate=); if not, the modification date is used, and without either "latest" means the last one in the file;
+  - whether the file's annotation order is the order of creation (assumed for the tie rule only);
+  - whether an annotation made in DEVONthink is saved to the file at once, or only when the PDF is closed (a new highlight may be missing until then).

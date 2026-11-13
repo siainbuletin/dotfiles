@@ -173,6 +173,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 | 3 | search front end, similar records, preview | #418 |
 | 4 | highlights into the litnote | #420 (=sp-devonthink-highlights=) |
 | 5 | sync report, guarded backfill, record-side link | #421 (=sp-devonthink-sync=); the record-side link is written but needs the probes below |
+| 6 | link to a single highlight (latest, or chosen from a list) | this PR (=sp-devonthink-highlights=, "Links to single annotations") |
 
 ** Open questions
 
@@ -655,6 +656,8 @@ entry's first page (see `sp-devonthink-resolve')."
 | =C-c k d s= | store a link to what DEVONthink shows |
 | =C-c k d k= | write the =#+devonthink:= keyword of this litnote |
 | =C-c k d r= | refresh the citekey to UUID cache |
+| =C-c k d A= | insert a link to one highlight: pick from a list, or the latest with a prefix argument (see =sp-devonthink-annotation-default=) |
+| =C-c k d L= | insert a link to the most recently created highlight |
 
 - In the =citar= Embark menu, =D= opens the record of the reference.
 

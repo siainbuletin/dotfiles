@@ -60,8 +60,31 @@ def clean(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def page_highlights(page):
-    """Return the texts of the highlight annotations of PAGE."""
+def pdf_date(value):
+    """An ISO 8601 UTC string for the PDF date VALUE (D:YYYYMMDDHHmmSSOHH'mm'), or None."""
+    match = re.match(
+        r"D?:?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?"
+        r"(?:([Zz])|([+-])(\d{2})'?(\d{2})?'?)?", value or "")
+    if not match:
+        return None
+    year, month, day, hour, minute, second = (int(g) if g else d for g, d in zip(
+        match.groups()[:6], (0, 1, 1, 0, 0, 0)))
+    try:
+        moment = datetime.datetime(year, month, day, hour, minute, second)
+    except ValueError:
+        return None
+    if match.group(8):
+        offset = datetime.timedelta(hours=int(match.group(9)), minutes=int(match.group(10) or 0))
+        moment -= offset if match.group(8) == "+" else -offset
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def page_highlight_details(page):
+    """Return the highlight annotations of PAGE as dicts, in file order.
+
+    Each has text (the highlighted words), note (the comment, or ""), created
+    and modified (ISO 8601 UTC, or None when the PDF has no date).
+    """
     import pymupdf
     found = []
     for annot in page.annots() or []:
@@ -73,8 +96,21 @@ def page_highlights(page):
             for i in range(0, len(vertices), 4)
         ]
         text = clean(" ".join(parts))
-        if text and text not in found:
-            found.append(text)
+        if text:
+            info = annot.info
+            found.append({"text": text,
+                          "note": clean(info.get("content") or ""),
+                          "created": pdf_date(info.get("creationDate")),
+                          "modified": pdf_date(info.get("modDate"))})
+    return found
+
+
+def page_highlights(page):
+    """Return the texts of the highlight annotations of PAGE."""
+    found = []
+    for detail in page_highlight_details(page):
+        if detail["text"] not in found:
+            found.append(detail["text"])
     return found
 
 
