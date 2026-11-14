@@ -149,6 +149,36 @@
           (vulpea-ui-visit-note nil))
         (should (= test-focus-calls 1))))))
 
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-other-window ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (select-window wb)
+    (select-window wv)
+    (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+      (let ((sp-vulpea-ui-view-switch-buffer-action 'other-window))
+        (switch-to-buffer p)))
+    (should (eq (selected-window) wb))
+    (should (eq (window-buffer wb) p))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))
+    (should (window-dedicated-p wv))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-error-when-nil ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wv)
+    (let ((sp-vulpea-ui-view-switch-buffer-action nil))
+      (should-error (switch-to-buffer p) :type 'user-error))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-elsewhere-unchanged ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (switch-to-buffer b)
+    (should (eq (window-buffer wa) b))
+    (should (eq (selected-window) wa))))
+
 (ert-deftest sp-vulpea-ui-view-test-frame-name ()
   (let ((sp-vulpea-ui-view-frame-name "tile-me")
         (sp-vulpea-ui-view-frame-parameters '((name . "other") (width . 40))))
