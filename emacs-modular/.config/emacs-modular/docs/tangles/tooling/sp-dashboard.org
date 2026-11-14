@@ -2102,6 +2102,8 @@ Menu actions come from the optional =sp-workspaces= module. These wrappers make 
 
 ** Dispatcher
 
+For how to add a workspace and hook it to the Dashboard, see [[file:../../architecture/tabspaces-workspaces.org][Tabspaces and workspaces]].
+
 =sp-dashboard--workspace-dispatch= calls a function if it is defined and otherwise prints a message asking the user to enable =sp-workspaces=.
 
 #+begin_src emacs-lisp -i
