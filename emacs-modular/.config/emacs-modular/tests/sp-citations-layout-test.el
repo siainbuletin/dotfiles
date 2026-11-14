@@ -16,7 +16,7 @@
         (while t
           (let ((form (read (current-buffer))))
             (when (and (memq (car-safe form) '(defcustom defconst defun defvar))
-                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\|completion-template\\)\\)"
+                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\|completion-template\\|last-first\\|name-particles\\|name-suffixes\\|unbrace\\)\\)"
                                        (symbol-name (cadr form))))
               (eval form t))))
       (end-of-file nil))))
@@ -43,7 +43,7 @@
 
 (ert-deftest sp-citations-layout-templates ()
   (let ((templates (sp-citations--layout-templates 110)))
-    (should (string-match-p "\\`\\${=type=:3%etype} \\${author editor:[0-9]+}  \\${year issued date:4}  \\${title:[0-9]+}\\'"
+    (should (string-match-p "\\`\\${=type=:3%etype} \\${author editor:[0-9]+%lastfirst}  \\${year issued date:4}  \\${title:[0-9]+}\\'"
                             (cdr (assq 'main templates))))
     (should (string-match-p "\\${=key= id:4[0-9]}" (cdr (assq 'suffix templates))))))
 ;; Emoji cells, with the pixel functions stubbed: a glyph is `width-of' pixels.
@@ -155,5 +155,33 @@
       (should (= (length (cl-remove-if-not (lambda (e) (eq (car e) 'completion)) citar-templates)) 1))
       (should (eq (car (ensure-list (sp-citations-test--key-face (cdr (assq 'completion citar-templates)))))
                   'sp-citar-key)))))
+
+;; Author names, last name first.
+(ert-deftest sp-citations-last-first-names ()
+  (dolist (case '(("Smith, John and Doe, Jane" . "Smith, John; Doe, Jane")
+                  ("John Smith and Jane Q. Doe" . "Smith, John; Doe, Jane Q.")
+                  ("Smith, John and Jane Doe" . "Smith, John; Doe, Jane")
+                  ("Ludwig van Beethoven" . "van Beethoven, Ludwig")
+                  ("Vincent van der Berg" . "van der Berg, Vincent")
+                  ("de la Cruz, Maria" . "de la Cruz, Maria")
+                  ("{World Health Organization}" . "World Health Organization")
+                  ("Martin Luther King Jr." . "King Jr., Martin Luther")
+                  ("Smith, Jr., John" . "Smith Jr., John")
+                  ("Madonna" . "Madonna")
+                  ("van Beethoven" . "van Beethoven")
+                  ("Jean-Paul Sartre" . "Sartre, Jean-Paul")
+                  ("A. B. Smith" . "Smith, A. B.")
+                  ("Smith, John and others" . "Smith, John; et al.")
+                  ("Doe, {J}ane" . "Doe, Jane")
+                  ("John Smith\n  and Jane Doe" . "Smith, John; Doe, Jane")
+                  ("" . "")))
+    (should (equal (sp-citations--last-first (car case)) (cdr case)))))
+
+(ert-deftest sp-citations-last-first-nil ()
+  (should (equal (sp-citations--last-first nil) "")))
+
+(ert-deftest sp-citations-main-template-uses-the-name-transform ()
+  (should (string-match-p "\\${author editor:[0-9]+%lastfirst}"
+                          (cdr (assq 'main (sp-citations--layout-templates 120))))))
 
 (provide 'sp-citations-layout-test)
