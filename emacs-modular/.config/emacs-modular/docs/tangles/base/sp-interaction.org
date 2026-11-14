@@ -324,3 +324,22 @@ Provides the =sp-interaction= feature and closes the file.
 (provide 'sp-interaction)
 ;; sp-interaction.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/457][#457]]
+  - ✨ Added =sp-echo-help-set HINTS &optional NOTE=: the keys of a buffer as echo-area hints, =HINTS= being =(KEY DESCRIPTION [STRONG])=
+    - =sp-echo-help-format= is the pure function that builds the text
+    - =sp-echo-help-mode= is a buffer-local =post-command-hook= that shows the hints when no other message is showing
+    - faces =sp-echo-help-face= (from =shadow=) and =sp-echo-help-strong-face=
+- [[https://github.com/siainbuletin/dotfiles/pull/461][#461]]
+  - ✨ Added =C-c ?= (=sp-echo-help-show-now=): shows the hints at once, replacing the current message
+  - ✨ Added an idle timer (=sp-echo-help-idle-delay=, default 1.5 s, nil turns it off) that shows the hints when the echo area is empty
+    - one shared timer, stopped when no buffer uses the mode
+    - not nano's =sit-for= loop, which would block the commands
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🐛 Fixed the hints of #459 never reaching =main=: it was merged into the already merged branch of #457; its two commits are cherry-picked
+    - the report and lint buffers call =sp-echo-help-set= and no longer show their keys in the header, the buffer and the footer
+  - 🐛 Fixed the hints staying hidden: they are set after =pop-to-buffer=, and the idle re-show takes the place of the last message of a job

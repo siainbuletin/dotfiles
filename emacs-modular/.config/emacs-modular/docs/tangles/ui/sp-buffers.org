@@ -369,3 +369,16 @@ Provides the =sp-buffers= feature and closes the file.
 (provide 'sp-buffers)
 ;; sp-buffers.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/402][#402]]
+  - 🐛 Fixed the =ibuffer= list not being sectioned: =sp-buffers-activate-filter-groups= runs on =ibuffer-mode-hook= and switches to the "Main" groups
+  - 🐛 Fixed the column widths never being used: =nerd-icons-ibuffer-mode= overwrites =ibuffer-formats=, so the widths are also set for =nerd-icons-ibuffer-formats=
+    - name 36 (24 in the compact format), mode 18, =:elide= for long text, the file path takes the rest
+- [[https://github.com/siainbuletin/dotfiles/pull/445][#445]]
+  - ✨ Added the display column =sp-name=: the Org =#+title=, else the buffer name
+    - both format lists use it; only Org buffers are read, only their first 4000 characters, cached on =buffer-chars-modified-tick=
+    - option =sp-buffers-org-title-in-ibuffer= (default =t=)

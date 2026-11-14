@@ -891,3 +891,29 @@ A failure is reported, not signalled: the article is already filed."
 (provide 'sp-fetch-inbox)
 ;;; sp-fetch-inbox.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added the module (=M-x sp-fetch-inbox=, =C-c w b a=)
+    - items: records of the =inbox= group in DEVONthink =literature= and PDFs in =~/Documents/literature/inbox/=
+    - reads the DOI from the first two PDF pages (=pdftotext=), fetches the entry with org-ref and makes the key with the =bibtex-autokey= scheme
+    - shows the PDF left and an editable BibTeX buffer right: =C-c C-c= files, =C-c C-k= aborts, =C-c C-r= new key, =C-c C-d= another DOI
+    - after one yes/no question: the PDF moves to =KEY.pdf=, the record is renamed and moved, the =file= field is added and the entry is appended to the =.bib=
+- [[https://github.com/siainbuletin/dotfiles/pull/457][#457]]
+  - 🔧 Changed the key help to echo-area hints (=sp-echo-help-set=) instead of a header line
+- [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
+  - ✨ Added the call of =sp-devonthink-bibsync= when an entry is filed
+- [[https://github.com/siainbuletin/dotfiles/pull/472][#472]]
+  - ✨ Added sorting of the picker: =added= (newest first, the default) or =alphabetical= (=sp-fetch-inbox-sort=, =C-c s=)
+    - typed input is kept when switching
+  - ✨ Added grouping by the sub-folders of =inbox/= (=sp-fetch-inbox-group=), and =C-c d= or =C-u= to restrict to one folder
+    - files directly in =inbox/= are in =(inbox)=; DEVONthink sub-groups are listed as folders of the same name
+- [[https://github.com/siainbuletin/dotfiles/pull/478][#478]]
+  - 🐛 Fixed the slow picker: the listing script reads each field once per group, not once per record
+    - about 8 Apple Events per record became about 4 per group; the cause was inferred from the code, not measured
+    - =sp-fetch-inbox--merge= uses a hash table
+  - 🐛 Fixed the =C-u= folder choice
+  - ✨ Added =sp-fetch-inbox-devonthink-depth= (default 8; 0 skips the sub-group walk) and =sp-fetch-inbox-profile=

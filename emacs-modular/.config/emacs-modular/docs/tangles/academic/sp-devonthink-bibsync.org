@@ -385,3 +385,13 @@ In a litnote KEY is its citekey; otherwise it is asked."
 (provide 'sp-devonthink-bibsync)
 ;;; sp-devonthink-bibsync.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
+  - ✨ Added the module: BibTeX author, title and keywords copied to the DEVONthink record
+    - keywords go to the record's tags (only added, never removed)
+    - author and title go to the custom metadata =bibauthor= and =bibtitle= (=sp-devonthink-bibsync-author-id=, =-title-id=); BibTeX wins on each run; authors are joined with =; =
+    - both are stored with the record, so they survive a move, a rename, a re-index and an export

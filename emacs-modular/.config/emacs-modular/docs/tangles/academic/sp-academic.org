@@ -4140,3 +4140,67 @@ What each pull request changed in this module, newest last; the one-line summary
   - =sp-bibtex-files-devonthink-tool= makes that move go through =tools/devonthink-move.py=, so DEVONthink records keep their UUID.
   - Tested in Emacs 29.3 in batch (=tests/sp-bibprocess-lint-test.el=)
     - not run on the real =.bib= files.
+- [[https://github.com/siainbuletin/dotfiles/pull/405][#405]]
+  - ✨ Added bold indicators L, F and N, each in its own face (=sp-citar-indicator-link=, =-file=, =-note=), coloured from the Modus palette
+    - without Modus they inherit =font-lock-function-name-face=, =error= and =success=
+  - 🔧 Changed the citekey to come after the title and authors, in the face =sp-citar-key= (=shadow= and italic)
+  - 🔧 Changed =citar-indicators= to be set directly: =citar-symbols= has been obsolete since citar 1.4
+- [[https://github.com/siainbuletin/dotfiles/pull/406][#406]]
+  - ✨ Added the fitting of the candidate columns to the posframe width (=:around= advice on =citar--format-candidates=) and a year column
+    - removed again by #429
+- [[https://github.com/siainbuletin/dotfiles/pull/409][#409]]
+  - ✨ Added aligned columns: one stretched space (=display (space :align-to N)=) instead of padding
+    - columns served by priority (=sp-citations-column-priorities=), the citekey cut at 45 (=sp-citations-column-max-widths=)
+  - ✨ Added the emoji indicators 🌿️ link, 📁️ file, 📝️ note and 🎓️ cited, with no padding between them
+  - 🔧 Changed the type and =beref= columns to be hidden
+    - the fitting code was removed by #429; the emoji stayed
+- [[https://github.com/siainbuletin/dotfiles/pull/410][#410]]
+  - ✨ Added =sp-bibtex-lint-fix-keys= (=C-c w b k=): flags BibTeX citekeys over =sp-bibtex-key-max-length= (45) and asks for a shorter one
+    - the key is suggested from =bibtex-generate-autokey= and checked (length, characters, not another entry's key)
+    - a plan in =*BibTeX key renames*= updates what uses the key (=sp-bibtex-key-update-targets=: notes, files, bibrefs)
+- [[https://github.com/siainbuletin/dotfiles/pull/411][#411]]
+  - ✨ Added the entry type as an emoji in the first column instead of the type name
+    - the tags are in the =sp-org-tag-groups= doc
+- [[https://github.com/siainbuletin/dotfiles/pull/414][#414]]
+  - ✨ Added =sp-devonthink= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]
+  - ✨ Added =sp-devonthink-browse= and =sp-devonthink-tags= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/427][#427]]
+  - 🐛 Fixed the column alignment
+    - the Vertico mark takes two places before the indicators, so =sp-citations-prefix-width= (2) is added to the block width; a guess from the code, not seen in the window
+  - 🔧 Changed the column order to emoji, authors, year, title, citekey, then tags
+    - removed again with the fitting by #429, except the order
+- [[https://github.com/siainbuletin/dotfiles/pull/429][#429]]
+  - 🔥 Removed the width fitting of #406, #409 and #427
+    - =sp-citations--format-candidates=, =--fit-widths=, =--assemble=, =--candidate-width=, =sp-citations-candidate-margin=, =-column-priorities=, =-column-max-widths=, =-prefix-width=, =--indicator-block-width= and the stretched spaces
+    - =tests/sp-citations-columns-test.el= goes too
+  - 🔧 Kept the faded italic citekey, the emoji indicators, the entry-type emoji and the column order
+- [[https://github.com/siainbuletin/dotfiles/pull/432][#432]]
+  - ✨ Added the widths for a half frame, worked out from the display
+    - =sp-citations--half-frame-columns=: (display width - 24 AeroSpace gaps) / 2, minus the frame border, times =sp-posframe-width-fraction=, divided by the character width of the =default= face
+    - 27 columns are fixed; authors take a fifth, the citekey up to 45 without leaving the title under 20; tags only come back at 110 columns or more
+    - the emoji cells are exact (pixel width)
+- [[https://github.com/siainbuletin/dotfiles/pull/433][#433]]
+  - 🔧 Changed the widths to come from the frame on the screen: the text width in pixels over the pixel width of a =default= character (=sp-citations--frame-columns=)
+    - with the posframe on, =sp-posframe-width-fraction= of that
+  - ✨ Added =sp-citations--apply-layout=, run before =citar-select-ref= and =citar-select-refs=: it compares columns, character width and font, and makes the cells and templates again only when they changed
+- [[https://github.com/siainbuletin/dotfiles/pull/439][#439]]
+  - 🐛 Fixed the citekey not being faded italic
+    - =citar-templates= has no =completion= entry, so citar builds it with =propertize ... 'face 'citar=, which replaced the face of the citekey field
+    - =sp-citations--completion-template= makes the =completion= entry itself: the main part in =citar-highlight= and the =citar= face added after the faces the suffix already has
+- [[https://github.com/siainbuletin/dotfiles/pull/448][#448]]
+  - ✨ Added the author column with the last name first (=sp-citations--last-first=, the =lastfirst= transform, =${author editor:N%lastfirst}=)
+    - =Last, First= stays, =Jane Q. Doe= becomes =Doe, Jane Q.=; particles and suffixes stay with the last name
+    - names in braces and single words are left as they are; =others= becomes =et al.=; several names are joined with =; =
+- [[https://github.com/siainbuletin/dotfiles/pull/453][#453]]
+  - ✨ Added =sp-pdf-reader= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added =sp-fetch-inbox= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
+  - ✨ Added =sp-devonthink-bibsync= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/471][#471]]
+  - ✨ Added a preload of the bibliography in idle time (=sp-citations-preload=)
+    - an idle timer loads =citar= and reads one file per idle slice; =C-g= stops it
+    - saving a =.bib= buffer or =sp-bibtex-register= schedules a new pass
+    - the cache =citar-bibliography.eld= in =sp-cache-dir= is written after a pass that parsed something; citar still validates it
+  - ✨ Added the options =sp-citations-preload=, =-delay= (3 s), =-refresh-on-save=, =-persist= and =-cache-file=

@@ -2673,3 +2673,44 @@ writing projects, config), not taken from the entry at point."
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/366][#366]]
+  - ✨ Added =sp-see-also=: reads the "see also" reminders left in litnotes as footnotes (=[fn::[[id:..][Concept]]]=)
+    - records their context (the quote or prose, the open question above)
+    - ranks them and shows dashboards
+- [[https://github.com/siainbuletin/dotfiles/pull/373][#373]]
+  - 🐛 Fixed =sp-see-also= finding no footnotes in real litnotes, which use numbered definition footnotes (=[fn:1]=)
+  - ✨ Added interactive show commands
+- [[https://github.com/siainbuletin/dotfiles/pull/388][#388]]
+  - ✨ Added reading "See also" sections as mentions
+- [[https://github.com/siainbuletin/dotfiles/pull/396][#396]]
+  - ✨ Added a decorated view (=sp-see-also-view-mode=) for =sp-see-also-show= and =sp-see-also-show-concept=, laid out like the DG context pane
+    - a group per concept, open question or litnote: a heading with the score and counts
+    - an entry per mention: a heading line, then the context as an indented quote
+    - the background comes from =sp-highlight=, so it follows the theme
+  - ✨ Added keys: =n=/=p= headings, =TAB= fold one entry, =S-TAB= fold all, =g= redraw, =q= close; click or =RET= visits the footnote
+- [[https://github.com/siainbuletin/dotfiles/pull/398][#398]]
+  - ✨ Added =M-x sp-see-also-show-concept-by-name=: asks for the note by title, then opens the same concept view
+    - the prompt is =sp-select-note= with the new =:grouped t= option and =:require-match t=
+- [[https://github.com/siainbuletin/dotfiles/pull/403][#403]]
+  - ✨ Added =- seealso :: [[id:...]]= meta lines as a source of mentions
+    - every =id:= link on the line is one mention with =:where= =section= (weight 1.5)
+    - the key is matched in any case; the =-= or =+= bullet is optional
+    - not counted: lines in source, example and comment blocks, =#=-commented lines, and lines inside a =See also= section (read once, there)
+  - 🔧 Changed the cache version from 3 to 4, so cached files are read again
+- [[https://github.com/siainbuletin/dotfiles/pull/428][#428]]
+  - ✨ Added the Org tags of the source heading at the right edge of each entry (face =sp-see-also-tags=, from =org-tag=)
+    - only tags written on the heading line; inherited tags and =#+filetags:= are not shown
+    - a long title is cut with an ellipsis, the tags never are
+    - the view is redrawn when the window width changes (folds are lost)
+  - 🔧 Changed the cache version from 4 to 5
+- [[https://github.com/siainbuletin/dotfiles/pull/440][#440]]
+  - 🔧 Changed =sp-see-also-show &optional TARGET= into one view, =*see-also*=, for outgoing and incoming references
+    - no argument: the litnote of the current buffer; =C-u=: any note by title; from Lisp: nil, a file or a note ID
+    - =sp-see-also-show-concept= and =-by-name= stay as thin wrappers
+  - ✨ Added the part "Referenced by": every litnote that refers to the note, with a count per way (=sp-see-also-reference-kinds=)
+    - footnote, section, link, parent and cite, e.g. =×4 · footnote 1 · link 1 · parent 1 · cite 1=
