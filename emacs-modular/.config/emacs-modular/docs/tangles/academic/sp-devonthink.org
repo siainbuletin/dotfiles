@@ -7,7 +7,8 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=. Design: [[fil
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
-- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-test.el=; the AppleScript was not run (see the end of this file).
+- Status: macOS only. The pure parts are covered by =tests/sp-devonthink-test.el=; the AppleScript was not run on the Mac (see "State of the implementation" and the end of this file).
+- What is in =main=, what the open pull requests add and what is untested: see "State of the implementation".
 
 * What it is for
 
@@ -17,7 +18,7 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=. Design: [[fil
   - the cache from citekey to UUID (=sp-reading-uuid=, =sp-reading-refresh=);
   - the item URL with a page anchor (=sp-reading--url=);
   - running AppleScript (=sp-reading--osascript=).
-- Later pull requests add browsing, tags, search, highlights and a sync report to this module.
+- Open pull requests add browsing, tags, search, highlights, a sync report, PDF page labels and chapter keywords (see "State of the implementation").
 
 * The =devonthink:= link
 
@@ -514,6 +515,91 @@ entry's first page (see `sp-devonthink-resolve')."
 (provide 'sp-devonthink)
 ;;; sp-devonthink.el ends here
 #+end_src
+
+* State of the implementation
+
+- Updated 2026-11-13. Only the Emacs Lisp that is in =main= is described in the sections above; the rest is in open pull requests.
+
+** In =main=
+
+- Module =sp-devonthink= ([[https://github.com/siainbuletin/dotfiles/pull/414][#414]]):
+  - the =devonthink:UUID::PAGE= link (follow and export);
+  - the =#+devonthink:= litnote keyword (=sp-devonthink-set-keyword=);
+  - =sp-devonthink-open-from-note=, =sp-devonthink-insert-link=, =sp-devonthink-store-link= and the Embark action =D= (=sp-devonthink-citar-open=);
+  - the keys under =C-c k d= (=o=, =l=, =s=, =k=, =r=).
+- One resolver for every command ([[https://github.com/siainbuletin/dotfiles/pull/437][#437]]):
+  - =sp-devonthink-record= decides which record a citekey means: its own, else the =crossref= parent's;
+  - =sp-devonthink-resolve= adds the page when the record is the parent's;
+  - =sp-devonthink-note-record-uuid= does the same for the current litnote and asks before an action that would reach the whole book.
+- Page prompt ([[https://github.com/siainbuletin/dotfiles/pull/434][#434]]):
+  - =sp-devonthink-insert-link= always asks =Page (empty = whole record):=;
+  - for a chapter the prompt starts with its first page.
+- Viewer windows ([[https://github.com/siainbuletin/dotfiles/pull/435][#435]]):
+  - =sp-devonthink-store-link= reads every DEVONthink window, front to back, not only the main window;
+  - a record in a separate viewer window or a tab is found.
+  - the PDFs opened from the Finder or Alfred open in a window of their own ([[https://github.com/siainbuletin/dotfiles/pull/394][#394]], the =devonthink-open= applet, see the dotfiles changelog).
+- Chapters in the parent's PDF ([[https://github.com/siainbuletin/dotfiles/pull/436][#436]]):
+  - =D= on an entry without a record opens the parent's PDF at the entry's first page;
+  - the page is the first number of =pages= plus =sp-devonthink-page-offset= (or the per-parent entry of =sp-devonthink-parent-page-offsets=).
+- Finding records ([[https://github.com/siainbuletin/dotfiles/pull/430][#430]], [[https://github.com/siainbuletin/dotfiles/pull/422][#422]], [[https://github.com/siainbuletin/dotfiles/pull/426][#426]]):
+  - a record whose name lacks =.pdf= is found, with a full refresh as the fallback;
+  - the listing prints UUIDs and names; =sp-reading-diagnose= explains an empty listing.
+
+** In open pull requests (not in =main=)
+
+- Stack, each on the one before: [[https://github.com/siainbuletin/dotfiles/pull/415][#415]], [[https://github.com/siainbuletin/dotfiles/pull/418][#418]], [[https://github.com/siainbuletin/dotfiles/pull/419][#419]], [[https://github.com/siainbuletin/dotfiles/pull/420][#420]], [[https://github.com/siainbuletin/dotfiles/pull/421][#421]].
+  - [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]: =sp-devonthink-tags= (=C-c k d t=, =C-u= removes; splitting comma-joined tags after a plan) and =sp-devonthink-browse= (=C-c k d b=, Embark actions =o=, =p=, =n=, =l=, =t=).
+  - [[https://github.com/siainbuletin/dotfiles/pull/418][#418]]: =sp-devonthink-search= (=C-c k d f=: DEVONthink or litdb, =C-u= asks for the engine; Embark =s= similar records and =v= preview) and =sp-devonthink-similar-to-note= (=C-c k d a=).
+  - [[https://github.com/siainbuletin/dotfiles/pull/419][#419]]: docs only; this design merged into this file, a status table and an "Open questions" list, ADRs 0027 to 0031.
+  - [[https://github.com/siainbuletin/dotfiles/pull/420][#420]]: =sp-devonthink-highlights-import= (=C-c k d h=): the highlights of the note's PDF under a =* Highlights= heading, one way, nothing overwritten.
+  - [[https://github.com/siainbuletin/dotfiles/pull/421][#421]]: =sp-devonthink-sync-report= (=C-c k d y=, read only), =sp-devonthink-sync-backfill= (plan, yes, backup first) and the record-side link (ADR 0030, proposed).
+- [[https://github.com/siainbuletin/dotfiles/pull/438][#438]]: PDF page labels (ADR 0032), based on =main=.
+  - The printed page of a chapter lives in the PDF (=/PageLabels=), not in Emacs.
+  - Three tools write the labels (=pdf-labels-articles.py=, =pdf-labels-book.py=) or read them (=pdf-labels-read.py=); they need =pikepdf=.
+  - It removes =sp-devonthink-page-offset=, =sp-devonthink-parent-page-offsets= and =sp-devonthink-first-page=, and adds =sp-devonthink-label-command= and =sp-devonthink-label-script=; the sections "Header and options" and "Chapters in a parent's PDF" above change accordingly.
+  - With no labels, or no match, the parent opens at the start with a message.
+- [[https://github.com/siainbuletin/dotfiles/pull/441][#441]]: chapter keywords, based on =main=.
+  - =C-c k d C= (=sp-devonthink-chapter-keywords-store=) writes the chapter's BibTeX =keywords= into a block of the parent's record comment (=-- sp-chapter: KEY --= ... =-- end sp-chapter --=); it asks first, and the parent's tags stay as they are.
+  - =C-c k d c= (=sp-devonthink-chapter-keywords-show=) puts them at the bottom of the chapter's litnote under =* Keywords in the book "Title" (parent-key)=; it never writes to DEVONthink and leaves the buffer unsaved.
+  - An entry with a record of its own is refused.
+  - Open question: whether the comment is enough to find them in DEVONthink (fallback: prefixed tags =ch:KEY/keyword=).
+- Keys that the open pull requests add under =C-c k d=: =t=, =b=, =f=, =a=, =h=, =y= (stack), =c= and =C= (#441).
+
+** Untested on the real Mac
+
+- All AppleScript: nothing in this module ran against DEVONthink (no DEVONthink in the container).
+  - =current page= and =selected text= on a =think window=, and whether the page is 0- or 1-based (=sp-devonthink-store-page-offset=);
+  - =comment of= (read and set), custom metadata, =lookup records with tags=, =compare record=, =plain text of=, =path of= (open pull requests);
+  - the =comment= block of chapter keywords and whether a search finds it ([[https://github.com/siainbuletin/dotfiles/pull/441][#441]]).
+- Whether DEVONthink counts pages from 0 in item links, as its forum and blog say; and whether it shows or uses the PDF's page labels ([[https://github.com/siainbuletin/dotfiles/pull/438][#438]]).
+- =pikepdf= on the Mac, and any real PDF of the library (labels were tested on generated PDFs).
+- Whether macOS can hand an =org-protocol://= URL to Emacs ([[https://github.com/siainbuletin/dotfiles/pull/421][#421]]).
+- Embark actions in a session.
+- Tested in the container: the pure parts, with ERT (=tests/sp-devonthink-test.el=) and the tangle check.
+
+* Changes by pull request
+
+- [[https://github.com/siainbuletin/dotfiles/pull/414][#414]]
+  - ✨ Added the module: the =devonthink:= link, the =#+devonthink:= keyword and the commands under =C-c k d=.
+  - Not run on the Mac.
+- [[https://github.com/siainbuletin/dotfiles/pull/430][#430]]
+  - 🐛 Fixed =sp-devonthink-insert-link= failing with =No DEVONthink record named KEY.pdf=.
+  - The lookup of one record found only a name equal to =KEY.pdf=; DEVONthink often keeps the name without =.pdf=.
+  - The lookup now also accepts the bare name and falls back to a full refresh.
+- [[https://github.com/siainbuletin/dotfiles/pull/434][#434]]
+  - 🐛 Fixed =sp-devonthink-insert-link= never offering a page.
+  - It always asks =Page (empty = whole record):= after the citekey now; before, it asked only with =C-u=.
+- [[https://github.com/siainbuletin/dotfiles/pull/435][#435]]
+  - 🐛 Fixed =sp-devonthink-store-link= saying =DEVONthink has no record open in its front window= for a record in a separate viewer window.
+  - The script read only =think window 1=; it visits every window now.
+- [[https://github.com/siainbuletin/dotfiles/pull/436][#436]]
+  - ✨ Added opening a chapter at its first page in the PDF of its crossref parent.
+  - The page is the first number of =pages= plus an offset (=sp-devonthink-page-offset=).
+  - [[https://github.com/siainbuletin/dotfiles/pull/438][#438]] replaces the offset with PDF page labels.
+- [[https://github.com/siainbuletin/dotfiles/pull/437][#437]]
+  - 🐛 Fixed commands that disagreed about which record a citekey means.
+  - =sp-devonthink-record= is the only place that decides; every command follows =crossref= to the parent.
+  - Not run on the Mac.
 
 * Testing it by hand on the Mac
 
