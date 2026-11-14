@@ -474,11 +474,11 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
             sp-batch-report-redraw-function (plist-get args :redraw)
             sp-batch-report-apply-function (plist-get args :apply)
             sp-batch-report-excluded (plist-get args :excluded))
-      (sp-batch-report--set-hints)
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
       (pop-to-buffer (current-buffer))
+      (sp-batch-report--set-hints)
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))

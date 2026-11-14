@@ -144,13 +144,15 @@ Nil never shows them again on idle."
   (seq-some (lambda (b) (buffer-local-value 'sp-echo-help-mode b)) (buffer-list)))
 
 (defun sp-echo-help--idle-show ()
-  "Show the hints of the selected window's buffer; stop the timer when unused."
+  "Show the hints of the selected window's buffer; stop the timer when unused.
+The hints replace a message that has been there for the whole idle delay,
+so the last message of a job does not hide them for good."
   (if (not (sp-echo-help--any-buffer-p))
       (when (timerp sp-echo-help--timer)
         (cancel-timer sp-echo-help--timer)
         (setq sp-echo-help--timer nil))
     (with-current-buffer (window-buffer (selected-window))
-      (when sp-echo-help-mode (sp-echo-help-show)))))
+      (when sp-echo-help-mode (sp-echo-help-show t)))))
 
 (defun sp-echo-help-show-now ()
   "Show the key hints of this buffer in the echo area now."
