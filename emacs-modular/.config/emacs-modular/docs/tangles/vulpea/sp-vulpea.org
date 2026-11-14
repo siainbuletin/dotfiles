@@ -3266,6 +3266,28 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   :group 'sp-vulpea-ui-view)
 #+end_src
 
+*** Line wrapping
+
+- =sp-vulpea-ui-view-wrap-lines=: non-nil (the default) wraps long lines of every widget at the window edge, at word boundaries, so no content is cut off.
+   + It is local to the view buffer; the sidebar and every other buffer are not touched.
+   + Nil leaves the lines as the sidebar shows them.
+- =sp-vulpea-ui-view-wrap-indent=: non-nil (the default) indents the wrapped part of a line like its start, so a wrapped backlink stays under its bullet.
+   + It needs =visual-wrap-prefix-mode=, which is in Emacs 30 and later; older Emacs wraps without the indent.
+   + It has an effect only while =sp-vulpea-ui-view-wrap-lines= is non-nil.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-vulpea-ui-view-wrap-lines t
+  "Non-nil means long lines in the view wrap at the window edge."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-indent t
+  "Non-nil means a wrapped line is indented like its beginning.
+This needs `visual-wrap-prefix-mode' (Emacs 30 or later)."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+#+end_src
+
 ** State and mode
 
 *** State
@@ -3297,17 +3319,45 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   "Non-nil while the view renders.")
 #+end_src
 
+*** Wrapping the lines
+
+- =sp-vulpea-ui-view--apply-wrap= sets up the wrapping in the current buffer from the two options.
+   + Wrapping on: =truncate-lines= is nil and =visual-line-mode= is on, so the lines break at words.
+   + The indent of the wrapped part comes from =visual-wrap-prefix-mode= when it exists and =sp-vulpea-ui-view-wrap-indent= is non-nil.
+   + Wrapping off: both modes are turned off in the view buffer; nothing else is changed.
+- The mode body and the first render call it, because the mode body runs before the mount, and a mount may reset the buffer-local settings.
+- A =hard= render (=g=) calls it too, so a changed option takes effect on refresh.
+
+#+begin_src emacs-lisp -i
+(declare-function visual-wrap-prefix-mode "visual-wrap")
+
+(defun sp-vulpea-ui-view--apply-wrap ()
+  "Set the line wrapping of the current buffer from the wrap options."
+  (if sp-vulpea-ui-view-wrap-lines
+      (progn
+        (setq-local truncate-lines nil)
+        (visual-line-mode 1)
+        (when (and sp-vulpea-ui-view-wrap-indent
+                   (fboundp 'visual-wrap-prefix-mode))
+          (visual-wrap-prefix-mode 1)))
+    (visual-line-mode -1)
+    (when (fboundp 'visual-wrap-prefix-mode)
+      (visual-wrap-prefix-mode -1))))
+#+end_src
+
 *** The mode
 
 - It derives from =vulpea-ui-sidebar-mode=, so the keys of the sidebar (=g= to refresh, =RET= and click to follow) and the widget toggling work in it.
 - =q= closes the view (the sidebar's =q= would close the sidebar of the selected frame) and =g= refreshes it.
 - Killing the buffer removes the hooks and timers (=kill-buffer-hook=, set in the mode body).
+- The mode body also applies the line wrapping.
 
 #+begin_src emacs-lisp -i
 (define-derived-mode sp-vulpea-ui-view-mode vulpea-ui-sidebar-mode "vulpea-ui-view"
   "Major mode of the vulpea-ui view buffer.
 \\{sp-vulpea-ui-view-mode-map}"
   :group 'sp-vulpea-ui-view
+  (sp-vulpea-ui-view--apply-wrap)
   (add-hook 'kill-buffer-hook #'sp-vulpea-ui-view--teardown nil t))
 
 (define-key sp-vulpea-ui-view-mode-map (kbd "q") #'sp-vulpea-ui-view-close)
@@ -3376,6 +3426,7 @@ The view follows the most recently used window that shows a vulpea note.
    + =note=: another note; the first mount, or the props of the instance change, and point goes to the top.
    + =soft=: the same note; memoised widget data is kept, only what depends on the buffers recomputes (this is the sidebar's idle refresh).
    + =hard=: caches are dropped (=vui-update= and a bump of =vulpea-ui--refresh-generation=), for =g= and for database changes.
+- The line wrapping is applied after a mount and after a =hard= render (see "Wrapping the lines").
 - Without a window for the view nothing is rendered.
 
 #+begin_src emacs-lisp -i
@@ -3394,11 +3445,13 @@ KIND is `note', `soft' or `hard'."
                      (buffer-live-p (vui-instance-buffer instance)))
                 (pcase kind
                   ('hard (cl-incf vulpea-ui--refresh-generation)
-                         (vui-update instance (list :note note)))
+                         (vui-update instance (list :note note))
+                         (sp-vulpea-ui-view--apply-wrap))
                   (_ (vui-update-props instance (list :note note))))
               (setq sp-vulpea-ui-view--instance
                     (vui-mount (vui-component 'vulpea-ui-sidebar-root :note note)
-                               (buffer-name)))))
+                               (buffer-name)))
+              (sp-vulpea-ui-view--apply-wrap)))
           (when (eq kind 'note)
             (goto-char (point-min))))))))
 
@@ -3853,6 +3906,34 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
       (should (equal (alist-get 'name parameters) "tile-me"))
       (should (= (length (seq-filter (lambda (p) (eq (car p) 'name)) parameters)) 1))
       (should (equal (alist-get 'width parameters) 40)))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-on ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (sp-vulpea-ui-view-wrap-indent t))
+    (with-temp-buffer
+      (setq-local truncate-lines t)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should visual-line-mode)
+      (should-not truncate-lines))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-off ()
+  (let ((sp-vulpea-ui-view-wrap-lines nil))
+    (with-temp-buffer
+      (visual-line-mode 1)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should-not visual-line-mode))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-is-local-to-the-view ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (other (generate-new-buffer " test-other"))
+        (view (generate-new-buffer " test-view")))
+    (unwind-protect
+        (progn
+          (with-current-buffer view (sp-vulpea-ui-view-mode))
+          (should (buffer-local-value 'visual-line-mode view))
+          (should-not (buffer-local-value 'visual-line-mode other)))
+      (kill-buffer other)
+      (kill-buffer view))))
 
 (ert-deftest sp-vulpea-ui-view-test-toggle-and-teardown ()
   (let ((sp-vulpea-ui-view-use-frame nil)

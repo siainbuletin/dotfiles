@@ -157,6 +157,34 @@
       (should (= (length (seq-filter (lambda (p) (eq (car p) 'name)) parameters)) 1))
       (should (equal (alist-get 'width parameters) 40)))))
 
+(ert-deftest sp-vulpea-ui-view-test-wrap-on ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (sp-vulpea-ui-view-wrap-indent t))
+    (with-temp-buffer
+      (setq-local truncate-lines t)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should visual-line-mode)
+      (should-not truncate-lines))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-off ()
+  (let ((sp-vulpea-ui-view-wrap-lines nil))
+    (with-temp-buffer
+      (visual-line-mode 1)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should-not visual-line-mode))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-is-local-to-the-view ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (other (generate-new-buffer " test-other"))
+        (view (generate-new-buffer " test-view")))
+    (unwind-protect
+        (progn
+          (with-current-buffer view (sp-vulpea-ui-view-mode))
+          (should (buffer-local-value 'visual-line-mode view))
+          (should-not (buffer-local-value 'visual-line-mode other)))
+      (kill-buffer other)
+      (kill-buffer view))))
+
 (ert-deftest sp-vulpea-ui-view-test-toggle-and-teardown ()
   (let ((sp-vulpea-ui-view-use-frame nil)
         (sp-vulpea-ui-view--note nil)
