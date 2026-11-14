@@ -519,11 +519,18 @@ relative to it."
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
-                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
-                " Footnote lint: RET visit, a apply, g rescan, q quit"))
-      ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
+      ('applied " Footnote lint: applied")
       (_ " Footnote lint"))))
+
+(defun sp-org-lint-fn--hints ()
+  "The keys of the report buffer, as hints for the echo area."
+  (pcase (sp-org-lint-fn--get :phase)
+    ((or 'scan 'apply) '(("q" "Quit")))
+    ('applied '(("RET" "Visit") ("g" "Rescan") ("q" "Quit" t)))
+    (_ (append '(("RET" "Visit"))
+               (and (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                    '(("d" "Drop") ("u" "Restore")))
+               '(("a" "Apply" t) ("g" "Rescan") ("q" "Quit" t))))))
 
 (defvar sp-org-lint-fn-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -699,7 +706,9 @@ relative to it."
             (seq-count (lambda (p) (plist-get p :error)) plans))))
 
 (defun sp-org-lint-fn--render ()
-  "Draw the whole report, from the state of the run, in the view of this buffer."
+  "Draw the whole report, from the state of the run, in the view of this buffer.
+The hints in the echo area follow the phase of the run."
+  (sp-echo-help-set (sp-org-lint-fn--hints))
   (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
       (sp-org-lint-fn--render-batch)
     (sp-org-lint-fn--render-old)))

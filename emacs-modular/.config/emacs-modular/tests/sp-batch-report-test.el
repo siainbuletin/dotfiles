@@ -205,5 +205,21 @@
           (kill-buffer buffer))
       (delete-file file))))
 
+(ert-deftest sp-batch-report-hints-follow-the-functions ()
+  (with-temp-buffer
+    (sp-batch-report-mode)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should-not (member "d" keys))
+      (should-not (member "A" keys)))
+    (setq sp-batch-report-refresh-function #'ignore
+          sp-batch-report-apply-function #'ignore)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should (member "d" keys))
+      (should (member "A" keys))
+      (should (member "g" keys)))
+    (sp-batch-report--set-hints)
+    (should (equal sp-echo-help--hints (sp-batch-report--hints)))
+    (should-not header-line-format)))
+
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here
