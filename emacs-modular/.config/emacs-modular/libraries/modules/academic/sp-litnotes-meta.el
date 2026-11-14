@@ -435,28 +435,28 @@ Return `added' or `filled', or nil when the line already has a value.  An
 empty or nil VALUE is never written: nothing is added and nothing is filled.  A
 new line goes after the last item and its continuation lines."
   (unless (sp-litnotes-meta--blank-p value)
-    (save-excursion
-      (save-restriction
-        (widen)
-        (let ((limit (sp-author-notes--first-heading))
-              (case-fold-search t))
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let ((limit (sp-author-notes--first-heading))
+            (case-fold-search t))
+        (goto-char (point-min))
+        (cond
+         ((re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key)) limit t)
+          (when (string-empty-p (string-trim (match-string 1)))
+            (replace-match (concat " " value) t t nil 1)
+            'filled))
+         (t
           (goto-char (point-min))
-          (cond
-           ((re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key)) limit t)
-            (when (string-empty-p (string-trim (match-string 1)))
-              (replace-match (concat " " value) t t nil 1)
-              'filled))
-           (t
-            (goto-char (point-min))
-            (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
-                (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
+          (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
+              (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
                        (sp-litnotes-meta--end-of-item)
-                       (insert "\n"))
-              (goto-char limit)
-              (unless (bolp) (insert "\n"))
-              (insert "\n"))
-            (insert (format "- %s :: %s" key value))
-            (unless (eq (char-after) ?\n) (insert "\n"))
+                     (insert "\n"))
+            (goto-char limit)
+            (unless (bolp) (insert "\n"))
+            (insert "\n"))
+          (insert (format "- %s :: %s" key value))
+          (unless (eq (char-after) ?\n) (insert "\n"))
             'added)))))))
 
 (define-error 'sp-litnotes-meta-lost-data
@@ -682,13 +682,13 @@ answer), unless `sp-litnotes-meta--allow-clear' is non-nil, which then empties
 the value and keeps the line.  Return non-nil when the buffer was written."
   (if (and (sp-litnotes-meta--blank-p value) (not sp-litnotes-meta--allow-clear))
       nil
-    (save-excursion
-      (save-restriction
-        (widen)
-        (goto-char (point-min))
-        (let ((case-fold-search t))
-          (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
-                                 (sp-author-notes--first-heading) t)
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                               (sp-author-notes--first-heading) t)
               (progn (replace-match (concat " " (or value "")) t t nil 1) t)
             (sp-litnotes-meta--set key value)))))))
 
