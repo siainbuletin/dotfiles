@@ -387,7 +387,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - It now skips windows showing a buffer in =olivetti-mode=.
   - Not run in Emacs (none in the container).
 
-- [[https://github.com/siainbuletin/dotfiles/pull/465][#465]]
+- [[https://github.com/siainbuletin/dotfiles/pull/466][#466]]
   - ✨ Added =sp-frame-share-buffers-mode= (global, on by default): a new frame gets the =buffer-list= and =buried-buffer-list= of the frame selected before it.
   - Cause: a new frame has empty buffer lists, and =tabspaces= (and so =consult-buffer=) reads them.
   - Option =sp-frame-share-buffers-scope=: =selected= or =all=.
