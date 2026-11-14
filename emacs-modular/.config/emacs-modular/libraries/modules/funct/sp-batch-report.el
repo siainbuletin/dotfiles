@@ -352,11 +352,12 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (sp-echo-help-set (sp-batch-report--hints)))
+  (sp-echo-help-set (sp-batch-report--hints) nil t))
 
-(defun sp-batch-report--set-hints ()
-  "Show the keys of this report in the echo area, now that its functions are set."
-  (sp-echo-help-set (sp-batch-report--hints)))
+(defun sp-batch-report--set-hints (&optional quiet)
+  "Show the keys of this report in the echo area, now that its functions are set.
+A non-nil QUIET (the report was made again after a drop) keeps the message there."
+  (sp-echo-help-set (sp-batch-report--hints) nil quiet))
 
 (defvar use-short-answers)
 (defvar save-silently)
@@ -481,10 +482,8 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
-      (when (fboundp 'sp-echo-help-set)
-        (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
-      (sp-batch-report--set-hints)
+      (sp-batch-report--set-hints (and line t))
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))
