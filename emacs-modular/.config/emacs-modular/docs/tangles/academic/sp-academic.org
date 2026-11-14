@@ -3205,7 +3205,32 @@ Candidate layout widths (=sp-citations--layout=, from the display):
 
 The notes path was written inside =:custom= once, which expects pairs of variable and value, so use-package tried to customise variables literally named when and setq and neither was ever applied.
 
-Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
+Keybindings:
+- ~C-c w b o~ runs =citar-open= globally.
+- ~C-c b~ in Org buffers runs =org-cite-insert= (unchanged: no page question).
+- ~C-c B~ in Org buffers runs =sp-citations-insert-with-page= (inserts a citation and asks for the page).
+- Both keys exist side by side: the page question is only for the citations that need it.
+
+*Citation with a page* (=sp-citations-insert-with-page=, ~C-c B~):
+- Meant for the citations that need a locator; the everyday insert (~C-c b~) never asks.
+- Works only in Org buffers (=user-error= elsewhere).
+- Steps:
+  - choose one or more references with =citar-select-refs= (the usual Citar candidates);
+  - for each key, a prompt =Page for KEY (empty for none): =;
+  - the text is inserted as =[cite:@key p. 12]=; several keys are joined with =; =.
+- The prompt starts with the first page of the entry's BibTeX =pages= field (=sp-citations-first-page=):
+  - =12--30= and =12, 15= give =12=; =S12--S20= gives =S12=;
+  - a chapter without its own PDF still gets the first page of its own =pages=;
+  - no =pages= field: the prompt starts empty.
+- The answer is turned into the locator by =sp-citations-format-locator=:
+  - empty: no page, the key is inserted alone (=@key=);
+  - one number or word: =p. 12=;
+  - a range (hyphen, en dash or em dash): =pp. 12-14=;
+  - anything else (=p. 12=, =ch. 3=, =fig. 2=) is kept as typed.
+- Point inside an existing =[cite:...]= on the same line: the new keys are added before its closing bracket, separated by =; =; nothing else in the citation changes.
+- Helpers: =sp-citations--cite-text= builds =@key locator=; =sp-citations--citation-end= finds the closing bracket; =sp-citations--ask-page= does the prompt.
+- Key choice: ~C-c B~ is the capital of the existing ~C-c b~ (Org buffers only, so no global key is used). GUI only; no =C-z=, =C-c=, =C-x= or =C-v= root key, no =SPC= key. It is a shim-style mode-local key like ~C-c b~; when the leader keymaps of the keybinding design (=docs/architecture/global-keymap-namespaces.org=) are built, both move together.
+- Citar completion at point is added to LaTeX, Org and Markdown buffers.
 
 Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does not filter library files by extension and will offer any attached file. It used to be a =setq= after the =use-package=.
 
@@ -3497,6 +3522,72 @@ again."
   (sp-citations--apply-layout t)
   (message "citar layout: %S columns" (car sp-citations--applied-state)))
 
+;;;; Citation with a page
+;; `org-cite-insert' (C-c b) stays as it is.  `sp-citations-insert-with-page' (C-c B)
+;; is a second command for a citation that needs a locator: it asks for the page of
+;; every key it inserts and writes it as the suffix, `[cite:@key p. 12]'.
+
+(defun sp-citations-first-page (pages)
+  "The first page in PAGES, a BibTeX `pages' value, or nil.
+`12--30' and `12, 15' give `12'; `S12--S20' gives `S12'."
+  (when (and (stringp pages)
+             (string-match "\\`[ \t{]*\\([[:alnum:]]+\\)" pages))
+    (match-string 1 pages)))
+
+(defun sp-citations-format-locator (answer)
+  "The locator text for ANSWER, as typed at the page prompt, or nil when it is empty.
+A single number gives `p. 12', a range gives `pp. 12-14', anything else
+\(`p. 12', `ch. 3', `fig. 2') is kept as typed."
+  (let ((text (string-trim (or answer ""))))
+    (cond
+     ((string-empty-p text) nil)
+     ((string-match-p "\\`[[:alnum:]]+\\'" text) (concat "p. " text))
+     ((string-match-p "\\`[[:alnum:]]+[ \t]*\\(?:-+\\|\u2013\\|\u2014\\)[ \t]*[[:alnum:]]+\\'" text)
+      (concat "pp. " (replace-regexp-in-string "[ \t]*\\(?:-+\\|\u2013\\|\u2014\\)[ \t]*" "-" text)))
+     (t text))))
+
+(defun sp-citations--cite-text (key locator)
+  "The text of the reference to KEY in a citation, with LOCATOR after it when non-nil."
+  (if locator (format "@%s %s" key locator) (format "@%s" key)))
+
+(defun sp-citations--citation-end ()
+  "The position of the closing bracket of the `[cite:]' link point is in, or nil.
+Only the current line is searched."
+  (save-excursion
+    (let ((pos (point))
+          (line-start (line-beginning-position))
+          found)
+      (while (and (not found)
+                  (re-search-backward "\\[cite\\(?:/[-_/[:alnum:]]*\\)?:" line-start t))
+        (when (and (looking-at "\\[cite[^]\n]*\\]")
+                   (< pos (match-end 0)))
+          (setq found (1- (match-end 0)))))
+      found)))
+
+(defun sp-citations--ask-page (key)
+  "Ask for the page of KEY and return its locator text, or nil for no page.
+The first page of the `pages' field of the entry is the initial input; delete it
+to cite the whole work."
+  (let ((first (sp-citations-first-page (citar-get-value "pages" key))))
+    (sp-citations-format-locator
+     (read-string (format "Page for %s (empty for none): " key) first))))
+
+(defun sp-citations-insert-with-page ()
+  "Insert a citation with `citar' and ask for the page of each key.
+The page is written as the suffix of the key, `[cite:@key p. 12]'.  Point inside an
+existing citation adds the keys to it, separated by `;'.  This is a separate command
+from `org-cite-insert', which does not ask."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Citations with a page are for Org buffers"))
+  (let* ((keys (or (citar-select-refs) (user-error "No reference chosen")))
+         (text (mapconcat (lambda (key)
+                            (sp-citations--cite-text key (sp-citations--ask-page key)))
+                          keys "; ")))
+    (if-let* ((end (sp-citations--citation-end)))
+        (progn (goto-char end) (insert "; " text))
+      (insert "[cite:" text "]"))))
+
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
@@ -3538,7 +3629,9 @@ again."
 
   :bind
          (("C-c w b o" . citar-open))
-         (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+         (:map org-mode-map :package org
+               ("C-c b" . #'org-cite-insert)
+               ("C-c B" . #'sp-citations-insert-with-page))
          
          :hook
          (LaTeX-mode . citar-capf-setup)
