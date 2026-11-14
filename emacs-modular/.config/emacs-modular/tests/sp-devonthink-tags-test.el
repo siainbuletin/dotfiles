@@ -1,7 +1,10 @@
 ;;; sp-devonthink-tags-test.el --- Tests for sp-devonthink-tags -*- lexical-binding: t; -*-
 
 (require 'ert)
+(unless (boundp 'sp-cache-dir) (defvar sp-cache-dir temporary-file-directory))
+(unless (boundp 'sp-var-dir) (defvar sp-var-dir temporary-file-directory))
 (require 'sp-devonthink-tags)
+(require 'sp-litnotes-meta)
 
 (ert-deftest sp-devonthink-list-literal ()
   (should (equal (sp-devonthink--list-literal '("a" "b \"c\"")) "{\"a\", \"b \\\"c\\\"\"}"))
@@ -78,11 +81,93 @@
                  "U-PARENT"))
               ((symbol-function 'sp-devonthink-apply-tags)
                (lambda (uuids tags mode) (setq applied (list uuids tags mode)) 1))
+              ((symbol-function 'sp-devonthink--mirror-tags) #'ignore)
               ((symbol-function 'message) #'ignore))
       (sp-devonthink-tag-note '("a") nil)
       (should (equal applied '(("U-PARENT") ("a") add))))
     (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) nil)))
       (should-error (sp-devonthink-tag-note '("a") nil) :type 'user-error))))
+
+(defconst sp-devonthink-tags-test--note
+  ":PROPERTIES:\n:ID: abc\n:ROAM_REFS: @key\n:END:\n#+title: Key\n\n- pub-title :: A title\n- pub-year :: 2020\n\n* Notes\nbody\n")
+
+(ert-deftest sp-devonthink-keywords-value-format ()
+  (should (equal (sp-devonthink-keywords-value '("negativity" "value form" "Money"))
+                 "negativity, value form, Money"))
+  (should (equal (sp-devonthink-keywords-value '("a" "A" "b,c,")) "a, b, c"))
+  (should (equal (sp-devonthink-keywords-value nil) "")))
+
+(ert-deftest sp-devonthink-write-keywords-adds-then-replaces-the-line ()
+  (with-temp-buffer
+    (insert sp-devonthink-tags-test--note)
+    (should (equal (sp-devonthink-write-keywords '("a" "b c")) "a, b c"))
+    (should (string-match-p "^- keywords :: a, b c$" (buffer-string)))
+    (should (string-match-p "^- pub-year :: 2020\n- keywords :: a, b c\n" (buffer-string)))
+    (sp-devonthink-write-keywords '("z"))
+    (should (= 1 (how-many "^- keywords ::" (point-min) (point-max))))
+    (should (string-match-p "^- keywords :: z$" (buffer-string)))
+    (sp-devonthink-write-keywords nil)
+    (should (string-match-p "^- keywords :: *$" (buffer-string)))
+    (should (string-match-p "^\\* Notes\nbody" (buffer-string)))))
+
+(ert-deftest sp-devonthink-write-keywords-respects-the-option ()
+  (with-temp-buffer
+    (insert sp-devonthink-tags-test--note)
+    (let ((sp-devonthink-keywords-key nil))
+      (should-not (sp-devonthink-write-keywords '("a"))))
+    (should-not (string-match-p "keywords" (buffer-string)))
+    (let ((sp-devonthink-keywords-key "tags-mirror"))
+      (sp-devonthink-write-keywords '("a")))
+    (should (string-match-p "^- tags-mirror :: a$" (buffer-string)))))
+
+(ert-deftest sp-devonthink-mirror-tags-reads-the-record-and-writes-the-line ()
+  (with-temp-buffer
+    (insert sp-devonthink-tags-test--note)
+    (cl-letf (((symbol-function 'sp-devonthink--own-record-p) (lambda () t))
+              ((symbol-function 'sp-devonthink-record-tags)
+               (lambda (uuids) (should (equal uuids '("U1"))) '(("U1" "x" "y")))))
+      (sp-devonthink--mirror-tags "U1"))
+    (should (string-match-p "^- keywords :: x, y$" (buffer-string)))))
+
+(ert-deftest sp-devonthink-mirror-tags-skips-a-chapter-using-its-parents-record ()
+  (with-temp-buffer
+    (insert sp-devonthink-tags-test--note)
+    (cl-letf (((symbol-function 'sp-devonthink--own-record-p) (lambda () nil))
+              ((symbol-function 'sp-devonthink-record-tags)
+               (lambda (_) (error "must not read the tags")))
+              ((symbol-function 'message) #'ignore))
+      (should-not (sp-devonthink--mirror-tags "U-PARENT")))
+    (should-not (string-match-p "keywords" (buffer-string)))))
+
+(ert-deftest sp-devonthink-own-record-p-distinguishes-parent-records ()
+  (cl-letf (((symbol-function 'sp-devonthink-note-uuid) (lambda (&rest _) nil))
+            ((symbol-function 'sp-devonthink-note-citekey) (lambda (&rest _) "key")))
+    (cl-letf (((symbol-function 'sp-devonthink-record) (lambda (_) '(:uuid "U" :supplier "key"))))
+      (should (sp-devonthink--own-record-p)))
+    (cl-letf (((symbol-function 'sp-devonthink-record)
+               (lambda (_) '(:uuid "U" :supplier "p" :via "p"))))
+      (should-not (sp-devonthink--own-record-p))))
+  (cl-letf (((symbol-function 'sp-devonthink-note-uuid) (lambda (&rest _) "U-KW")))
+    (should (sp-devonthink--own-record-p))))
+
+(ert-deftest sp-devonthink-keywords-sync-refuses-a-chapter ()
+  (cl-letf (((symbol-function 'sp-devonthink-note-uuid) (lambda (&rest _) nil))
+            ((symbol-function 'sp-devonthink-note-citekey) (lambda (&rest _) "ch"))
+            ((symbol-function 'sp-devonthink-record)
+             (lambda (_) '(:uuid "U" :supplier "p" :via "p"))))
+    (should-error (sp-devonthink-keywords-sync) :type 'user-error))
+  (cl-letf (((symbol-function 'sp-devonthink-note-uuid) (lambda (&rest _) nil))
+            ((symbol-function 'sp-devonthink-note-citekey) (lambda (&rest _) nil)))
+    (should-error (sp-devonthink-keywords-sync) :type 'user-error)))
+
+(ert-deftest sp-devonthink-tag-note-mirrors-the-tags-afterwards ()
+  (let (mirrored)
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) "U1"))
+              ((symbol-function 'sp-devonthink-apply-tags) (lambda (&rest _) 1))
+              ((symbol-function 'sp-devonthink--mirror-tags) (lambda (uuid) (setq mirrored uuid)))
+              ((symbol-function 'message) #'ignore))
+      (sp-devonthink-tag-note '("a") nil)
+      (should (equal mirrored "U1")))))
 
 (provide 'sp-devonthink-tags-test)
 ;;; sp-devonthink-tags-test.el ends here
