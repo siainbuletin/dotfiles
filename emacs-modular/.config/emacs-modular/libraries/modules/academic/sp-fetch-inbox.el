@@ -229,9 +229,12 @@ by name, the root first, for `alphabetical'."
                                   (t (string< a b)))))))
     (if (not group)
         sorted
-      (mapcan (lambda (f)
-                (seq-filter (lambda (i) (equal (sp-fetch-inbox--folder i) f)) sorted))
-              folders))))
+      ;; One pass into a bucket per folder; scanning the list once per folder
+      ;; is quadratic with thousands of articles in hundreds of folders.
+      (let ((buckets (make-hash-table :test 'equal)))
+        (dolist (i sorted)
+          (push i (gethash (sp-fetch-inbox--folder i) buckets)))
+        (mapcan (lambda (f) (nreverse (gethash f buckets))) folders)))))
 
 (defun sp-fetch-inbox--candidates (items)
   "An alist of (STRING . ITEM) for ITEMS, in order, with unique strings."
@@ -266,14 +269,11 @@ Consult and the default UI do not re-sort the candidates."
 
 (defun sp-fetch-inbox--read-folder (items)
   "Ask for one of the sub-directories of ITEMS; nil means all of them."
-  (let* ((folders (sort (delete-dups (mapcar #'sp-fetch-inbox--folder items)) #'string<))
+  (let* ((counts (make-hash-table :test 'equal))
+         (_ (dolist (i items) (cl-incf (gethash (sp-fetch-inbox--folder i) counts 0))))
+         (folders (sort (hash-table-keys counts) #'string<))
          (alist (cons (cons "All folders" nil)
-                      (mapcar (lambda (f)
-                                (cons (format "%s (%d)" f
-                                              (seq-count (lambda (i)
-                                                           (equal (sp-fetch-inbox--folder i) f))
-                                                         items))
-                                      f))
+                      (mapcar (lambda (f) (cons (format "%s (%d)" f (gethash f counts)) f))
                               folders))))
     (cdr (assoc (completing-read "Folder: " (sp-fetch-inbox--table alist) nil t nil nil
                                  "All folders")
