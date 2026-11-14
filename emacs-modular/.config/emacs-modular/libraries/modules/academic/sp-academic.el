@@ -58,6 +58,7 @@
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
+(require 'sp-fetch-inbox)
 (require 'sp-see-also)
 
 (use-package asoc

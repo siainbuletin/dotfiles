@@ -163,6 +163,7 @@ out.join(\"\\n\");"
 - Each action takes a candidate string, so it works from the prompt (through Embark) and from Lisp.
 - =sp-devonthink-record-pdf= asks DEVONthink for the file path of the record, so it also works for records not named after a citekey.
 - =sp-devonthink-record-note= needs the citekey, which is the record name without =.pdf=.
+- When that name has no BibTeX entry (a fresh download in the inbox), it stops with a message instead of letting the litnote code fail; file the article first with =sp-fetch-inbox=.
 - =sp-devonthink-record-tag= takes several candidates at once (it is an Embark multitarget action) and applies the tags you type to all of them.
 
 #+begin_src emacs-lisp
@@ -199,7 +200,10 @@ end tell"
   "Go to the litnote of the record CANDIDATE, or create it."
   (interactive (list (sp-devonthink-browse--read)))
   (unless (fboundp 'citar-open-notes) (user-error "citar is not loaded"))
-  (citar-open-notes (list (sp-devonthink-browse--key (sp-devonthink-browse--record candidate)))))
+  (let ((key (sp-devonthink-browse--key (sp-devonthink-browse--record candidate))))
+    (when (and (fboundp 'sp-litnotes-meta--entry) (not (sp-litnotes-meta--entry key)))
+      (user-error "%s is not a citekey with a BibTeX entry; file it first (M-x sp-fetch-inbox)" key))
+    (citar-open-notes (list key))))
 
 (defun sp-devonthink-record-link (candidate)
   "Insert a `devonthink:' link to the record CANDIDATE."

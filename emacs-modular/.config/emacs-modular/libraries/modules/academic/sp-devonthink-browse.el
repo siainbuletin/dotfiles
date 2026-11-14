@@ -147,7 +147,10 @@ end tell"
   "Go to the litnote of the record CANDIDATE, or create it."
   (interactive (list (sp-devonthink-browse--read)))
   (unless (fboundp 'citar-open-notes) (user-error "citar is not loaded"))
-  (citar-open-notes (list (sp-devonthink-browse--key (sp-devonthink-browse--record candidate)))))
+  (let ((key (sp-devonthink-browse--key (sp-devonthink-browse--record candidate))))
+    (when (and (fboundp 'sp-litnotes-meta--entry) (not (sp-litnotes-meta--entry key)))
+      (user-error "%s is not a citekey with a BibTeX entry; file it first (M-x sp-fetch-inbox)" key))
+    (citar-open-notes (list key))))
 
 (defun sp-devonthink-record-link (candidate)
   "Insert a `devonthink:' link to the record CANDIDATE."
