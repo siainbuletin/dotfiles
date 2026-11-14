@@ -16,6 +16,7 @@
 (require 'sp-reading)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
+(require 'sp-pdf-reader)
 
 (declare-function citar-open-notes "citar")
 
@@ -133,13 +134,13 @@ end tell"
           (sp-reading--quote uuid)))
 
 (defun sp-devonthink-record-pdf (candidate)
-  "Open the file of the record CANDIDATE in Emacs."
+  "Open the file of the record CANDIDATE in Emacs, in emureader (see `sp-pdf-open')."
   (interactive (list (sp-devonthink-browse--read)))
   (let ((path (sp-reading--osascript
                (sp-devonthink-browse--path-script
                 (plist-get (sp-devonthink-browse--record candidate) :uuid)))))
     (if (and (not (string-empty-p path)) (file-exists-p path))
-        (find-file path)
+        (sp-pdf-open path)
       (user-error "No file on disk for %s" candidate))))
 
 (defun sp-devonthink-record-note (candidate)
