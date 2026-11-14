@@ -934,3 +934,198 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (should (equal '(1 1) (sp-bibprocess-lint-test--convert file '(?a ?a) #'sp-bibtex-lint-fix-authors)))
     (should (string-match-p "{von Hayek, Friedrich A\\. and Smith, John}"
                             (sp-bibprocess-lint-test--text file)))))
+
+;;;; Fields from the crossref parent
+
+;; The configuration sets `bibtex-dialect' to biblatex, which knows @mvbook and @periodical.
+(defmacro sp-bibprocess-lint-test--with-biblatex (text &rest body)
+  "Like `sp-bibprocess-lint-test--with-bib', with the biblatex dialect."
+  (declare (indent 1))
+  `(let ((bibtex-dialect 'biblatex))
+     (sp-bibprocess-lint-test--with-bib ,text ,@body)))
+
+(defconst sp-bibprocess-lint-test--crossref-bib
+  (concat "@proceedings{proc2020,\n  title = {Proceedings of Things},\n  editor = {Doe, Jane},\n"
+          "  year = {2020},\n  publisher = {ACM},\n  location = {Paris},\n  isbn = {123},\n  doi = {10.1/parent}}\n\n"
+          "@inproceedings{paper1,\n  author = {Smith, John},\n  title = {A Paper},\n  crossref = {proc2020},\n"
+          "  publisher = {Own Press},\n  pages = {1--10}}\n\n"
+          "@book{book1,\n  author = {Roe, Rick},\n  title = {The Book},\n  subtitle = {A Subtitle},\n"
+          "  year = {1999},\n  publisher = {MIT Press},\n  series = {},\n  url = {http://x}}\n\n"
+          "@inbook{chap1,\n  title = {A Chapter},\n  crossref = {book1},\n  pages = {5--9}}\n\n"
+          "@mvbook{mv1,\n  title = {All Volumes},\n  author = {Roe, Rick},\n  year = {1990}}\n\n"
+          "@book{vol1,\n  title = {Volume One},\n  crossref = {mv1}}\n\n"
+          "@periodical{per1,\n  title = {Journal of Tests},\n  year = {2001}}\n\n"
+          "@article{art1,\n  title = {An Article},\n  date = {2001-05-01},\n  crossref = {per1}}\n\n"
+          "@article{orphan,\n  title = {Orphan},\n  crossref = {nowhere}}\n\n"
+          "@incollection{chain,\n  title = {Chain},\n  crossref = {paper1}}\n"))
+
+(defun sp-bibprocess-lint-test--crossref-results (&optional file)
+  "The lint results of the crossref kind for FILE, as an alist from key to the plan."
+  (let (results)
+    (sp-bibtex-lint--job "t" (list (or file sp-bibtex-files)) '(crossref) (lambda (r) (setq results r)))
+    results))
+
+(defun sp-bibprocess-lint-test--added (results key)
+  "The names of the fields the crossref rewrite of KEY in RESULTS adds."
+  (let* ((r (seq-find (lambda (r) (equal key (nth 1 r))) results))
+         (new (plist-get (alist-get 'crossref (nth 4 r)) :new)))
+    (and new (let ((names (with-temp-buffer
+                            (insert new) (delay-mode-hooks (bibtex-mode)) (goto-char (point-min))
+                            (mapcar #'car (seq-remove (lambda (f) (string-prefix-p "=" (car f)))
+                                                      (bibtex-parse-entry)))))
+               (old (with-temp-buffer
+                      (insert (plist-get (alist-get 'crossref (nth 4 r)) :old))
+                      (delay-mode-hooks (bibtex-mode)) (goto-char (point-min))
+                      (mapcar #'car (seq-remove (lambda (f) (string-prefix-p "=" (car f)))
+                                                (bibtex-parse-entry))))))
+           (seq-remove (lambda (n) (member n old)) names)))))
+
+(defun sp-bibprocess-lint-test--result (results key)
+  (seq-find (lambda (r) (equal key (nth 1 r))) results))
+
+(ert-deftest sp-bibtex-crossref-test-inproceedings-from-proceedings ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let* ((r (sp-bibprocess-lint-test--result (sp-bibprocess-lint-test--crossref-results file) "paper1"))
+           (new (plist-get (alist-get 'crossref (nth 4 r)) :new)))
+      ;; booktitle, editor, year, location and isbn come from the parent.
+      (dolist (f '("booktitle = {Proceedings of Things}" "editor = {Doe, Jane}" "year = {2020}"
+                   "location = {Paris}" "isbn = {123}"))
+        (should (string-match-p (regexp-quote f) (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new))))
+      ;; The own publisher stays, and the parent's publisher, doi and title are not copied.
+      (should (string-match-p "publisher = {Own Press}" (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+      (should-not (string-match-p "ACM\\|10.1/parent" new))
+      (should (= 1 (with-temp-buffer (insert new) (goto-char (point-min))
+                                     (let ((n 0)) (while (re-search-forward "^[ \t]*title[ \t]*=" nil t) (cl-incf n)) n))))
+      ;; The existing fields are untouched.
+      (should (string-match-p "author = {Smith, John}" (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+      (should (string-match-p "pages = {1--10}" (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new))))))
+
+(ert-deftest sp-bibtex-crossref-test-field-mapping-by-type ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let ((results (sp-bibprocess-lint-test--crossref-results file)))
+      ;; inbook from a book: title is booktitle, author is bookauthor, empty series and url are skipped.
+      (should (equal '("booktitle" "booksubtitle" "bookauthor" "year" "publisher")
+                     (sp-bibprocess-lint-test--added results "chap1")))
+      (should-not (member "series" (sp-bibprocess-lint-test--added results "chap1")))
+      ;; book from an mvbook: maintitle, not booktitle.
+      (should (member "maintitle" (sp-bibprocess-lint-test--added results "vol1")))
+      (should-not (member "booktitle" (sp-bibprocess-lint-test--added results "vol1")))
+      ;; article from a periodical: journaltitle; a child with a date gets no year.
+      (should (equal '("journaltitle") (sp-bibprocess-lint-test--added results "art1"))))))
+
+(ert-deftest sp-bibtex-crossref-test-never-overwrites ()
+  (let ((fields '(("title" . "{T}") ("crossref" . "{p}") ("year" . "{2001}") ("Publisher" . "{Mine}")))
+        (parent '(("title" . "{P}") ("year" . "{1999}") ("month" . "{may}") ("publisher" . "{Theirs}")
+                  ("editor" . "{E, A}") ("address" . "{Rome}"))))
+    (let ((added (sp-bibtex-crossref--additions "incollection" fields "collection" parent)))
+      (should (equal '("booktitle" "address" "editor")
+                     (mapcar #'car added)))
+      ;; year is the child's own, so the date group (and its month) is left alone.
+      (should-not (assoc "month" added)))))
+
+(ert-deftest sp-bibtex-crossref-test-missing-parent-and-parent-with-parent ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let ((results (sp-bibprocess-lint-test--crossref-results file)))
+      (let ((orphan (sp-bibprocess-lint-test--result results "orphan")))
+        (should (member "crossref parent nowhere not found" (nth 3 orphan)))
+        (should-not (nth 4 orphan)))
+      (let ((chain (sp-bibprocess-lint-test--result results "chain")))
+        (should (cl-some (lambda (p) (string-match-p "crossref of its own" p)) (nth 3 chain)))
+        (should (member "booktitle" (sp-bibprocess-lint-test--added results "chain")))))))
+
+(ert-deftest sp-bibtex-crossref-test-parent-in-another-file ()
+  (sp-bibprocess-lint-test--with-biblatex "@inproceedings{c1,\n  title = {C},\n  crossref = {far}}\n"
+    (let ((other (expand-file-name "b.bib" (file-name-directory file))))
+      (with-temp-file other (insert "@proceedings{far,\n  title = {Far Away},\n  year = {2015}}\n"))
+      (let ((sp-bibtex-files (list file other)))
+        (should (equal '("booktitle" "year")
+                       (sp-bibprocess-lint-test--added (sp-bibprocess-lint-test--crossref-results file) "c1")))))))
+
+(ert-deftest sp-bibtex-crossref-test-fix-writes-once-and-is-idempotent ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (should (equal '(5) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-crossref)))
+      (let ((after (sp-bibprocess-lint-test--text file)))
+        (should-not (equal before after))
+        ;; The parents are unchanged, byte for byte.
+        (should (string-match-p (regexp-quote "@proceedings{proc2020,\n  title = {Proceedings of Things},\n  editor = {Doe, Jane},\n  year = {2020},\n  publisher = {ACM},\n  location = {Paris},\n  isbn = {123},\n  doi = {10.1/parent}}")
+                                after))
+        (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
+        ;; A second run has nothing left for the entries that were filled; the orphan stays a problem.
+        ;; Only the entry whose parent was filled by the first run gets more (a parent is
+        ;; read as it is, so `chain' sees the fields its parent gained).
+        (let ((results (sp-bibprocess-lint-test--crossref-results file)))
+          (should (equal '("chain") (mapcar (lambda (r) (nth 1 r))
+                                            (seq-filter (lambda (r) (alist-get 'crossref (nth 4 r))) results)))))
+        (should (equal after (sp-bibprocess-lint-test--text file)))))))
+
+(ert-deftest sp-bibtex-crossref-test-declined-writes-nothing ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (sp-bibprocess-lint-test--convert file '(?n) #'sp-bibtex-lint-fix-crossref)
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-crossref-test-dryrun-report-writes-nothing ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (sp-bibtex-lint-crossref-dryrun file)
+      (with-current-buffer sp-bibtex-lint--buffer
+        (let ((text (buffer-string)))
+          (should (string-match-p "Fields to add" text))
+          (should (string-match-p "booktitle = {Proceedings of Things}" text))
+          (should (string-match-p "crossref parent nowhere not found" text))))
+      (should (equal before (sp-bibprocess-lint-test--text file))))))
+
+(ert-deftest sp-bibtex-crossref-test-in-full-lint-report ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (sp-bibtex-lint-dryrun file)
+    (with-current-buffer sp-bibtex-lint--buffer
+      (should (string-match-p "fields from the crossref parent (5)" (buffer-string))))))
+
+(ert-deftest sp-bibtex-crossref-test-custom-fields-and-renames ()
+  (let ((sp-bibtex-crossref-fields '("publisher"))
+        (sp-bibtex-crossref-renames '((nil ("inproceedings") ("title" . "eventtitle")))))
+    (let ((added (sp-bibtex-crossref--additions "inproceedings" '(("crossref" . "{p}"))
+                                                "proceedings"
+                                                '(("title" . "{P}") ("publisher" . "{ACM}") ("year" . "{2020}")))))
+      (should (equal '(("eventtitle" "{P}" "title") ("publisher" "{ACM}" "publisher")) added)))))
+
+(ert-deftest sp-bibtex-crossref-test-insert-keeps-layout ()
+  (let ((old "@inproceedings{c1,\n    title = {C},\n    crossref = {p}}"))
+    (should (equal "@inproceedings{c1,\n    title = {C},\n    crossref = {p},\n    year = {2020},\n}"
+                   (sp-bibtex-crossref--insert old '(("year" "{2020}")))))))
+
+(ert-deftest sp-bibtex-crossref-test-entry-command ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--crossref-bib
+    (with-temp-buffer
+      (insert-file-contents file)
+      (delay-mode-hooks (bibtex-mode))
+      (goto-char (point-min))
+      (search-forward "@inproceedings{paper1")
+      (let ((text (buffer-string)))
+        ;; Dry run: the buffer stays as it is.
+        (sp-bibtex-lint-crossref-entry t)
+        (should (equal text (buffer-string)))
+        ;; Declined: nothing changes.
+        (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+          (sp-bibtex-lint-crossref-entry))
+        (should (equal text (buffer-string)))
+        ;; Accepted: only that entry grows.
+        (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+          (sp-bibtex-lint-crossref-entry))
+        (should (string-match-p "booktitle" (buffer-string)))
+        (should (string-match-p "editor" (buffer-string)))
+        (should (= 1 (let ((n 0) (case-fold-search nil))
+                       (save-excursion (goto-char (point-min))
+                                       (while (search-forward "booktitle" nil t) (cl-incf n)))
+                       n)))
+        ;; The entry still reads and now has the new fields.
+        (goto-char (point-min))
+        (search-forward "@inproceedings{paper1")
+        (bibtex-beginning-of-entry)
+        (should (assoc "booktitle" (bibtex-parse-entry)))
+        ;; An entry without crossref is refused.
+        (goto-char (point-min))
+        (search-forward "@book{book1")
+        (should-error (sp-bibtex-lint-crossref-entry) :type 'user-error)))))
