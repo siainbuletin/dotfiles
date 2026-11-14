@@ -354,6 +354,7 @@ only the exact ones are added."
 (declare-function sp-batch-report-open "sp-batch-report")
 (declare-function sp-batch-report-text "sp-batch-report")
 (declare-function sp-batch-report-item "sp-batch-report")
+(declare-function sp-batch-report-table-section "sp-batch-report")
 (declare-function sp-batch-report-refresh "sp-batch-report")
 (declare-function sp-batch-report--set-hints "sp-batch-report")
 (defvar sp-batch-report-extra-hints)
@@ -613,23 +614,25 @@ The other keys (d, u, g, q ...) are those of `sp-batch-report-mode'.")
   (format "%s:%s" (or (plist-get person :id) (plist-get person :file)) (plist-get entry :key)))
 
 (defun sp-author-notes-bibtex--sections (groups)
-  "The report sections of GROUPS, as `sp-author-notes-bibtex--compute' returns them."
+  "The report sections of GROUPS, as `sp-author-notes-bibtex--compute' returns them.
+Each is an Org table with a row per entry."
   (if (null groups)
       (list (sp-batch-report-section "Works without a literature note" nil "  none"))
     (mapcar
      (lambda (group)
        (let ((person (car group)))
-         (sp-batch-report-section
+         (sp-batch-report-table-section
           (plist-get person :title)
+          '("Match" "Key" "Year" "Title" "BibTeX file")
           (mapcar
            (lambda (m)
              (let ((entry (car m)))
                (sp-batch-report-item
-                (format "%-9s %-28s %-4s %s  [%s]"
-                        (if (eq (cdr m) 'exact) "exact" "possible")
-                        (plist-get entry :key) (plist-get entry :year)
-                        (truncate-string-to-width (plist-get entry :title) 60 nil nil "…")
-                        (file-name-nondirectory (plist-get entry :file)))
+                nil
+                :row (list (if (eq (cdr m) 'exact) "exact" "possible")
+                           (plist-get entry :key) (plist-get entry :year)
+                           (truncate-string-to-width (plist-get entry :title) 60 nil nil "…")
+                           (file-name-nondirectory (plist-get entry :file)))
                 :key (sp-author-notes-bibtex--key person entry)
                 :props (list 'sp-person person 'sp-entry entry 'sp-conf (cdr m)))))
            (cdr group)))))

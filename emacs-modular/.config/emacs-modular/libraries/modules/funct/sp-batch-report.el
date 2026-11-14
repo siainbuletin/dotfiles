@@ -67,6 +67,13 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
   "Return a section named TITLE of ITEMS; EMPTY is shown when there are none."
   (list :title title :items items :empty empty))
 
+(defun sp-batch-report-table-section (title header items &optional empty)
+  "Return a section named TITLE that is shown as an Org table.
+HEADER is the list of the column names.  Every item of ITEMS has a :row, the
+list of its cells as strings (the other item arguments work as in
+`sp-batch-report-item'); EMPTY is shown when there are none."
+  (append (sp-batch-report-section title items empty) (list :header header)))
+
 (defun sp-batch-report--item-key (item)
   "The key of ITEM: its :key, else its file."
   (if (plist-member item :key) (plist-get item :key) (plist-get item :file)))
@@ -75,8 +82,65 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
   "TEXT with PREFIX in front of every line after the first."
   (replace-regexp-in-string "\n" (concat "\n" prefix) text t t))
 
+(defun sp-batch-report--cell (cell)
+  "CELL as the text of an Org table cell: on one line, with no bar."
+  (replace-regexp-in-string
+   "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " (format "%s" cell)) t t))
+
+(defun sp-batch-report--row-line (cells &optional widths)
+  "The Org table line of CELLS; WIDTHS, when given, pads each column to its width."
+  (concat "| "
+          (mapconcat
+           #'identity
+           (let ((i -1))
+             (mapcar (lambda (cell)
+                       (setq i (1+ i))
+                       (let ((cell (sp-batch-report--cell cell)))
+                         (concat cell (make-string (max 0 (- (or (nth i widths) 0)
+                                                             (string-width cell)))
+                                                   ?\s))))
+                     cells))
+           " | ")
+          " |\n"))
+
+(defun sp-batch-report--item-props (item &optional dropped)
+  "The text properties of ITEM, as a plist.  DROPPED marks a dropped one."
+  (let ((file (plist-get item :file))
+        (line (plist-get item :line))
+        (key (sp-batch-report--item-key item)))
+    (append (and key (list 'sp-batch-report-key key))
+            (and file (list 'sp-batch-report-file file))
+            (and line (list 'sp-batch-report-line line))
+            (and dropped (list 'sp-batch-report-dropped t))
+            (plist-get item :props))))
+
+(defun sp-batch-report--table-string (header items)
+  "The Org table of ITEMS, with the column names HEADER, aligned.
+Each row line carries the text properties of its item, so the keys that work on
+an entry work on the row."
+  (let* ((rows (mapcar (lambda (item) (mapcar #'sp-batch-report--cell (plist-get item :row))) items))
+         (head (mapcar #'sp-batch-report--cell header))
+         (widths (apply #'cl-mapcar
+                        (lambda (&rest cells) (apply #'max (mapcar #'string-width cells)))
+                        head rows)))
+    (concat (sp-batch-report--row-line head widths)
+            "|" (mapconcat (lambda (w) (make-string (+ w 2) ?-)) widths "+") "|\n"
+            (mapconcat
+             (lambda (item)
+               (apply #'propertize (sp-batch-report--row-line (plist-get item :row) widths)
+                      (sp-batch-report--item-props item)))
+             items ""))))
+
 (defun sp-batch-report--item-string (item &optional dropped)
-  "The Org text of ITEM, with its text properties.  DROPPED marks a dropped one."
+  "The Org text of ITEM, with its text properties.  DROPPED marks a dropped one.
+An item with a :row is a line of an Org table."
+  (if (plist-get item :row)
+      (apply #'propertize (sp-batch-report--row-line (plist-get item :row))
+             (sp-batch-report--item-props item dropped))
+    (sp-batch-report--list-item-string item dropped)))
+
+(defun sp-batch-report--list-item-string (item &optional dropped)
+  "The Org list item of ITEM, with its text properties.  DROPPED marks a dropped one."
   (let* ((file (plist-get item :file))
          (line (plist-get item :line))
          (label (or (plist-get item :label)
@@ -88,14 +152,8 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
                        "\n"
                        (mapconcat (lambda (c)
                                     (concat "  - " (sp-batch-report--indent c "    ") "\n"))
-                                  (plist-get item :children) "")))
-         (key (sp-batch-report--item-key item)))
-    (apply #'propertize text
-           (append (and key (list 'sp-batch-report-key key))
-                   (and file (list 'sp-batch-report-file file))
-                   (and line (list 'sp-batch-report-line line))
-                   (and dropped (list 'sp-batch-report-dropped t))
-                   (plist-get item :props)))))
+                                  (plist-get item :children) ""))))
+    (apply #'propertize text (sp-batch-report--item-props item dropped))))
 
 (defun sp-batch-report--key-label (key)
   "A label for the dropped KEY."
@@ -168,7 +226,9 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
                (setq kept (nreverse kept))
                (concat "* " (plist-get section :title) " (" (number-to-string (length kept)) ")\n"
                        (if kept
-                           (mapconcat #'sp-batch-report--item-string kept "")
+                           (if (plist-get section :header)
+                               (sp-batch-report--table-string (plist-get section :header) kept)
+                             (mapconcat #'sp-batch-report--item-string kept ""))
                          (concat (or (plist-get section :empty) "none") "\n"))
                        "\n")))
            sections "")))
