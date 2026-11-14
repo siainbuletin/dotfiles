@@ -76,12 +76,19 @@ directory."
 
 ** Follow symlinks
 
-=sp-auto-follow-symlinks= sets =vc-follow-symlinks= so visiting a symlink to a version-controlled file opens the real file without asking. Like the previous helper, it is called from =sensible-defaults/use-all-settings=.
+- =sp-auto-follow-symlinks= sets =vc-follow-symlinks= to =t=.
+- Visiting a symlink to a version-controlled file then opens the real file without the prompt "Symbolic link to Git-controlled source file; follow link?".
+- Needed because the config is linked by GNU Stow: =~/.config/emacs-modular/...= are symlinks into =~/dotfiles=.
+- It is called at load time, at the end of the block below.
+- =sensible-defaults/use-all-settings= in =sp-helper-funct= also calls it, but nothing calls that function, so it never ran before and the prompt kept appearing.
 
 #+begin_src emacs-lisp -i
 (defun sp-auto-follow-symlinks ()
   "When opening a file, always follow symlinks."
   (setq vc-follow-symlinks t))
+
+;; Called here: nothing calls `sensible-defaults/use-all-settings'.
+(sp-auto-follow-symlinks)
 #+end_src
 
 * Places and outlines
