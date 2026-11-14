@@ -181,8 +181,9 @@ A small helper for showing key hints in the echo area, in the style of =nano-hel
   "Return the echo-area text for HINTS.
 HINTS is a list of (KEY DESCRIPTION [STRONG]).
 The hints fill ROWS rows (default `sp-echo-help-rows'), column by column,
-each column but the last padded to its widest hint.  A non-nil STRONG shows the hint in
-`sp-echo-help-strong-face'.  A non-empty NOTE is put on a line above."
+each column but the last padded to its widest hint.  A non-nil STRONG
+shows the hint in `sp-echo-help-strong-face'.  A non-empty NOTE is put on a
+line above."
   (let* ((rows (max 1 (min (or rows sp-echo-help-rows) (max 1 (length hints)))))
          (ncols (ceiling (length hints) rows))
          (texts (mapcar (lambda (h) (format "[%s] %s" (nth 0 h) (nth 1 h))) hints))
@@ -232,9 +233,55 @@ unless FORCE is non-nil."
       (message "%s" (sp-echo-help-format sp-echo-help--hints sp-echo-help--note)))))
 #+end_src
 
+** Keeping the hints visible
+
+- A message in the echo area can be replaced or cleared by other things (a prompt, eldoc, a command's own message).
+- Instead of nano's blocking =sit-for= loop, which would freeze Emacs, two things bring the hints back:
+  - After every command in the buffer, when the echo area is empty (see above).
+  - After =sp-echo-help-idle-delay= seconds of idle time, when the echo area is empty; nil turns this off.
+- =sp-echo-help-show-now= (=C-c ?= in a buffer with the mode) shows them on demand, replacing whatever message is there.
+- The idle timer is shared by all buffers with the mode, starts with the first one and stops when the last one turns it off.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-echo-help-idle-delay 1.5
+  "Seconds of idle time after which the hints are shown again.
+Nil never shows them again on idle."
+  :type '(choice (const :tag "Never" nil) number)
+  :group 'sp-interaction)
+
+(defvar sp-echo-help-mode)
+
+(defvar sp-echo-help--timer nil
+  "The idle timer that shows the hints again, shared by all buffers.")
+
+(defun sp-echo-help--any-buffer-p ()
+  "Non-nil when a live buffer has `sp-echo-help-mode' on."
+  (seq-some (lambda (b) (buffer-local-value 'sp-echo-help-mode b)) (buffer-list)))
+
+(defun sp-echo-help--idle-show ()
+  "Show the hints of the selected window's buffer; stop the timer when unused."
+  (if (not (sp-echo-help--any-buffer-p))
+      (when (timerp sp-echo-help--timer)
+        (cancel-timer sp-echo-help--timer)
+        (setq sp-echo-help--timer nil))
+    (with-current-buffer (window-buffer (selected-window))
+      (when sp-echo-help-mode (sp-echo-help-show)))))
+
+(defun sp-echo-help-show-now ()
+  "Show the key hints of this buffer in the echo area now."
+  (interactive)
+  (if sp-echo-help--hints
+      (sp-echo-help-show t)
+    (user-error "No key hints for this buffer")))
+
+(defvar-keymap sp-echo-help-mode-map
+  :doc "Keys of `sp-echo-help-mode'."
+  "C-c ?" #'sp-echo-help-show-now)
+#+end_src
+
 ** Minor mode and entry point
 
-- =sp-echo-help-mode= adds =sp-echo-help-show= to the buffer-local =post-command-hook=.
+- =sp-echo-help-mode= adds =sp-echo-help-show= to the buffer-local =post-command-hook= and starts the idle timer.
 - =sp-echo-help-set= is the only function other modules need:
   - It stores HINTS and NOTE in the buffer and turns the mode on.
   - It shows them at once when the buffer is in the selected window.
@@ -243,10 +290,14 @@ unless FORCE is non-nil."
 #+begin_src emacs-lisp -i
 (define-minor-mode sp-echo-help-mode
   "Keep the key hints of this buffer in the echo area.
-Set them with `sp-echo-help-set'."
+Set them with `sp-echo-help-set'.  \\{sp-echo-help-mode-map}"
   :lighter nil
   (if sp-echo-help-mode
-      (add-hook 'post-command-hook #'sp-echo-help-show nil t)
+      (progn
+        (add-hook 'post-command-hook #'sp-echo-help-show nil t)
+        (when (and sp-echo-help-idle-delay (not (timerp sp-echo-help--timer)))
+          (setq sp-echo-help--timer
+                (run-with-idle-timer sp-echo-help-idle-delay t #'sp-echo-help--idle-show))))
     (remove-hook 'post-command-hook #'sp-echo-help-show t)))
 #+end_src
 

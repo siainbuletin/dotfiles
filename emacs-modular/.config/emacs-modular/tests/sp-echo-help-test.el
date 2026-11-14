@@ -38,5 +38,33 @@
         (should-not sp-echo-help-mode)
         (should-not (member #'sp-echo-help-show post-command-hook))))))
 
+(ert-deftest sp-echo-help-show-now-forces ()
+  (let (shown)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "other")))
+      (with-temp-buffer
+        (should-error (sp-echo-help-show-now) :type 'user-error)
+        (setq sp-echo-help-idle-delay nil)
+        (sp-echo-help-set '(("q" "Quit")))
+        (setq shown nil)
+        (sp-echo-help-show)
+        (should-not shown)
+        (sp-echo-help-show-now)
+        (should (equal (car shown) " [q] Quit"))
+        (should (eq (lookup-key sp-echo-help-mode-map (kbd "C-c ?")) #'sp-echo-help-show-now))))))
+
+(ert-deftest sp-echo-help-idle-timer-starts-and-stops ()
+  (let ((sp-echo-help-idle-delay 60) (sp-echo-help--timer nil))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (sp-echo-help-set '(("q" "Quit")))
+            (should (timerp sp-echo-help--timer)))
+          ;; buffer is killed: the next idle run cancels the timer
+          (sp-echo-help--idle-show)
+          (should-not sp-echo-help--timer))
+      (when (timerp sp-echo-help--timer) (cancel-timer sp-echo-help--timer)))))
+
 (provide 'sp-echo-help-test)
 ;;; sp-echo-help-test.el ends here
