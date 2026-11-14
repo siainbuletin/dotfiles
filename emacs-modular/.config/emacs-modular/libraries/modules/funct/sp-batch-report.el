@@ -318,6 +318,10 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
+(defvar-local sp-batch-report-extra-hints nil
+  "Hints (KEY DESCRIPTION [STRONG]) of the keys a derived mode adds, set in its body.
+They come before the backup keys in the echo area.")
+
 (defun sp-batch-report--hints ()
   "The keys of this report, as hints for the echo area."
   (append '(("RET" "Visit") ("n/p" "Next/previous link"))
@@ -325,6 +329,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
                '(("d" "Drop") ("u" "Restore")))
           (and sp-batch-report-apply-function '(("A" "Apply" t)))
           (and sp-batch-report-refresh-function '(("g" "Refresh")))
+          sp-batch-report-extra-hints
           '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map
