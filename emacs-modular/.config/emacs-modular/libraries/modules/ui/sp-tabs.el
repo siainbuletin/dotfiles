@@ -115,7 +115,7 @@ questions.  Otherwise use completion to select the tab."
              tabspaces-open-or-create-project-and-workspace)
   
   :custom
-  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-use-filtered-buffers-as-default nil) ; C-x b is `sp-tabs-switch-to-buffer', see below
   (tabspaces-default-tab "Home")
   (tabspaces-remove-to-default t)
   (tabspaces-include-buffers '("*scratch*"))
@@ -161,16 +161,51 @@ questions.  Otherwise use completion to select the tab."
     map)
   "Keymap for tabspace/workspace commands after `tabspaces-keymap-prefix'.")
 
-;;;;; Always list *Messages* in C-x b
-(defvar sp-tabs-always-listed-buffers '("*Messages*")
-  "Buffer names that `sp-tabs-switch-to-buffer' always offers, at the end.
-They are offered even when the current tab's buffer list lacks them.")
+;;;;; Buffer filtering per tab: C-x b
+;; `C-x b' is the regular `switch-to-buffer' (all buffers, *Messages* included)
+;; unless filtering is on for the current tab.
+(defcustom sp-tabs-filter-buffers nil
+  "Non-nil filters `C-x b' to the current tab's buffers in every tab."
+  :type 'boolean
+  :group 'tabspaces)
 
-(defun sp-tabs-switch-to-buffer ()
-  "Switch to a buffer of this tab, also offering `sp-tabs-always-listed-buffers'.
+(defcustom sp-tabs-filtered-tab-names '("Email")
+  "Names of tabs where `C-x b' offers only that tab's buffers."
+  :type '(repeat string)
+  :group 'tabspaces)
+
+(defcustom sp-tabs-filtered-modes '(mu4e-main-mode mu4e-headers-mode
+                                    mu4e-view-mode message-mode)
+  "Major modes in which `C-x b' offers only the current tab's buffers."
+  :type '(repeat symbol)
+  :group 'tabspaces)
+
+(defcustom sp-tabs-always-listed-buffers '("*Messages*")
+  "Buffer names that the filtered `C-x b' still offers, at the end."
+  :type '(repeat string)
+  :group 'tabspaces)
+
+(defun sp-tabs--filtering-p ()
+  "Return non-nil when `C-x b' should be filtered to this tab's buffers."
+  (or sp-tabs-filter-buffers
+      (member (alist-get 'name (tab-bar--current-tab)) sp-tabs-filtered-tab-names)
+      (apply #'derived-mode-p sp-tabs-filtered-modes)))
+
+(defun sp-tabs-toggle-tab-filter ()
+  "Toggle filtering of `C-x b' for the current tab by its name.
+Use it in a project tab, for example, to see only that project's buffers."
+  (interactive)
+  (let ((name (alist-get 'name (tab-bar--current-tab))))
+    (if (member name sp-tabs-filtered-tab-names)
+        (setq sp-tabs-filtered-tab-names (delete name sp-tabs-filtered-tab-names))
+      (push name sp-tabs-filtered-tab-names))
+    (message "Buffer filter for tab %s: %s" name
+             (if (member name sp-tabs-filtered-tab-names) "on" "off"))))
+
+(defun sp-tabs-filtered-switch-to-buffer ()
+  "Switch to a buffer of this tab, plus `sp-tabs-always-listed-buffers'.
 Like `tabspaces-switch-to-buffer', but the always-listed buffers that
-exist are added after the tab's own buffers, so *Messages* is never
-missing."
+exist are added after the tab's own buffers."
   (interactive)
   (let* ((current (buffer-name))
          (local (cl-remove current (mapcar #'buffer-name (tabspaces--buffer-list))
@@ -189,9 +224,17 @@ missing."
      (completing-read "Switch to local buffer: " table nil nil nil
                       'buffer-name-history (car names)))))
 
-;; A minor-mode remap beats the global one `tabspaces-mode' installs.
+(defun sp-tabs-switch-to-buffer ()
+  "Run the tab-filtered or the regular buffer switcher, see `sp-tabs--filtering-p'."
+  (interactive)
+  (call-interactively (if (sp-tabs--filtering-p)
+                          #'sp-tabs-filtered-switch-to-buffer
+                        #'switch-to-buffer)))
+
+;; A minor-mode remap works even though `tabspaces-use-filtered-buffers-as-default' is nil.
 (with-eval-after-load 'tabspaces
-  (define-key tabspaces-mode-map [remap switch-to-buffer] #'sp-tabs-switch-to-buffer))
+  (define-key tabspaces-mode-map [remap switch-to-buffer] #'sp-tabs-switch-to-buffer)
+  (define-key tabspaces-command-map (kbd "f") #'sp-tabs-toggle-tab-filter))
 
 ;;;;; Consult Isolated Workspace Buffers
 ;; Filter Buffers for Consult-Buffer
