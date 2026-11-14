@@ -31,9 +31,26 @@
 ;; The recipe is explicit: Elpaca's cached GNU ELPA menu can predate the
 ;; rename to emureader, and a package missing from the menu gets a recipe
 ;; with no repository (error in `elpaca-git--fetch').
+;;
+;; The module is built in the source dir, before Elpaca links the build dir.
+;; Elpaca deletes and recreates the build dir on every (re)build, and its
+;; default :files leave out the Makefile and render/, so `emureader-build'
+;; (which runs make in the build dir) has nothing to run there.  The module,
+;; the Makefile and render/ are linked into the build dir, where emureader
+;; looks for the module.
 (when (fboundp 'elpaca)
+  ;; `eval' because `elpaca-defscript' is a macro that only exists under Elpaca.
+  (eval
+   '(elpaca-defscript sp-pdf-reader--elpaca-build-module (:type system :dir source)
+      "Build the emureader dynamic module in E's source directory.
+A failure is only reported, so a missing MuPDF does not block the install."
+      ("sh" "-c"
+       "m=$(command -v gmake || echo make); \"$m\" module || echo 'emureader: module build failed (brew install mupdf gcc make), then M-x emureader-build'"))
+   t)
   (use-package emureader
-    :ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git")
+    :ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git"
+             :files (:defaults "Makefile" "render" "emureader-dyn.*")
+             :build (:before elpaca-build-link sp-pdf-reader--elpaca-build-module))
     :defer t))
 
 ;;;; Opening
