@@ -1,0 +1,93 @@
+* PR #458: 🔧 Superseded: echo-area hints in the lint UIs
+:PROPERTIES:
+:PR_NUMBER: 458
+:URL: https://github.com/siainbuletin/dotfiles/pull/458
+:STATE: closed
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/458][https://github.com/siainbuletin/dotfiles/pull/458]]
+- State :: closed
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 11:13
+- Closed :: 2026-11-14 11:15
+- Branch :: =457-echo-area-hints-linting= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/85789cab4c55c5dd36e4cfc6ba92215c9ca5e7c1][85789cab4c]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25PFxuq2GjykReQ26LTWPmi][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: independent of the =sp-fetch-inbox= hints PR, but both need the same helper. The =sp-fetch-inbox= hints PR did not exist when I started, so this PR adds the helper as the new module =sp-echo-hints= (=sp-echo-hints-mode=, =sp-echo-hints-format=, =sp-echo-hints-show=).
+- If the other PR already has a helper: merge that one first, then reduce this module to it (keep one of the two; the =(KEY . LABEL)= list format is the thing to match).
+- If merged first: nothing breaks; the =sp-fetch-inbox= PR then reuses =sp-echo-hints= instead of its own.
+- Conflicts with: =README.org= module table and =init.el= module list (one added line each); keep both lines.
+- After merging: restart Emacs (or =M-x sp-reload-modules=); nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* the key lists in the header lines of the linting and batch interfaces do not wrap; show them in the echo area like =nano-help.el= of nano-emacs.
+- *New module =sp-echo-hints=* (doc =docs/tangles/funct/sp-echo-hints.org=):
+  - =sp-echo-hints-mode= shows a buffer's hints when Emacs is idle and the echo area is empty, so a command's own message is never replaced.
+  - A hint is =(KEY . LABEL)=; the key is bold. Hints that do not fit the frame width are dropped from the end and marked with "...".
+  - Not written to =*Messages*=.
+  - Options: =sp-echo-hints-delay=, =sp-echo-hints-separator=, face =sp-echo-hints-key=.
+- *Converted:*
+  - =sp-batch-report-mode=: used by every batch command (litnote titles/refs/meta, author notes, tag lint, normalise, BibTeX lint, property conversion).
+  - Footnote lint: keys moved to the echo area; the header line keeps only the scan/apply progress. The obsolete old report mode follows too.
+  - Litnote status table: counts stay in the header line; its keys are now hints.
+- *Left as they were* (keys are text inside the buffer, not a header): author-notes report, tag-lint report footer, backlink check, graph view. Say if you want them converted too.
+- Docs are bullet lists; =when-let*= only; no CHANGELOG edit.
+- *Tested* (Emacs 29.3 batch): 8 new ERT tests for =sp-echo-hints=; the 17 =sp-batch-report= tests pass; syntax check of all touched modules; the =.el= files are re-tangled from the docs.
+- *Untested by Claude:* the footnote lint and litnote status table (their test files need the real =sp-globals= environment), the GUI and idle timing on macOS, and how it looks with your theme and echo-area font.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =cd ~/dotfiles; git fetch origin 457-echo-area-hints-linting; git checkout 457-echo-area-hints-linting=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -l tests/sp-echo-hints-test.el -f ert-run-tests-batch-and-exit= → 8 pass
+- [ ] =M-x sp-litnotes-titles-dryrun= (or any dry run): the header line no longer lists keys; after about half a second the echo area shows =RET visit   n/p link   d drop ...= with bold keys (untested by Claude)
+- [ ] In that report press =n=: a command message (for example after =d=: the drop message) stays; the hints return once it clears
+- [ ] Narrow the frame: the last hints are replaced by "..." instead of wrapping
+- [ ] =M-x sp-org-lint-footnotes-dryrun=: header shows the progress while scanning; the keys appear in the echo area when it is ready (untested by Claude)
+- [ ] =M-x sp-litnotes-meta-status-report=: header counts unchanged; hints show =m/u mark/unmark ...= (untested by Claude)
+- [ ] Open the minibuffer (=M-x=) in a report: hints do not overwrite the prompt
+- [ ] Regression: =RET=, =d=, =u=, =A=, =g=, =q= in a report still work; =*Messages*= has no hint lines
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D 457-echo-area-hints-linting=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- These commands do not change the vault; the dry runs only read it.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiA3876SADjpTLYKDZ5][Claude Code]]/
+
+** Conversation
+
+*** @siainbuletin, 2026-11-14 11:15
+[[https://github.com/siainbuletin/dotfiles/pull/458#issuecomment-6876444247][permalink]]
+Closed: replaced by #459, which reuses =sp-echo-help-set= from #457 instead of adding its own helper module.
+
+--------------
+
+/Generated by [[https://claude.ai/code][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/9014546b760c5bf440d3c8b23fc7774af2f2d82d][9014546b76]] ✨ Show the keys of the report and lint buffers in the echo area (Claude, 2026-11-14 11:13)

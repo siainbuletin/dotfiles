@@ -289,6 +289,11 @@ Buffer creation:
 
 =sp-copy-last-message= copies the last line logged in =*Messages*= to the kill ring, which is how to get hold of text that has just flashed in the echo area (=C-h e= opens the same buffer). It reports what it copied. A message the echo area showed without logging it is not in the buffer and cannot be copied. It has no key binding yet; call it with =M-x=.
 
+- The text is first passed to the abnormal hook =sp-copy-last-message-functions=.
+  - A function returns the text as a propertized string, or nil.
+  - The first non-nil value is what the =Copied: ...= message shows, so a module can make it an Embark target (=sp-vulpea-backlink-check-restore= does).
+  - The kill ring always gets the plain text.
+
 #+begin_src emacs-lisp -i
 ;;;;;; Clipboard to/from Buffer
 ;; http://stackoverflow.com/a/10216338/4869
@@ -304,6 +309,12 @@ Buffer creation:
   (clipboard-yank)
   (deactivate-mark))
 
+(defvar sp-copy-last-message-functions nil
+  "Abnormal hook run by `sp-copy-last-message' with the copied text.
+A function returns the text as a propertized string for the echo area,
+for example to make it an Embark target, or nil.  The first non-nil
+value is shown.")
+
 (defun sp-copy-last-message ()
   "Copy the last message logged in *Messages* to the kill ring.
 Show the copied text in the echo area.  Messages the echo area
@@ -318,7 +329,10 @@ showed without logging them cannot be recovered."
                        (line-beginning-position) (point)))))
             ((not (string-empty-p text))))
       (progn (kill-new text)
-             (message "Copied: %s" text))
+             (message "Copied: %s"
+                      (or (run-hook-with-args-until-success
+                           'sp-copy-last-message-functions text)
+                          text)))
     (user-error "No message to copy")))
 #+end_src
 

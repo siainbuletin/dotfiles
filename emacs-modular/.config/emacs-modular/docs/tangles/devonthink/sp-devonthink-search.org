@@ -1,0 +1,257 @@
+#+TITLE: sp-devonthink-search.el: search DEVONthink from Emacs, and find similar records
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-search.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-devonthink-search.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "Search from Emacs").
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-search-test.el=; the JavaScript for Automation was not run (see the end of this file).
+
+* What it is for
+
+- One command, =sp-devonthink-search=, is the front end for two engines.
+  - DEVONthink search (the default): exact words, phrases and DEVONthink's search operators.
+  - =litdb= (=C-u=): by meaning, over the pages with highlights; it is =sp-litdb-search= and needs its index.
+- DEVONthink search needs nothing indexed.
+- The query is passed to DEVONthink as typed, so its operators work (=name:=, =kind:=, =tags:=, quotes, =AND=, =OR=, =NOT=).
+- Hits are candidates of the same category as the browser (=sp-devonthink-record=).
+  - All Embark actions of the browser work on them: open, PDF, litnote, link, tags.
+  - Two actions are added here: =s= (similar records, DEVONthink's "see also") and =v= (preview of the text).
+- Both engines end the same way: the record opens in DEVONthink (litdb hits at their page).
+- The concordance is not in the scripting dictionary, so it is not promised here: open the record in DEVONthink to use it.
+
+* Header and options
+
+- =sp-devonthink-search-limit= is how many hits are listed (the first ones DEVONthink ranks).
+- =sp-devonthink-search-preview-chars= is how much text =v= shows.
+
+#+begin_src emacs-lisp
+;;; sp-devonthink-search.el --- Search DEVONthink from Emacs, and find similar records -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; One search command over DEVONthink's own search and litdb, hits that
+;; Embark can act on, "see also" for a record, and a text preview.  macOS only.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-search.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'seq)
+(require 'json)
+(require 'sp-reading)
+(require 'sp-devonthink)
+(require 'sp-devonthink-browse)
+
+(declare-function sp-litdb-search "sp-litdb")
+(defvar sp-litdb-default-mode)
+
+(defgroup sp-devonthink-search nil
+  "Search DEVONthink from Emacs."
+  :group 'sp-devonthink)
+
+(defcustom sp-devonthink-search-limit 50
+  "How many hits `sp-devonthink-search' lists."
+  :type 'integer :group 'sp-devonthink-search)
+
+(defcustom sp-devonthink-search-preview-chars 3000
+  "How many characters of a record's text the preview shows."
+  :type 'integer :group 'sp-devonthink-search)
+#+end_src
+
+* Searching
+
+- The scripts are JavaScript for Automation (AppleScript failed with error -1728 on lists of records).
+- The script runs =search= over the whole database and keeps the first =sp-devonthink-search-limit= records.
+- Each line is: UUID, group, name, kind, page count (tabs between), so the browser's parser reads it.
+- The label of a hit is its name; the annotation (after the name, in the completion list) is the kind and the page count.
+
+#+begin_src emacs-lisp
+;;;; DEVONthink search
+
+(defconst sp-devonthink-search--jxa-lines
+  "const lines = records.slice(0, LIMIT).map(r => [r.uuid(), r.location(), r.name(), r.kind(), r.pageCount()].join(\"\\t\"));
+lines.join(\"\\n\");"
+  "JavaScript that prints one line for each record of `records'; LIMIT is replaced.")
+
+(defun sp-devonthink-search--lines ()
+  "The JavaScript lines that print the first records of `records'."
+  (replace-regexp-in-string "LIMIT" (number-to-string sp-devonthink-search-limit)
+                            sp-devonthink-search--jxa-lines t t))
+
+(defun sp-devonthink-search--script (query)
+  "The JavaScript for Automation that searches the database for QUERY."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const records = app.search(%s, {in: db.root()});
+%s"
+          (json-encode-string sp-reading-database) (json-encode-string query)
+          (sp-devonthink-search--lines)))
+
+(defun sp-devonthink-search--annotate (candidate)
+  "Kind and page count of CANDIDATE, for the completion list."
+  (when-let* ((record (gethash (substring-no-properties candidate)
+                               sp-devonthink-browse--candidates)))
+    (let ((kind (plist-get record :kind)) (pages (plist-get record :pages)))
+      (concat "  "
+              (string-join (delq nil (list (and kind (not (string-empty-p kind)) kind)
+                                           (and pages (not (member pages '("" "0" "missing value")))
+                                                (format "%s pages" pages))))
+                           ", ")))))
+
+(defun sp-devonthink-search--table (candidates)
+  "A completion table for CANDIDATES in rank order, of category `sp-devonthink-record'."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        '(metadata (category . sp-devonthink-record)
+                   (display-sort-function . identity)
+                   (cycle-sort-function . identity)
+                   (annotation-function . sp-devonthink-search--annotate))
+      (complete-with-action action candidates string pred))))
+
+(defun sp-devonthink-search--choose (script prompt)
+  "Run SCRIPT, list its records with PROMPT and open the one you choose."
+  (let ((records (sp-devonthink-browse--parse (sp-reading--jxa script))))
+    (unless records (user-error "No records found"))
+    (sp-devonthink-record-open
+     (completing-read prompt
+                      (sp-devonthink-search--table
+                       (sp-devonthink-browse--make-candidates records))
+                      nil t))))
+#+end_src
+
+* The front end
+
+- =M-x sp-devonthink-search= (=C-c k d f=) asks for the query and lists DEVONthink hits.
+- With =C-u= it first asks for the engine:
+  - =devonthink=;
+  - =litdb: meaning= (vector), =litdb: words= (full text), =litdb: both= (hybrid) -- run through =sp-litdb-search= with that mode.
+- A region, when active, is the default query.
+
+#+begin_src emacs-lisp
+;;;; The front end
+
+(defconst sp-devonthink-search--engines
+  '(("devonthink" . devonthink)
+    ("litdb: meaning" . vector)
+    ("litdb: words" . fulltext)
+    ("litdb: both" . hybrid))
+  "Engine names for the prompt, with the litdb mode or `devonthink'.")
+
+;;;###autoload
+(defun sp-devonthink-search (query &optional choose-engine)
+  "Search for QUERY in DEVONthink and open the hit you choose.
+With a prefix argument CHOOSE-ENGINE, choose the engine first (DEVONthink or litdb)."
+  (interactive
+   (let ((engine (when current-prefix-arg
+                   (cdr (assoc (completing-read "Engine: " sp-devonthink-search--engines nil t)
+                               sp-devonthink-search--engines)))))
+     (list (read-string (format "%s: " (if engine (if (eq engine 'devonthink) "DEVONthink" engine) "DEVONthink"))
+                        (when (use-region-p)
+                          (buffer-substring-no-properties (region-beginning) (region-end))))
+           (or engine (and current-prefix-arg 'devonthink)))))
+  (if (memq choose-engine '(vector fulltext hybrid))
+      (let ((sp-litdb-default-mode choose-engine))
+        (require 'sp-litdb)
+        (sp-litdb-search query))
+    (sp-devonthink-search--choose (sp-devonthink-search--script query)
+                                  (format "DEVONthink %s: " query))))
+#+end_src
+
+* Similar records ("see also")
+
+- DEVONthink's =compare= returns the records most like a given one.
+- =sp-devonthink-similar= lists them as hits (the same list, annotations and actions).
+- =sp-devonthink-similar-to-note= does it for the record of the current litnote.
+  - Without a record of its own, the note's crossref parent's record is used, and the echo area says so (nothing is written, so it does not ask).
+
+#+begin_src emacs-lisp
+;;;; Similar records
+
+(defun sp-devonthink-search--similar-script (uuid)
+  "The JavaScript for Automation that lists the records similar to the record UUID."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const records = app.compare({record: app.getRecordWithUuid(%s), to: db});
+%s"
+          (json-encode-string sp-reading-database) (json-encode-string uuid)
+          (sp-devonthink-search--lines)))
+
+(defun sp-devonthink-similar (candidate)
+  "List the records similar to the record CANDIDATE, and open the one you choose."
+  (interactive (list (sp-devonthink-browse--read)))
+  (let ((record (sp-devonthink-browse--record candidate)))
+    (sp-devonthink-search--choose
+     (sp-devonthink-search--similar-script (plist-get record :uuid))
+     (format "Similar to %s: " (plist-get record :name)))))
+
+;;;###autoload
+(defun sp-devonthink-similar-to-note ()
+  "List the records similar to the record of the current litnote."
+  (interactive)
+  (let ((uuid (or (sp-devonthink-note-record-uuid)
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
+    (sp-devonthink-search--choose (sp-devonthink-search--similar-script uuid)
+                                  "Similar records: ")))
+#+end_src
+
+* Preview
+
+- =sp-devonthink-preview= (Embark =v=) shows the start of the record's text in a buffer.
+- The text is cut inside DEVONthink, so a whole book is not sent through =osascript=.
+- DEVONthink's text has no page breaks; the preview is for deciding whether a hit is worth opening.
+
+#+begin_src emacs-lisp
+;;;; Preview
+
+(defun sp-devonthink-search--preview-script (uuid)
+  "The JavaScript for Automation that returns the start of the text of the record UUID."
+  (format "const app = Application(\"DEVONthink\");
+app.getRecordWithUuid(%s).plainText().slice(0, %d);"
+          (json-encode-string uuid) sp-devonthink-search-preview-chars))
+
+(defun sp-devonthink-preview (candidate)
+  "Show the start of the text of the record CANDIDATE in a buffer."
+  (interactive (list (sp-devonthink-browse--read)))
+  (let* ((record (sp-devonthink-browse--record candidate))
+         (text (sp-reading--jxa
+                (sp-devonthink-search--preview-script (plist-get record :uuid))))
+         (buffer (get-buffer-create "*devonthink preview*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (plist-get record :name) "\n\n" text)
+        (goto-char (point-min))
+        (special-mode)
+        (visual-line-mode 1)))
+    (display-buffer buffer)))
+#+end_src
+
+* Keys
+
+- =C-c k d f= searches (=C-u= chooses the engine).
+- =C-c k d a= lists records similar to the litnote's record.
+- Embark on a hit: =s= similar, =v= preview.
+
+#+begin_src emacs-lisp
+;;;; Keys
+
+(keymap-set sp-devonthink-map "f" #'sp-devonthink-search)
+(keymap-set sp-devonthink-map "a" #'sp-devonthink-similar-to-note)
+(keymap-set sp-devonthink-record-map "s" #'sp-devonthink-similar)
+(keymap-set sp-devonthink-record-map "v" #'sp-devonthink-preview)
+
+(provide 'sp-devonthink-search)
+;;; sp-devonthink-search.el ends here
+#+end_src
+
+* Testing it by hand on the Mac
+
+- See the testing steps in the pull request that added this file.
+- Unknown until tried:
+  - =r.pageCount()= and =r.kind()= on a search result, and whether =kind= is the readable kind ("PDF Document");
+  - =app.compare({record, to})= as written;
+  - =plain text of= and =text 1 thru N of= on a large record.

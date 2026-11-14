@@ -63,6 +63,17 @@ outer.bottom =     8
 outer.top =        8
 outer.right =      8
 
+# DEVONthink windows (DT Open PDF makes one per PDF) must be tiled. They are not
+# always detected as standard windows, so AeroSpace left them floating.
+# The first id is DEVONthink 3, the second is DEVONthink 4.
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think3'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think'
+run = 'layout tiling'
+
 ####################################
 ######## MAIN BINDING MODE #########
 ####################################

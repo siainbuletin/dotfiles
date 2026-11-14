@@ -124,5 +124,7 @@ description, in `org-link' face, followed with RET or a click."
 ;;;; vulpea-ui get unlinked mentioned without an ID property
 ;; (require 'sp-tab-inbox) ;; this is required in init el so I can see progress for loading
 
+(require 'sp-vulpea-ui-view) ;; the same widgets in a frame of their own (M-o v)
+
 (provide 'sp-vulpea-ui)
 ;; sp-vulpea-ui.el ends here.
