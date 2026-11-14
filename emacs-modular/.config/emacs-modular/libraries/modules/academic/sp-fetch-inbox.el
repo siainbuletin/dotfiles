@@ -34,6 +34,18 @@
   "Regexp; files of the inbox whose relative path matches are skipped."
   :type 'regexp :group 'sp-fetch-inbox)
 
+(defcustom sp-fetch-inbox-sort 'added
+  "How the picker of `sp-fetch-inbox' orders the articles.
+`added' puts the newest first, `alphabetical' sorts by name.
+While picking, C-c s switches between the two."
+  :type '(choice (const :tag "Last added first" added)
+                 (const :tag "Alphabetical" alphabetical))
+  :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-group t
+  "Non-nil to group the picker by sub-directory of the inbox."
+  :type 'boolean :group 'sp-fetch-inbox)
+
 (defcustom sp-fetch-inbox-devonthink t
   "Non-nil to list and update records in DEVONthink (macOS only)."
   :type 'boolean :group 'sp-fetch-inbox)
@@ -70,32 +82,48 @@ See `sp-devonthink-bibsync-entry'."
   (and sp-fetch-inbox-devonthink (eq system-type 'darwin) (executable-find "osascript")))
 
 (defun sp-fetch-inbox--list-script ()
-  "The JavaScript that lists UUID, name and path of the PDFs in the inbox group."
+  "The JavaScript that lists the PDFs in the inbox group and its sub-groups.
+One line per PDF: UUID, name, path, seconds since the epoch of the addition
+date, and the sub-group below the inbox group (empty for the group itself),
+separated by tabs."
   (format "const app = Application(\"DEVONthink\");
 const db = app.databases.byName(%s);
 const group = app.getRecordAt(%s, {in: db});
 const out = [];
-if (group) {
-  for (const r of group.children()) {
+function walk(g, rel, depth) {
+  for (const r of g.children()) {
     const name = r.name(), path = r.path() || \"\", kind = String(r.kind() || \"\");
-    if (/pdf/i.test(kind) || /\\.pdf$/i.test(path) || /\\.pdf$/i.test(name))
-      out.push([r.uuid(), name, path].join(\"\\t\"));
+    if (String(r.type()) === \"group\") {
+      if (depth < 8) walk(r, rel ? rel + \"/\" + name : name, depth + 1);
+    } else if (/pdf/i.test(kind) || /\\.pdf$/i.test(path) || /\\.pdf$/i.test(name)) {
+      const d = r.additionDate() || r.creationDate();
+      out.push([r.uuid(), name, path, d ? Math.floor(d.getTime() / 1000) : \"\", rel].join(\"\\t\"));
+    }
   }
 }
+if (group) walk(group, \"\", 0);
 out.join(\"\\n\");"
           (json-encode-string sp-reading-database)
           (json-encode-string (concat "/" sp-fetch-inbox-devonthink-group))))
 
 (defun sp-fetch-inbox--parse-records (text)
-  "Items from TEXT, lines of UUID, name and path separated by tabs."
+  "Items from TEXT, lines of UUID, name, path, added and sub-group separated by tabs.
+The last two fields may be missing."
   (delq nil
         (mapcar (lambda (line)
                   (let ((parts (split-string line "\t")))
                     (when (>= (length parts) 2)
                       (list :uuid (nth 0 parts) :name (nth 1 parts)
                             :file (let ((p (nth 2 parts))) (and p (not (string-empty-p p)) p))
-                            :imported (let ((p (nth 2 parts))) (or (null p) (string-empty-p p)))))))
+                            :imported (let ((p (nth 2 parts))) (or (null p) (string-empty-p p)))
+                            :added (sp-fetch-inbox--epoch (nth 3 parts))
+                            :subdir (let ((s (nth 4 parts))) (and s (not (string-empty-p s)) s))))))
                 (split-string text "\n" t))))
+
+(defun sp-fetch-inbox--epoch (string)
+  "The time for STRING, a count of seconds since the epoch, or nil."
+  (and string (string-match-p "\\`[0-9]+\\'" string)
+       (string-to-number string)))
 
 (defun sp-fetch-inbox--folder-files ()
   "The PDF files of `sp-fetch-inbox-dir', without the excluded ones."
@@ -107,13 +135,20 @@ out.join(\"\\n\");"
                                  (file-relative-name f sp-fetch-inbox-dir)))))
      (directory-files-recursively sp-fetch-inbox-dir "\\.pdf\\'" nil nil))))
 
+(defun sp-fetch-inbox--subdir (file)
+  "The directory of FILE relative to `sp-fetch-inbox-dir', nil for the folder itself."
+  (let ((d (file-name-directory (file-relative-name file sp-fetch-inbox-dir))))
+    (and d (not (string-empty-p d)) (directory-file-name d))))
+
 (defun sp-fetch-inbox--merge (records files)
   "Items from RECORDS and FILES; a file that a record points at is not repeated."
   (let ((known (delq nil (mapcar (lambda (r) (and (plist-get r :file)
                                                   (file-truename (plist-get r :file))))
                                  records))))
     (append records
-            (mapcar (lambda (f) (list :file f :name (file-name-nondirectory f)))
+            (mapcar (lambda (f) (list :file f :name (file-name-nondirectory f)
+                                      :added (file-attribute-modification-time (file-attributes f))
+                                      :subdir (sp-fetch-inbox--subdir f)))
                     (seq-remove (lambda (f) (member (file-truename f) known)) files)))))
 
 (defun sp-fetch-inbox-items ()
@@ -126,17 +161,160 @@ out.join(\"\\n\");"
                             nil)))))
     (sp-fetch-inbox--merge records (sp-fetch-inbox--folder-files))))
 
-(defun sp-fetch-inbox--select (items)
-  "Choose one of ITEMS; with a single item, that one."
+(defconst sp-fetch-inbox--root-label "(inbox)"
+  "The name of the folder of the articles that are not in a sub-directory.")
+
+(defun sp-fetch-inbox--folder (item)
+  "The sub-directory of ITEM, or `sp-fetch-inbox--root-label'."
+  (or (plist-get item :subdir) sp-fetch-inbox--root-label))
+
+(defun sp-fetch-inbox--added (item)
+  "The time ITEM was added, or 0 when unknown."
+  (or (plist-get item :added) 0))
+
+(defun sp-fetch-inbox--item< (order a b)
+  "Non-nil when item A comes before item B in ORDER.
+ORDER is `added' (newest first, name as tie-break) or `alphabetical'."
+  (let ((ta (sp-fetch-inbox--added a))
+        (tb (sp-fetch-inbox--added b)))
+    (if (and (eq order 'added) (not (time-equal-p ta tb)))
+        (time-less-p tb ta)
+      (string< (downcase (plist-get a :name)) (downcase (plist-get b :name))))))
+
+(defun sp-fetch-inbox--arrange (items order group)
+  "ITEMS sorted in ORDER; with GROUP non-nil, the items of a folder stay together.
+The folders follow ORDER too: by the newest item they hold for `added',
+by name, the root first, for `alphabetical'."
+  (let* ((sorted (sort (copy-sequence items)
+                       (lambda (a b) (sp-fetch-inbox--item< order a b))))
+         (folders (delete-dups (mapcar #'sp-fetch-inbox--folder sorted))))
+    (when (eq order 'alphabetical)
+      (setq folders (sort folders
+                          (lambda (a b)
+                            (cond ((equal a sp-fetch-inbox--root-label) (not (equal b a)))
+                                  ((equal b sp-fetch-inbox--root-label) nil)
+                                  (t (string< a b)))))))
+    (if (not group)
+        sorted
+      (mapcan (lambda (f)
+                (seq-filter (lambda (i) (equal (sp-fetch-inbox--folder i) f)) sorted))
+              folders))))
+
+(defun sp-fetch-inbox--candidates (items)
+  "An alist of (STRING . ITEM) for ITEMS, in order, with unique strings."
+  (let ((seen (make-hash-table :test 'equal))
+        out)
+    (dolist (i items)
+      (let* ((base (format "%s%s" (plist-get i :name)
+                           (if (plist-get i :uuid) "  [DEVONthink]" "")))
+             (s base)
+             (n 1))
+        (when (gethash s seen)
+          (setq s (format "%s  (%s)" base (sp-fetch-inbox--folder i))))
+        (while (gethash s seen)
+          (setq n (1+ n)
+                s (format "%s  (%s) #%d" base (sp-fetch-inbox--folder i) n)))
+        (puthash s t seen)
+        (push (cons s i) out)))
+    (nreverse out)))
+
+(defun sp-fetch-inbox--table (alist &optional group-function)
+  "A completion table over ALIST that keeps its order.
+GROUP-FUNCTION, when given, is the `group-function' of the completion metadata.
+`display-sort-function' and `cycle-sort-function' are set so that Vertico,
+Consult and the default UI do not re-sort the candidates."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        `(metadata (category . sp-fetch-inbox)
+                   (display-sort-function . identity)
+                   (cycle-sort-function . identity)
+                   ,@(and group-function `((group-function . ,group-function))))
+      (complete-with-action action alist string pred))))
+
+(defun sp-fetch-inbox--read-folder (items)
+  "Ask for one of the sub-directories of ITEMS; nil means all of them."
+  (let* ((folders (sort (delete-dups (mapcar #'sp-fetch-inbox--folder items)) #'string<))
+         (alist (cons (cons "All folders" nil)
+                      (mapcar (lambda (f)
+                                (cons (format "%s (%d)" f
+                                              (seq-count (lambda (i)
+                                                           (equal (sp-fetch-inbox--folder i) f))
+                                                         items))
+                                      f))
+                              folders))))
+    (cdr (assoc (completing-read "Folder: " (sp-fetch-inbox--table alist) nil t nil nil
+                                 "All folders")
+                alist))))
+
+(defun sp-fetch-inbox-picker-sort ()
+  "Leave the picker and show it again with the other sort order."
+  (interactive)
+  (unless (minibufferp) (user-error "Only in the inbox picker"))
+  (throw 'sp-fetch-inbox--again (list 'sort (minibuffer-contents))))
+
+(defun sp-fetch-inbox-picker-folder ()
+  "Leave the picker, choose a sub-directory and show it again with that one only."
+  (interactive)
+  (unless (minibufferp) (user-error "Only in the inbox picker"))
+  (throw 'sp-fetch-inbox--again (list 'folder (minibuffer-contents))))
+
+(defvar-keymap sp-fetch-inbox-picker-map
+  :doc "Keys added to the minibuffer while picking an article of the inbox."
+  "C-c s" #'sp-fetch-inbox-picker-sort
+  "C-c d" #'sp-fetch-inbox-picker-folder)
+
+(defun sp-fetch-inbox--prompt (order folder)
+  "The prompt of the picker, with the sort ORDER, the FOLDER and the keys."
+  (format "Article [%s%s | C-c s sort, C-c d folder]: "
+          (if (eq order 'added) "newest first" "A-Z")
+          (if folder (format ", only %s" folder) "")))
+
+(defun sp-fetch-inbox--read (items order folder initial)
+  "Read one of ITEMS in ORDER, restricted to FOLDER, starting with INITIAL.
+Return (choose ITEM), or (sort INPUT) or (folder INPUT) when the user asked
+for another order or folder."
+  (let* ((alist (sp-fetch-inbox--candidates
+                 (sp-fetch-inbox--arrange items order sp-fetch-inbox-group)))
+         (folders (make-hash-table :test 'equal))
+         (group-function
+          (and sp-fetch-inbox-group
+               (lambda (candidate transform)
+                 (if transform candidate (gethash candidate folders))))))
+    (dolist (c alist)
+      (puthash (car c) (sp-fetch-inbox--folder (cdr c)) folders))
+    (catch 'sp-fetch-inbox--again
+      (minibuffer-with-setup-hook
+          (lambda ()
+            (use-local-map (make-composed-keymap sp-fetch-inbox-picker-map
+                                                 (current-local-map))))
+        (let ((choice (completing-read (sp-fetch-inbox--prompt order folder)
+                                       (sp-fetch-inbox--table alist group-function)
+                                       nil t initial)))
+          (list 'choose (cdr (assoc choice alist))))))))
+
+(defun sp-fetch-inbox--select (items &optional folder)
+  "Choose one of ITEMS, restricted to the sub-directory FOLDER when given.
+With a single item, that one.  The order starts as `sp-fetch-inbox-sort'."
   (if (null (cdr items))
       (car items)
-    (let* ((table (mapcar (lambda (i)
-                            (cons (format "%s%s" (plist-get i :name)
-                                          (if (plist-get i :uuid) "  [DEVONthink]" ""))
-                                  i))
-                          items))
-           (choice (completing-read "Article: " table nil t)))
-      (cdr (assoc choice table)))))
+    (let ((order sp-fetch-inbox-sort)
+          (initial nil)
+          result)
+      (while (not result)
+        (let ((shown (if folder
+                         (seq-filter (lambda (i) (equal (sp-fetch-inbox--folder i) folder))
+                                     items)
+                       items)))
+          (unless shown (user-error "Nothing in %s" folder))
+          (pcase (sp-fetch-inbox--read shown order folder initial)
+            (`(choose ,item) (setq result item))
+            (`(sort ,input)
+             (setq order (if (eq order 'added) 'alphabetical 'added)
+                   initial input))
+            (`(folder ,input)
+             (setq folder (sp-fetch-inbox--read-folder items)
+                   initial input)))))
+      result)))
 
 (defun sp-fetch-inbox--pdf-text (file)
   "The text of the first two pages of FILE, or an empty string without pdftotext."
@@ -340,12 +518,15 @@ r.name();"
     edit))
 
 ;;;###autoload
-(defun sp-fetch-inbox ()
-  "Pick an article of the inbox and open its PDF beside an editable BibTeX entry."
-  (interactive)
+(defun sp-fetch-inbox (&optional pick-folder)
+  "Pick an article of the inbox and open its PDF beside an editable BibTeX entry.
+With a prefix argument PICK-FOLDER, first choose one sub-directory to restrict to."
+  (interactive "P")
   (let ((items (sp-fetch-inbox-items)))
     (unless items (user-error "The inbox is empty"))
-    (sp-fetch-inbox--start (sp-fetch-inbox--select items))))
+    (sp-fetch-inbox--start
+     (sp-fetch-inbox--select
+      items (and pick-folder (cdr (sp-fetch-inbox--read-folder items)))))))
 
 ;;;###autoload
 (defun sp-fetch-inbox-record (candidate)
