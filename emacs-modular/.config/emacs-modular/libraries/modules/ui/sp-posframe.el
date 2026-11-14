@@ -2,15 +2,21 @@
 
 ;;; Commentary:
 
+;; STATUS: ON THE BACKBURNER. The centred minibuffer does not work the way I want yet, so
+;; it is off by default (`sp-posframe-enabled' is nil) and not being developed. The code is
+;; kept so it can be picked up again; see adr/0027-centered-miniframe-on-the-backburner.org.
+;; `M-x sp-posframe-toggle' still turns it on for a session.
+
 ;; The minibuffer (the prompt and Vertico's candidates) is shown in a child frame in the
 ;; centre of the screen, at a fixed share of the frame width, with some padding. Nothing
 ;; else: no prompt styling and no dimming.
 
 ;;; Code:
 
-(defcustom sp-posframe-enabled t
+(defcustom sp-posframe-enabled nil
   "Non-nil shows the minibuffer in a centred posframe.
-Nil shows it in the normal place, at the bottom of the frame. Setting it
+BACKBURNER: the default is nil, because the centred minibuffer is not
+working the way I want yet (see adr/0027). Nil shows it in the normal place, at the bottom of the frame. Setting it
 through Customize or `setopt' applies at once; use `sp-posframe-toggle' to
 flip it in a running Emacs."
   :type 'boolean
