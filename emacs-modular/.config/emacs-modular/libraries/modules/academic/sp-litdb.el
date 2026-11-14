@@ -305,8 +305,7 @@ Only new and changed records are done; see `tools/devonthink-to-litdb.py'."
 
 ;;;; Keys
 
-(keymap-global-set "C-c k l" #'sp-litdb-search)
-(keymap-global-set "C-c k I" #'sp-litdb-index)
+;; C-; k l and C-; k I are bound in `sp-keys' (they were C-c k l and C-c k I).
 
 (provide 'sp-litdb)
 ;; sp-litdb.el ends here

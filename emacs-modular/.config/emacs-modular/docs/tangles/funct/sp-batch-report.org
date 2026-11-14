@@ -57,6 +57,21 @@ What was not taken:
   - the keyword conversion preview: it is read before a =y-or-n-p=, so no key can be pressed in it
   - =sp-author-notes-works-dryrun=: a one-line message
 
+** The same keys in every report
+
+One key means one kind of action in every report, and in the leader (=C-; L=, see =sp-keys=).
+
+- Keys of =sp-batch-report-mode=, shared by every report built on it:
+  + =RET= visit, =n= / =p= next and previous link;
+  + =g= list again (the dry run again), =A= apply (also =C-c C-c=), =d= drop the entry at point, =u= restore it;
+  + =b= open a backup, =D= diff against it, =k= stop the running job, =q= quit.
+- Rule for the letters a report adds:
+  + a lower-case letter acts on the entry at point (=a= register the tag, =c= create a litnote, =o= visit the author note);
+  + an upper-case letter acts on the whole list (=A= apply, =C= create for every exact match).
+- The footnote lint used =a= for apply. =a= is now a shim that says "a moved to A" and applies, until it is removed.
+- The leader mirrors the verbs: in each lint group =l= lists (the dry run), =a= applies (the convert), =r= restores.
+- Not in a batch report, so not covered: the status list of =sp-litnotes-meta= (a =tabulated-list= with its own mark keys =m= =u= =M= =U=, change =s=).
+
 ** Backups of the file on a line
 
 - =b= opens one of the backups of the file linked on the line at point; =D= diffs one against the file.
@@ -1034,3 +1049,6 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🐛 Fixed the report buffers' keys not showing as echo-area hints (see the =sp-interaction= doc)
     - =sp-batch-report-open= sets the hints once the functions are set and after the buffer is shown
     - the hints follow what the report can do (=d=/=u=, =A=, =g= only with the function); =A= and =q= are bold
+- [[https://github.com/siainbuletin/dotfiles/pull/489][#489]]
+  - 📝 Documented the keys every report shares and the rule for the letters a report adds
+  - 🔧 Changed the footnote report to apply with =A= like the others; =a= is a shim (=sp-org-lint-fn-apply-old-key=)

@@ -454,9 +454,14 @@ Applied in the pull request that follows #283, so the design can be tried:
 - =C-z= is not the leader. The two =C-z= unbinds in =sp-keys= and =sp-prog-misc= moved to =sp-text-manipulation=: unbound on the Mac, =undo= elsewhere.
 - =M-x sp-keys-audit= lists leader keys whose command is not defined, and the shims still alive.
 
+Applied in [[https://github.com/siainbuletin/dotfiles/pull/489][#489]] (academic part):
+- Groups =B= (bibliography, from =C-c w b=), =k= (knowledge search, from =C-c k=) and =L= (lint, new).
+- One verb per key in every lint group: =l= list, =a= apply, =r= restore. Report buffers use =g= =A= =d= =u=.
+- Old keys are shims in =sp-keys-moved=. =C-c w=, other than =C-c w b=, stays for now: reading, olivetti, elfeed, collection query, Denote.
+
 Not applied yet (left for later pull requests):
 - One =defvar-keymap= per feature module and the registry table.
-- Moving the academic =C-c w=, =C-c k= and Org =C-c d= keys into the leader.
+- Moving the rest of =C-c w= and the Org =C-c d= keys into the leader (=C-c w b= and =C-c k= moved in #489).
 - Local leader for Org, the batch test, the eleven undefined commands and the other bugs listed above.
 
 * Open decisions

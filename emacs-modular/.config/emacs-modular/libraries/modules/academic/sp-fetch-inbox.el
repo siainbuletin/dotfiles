@@ -700,7 +700,7 @@ A failure is reported, not signalled: the article is already filed."
     (sp-fetch-inbox--finish edit)
     (message "Left in the inbox")))
 
-(global-set-key (kbd "C-c w b a") #'sp-fetch-inbox)
+;; C-; B a runs `sp-fetch-inbox' (bound in `sp-keys').
 
 (with-eval-after-load 'sp-devonthink-browse
   (keymap-set sp-devonthink-record-map "f" #'sp-fetch-inbox-record))

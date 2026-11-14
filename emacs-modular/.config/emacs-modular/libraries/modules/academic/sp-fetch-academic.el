@@ -161,10 +161,7 @@ a PDF goes to `sp-fetch-academic-download'."
 
 ;;;; Keys
 
-(global-set-key (kbd "C-c w b b") #'sp-fetch-academic-biblio-lookup)
-(global-set-key (kbd "C-c w b i") #'sp-fetch-academic-doi)
-(global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
-(global-set-key (kbd "C-c w b s") #'sp-fetch-academic-omni)
+;; Bound in `sp-keys' (C-; B b, i, u, s); nothing to bind here.
 
 (use-package request :ensure t)
 (use-package counsel :ensure t)

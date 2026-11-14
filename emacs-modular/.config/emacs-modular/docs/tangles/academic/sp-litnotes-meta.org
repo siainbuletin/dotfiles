@@ -10,7 +10,7 @@ Literate source for =libraries/modules/academic/sp-litnotes-meta.el=.
 
 * What it does
 
-When =citar-create-note= makes a literature note (=C-c w b c=, or opening the notes of a reference that has none), =sp-litnotes-meta= reads the BibTeX entry of the citation key and adds these meta lines to the first section of the note:
+When =citar-create-note= makes a literature note (=C-; B c=, or opening the notes of a reference that has none), =sp-litnotes-meta= reads the BibTeX entry of the citation key and adds these meta lines to the first section of the note:
 
 | Meta line    | Value                                                                                          |
 |--------------+------------------------------------------------------------------------------------------------|

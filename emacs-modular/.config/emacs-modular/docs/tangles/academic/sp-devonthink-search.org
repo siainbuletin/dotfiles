@@ -125,7 +125,7 @@ const records = app.search(%s, {in: db.root()});
 
 * The front end
 
-- =M-x sp-devonthink-search= (=C-c k d f=) asks for the query and lists DEVONthink hits.
+- =M-x sp-devonthink-search= (=C-; k d f=) asks for the query and lists DEVONthink hits.
 - With =C-u= it first asks for the engine:
   - =devonthink=;
   - =litdb: meaning= (vector), =litdb: words= (full text), =litdb: both= (hybrid) -- run through =sp-litdb-search= with that mode.
@@ -232,8 +232,8 @@ app.getRecordWithUuid(%s).plainText().slice(0, %d);"
 
 * Keys
 
-- =C-c k d f= searches (=C-u= chooses the engine).
-- =C-c k d a= lists records similar to the litnote's record.
+- =C-; k d f= searches (=C-u= chooses the engine).
+- =C-; k d a= lists records similar to the litnote's record.
 - Embark on a hit: =s= similar, =v= preview.
 
 #+begin_src emacs-lisp

@@ -489,8 +489,8 @@ entry's first page (see `sp-devonthink-resolve')."
   - It does not use tags or the custom field =litnote= of the sync step, so it cannot clash with them.
 - The keywords come from the =keywords= field of the chapter's BibTeX entry (comma or semicolon separated, duplicates dropped); =C-u= lets you edit them before they are written.
 - Commands:
-  - =sp-devonthink-chapter-keywords-store= (=C-c k d C=): write the chapter's keywords into its block in the parent's record, after a question that names the parent.
-  - =sp-devonthink-chapter-keywords-show= (=C-c k d c=): read the block back and put it at the bottom of the litnote.
+  - =sp-devonthink-chapter-keywords-store= (=C-; k d C=): write the chapter's keywords into its block in the parent's record, after a question that names the parent.
+  - =sp-devonthink-chapter-keywords-show= (=C-; k d c=): read the block back and put it at the bottom of the litnote.
     - The heading is =Keywords in the book "Title" (parent-key)=; the word is =collection= for a collection or proceedings, =book= for a book, =work= otherwise.
     - The heading carries =:SP_CHAPTER_OF: parent-key=; running the command again rewrites only the body under that heading.
     - Text you add under that heading is replaced on the next run, so keep your own notes in another heading.
@@ -655,18 +655,18 @@ collection it sits in.  The buffer is left unsaved."
 
 * Keys and Embark
 
-- The prefix =C-c k d= holds the commands (=C-c k= is already the knowledge prefix: =l= litdb, =s= semantic).
+- The prefix =C-; k d= holds the commands (=C-; k= is the knowledge group of the leader: =l= litdb, =s= semantic; the map is mounted there by =sp-devonthink=, and =C-; k d= is a shim).
 - Terminal Emacs is not covered: keys are for the GUI, as the rest of the config.
 
 | Key | Command |
 |-----+---------|
-| =C-c k d o= | open the record of this litnote |
-| =C-c k d l= | insert a =devonthink:= link by citekey |
-| =C-c k d s= | store a link to what DEVONthink shows |
-| =C-c k d k= | write the =#+devonthink:= keyword of this litnote |
-| =C-c k d c= | show this chapter's keywords at the bottom of the note |
-| =C-c k d C= | store this chapter's keywords in its parent's record |
-| =C-c k d r= | refresh the citekey to UUID cache |
+| =C-; k d o= | open the record of this litnote |
+| =C-; k d l= | insert a =devonthink:= link by citekey |
+| =C-; k d s= | store a link to what DEVONthink shows |
+| =C-; k d k= | write the =#+devonthink:= keyword of this litnote |
+| =C-; k d c= | show this chapter's keywords at the bottom of the note |
+| =C-; k d C= | store this chapter's keywords in its parent's record |
+| =C-; k d r= | refresh the citekey to UUID cache |
 
 - In the =citar= Embark menu, =D= opens the record of the reference.
 
@@ -674,7 +674,7 @@ collection it sits in.  The buffer is left unsaved."
 ;;;; Keys
 
 (defvar-keymap sp-devonthink-map
-  :doc "Commands of `sp-devonthink' (prefix C-c k d)."
+  :doc "Commands of `sp-devonthink' (prefix C-; k d)."
   "o" #'sp-devonthink-open-from-note
   "l" #'sp-devonthink-insert-link
   "s" #'sp-devonthink-store-link
@@ -683,7 +683,9 @@ collection it sits in.  The buffer is left unsaved."
   "C" #'sp-devonthink-chapter-keywords-store
   "r" #'sp-reading-refresh)
 
-(keymap-global-set "C-c k d" sp-devonthink-map)
+(defvar lem+knowledge-keys)
+(with-eval-after-load 'sp-keys
+  (keymap-set lem+knowledge-keys "d" sp-devonthink-map))
 
 (with-eval-after-load 'citar-embark
   (when (boundp 'citar-embark-map)
@@ -703,9 +705,9 @@ collection it sits in.  The buffer is left unsaved."
 
 - See the testing steps in the pull request that added this file; the short version:
   - Follow a =devonthink:UUID::6= link in Org: DEVONthink opens that record on page 6.
-  - =C-c k d k= in a litnote writes =#+devonthink:=; =C-c k d o= opens it.
-  - =C-c k d s= in front of DEVONthink stores a link; =C-c C-l= inserts it.
-  - In a chapter's litnote, =C-c k d C= asks and stores its keywords; =C-c k d c= shows them at the bottom of the note.
+  - =C-; k d k= in a litnote writes =#+devonthink:=; =C-; k d o= opens it.
+  - =C-; k d s= in front of DEVONthink stores a link; =C-c C-l= inserts it.
+  - In a chapter's litnote, =C-; k d C= asks and stores its keywords; =C-; k d c= shows them at the bottom of the note.
 - Unknown until tried:
   - whether =current page= and =selected text= exist on the =think window= and whether the page is 0- or 1-based (hence =sp-devonthink-store-page-offset=);
   - whether the chapter keywords in a record's comment are findable enough in DEVONthink (search, =comment:= operator, Smart Groups); if not, prefixed tags are the fallback;
