@@ -398,6 +398,10 @@ the line, respectively."
 (bind-keys :prefix-map lem+lint-bibtex-fix-keys
            :prefix (concat sp-prefix " L b f")
            ("n" . sp-bibtex-lint-fix-authors)
+           ("b" . sp-bibtex-lint-fix-abstract)
+           ("B" . sp-bibtex-lint-abstract-dryrun)
+           ("e" . sp-bibtex-lint-abstract-entry)
+           ("R" . sp-bibtex-lint-abstract-restore)
            ("c" . sp-bibtex-lint-fix-crossref)
            ("C" . sp-bibtex-lint-crossref-dryrun)
            ("f" . sp-bibtex-lint-fix-files)

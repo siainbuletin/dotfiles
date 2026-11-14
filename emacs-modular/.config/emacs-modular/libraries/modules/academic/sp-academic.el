@@ -47,6 +47,7 @@
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-abstract)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
