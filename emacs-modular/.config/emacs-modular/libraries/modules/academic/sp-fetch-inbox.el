@@ -20,6 +20,7 @@
 (defvar sp-bibtex-files)
 (declare-function sp--fetch-academic-attach "sp-fetch-academic")
 (declare-function doi-utils-doi-to-bibtex-string "doi-utils")
+(declare-function sp-devonthink-bibsync-entry "sp-devonthink-bibsync")
 
 (defgroup sp-fetch-inbox nil
   "File new articles from the inbox."
@@ -43,6 +44,11 @@
 
 (defcustom sp-fetch-inbox-index-new t
   "Non-nil to index in DEVONthink a file that had no record, after filing it."
+  :type 'boolean :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-sync-metadata t
+  "Non-nil to copy author, title and keywords to the DEVONthink record after filing.
+See `sp-devonthink-bibsync-entry'."
   :type 'boolean :group 'sp-fetch-inbox)
 
 (defcustom sp-fetch-inbox-pdf-function #'sp-fetch-inbox-show-pdf
@@ -420,6 +426,18 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
       (insert "\n" (string-trim text) "\n")
       (save-buffer))))
 
+(defun sp-fetch-inbox--sync-metadata (key text)
+  "Copy author, title and keywords of the entry TEXT to the DEVONthink record of KEY.
+A failure is reported, not signalled: the article is already filed."
+  (when (and sp-fetch-inbox-sync-metadata (sp-fetch-inbox--dt-p))
+    (condition-case err
+        (progn
+          (require 'sp-devonthink-bibsync)
+          (unless (sp-devonthink-bibsync-entry key text)
+            (message "No DEVONthink record of its own for %s: metadata not copied" key)))
+      (error (message "Filed, but the DEVONthink metadata was not copied: %s"
+                      (error-message-string err))))))
+
 (defun sp-fetch-inbox--finish (edit)
   "Restore the windows and kill the edit buffer EDIT."
   (let ((config (buffer-local-value 'sp-fetch-inbox--config edit)))
@@ -451,6 +469,7 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
       (goto-char (point-min))
       (sp--fetch-academic-attach dest)
       (sp-fetch-inbox--append bibfile (buffer-string))
+      (sp-fetch-inbox--sync-metadata key (buffer-string))
       (sp-fetch-inbox--finish edit)
       (message "Filed %s in %s" key (abbreviate-file-name dest))
       (when (and (sp-fetch-inbox-items) (y-or-n-p "Next article? "))

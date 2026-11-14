@@ -150,6 +150,25 @@
       (sp-fetch-inbox--set-key "smith2020")
       (should-error (sp-fetch-inbox-confirm) :type 'user-error))))
 
+(ert-deftest sp-fetch-inbox-sync-metadata ()
+  (let (called msgs)
+    (cl-letf (((symbol-function 'sp-fetch-inbox--dt-p) (lambda () t))
+              ((symbol-function 'require) (lambda (f &rest _) (or (eq f 'sp-devonthink-bibsync) t)))
+              ((symbol-function 'sp-devonthink-bibsync-entry)
+               (lambda (key text) (setq called (list key text)) '(:records 1)))
+              ((symbol-function 'message) (lambda (f &rest a) (push (apply #'format f a) msgs))))
+      (sp-fetch-inbox--sync-metadata "k1" "@article{k1,}")
+      (should (equal called '("k1" "@article{k1,}")))
+      ;; option off: nothing is called
+      (setq called nil)
+      (let ((sp-fetch-inbox-sync-metadata nil))
+        (sp-fetch-inbox--sync-metadata "k1" "x"))
+      (should-not called)
+      ;; a failure is reported, not signalled
+      (cl-letf (((symbol-function 'sp-devonthink-bibsync-entry) (lambda (&rest _) (error "boom"))))
+        (sp-fetch-inbox--sync-metadata "k1" "x"))
+      (should (string-match-p "not copied: boom" (car msgs))))))
+
 (ert-deftest sp-fetch-inbox-hints-in-echo-area-not-header ()
   (with-temp-buffer
     (sp-fetch-inbox-edit-mode)

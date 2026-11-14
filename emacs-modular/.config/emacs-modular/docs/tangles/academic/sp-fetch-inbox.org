@@ -59,6 +59,10 @@ Keys in the BibTeX buffer:
   - the content is exported to a temporary folder, moved to =~/Documents/literature/KEY.pdf= and indexed as a new record named =KEY.pdf=
   - you are asked whether to move the old imported record to the trash
 - A file with no record: renamed on disk, then indexed (=sp-fetch-inbox-index-new=).
+- After the entry is appended, the author, title and keywords of the entry are copied to the record (=sp-fetch-inbox-sync-metadata=, see [[file:sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]]):
+  - keywords become tags (added, none removed); author and title go to custom metadata;
+  - both are kept by DEVONthink when the record is later renamed or moved;
+  - a failure is only reported in the echo area: the article is already filed and the entry saved.
 - DEVONthink not running, or not a Mac: only the folder is used and files are renamed on disk.
 
 * Options
@@ -68,6 +72,7 @@ Keys in the BibTeX buffer:
 - =sp-fetch-inbox-devonthink=: nil to ignore DEVONthink completely.
 - =sp-fetch-inbox-devonthink-group=: name of the inbox group, =inbox=.
 - =sp-fetch-inbox-index-new=: index in DEVONthink a file that had no record.
+- =sp-fetch-inbox-sync-metadata=: nil to leave author, title and keywords out of DEVONthink.
 - =sp-fetch-inbox-pdf-function=: function that takes a file and returns the buffer showing it.
 - =sp-fetch-inbox-pdftotext=: the program that extracts text.
 
@@ -106,6 +111,7 @@ Keys in the BibTeX buffer:
 (defvar sp-bibtex-files)
 (declare-function sp--fetch-academic-attach "sp-fetch-academic")
 (declare-function doi-utils-doi-to-bibtex-string "doi-utils")
+(declare-function sp-devonthink-bibsync-entry "sp-devonthink-bibsync")
 #+end_src
 
 ** Options
@@ -133,6 +139,11 @@ Keys in the BibTeX buffer:
 
 (defcustom sp-fetch-inbox-index-new t
   "Non-nil to index in DEVONthink a file that had no record, after filing it."
+  :type 'boolean :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-sync-metadata t
+  "Non-nil to copy author, title and keywords to the DEVONthink record after filing.
+See `sp-devonthink-bibsync-entry'."
   :type 'boolean :group 'sp-fetch-inbox)
 
 (defcustom sp-fetch-inbox-pdf-function #'sp-fetch-inbox-show-pdf
@@ -556,6 +567,18 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
 ** Confirming and aborting
 
 #+begin_src emacs-lisp -i
+(defun sp-fetch-inbox--sync-metadata (key text)
+  "Copy author, title and keywords of the entry TEXT to the DEVONthink record of KEY.
+A failure is reported, not signalled: the article is already filed."
+  (when (and sp-fetch-inbox-sync-metadata (sp-fetch-inbox--dt-p))
+    (condition-case err
+        (progn
+          (require 'sp-devonthink-bibsync)
+          (unless (sp-devonthink-bibsync-entry key text)
+            (message "No DEVONthink record of its own for %s: metadata not copied" key)))
+      (error (message "Filed, but the DEVONthink metadata was not copied: %s"
+                      (error-message-string err))))))
+
 (defun sp-fetch-inbox--finish (edit)
   "Restore the windows and kill the edit buffer EDIT."
   (let ((config (buffer-local-value 'sp-fetch-inbox--config edit)))
@@ -587,6 +610,7 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
       (goto-char (point-min))
       (sp--fetch-academic-attach dest)
       (sp-fetch-inbox--append bibfile (buffer-string))
+      (sp-fetch-inbox--sync-metadata key (buffer-string))
       (sp-fetch-inbox--finish edit)
       (message "Filed %s in %s" key (abbreviate-file-name dest))
       (when (and (sp-fetch-inbox-items) (y-or-n-p "Next article? "))
