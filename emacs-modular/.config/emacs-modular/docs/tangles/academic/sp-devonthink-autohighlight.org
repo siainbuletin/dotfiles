@@ -1,0 +1,291 @@
+#+TITLE: sp-devonthink-autohighlight.el: highlight a DEVONthink selection without the shortcut
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-autohighlight.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-devonthink-autohighlight.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-autohighlight-test.el=; the AppleScript was not run (see "Not tested").
+
+* What it is for
+
+- In DEVONthink, highlighting a PDF passage takes two steps: select the text, then press the Highlight shortcut.
+- Sia wants the selection itself to become the highlight.
+- Two ways, from Emacs:
+  - =sp-devonthink-highlight-selection=: one command, one key, which presses Highlight for you.
+  - =sp-devonthink-auto-highlight-mode=: select in DEVONthink and nothing else; the mode notices the selection and highlights it.
+
+* Why this is done from Emacs
+
+- DEVONthink's scripting dictionary can read the selection (=selected text= of a =think window=), but it has no command that creates a highlight.
+  - This is the assumption of the design; it was not checked against the dictionary on the Mac (see "Not tested").
+- DEVONthink has no setting that turns every selection into a highlight.
+- So the only way to highlight is the app's own Highlight menu item.
+  - The module clicks that menu item through =System Events=.
+  - It looks the item up by its name in every menu, so no menu path or key code is hard-coded.
+- The same step is used by the command and by the mode, so there is one thing to debug.
+
+* Requirements
+
+- macOS only; =osascript= must be able to control DEVONthink and =System Events=.
+- Emacs (or the terminal running it) needs the Accessibility permission in System Settings > Privacy & Security > Accessibility, or the menu click fails.
+  - The error says "not allowed assistive access"; the module repeats it in plain words.
+
+* Setup
+
+- Loaded by =sp-academic=, after =sp-devonthink=.
+- The command is on =C-c k d h= and the mode on =C-c k d H=, in =sp-devonthink-map=.
+
+#+begin_src emacs-lisp
+;;; sp-devonthink-autohighlight.el --- Highlight a DEVONthink selection without the shortcut -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-devonthink-highlight-selection' presses DEVONthink's Highlight menu item;
+;; `sp-devonthink-auto-highlight-mode' does it for every selection that settles.
+;; macOS only.  Literate source: docs/tangles/academic/sp-devonthink-autohighlight.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'sp-reading)
+(require 'sp-devonthink)
+#+end_src
+
+* Options
+
+- =sp-devonthink-highlight-menu-item=: the name of the menu item to click.
+  - Default ="Highlight"=.
+  - Change it if the app is in another language.
+- =sp-devonthink-auto-highlight-interval=: seconds between two looks at the selection.
+  - Default 1; each look starts one =osascript= process, so a small number costs CPU.
+- =sp-devonthink-auto-highlight-settle=: how many looks in a row the same selection must survive before it is highlighted.
+  - Default 2, so a selection still being dragged is not highlighted half way.
+  - With the default interval that is about two seconds after the mouse is released.
+
+#+begin_src emacs-lisp
+(defgroup sp-devonthink-autohighlight nil
+  "Highlight a DEVONthink selection without the shortcut."
+  :group 'sp-devonthink)
+
+(defcustom sp-devonthink-highlight-menu-item "Highlight"
+  "Name of DEVONthink's menu item that highlights the selected text."
+  :type 'string)
+
+(defcustom sp-devonthink-auto-highlight-interval 1
+  "Seconds between two looks at DEVONthink's selection."
+  :type 'number)
+
+(defcustom sp-devonthink-auto-highlight-settle 2
+  "Looks in a row that must show the same selection before it is highlighted."
+  :type 'integer)
+#+end_src
+
+* Reading the selection
+
+- =sp-devonthink-autohighlight--selection-script= returns the selected text of DEVONthink's front window.
+  - It returns an empty string when DEVONthink is not the frontmost app.
+  - So the mode never highlights while Sia works in another app.
+- The reading is made with the same =selected text= property that =sp-devonthink-store-link= uses.
+
+#+begin_src emacs-lisp
+(defconst sp-devonthink-autohighlight--selection-script
+  "tell application \"System Events\"
+  if not (frontmost of process \"DEVONthink\") then return \"\"
+end tell
+tell application id \"DNtp\"
+  try
+    return (selected text of think window 1) as text
+  end try
+end tell
+return \"\""
+  "AppleScript printing DEVONthink's front-window selection, or nothing.")
+
+(defun sp-devonthink-autohighlight--selection ()
+  "The text selected in DEVONthink's front window, trimmed, or nil."
+  (let ((text (string-trim (sp-reading--osascript
+                            sp-devonthink-autohighlight--selection-script))))
+    (and (not (string-empty-p text)) text)))
+#+end_src
+
+* Pressing Highlight
+
+- =sp-devonthink-autohighlight--click-script= builds the AppleScript for a menu item name.
+  - It walks every menu of DEVONthink and one level of submenus.
+  - It clicks the first enabled item with that name.
+  - It prints =ok=, or =none= when no enabled item has that name (nothing selected, or no PDF open).
+- =sp-devonthink-autohighlight--quote= escapes a string for an AppleScript literal.
+- =sp-devonthink-highlight-selection= runs the script and tells Sia what happened.
+
+#+begin_src emacs-lisp
+(defun sp-devonthink-autohighlight--quote (string)
+  "STRING as the body of an AppleScript string literal."
+  (replace-regexp-in-string "[\"\\\\]" "\\\\\\&" string))
+
+(defun sp-devonthink-autohighlight--click-script (item)
+  "AppleScript that clicks the enabled menu item named ITEM in DEVONthink."
+  (format "tell application \"System Events\"
+  tell process \"DEVONthink\"
+    repeat with bar in (menu bar items of menu bar 1)
+      try
+        repeat with entry in (menu items of menu 1 of bar)
+          if (name of entry) is \"%1$s\" and (enabled of entry) then
+            click entry
+            return \"ok\"
+          end if
+          try
+            repeat with sub in (menu items of menu 1 of entry)
+              if (name of sub) is \"%1$s\" and (enabled of sub) then
+                click sub
+                return \"ok\"
+              end if
+            end repeat
+          end try
+        end repeat
+      end try
+    end repeat
+  end tell
+end tell
+return \"none\""
+          (sp-devonthink-autohighlight--quote item)))
+
+(defun sp-devonthink-autohighlight--press ()
+  "Click DEVONthink's Highlight menu item; return non-nil if it was clicked."
+  (let ((out (condition-case err
+                 (sp-reading--osascript
+                  (sp-devonthink-autohighlight--click-script
+                   sp-devonthink-highlight-menu-item))
+               (error
+                (if (string-match-p "assistive access\\|not allowed" (error-message-string err))
+                    (user-error "Give Emacs the Accessibility permission (System Settings > Privacy & Security > Accessibility)")
+                  (signal (car err) (cdr err)))))))
+    (equal out "ok")))
+
+;;;###autoload
+(defun sp-devonthink-highlight-selection ()
+  "Highlight the text selected in DEVONthink, as if its Highlight item was chosen."
+  (interactive)
+  (if (sp-devonthink-autohighlight--press)
+      (message "Highlighted in DEVONthink")
+    (user-error "DEVONthink has no enabled \"%s\" item (select text in a PDF first)"
+                sp-devonthink-highlight-menu-item)))
+#+end_src
+
+* The mode
+
+- State, all in variables with the =sp-devonthink-autohighlight--= prefix:
+  - =timer=: the repeating timer, or nil.
+  - =seen=: the selection of the last look.
+  - =count=: how many looks in a row showed =seen=.
+  - =done=: the selection that was just highlighted.
+- =sp-devonthink-autohighlight--step= is the pure part; it takes the new reading and decides.
+  - It returns =highlight= only when the same selection was seen =settle= times and is not =done=.
+  - An empty reading clears =seen=, =count= and =done=, so the same words can be highlighted again later.
+  - Keeping =done= stops the mode from highlighting the same selection on every look; DEVONthink keeps the selection after the click.
+- =sp-devonthink-autohighlight--tick= is the timer function.
+  - It does nothing while an Emacs frame has the focus, so no =osascript= runs while Sia types in Emacs.
+  - Errors stop the mode with a message instead of repeating every second.
+
+#+begin_src emacs-lisp
+(defvar sp-devonthink-autohighlight--timer nil
+  "The repeating timer of `sp-devonthink-auto-highlight-mode', or nil.")
+
+(defvar sp-devonthink-autohighlight--seen nil
+  "The selection of the last look at DEVONthink.")
+
+(defvar sp-devonthink-autohighlight--count 0
+  "How many looks in a row showed `sp-devonthink-autohighlight--seen'.")
+
+(defvar sp-devonthink-autohighlight--done nil
+  "The selection that was just highlighted, so it is not highlighted again.")
+
+(defun sp-devonthink-autohighlight--reset ()
+  "Forget what was seen and highlighted."
+  (setq sp-devonthink-autohighlight--seen nil
+        sp-devonthink-autohighlight--count 0
+        sp-devonthink-autohighlight--done nil))
+
+(defun sp-devonthink-autohighlight--step (text)
+  "Take the reading TEXT of the selection; return `highlight' when it is time to."
+  (cond
+   ((null text)
+    (sp-devonthink-autohighlight--reset)
+    nil)
+   ((equal text sp-devonthink-autohighlight--done) nil)
+   ((equal text sp-devonthink-autohighlight--seen)
+    (cl-incf sp-devonthink-autohighlight--count)
+    (when (>= sp-devonthink-autohighlight--count sp-devonthink-auto-highlight-settle)
+      (setq sp-devonthink-autohighlight--done text)
+      'highlight))
+   (t
+    (setq sp-devonthink-autohighlight--seen text
+          sp-devonthink-autohighlight--count 1)
+    (when (>= 1 sp-devonthink-auto-highlight-settle)
+      (setq sp-devonthink-autohighlight--done text)
+      'highlight))))
+
+(defun sp-devonthink-autohighlight--emacs-focused-p ()
+  "Non-nil if an Emacs frame has the keyboard focus."
+  (seq-some (lambda (frame) (eq (frame-focus-state frame) t)) (frame-list)))
+
+(defun sp-devonthink-autohighlight--tick ()
+  "Look at DEVONthink's selection and highlight it when it has settled."
+  (unless (sp-devonthink-autohighlight--emacs-focused-p)
+    (condition-case err
+        (when (eq (sp-devonthink-autohighlight--step
+                   (sp-devonthink-autohighlight--selection))
+                  'highlight)
+          (sp-devonthink-autohighlight--press))
+      (error
+       (sp-devonthink-auto-highlight-mode -1)
+       (message "sp-devonthink-auto-highlight-mode stopped: %s" (error-message-string err))))))
+
+;;;###autoload
+(define-minor-mode sp-devonthink-auto-highlight-mode
+  "Highlight whatever gets selected in DEVONthink, without pressing a shortcut.
+Looks at the selection every `sp-devonthink-auto-highlight-interval' seconds,
+only while Emacs is not the focused app."
+  :global t
+  :lighter " DTh"
+  (when (timerp sp-devonthink-autohighlight--timer)
+    (cancel-timer sp-devonthink-autohighlight--timer))
+  (setq sp-devonthink-autohighlight--timer nil)
+  (sp-devonthink-autohighlight--reset)
+  (when sp-devonthink-auto-highlight-mode
+    (setq sp-devonthink-autohighlight--timer
+          (run-with-timer sp-devonthink-auto-highlight-interval
+                          sp-devonthink-auto-highlight-interval
+                          #'sp-devonthink-autohighlight--tick))))
+#+end_src
+
+* Keys
+
+- =C-c k d h=: highlight the current selection once.
+- =C-c k d H=: turn the mode on or off.
+
+#+begin_src emacs-lisp
+(keymap-set sp-devonthink-map "h" #'sp-devonthink-highlight-selection)
+(keymap-set sp-devonthink-map "H" #'sp-devonthink-auto-highlight-mode)
+
+;;; Provide
+
+(provide 'sp-devonthink-autohighlight)
+;;; sp-devonthink-autohighlight.el ends here
+#+end_src
+
+* Not tested
+
+- The AppleScript was not run on the Mac.
+- To check, in this order:
+  - Open a PDF in DEVONthink and select a word; run =M-x sp-devonthink-highlight-selection=.
+  - If it says there is no enabled "Highlight" item, look at the menu bar for the real name and set =sp-devonthink-highlight-menu-item=.
+  - If it says the Accessibility permission is missing, grant it to Emacs and retry.
+  - Turn on =M-x sp-devonthink-auto-highlight-mode=, select text in DEVONthink, wait two seconds.
+- Open questions:
+  - Whether =selected text= works on a PDF opened in its own viewer window or in a tab; =sp-devonthink-store-link= visits every window, this module uses only =think window 1=.
+  - Whether DEVONthink keeps the selection after the click (the mode copes either way).
+  - Whether a single click inside the menu bar item steals focus from DEVONthink for a moment.
