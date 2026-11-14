@@ -294,9 +294,38 @@
         (progn
           (with-current-buffer (sp-batch-report-open name "#+title: T\n\n* A\n| a |\n")
             (should-not org-table-widget-mode))
+          (kill-buffer name)
           (let ((sp-batch-report-table-widgets t))
             (with-current-buffer (sp-batch-report-open name "#+title: T\n")
               (should org-table-widget-mode))))
+      (when (get-buffer name) (kill-buffer name)))))
+
+(defvar sp-batch-report-test--runs 0)
+(defun sp-batch-report-test--count-run ()
+  (setq sp-batch-report-test--runs (1+ sp-batch-report-test--runs)))
+
+(ert-deftest sp-batch-report-redraw-does-not-start-the-mode-again ()
+  (let ((name "*sp-batch-report-redraw-test*")
+        (hook #'sp-batch-report-test--count-run))
+    (setq sp-batch-report-test--runs 0)
+    (add-hook 'sp-batch-report-mode-hook hook)
+    (unwind-protect
+        (progn
+          (sp-batch-report-open name "#+title: T\n\n* A\n- one\n")
+          (should (= sp-batch-report-test--runs 1))
+          (with-current-buffer name
+            (setq sp-batch-report-excluded '("kept")))
+          (sp-batch-report-open name "#+title: T\n\n* A\n- two\n" :excluded '("x"))
+          (with-current-buffer name
+            (should (= sp-batch-report-test--runs 1))
+            (should (string-match-p "two" (buffer-string)))
+            (should (equal sp-batch-report-excluded '("x")))
+            (should buffer-read-only))
+          ;; Another mode is started.
+          (sp-batch-report-open name "#+title: T\n" :mode #'org-mode)
+          (should (= sp-batch-report-test--runs 1))
+          (should (eq (buffer-local-value 'major-mode (get-buffer name)) 'org-mode)))
+      (remove-hook 'sp-batch-report-mode-hook hook)
       (when (get-buffer name) (kill-buffer name)))))
 
 (provide 'sp-batch-report-test)

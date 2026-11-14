@@ -84,8 +84,11 @@ list of its cells as strings (the other item arguments work as in
 
 (defun sp-batch-report--cell (cell)
   "CELL as the text of an Org table cell: on one line, with no bar."
-  (replace-regexp-in-string
-   "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " (format "%s" cell)) t t))
+  (let ((text (if (stringp cell) cell (format "%s" cell))))
+    (if (string-match-p "[|\n\r]" text)
+        (replace-regexp-in-string
+         "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " text) t t)
+      text)))
 
 (defun sp-batch-report--row-line (cells &optional widths)
   "The Org table line of CELLS; WIDTHS, when given, pads each column to its width."
@@ -554,7 +557,12 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
   (let ((line (gethash name sp-batch-report--pending-lines)))
     (remhash name sp-batch-report--pending-lines)
     (with-current-buffer (get-buffer-create name)
-      (funcall (or (plist-get args :mode) #'sp-batch-report-mode))
+      ;; Running the mode again resets Org for the whole buffer (its hooks,
+      ;; indentation, numbering), which costs seconds in a big report that is
+      ;; only drawn again after a drop or a refresh.
+      (let ((mode (or (plist-get args :mode) #'sp-batch-report-mode)))
+        (unless (eq major-mode mode)
+          (funcall mode)))
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert text)
