@@ -272,8 +272,73 @@
 
 (ert-deftest sp-fetch-inbox-list-script-recurses ()
   (let ((s (sp-fetch-inbox--list-script)))
-    (should (string-match-p "walk(r," s))
+    (should (string-match-p "walk(c\\[i\\]," s))
     (should (string-match-p "additionDate" s))))
+
+(ert-deftest sp-fetch-inbox-list-script-reads-in-bulk ()
+  "One Apple Event per field and group, never one per record."
+  (let ((s (sp-fetch-inbox--list-script)))
+    (should (string-match-p "c\\.name()" s))
+    (should (string-match-p "c\\.additionDate()" s))
+    (should-not (string-match-p "children()" s))
+    (should-not (string-match-p "\\br\\.[a-zA-Z]+()" s))))
+
+(ert-deftest sp-fetch-inbox-list-script-depth-option ()
+  (let ((sp-fetch-inbox-devonthink-depth 0))
+    (should (string-match-p "const maxDepth = 0;" (sp-fetch-inbox--list-script))))
+  (let ((sp-fetch-inbox-devonthink-depth 3))
+    (should (string-match-p "const maxDepth = 3;" (sp-fetch-inbox--list-script)))))
+
+(ert-deftest sp-fetch-inbox-items-run-one-process-and-no-per-item-calls ()
+  "Listing 300 records and 300 files starts exactly one osascript."
+  (let* ((dir (make-temp-file "inbox" t))
+         (sp-fetch-inbox-dir dir)
+         (jxa 0) (procs 0)
+         (text (mapconcat (lambda (n) (format "U%d\tr%d.pdf\t\t%d\tsub" n n (+ 1000 n)))
+                          (number-sequence 1 300) "\n")))
+    (dotimes (n 300) (write-region "" nil (expand-file-name (format "f%d.pdf" n) dir)))
+    (cl-letf (((symbol-function 'sp-fetch-inbox--dt-p) (lambda () t))
+              ((symbol-function 'sp-reading--jxa) (lambda (_) (cl-incf jxa) text))
+              ((symbol-function 'call-process) (lambda (&rest _) (cl-incf procs) 0))
+              ((symbol-function 'process-file) (lambda (&rest _) (cl-incf procs) 0))
+              ((symbol-function 'start-process) (lambda (&rest _) (cl-incf procs) nil)))
+      (should (= (length (sp-fetch-inbox-items)) 600))
+      (should (= jxa 1))
+      (should (= procs 0)))))
+
+(ert-deftest sp-fetch-inbox-profile-messages-steps ()
+  (let ((sp-fetch-inbox-profile t) (sp-fetch-inbox-dir (make-temp-file "inbox" t))
+        (log nil))
+    (cl-letf (((symbol-function 'sp-fetch-inbox--dt-p) (lambda () nil))
+              ((symbol-function 'message) (lambda (f &rest a) (push (apply #'format f a) log))))
+      (sp-fetch-inbox-items))
+    (should (seq-some (lambda (m) (string-match-p "folder scan" m)) log))
+    (should (seq-some (lambda (m) (string-match-p "0 records, 0 files, 0 items" m)) log))))
+
+(ert-deftest sp-fetch-inbox-prefix-argument-folder-with-spaces ()
+  "C-u M-x sp-fetch-inbox: the folder name (a string) restricts the picker."
+  (let ((items (list (list :name "a.pdf" :subdir "Texte Filosofia istoriei" :added 1)
+                     (list :name "b.pdf" :subdir nil :added 2)))
+        picked-folder started)
+    (cl-letf (((symbol-function 'sp-fetch-inbox-items) (lambda () items))
+              ((symbol-function 'completing-read)
+               (lambda (prompt &rest _)
+                 (if (string-prefix-p "Folder" prompt)
+                     "Texte Filosofia istoriei (1)"
+                   (user-error "Picker should not be needed"))))
+              ((symbol-function 'sp-fetch-inbox--start) (lambda (item) (setq started item))))
+      (should (equal (sp-fetch-inbox--read-folder items) "Texte Filosofia istoriei"))
+      ;; one item in the folder: chosen directly, no second prompt
+      (sp-fetch-inbox t)
+      (should (equal (plist-get started :name) "a.pdf")))))
+
+(ert-deftest sp-fetch-inbox-merge-skips-known-files ()
+  (let* ((dir (make-temp-file "inbox" t))
+         (sp-fetch-inbox-dir dir)
+         (a (expand-file-name "a.pdf" dir)) (b (expand-file-name "b.pdf" dir)))
+    (write-region "" nil a) (write-region "" nil b)
+    (let ((items (sp-fetch-inbox--merge (list (list :uuid "U" :name "a.pdf" :file a)) (list a b))))
+      (should (equal (mapcar (lambda (i) (plist-get i :name)) items) '("a.pdf" "b.pdf"))))))
 
 (provide 'sp-fetch-inbox-test)
 ;;; sp-fetch-inbox-test.el ends here
