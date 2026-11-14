@@ -423,6 +423,9 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
   - A section made with =sp-batch-report-table-section= is an Org table: its items carry a =:row= (the cells) instead of text, and each row line has the item's key and properties, so drop and restore work per row.
     - =|= in a cell is written as =\vert{}=; the columns are padded to the widest cell.
     - A dropped row goes to the "Dropped from the list" section as a plain row.
+  - The tables stay plain Org text: =org-table-widget-mode= is turned off in a report (=sp-batch-report--quiet-table-widget=, on =sp-batch-report-mode-hook=), unless =sp-batch-report-table-widgets= is non-nil.
+    - Reason: the widget draws every table on its own, 10 to 20 ms each, so a report with one table per author took about 10 s to show.
+    - The tables are padded in Lisp (=sp-batch-report--table-string=), so they are aligned without the widget and without =org-table-align=.
   - A mode derived from this one adds its own keys by setting =sp-batch-report-extra-hints= in its body (as =sp-author-notes-bibtex-report-mode= does for =o=, =c= and =C=); they come before =b Backups=.
   - =sp-batch-report-open= sets the hints again after it has set the refresh, redraw and apply functions, so the list matches what the report can do.
   - It does so after =pop-to-buffer=: only a buffer in the selected window shows its hints at once.
@@ -606,6 +609,27 @@ They come before the backup keys in the echo area.")
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap of `sp-batch-report-mode'.")
+
+(defcustom sp-batch-report-table-widgets nil
+  "Whether `org-table-widget-mode' may draw the tables of a report.
+nil: a report keeps its plain Org tables, which are already aligned.  The
+widget lays out every table on its own, about 10 to 20 ms each, so a report
+with hundreds of tables (one per author, say) takes seconds to show."
+  :type 'boolean
+  :group 'sp-batch-report)
+
+(defvar org-table-widget-mode)
+(declare-function org-table-widget-mode "org-table-widget")
+
+(defun sp-batch-report--quiet-table-widget ()
+  "Turn `org-table-widget-mode' off in this report, unless `sp-batch-report-table-widgets'.
+This runs from `sp-batch-report-mode-hook', after `org-mode-hook' has turned the
+widget on in the still empty buffer, so it costs nothing."
+  (when (and (not sp-batch-report-table-widgets)
+             (bound-and-true-p org-table-widget-mode))
+    (org-table-widget-mode -1)))
+
+(add-hook 'sp-batch-report-mode-hook #'sp-batch-report--quiet-table-widget)
 
 (define-derived-mode sp-batch-report-mode org-mode "Report"
   "Read-only Org buffer holding the report of a batch command.
