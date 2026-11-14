@@ -161,6 +161,38 @@ questions.  Otherwise use completion to select the tab."
     map)
   "Keymap for tabspace/workspace commands after `tabspaces-keymap-prefix'.")
 
+;;;;; Always list *Messages* in C-x b
+(defvar sp-tabs-always-listed-buffers '("*Messages*")
+  "Buffer names that `sp-tabs-switch-to-buffer' always offers, at the end.
+They are offered even when the current tab's buffer list lacks them.")
+
+(defun sp-tabs-switch-to-buffer ()
+  "Switch to a buffer of this tab, also offering `sp-tabs-always-listed-buffers'.
+Like `tabspaces-switch-to-buffer', but the always-listed buffers that
+exist are added after the tab's own buffers, so *Messages* is never
+missing."
+  (interactive)
+  (let* ((current (buffer-name))
+         (local (cl-remove current (mapcar #'buffer-name (tabspaces--buffer-list))
+                           :test #'equal))
+         (extra (cl-remove-if (lambda (name)
+                                (or (member name local) (equal name current)
+                                    (not (get-buffer name))))
+                              sp-tabs-always-listed-buffers))
+         (names (append local extra))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      '(metadata (category . buffer)
+                                 (display-sort-function . identity))
+                    (complete-with-action action names string pred)))))
+    (switch-to-buffer
+     (completing-read "Switch to local buffer: " table nil nil nil
+                      'buffer-name-history (car names)))))
+
+;; A minor-mode remap beats the global one `tabspaces-mode' installs.
+(with-eval-after-load 'tabspaces
+  (define-key tabspaces-mode-map [remap switch-to-buffer] #'sp-tabs-switch-to-buffer))
+
 ;;;;; Consult Isolated Workspace Buffers
 ;; Filter Buffers for Consult-Buffer
 (defun lem-buff-filter (buffer)

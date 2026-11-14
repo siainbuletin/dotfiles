@@ -296,6 +296,58 @@ It is defined before tabspaces loads, so this map is the one tabspaces uses. It 
   "Keymap for tabspace/workspace commands after `tabspaces-keymap-prefix'.")
 #+end_src
 
+* Always list *Messages* in C-x b
+
+Why =*Messages*= was missing from =C-x b=:
+
+- =tabspaces-use-filtered-buffers-as-default= remaps =switch-to-buffer= to =tabspaces-switch-to-buffer=, which only offers the current tab's buffer list.
+- =tabspaces-exclude-buffers= removes =*Messages*= from that list when tabspaces resets it at startup.
+- So =*Messages*= is absent until something puts it back into the tab's list, for example a window showing it.
+- It is not an ibuffer problem as such: ibuffer was only one way of getting it back into the list.
+
+The fix:
+
+- =sp-tabs-always-listed-buffers= names the buffers that are always offered; it holds =*Messages*=.
+- =sp-tabs-switch-to-buffer= offers the tab's own buffers first, then those buffers at the end, skipping any that are missing or already listed.
+- The completion table sets =display-sort-function= to =identity=, so the order stays: tab buffers by recency, then the extras.
+- The category stays =buffer=, so Marginalia annotations still work.
+- The command is remapped for =switch-to-buffer= in =tabspaces-mode-map=, which wins over the global remap that =tabspaces-mode= installs.
+- Exclusion in =tabspaces-exclude-buffers= is kept, so closing or clearing a workspace never touches =*Messages*=.
+
+#+begin_src emacs-lisp -i
+;;;;; Always list *Messages* in C-x b
+(defvar sp-tabs-always-listed-buffers '("*Messages*")
+  "Buffer names that `sp-tabs-switch-to-buffer' always offers, at the end.
+They are offered even when the current tab's buffer list lacks them.")
+
+(defun sp-tabs-switch-to-buffer ()
+  "Switch to a buffer of this tab, also offering `sp-tabs-always-listed-buffers'.
+Like `tabspaces-switch-to-buffer', but the always-listed buffers that
+exist are added after the tab's own buffers, so *Messages* is never
+missing."
+  (interactive)
+  (let* ((current (buffer-name))
+         (local (cl-remove current (mapcar #'buffer-name (tabspaces--buffer-list))
+                           :test #'equal))
+         (extra (cl-remove-if (lambda (name)
+                                (or (member name local) (equal name current)
+                                    (not (get-buffer name))))
+                              sp-tabs-always-listed-buffers))
+         (names (append local extra))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      '(metadata (category . buffer)
+                                 (display-sort-function . identity))
+                    (complete-with-action action names string pred)))))
+    (switch-to-buffer
+     (completing-read "Switch to local buffer: " table nil nil nil
+                      'buffer-name-history (car names)))))
+
+;; A minor-mode remap beats the global one `tabspaces-mode' installs.
+(with-eval-after-load 'tabspaces
+  (define-key tabspaces-mode-map [remap switch-to-buffer] #'sp-tabs-switch-to-buffer))
+#+end_src
+
 * Workspace buffers in consult
 
 ** Buffer filter
