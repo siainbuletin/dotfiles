@@ -59,6 +59,7 @@
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
 (require 'sp-devonthink-search)
+(require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
 (require 'sp-fetch-inbox)
 (require 'sp-see-also)
