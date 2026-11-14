@@ -763,6 +763,7 @@ Notes:
 - The report buffers use the matching keys: =g= list again, =A= apply, =d= drop, =u= restore, =k= stop the job, =q= quit (see =sp-batch-report=).
 - Modules: =b= BibTeX files, =m= litnote metadata fill, =q= litnote titles with quotes around all of them, =t= litnote authors, year and title, =r= litnote references, =f= footnotes, =g= org tags, =u= author notes, =n= notes filing.
 - =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
+- =L b z= moves the Zotero attachments of a =.bib= file into the literature folder (=sp-bibtex-zotero=): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
 - =L u w= is the same pair of commands for the Works tables of the author notes.
 
 #+begin_src emacs-lisp -i
@@ -786,6 +787,11 @@ Notes:
            ("k" . sp-bibtex-lint-fix-keys)
            ("o" . sp-bibtex-lint-fix-order)
            ("p" . sp-bibtex-lint-fix-prefixes))
+(bind-keys :prefix-map lem+lint-bibtex-zotero-keys
+           :prefix (concat sp-prefix " L b z")
+           ("l" . sp-bibtex-zotero-dryrun)
+           ("a" . sp-bibtex-zotero-convert)
+           ("r" . sp-bibtex-zotero-restore))
 
 (bind-keys :prefix-map lem+lint-meta-keys
            :prefix (concat sp-prefix " L m")
@@ -836,7 +842,7 @@ Notes:
   (which-key-add-keymap-based-replacements lem+lint-keys
     "b" "bibtex" "m" "litnote metadata" "q" "litnote quotes" "t" "litnote titles"
     "r" "litnote references" "f" "footnotes" "g" "tags" "u" "author notes" "n" "filing")
-  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind")
+  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind" "z" "zotero paths")
   (which-key-add-keymap-based-replacements lem+lint-authors-keys "w" "works"))
 #+end_src
 
@@ -1321,6 +1327,12 @@ Provides the =sp-keys= feature and closes the file.
               'sp-bibtex-lint-fix-keys))
   (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys)))
 
+(ert-deftest sp-keys-bibtex-zotero-group ()
+  (sp-keys-test--setup)
+  (should (eq (key-binding (kbd "C-; L b z l")) 'sp-bibtex-zotero-dryrun))
+  (should (eq (key-binding (kbd "C-; L b z a")) 'sp-bibtex-zotero-convert))
+  (should (eq (key-binding (kbd "C-; L b z r")) 'sp-bibtex-zotero-restore)))
+
 (ert-deftest sp-keys-moved-keys-are-consistent ()
   (sp-keys-test--setup)
   (let ((olds (mapcar #'car sp-keys-moved)))
@@ -1365,3 +1377,5 @@ What each pull request changed in this module, newest last; the one-line summary
     - the old =C-c w b= and =C-c k= keys are removed, with no shims
   - 🐛 Fixed =C-c w b k= meaning two commands: =citar-vulpea-add-reference= in Org (local) and =sp-bibtex-lint-fix-keys= elsewhere, so the key fix looked unbound
   - Tests in =tests/sp-keys-test.el=; the keys are not tried in a GUI.
+- [[https://github.com/siainbuletin/dotfiles/pull/490][#490]]
+  - ✨ Added =C-; L b z= (=l= dry run, =a= apply, =r= restore) for the Zotero attachment paths of a =.bib= file
