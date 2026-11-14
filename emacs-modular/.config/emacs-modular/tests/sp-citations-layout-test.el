@@ -16,7 +16,7 @@
         (while t
           (let ((form (read (current-buffer))))
             (when (and (memq (car-safe form) '(defcustom defconst defun defvar))
-                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\)\\)"
+                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\|completion-template\\|last-first\\|name-particles\\|name-suffixes\\|unbrace\\)\\)"
                                        (symbol-name (cadr form))))
               (eval form t))))
       (end-of-file nil))))
@@ -43,7 +43,7 @@
 
 (ert-deftest sp-citations-layout-templates ()
   (let ((templates (sp-citations--layout-templates 110)))
-    (should (string-match-p "\\`\\${=type=:3%etype} \\${author editor:[0-9]+}  \\${year issued date:4}  \\${title:[0-9]+}\\'"
+    (should (string-match-p "\\`\\${=type=:3%etype} \\${author editor:[0-9]+%lastfirst}  \\${year issued date:4}  \\${title:[0-9]+}\\'"
                             (cdr (assq 'main templates))))
     (should (string-match-p "\\${=key= id:4[0-9]}" (cdr (assq 'suffix templates))))))
 ;; Emoji cells, with the pixel functions stubbed: a glyph is `width-of' pixels.
@@ -115,5 +115,73 @@
       (sp-citations--apply-layout)
       (should (= reformatted 1))             ; cached candidates are formatted again
       (should (assq 'preview citar-templates)))))
+
+;; The citekey keeps its face.
+(defun sp-citations-test--key-face (template)
+  "Return the face `citar' reads for the citekey field of TEMPLATE.
+`citar-format--parse' takes the text properties at the start of the field."
+  (let ((begin (string-match "\\${=key=" template)))
+    (should begin)
+    (get-text-property begin 'face template)))
+
+(ert-deftest sp-citations-citekey-keeps-its-face ()
+  "The completion template, which `citar' reads, has the citekey in `sp-citar-key' first."
+  (let* ((templates (sp-citations--layout-templates 120))
+         (completion (cdr (assq 'completion templates)))
+         (face (sp-citations-test--key-face completion)))
+    (should (eq (car (ensure-list face)) 'sp-citar-key))
+    (should (memq 'citar (ensure-list face)))
+    ;; the main part is in the `citar-highlight' face, as citar makes it
+    (should (eq (get-text-property 0 'face completion) 'citar-highlight))
+    ;; the text is main then suffix, unchanged
+    (should (equal (substring-no-properties completion)
+                   (concat (cdr (assq 'main templates)) (cdr (assq 'suffix templates)))))))
+
+(ert-deftest sp-citations-citar-default-template-loses-the-face ()
+  "What citar does without a `completion' template: its `propertize' replaces the face."
+  (let* ((templates (sp-citations--layout-templates 120))
+         (default (concat (propertize (cdr (assq 'main templates)) 'face 'citar-highlight)
+                          (propertize (cdr (assq 'suffix templates)) 'face 'citar))))
+    (should (eq (sp-citations-test--key-face default) 'citar))))
+
+(ert-deftest sp-citations-apply-layout-keeps-the-completion-template ()
+  (let ((sp-citations--applied-state nil) (vertico-posframe-mode nil)
+        (citar-templates '((preview . "p") (completion . "old"))))
+    (cl-letf (((symbol-function 'frame-parameter) (lambda (&rest _) nil))
+              ((symbol-function 'frame-text-width) (lambda (&rest _) 1080))
+              ((symbol-function 'frame-char-width) (lambda (&rest _) 9))
+              ((symbol-function 'display-graphic-p) (lambda (&rest _) nil)))
+      (sp-citations--apply-layout)
+      (should (= (length (cl-remove-if-not (lambda (e) (eq (car e) 'completion)) citar-templates)) 1))
+      (should (eq (car (ensure-list (sp-citations-test--key-face (cdr (assq 'completion citar-templates)))))
+                  'sp-citar-key)))))
+
+;; Author names, last name first.
+(ert-deftest sp-citations-last-first-names ()
+  (dolist (case '(("Smith, John and Doe, Jane" . "Smith, John; Doe, Jane")
+                  ("John Smith and Jane Q. Doe" . "Smith, John; Doe, Jane Q.")
+                  ("Smith, John and Jane Doe" . "Smith, John; Doe, Jane")
+                  ("Ludwig van Beethoven" . "van Beethoven, Ludwig")
+                  ("Vincent van der Berg" . "van der Berg, Vincent")
+                  ("de la Cruz, Maria" . "de la Cruz, Maria")
+                  ("{World Health Organization}" . "World Health Organization")
+                  ("Martin Luther King Jr." . "King Jr., Martin Luther")
+                  ("Smith, Jr., John" . "Smith Jr., John")
+                  ("Madonna" . "Madonna")
+                  ("van Beethoven" . "van Beethoven")
+                  ("Jean-Paul Sartre" . "Sartre, Jean-Paul")
+                  ("A. B. Smith" . "Smith, A. B.")
+                  ("Smith, John and others" . "Smith, John; et al.")
+                  ("Doe, {J}ane" . "Doe, Jane")
+                  ("John Smith\n  and Jane Doe" . "Smith, John; Doe, Jane")
+                  ("" . "")))
+    (should (equal (sp-citations--last-first (car case)) (cdr case)))))
+
+(ert-deftest sp-citations-last-first-nil ()
+  (should (equal (sp-citations--last-first nil) "")))
+
+(ert-deftest sp-citations-main-template-uses-the-name-transform ()
+  (should (string-match-p "\\${author editor:[0-9]+%lastfirst}"
+                          (cdr (assq 'main (sp-citations--layout-templates 120))))))
 
 (provide 'sp-citations-layout-test)

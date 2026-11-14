@@ -1,0 +1,81 @@
+* PR #442: 📝 Update the CHANGELOG to #440 and the DEVONthink doc to the current state
+:PROPERTIES:
+:PR_NUMBER: 442
+:URL: https://github.com/siainbuletin/dotfiles/pull/442
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/442][https://github.com/siainbuletin/dotfiles/pull/442]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 01:24
+- Branch :: =442-changelog-devonthink-docs= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f84b5d0146b1313f17a45f88f40d7b5f9b06888f][f84b5d0146]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Uykw2tGtptiMTUvkEx9AzF][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: independent, based on =main= (e22ceda, includes #440). Safe to merge anytime.
+- Sia asked for this CHANGELOG edit explicitly, so the "PRs do not edit CHANGELOG.org" rule does not apply here. The nightly tidy should see these PRs already listed.
+- Conflicts to expect, text only:
+  - =CHANGELOG.org= (Emacs): any PR or tidy that edits the same sections. Keep both sets of lines, never repeat a heading.
+  - =docs/tangles/academic/sp-devonthink.org=: #419 (rewrites the intro and adds a Design section, deletes the old architecture doc), #441 (adds "Chapter keywords", keys table, testing notes) and #438 (offsets, "Chapters in a parent's PDF"), and #415, #418, #420, #421 (keys). This PR adds only two new sections ("State of the implementation", "Changes by pull request") just before "Testing it by hand on the Mac" and edits two bullets at the top. Keep both sides. After #419 merges, drop the status table or this section's "In open pull requests" part, whichever repeats the other.
+- After merging: when #415, #418 to #421, #438 or #441 merge, move their lines from "In open pull requests" and "Being developed" into the sets.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- *Emacs CHANGELOG* (=emacs-modular/.config/emacs-modular/CHANGELOG.org=):
+  - Adds the merged PRs not listed yet (#394 to #440, from the last tidy at #392), each in its feature set, newest last, no repeated headings:
+    - DEVONthink: #414, #422, #426, #430, #434, #435, #436, #437.
+    - Litnotes from BibTeX: #404, #413, #423 and the hand edit 87a4fbb (Sia).
+    - Book tables: #399, #408, #412, #424. Batch reports: #425. BibTeX: #410.
+    - See also: #396, #398, #403, #428, #440. Links: #407. Agenda: #395. Notes tools: #397. Startup: #400, #402, #416. Posframe: #431.
+    - New set "Citar candidates: columns and emoji": #405, #406, #409, #411, #427, #429, #432, #433.
+  - "Being developed" lists the open PRs: the DEVONthink stack (#415, #418, #419, #420, #421), #438 page labels, #441 chapter keywords, #439 italic citekey; what is merged and not run on the Mac; what is still unknown.
+- *Dotfiles CHANGELOG* (=CHANGELOG.org=): #394 (=devonthink-open= opens each PDF in its own window) and #401 (=gh-pr-pdf=).
+- *Doc* (=docs/tangles/academic/sp-devonthink.org=, bullets only):
+  - "State of the implementation": what is in =main= (resolver =sp-devonthink-record=, page prompt, viewer windows, chapters in the parent's PDF, record lookup), what each open PR adds (keys, commands, the offset options #438 removes, chapter keywords =C-c k d c= / =C-c k d C=), and what is untested on the Mac.
+  - "Changes by pull request" for #414, #430, #434, #435, #436, #437.
+  - Prose only: the tangled =.el= is unchanged.
+- Not covered: the doc does not describe #415 and later in their own sections; those are in their branches.
+- Entries for PRs other than the DEVONthink ones were written from the PR titles (and bodies where read), with no "Details" links.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Pull this branch, open =emacs-modular/.config/emacs-modular/CHANGELOG.org= in Emacs: =TAB= folds it; "Being developed" has the DEVONthink stack, #438, #441 and #439; the new set "Citar candidates: columns and emoji" appears before "DEVONthink, litdb and literature notes".
+- [ ] Check no category heading repeats under one date: =grep -c '^\*\* ' emacs-modular/.config/emacs-modular/CHANGELOG.org= should be the number of "Being developed" items only.
+- [ ] Click a few PR links (#414, #437, #440): they open the right PR; the =file:= links to =sp-devonthink.org::*Changes by pull request= jump to the new section.
+- [ ] Open =docs/tangles/academic/sp-devonthink.org=: "State of the implementation" matches what you see on GitHub (merged vs open); tell me any PR I put in the wrong place.
+- [ ] =tools/check-tangle.sh= in =emacs-modular/.config/emacs-modular=: "All tangled modules match their docs." (passed in the container)
+- [ ] Regression: =M-x sp-reload-modules= still loads =sp-devonthink= (no =.el= changed).
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D 442-changelog-devonthink-docs=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- Nothing in the vault or DEVONthink is touched by this PR.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNi9QedFtQsXLGiQnX3Y][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/1c9b19320a6ded4559c51079611bd5c8caeca9ff][1c9b19320a]] 📝 Update the CHANGELOG to #440 and the DEVONthink doc to the current state (Claude, 2026-11-13 01:24)

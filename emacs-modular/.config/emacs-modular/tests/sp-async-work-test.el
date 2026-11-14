@@ -13,6 +13,9 @@
 (require 'sp-author-notes-bibtex)
 
 (defvar sp-bibtex-files)
+
+;; The jobs write status files; keep them out of the real var folder.
+(setq sp-async-work-registry-directory (make-temp-file "sp-jobs" t))
 (defvar sp-literature-dir)
 
 (defun sp-async-work-test--wait ()

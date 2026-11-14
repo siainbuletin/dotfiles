@@ -1357,3 +1357,10 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🔧 =sp-insert-note= and =sp-select-note= group their notes by origin like =sp-find-note=; the grouping is the macro =sp-org-tag-groups--with-origin-groups=.
   - 🔧 =sp-note-origin--writing-roots= is public as =sp-note-origin-writing-roots=, for =sp-notes-create= and =sp-notes-open=.
   - Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/398][#398]]
+  - 🔧 Changed the grouping =let= of =sp-find-note= into the macro =sp-org-tag-groups--with-origin-groups=; =sp-find-note= behaves as before
+  - ✨ Added =:grouped= to =sp-select-note=: the groups of =sp-find-note= with the tag emoji and column
+- [[https://github.com/siainbuletin/dotfiles/pull/411][#411]]
+  - ✨ Added the 14 BibTeX entry types as =sp-org-tag-groups-bibtex-types= (type, emoji, litnote tag), one rule per Org tag
+    - =text= is shared by booklet and misc, so it shows 📔️ (the first type wins); unknown types show 📄️
+  - ✨ Added the section "Literature note tags" with the mapping as a table and how it deviates from BibTeX

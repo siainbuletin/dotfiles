@@ -205,5 +205,70 @@
           (kill-buffer buffer))
       (delete-file file))))
 
+(ert-deftest sp-batch-report-hints-follow-the-functions ()
+  (with-temp-buffer
+    (sp-batch-report-mode)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should-not (member "d" keys))
+      (should-not (member "A" keys)))
+    (setq sp-batch-report-refresh-function #'ignore
+          sp-batch-report-apply-function #'ignore)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should (member "d" keys))
+      (should (member "A" keys))
+      (should (member "g" keys)))
+    (sp-batch-report--set-hints)
+    (should (equal sp-echo-help--hints (sp-batch-report--hints)))
+    (should-not header-line-format)))
+
+(ert-deftest sp-batch-report-open-shows-hints-in-the-real-path ()
+  "The path every batch command takes: hints shown at once, keys not in the header."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown))))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*"
+                                                 "#+title: T\n* One\n"
+                                                 :refresh #'ignore :apply #'ignore))
+              (with-current-buffer buffer
+                (should-not header-line-format)
+                (should sp-echo-help-mode)
+                (should (member #'sp-echo-help-show post-command-hook))
+                (should (equal sp-echo-help--hints (sp-batch-report--hints))))
+              (should (string-match-p "Apply" (car shown)))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-hints-survive-a-lingering-message ()
+  "A job's last message does not hide the hints for good: the idle show wins."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Author notes: done")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (with-current-buffer buffer (sp-echo-help-show))
+              (should-not shown)        ; the polite show leaves the message alone
+              (sp-echo-help--idle-show)
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-no-key-lines-in-header-code ()
+  "No converted report puts its key list in the header line any more."
+  (let ((dir (file-name-directory (locate-library "sp-batch-report"))))
+    (dolist (file '("sp-author-notes.el" "sp-author-notes-bibtex.el" "sp-org-tag-lint.el"
+                    "sp-org-lint-footnotes.el"))
+      (let ((path (expand-file-name file dir)))
+        (when (file-exists-p path)
+          (with-temp-buffer
+            (insert-file-contents path)
+            (goto-char (point-min))
+            (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
+
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

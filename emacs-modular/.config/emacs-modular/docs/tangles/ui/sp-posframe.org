@@ -322,3 +322,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - Switch to turn the posframe off (this PR)
   - ✨ Added =sp-posframe-enabled= and =sp-posframe-toggle=: with the posframe off, the minibuffer shows at the bottom of the frame, live.
   - Not run in Emacs on the Mac.
+- [[https://github.com/siainbuletin/dotfiles/pull/431][#431]]
+  - ✨ Added =sp-posframe-enabled= (default =t=): =nil= shows the minibuffer at the bottom of the frame
+    - the =:set= function turns =vertico-posframe-mode= on or off, so =setopt= and Customize need no restart
+    - start-up reads the variable
+  - ✨ Added =M-x sp-posframe-toggle= for the session

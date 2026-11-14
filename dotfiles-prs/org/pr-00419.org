@@ -1,0 +1,58 @@
+* PR #419: 📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031
+:PROPERTIES:
+:PR_NUMBER: 419
+:URL: https://github.com/siainbuletin/dotfiles/pull/419
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/419][https://github.com/siainbuletin/dotfiles/pull/419]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 22:02
+- Branch :: =419-devonthink-design-adrs= → =418-devonthink-search=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/a9c5d215acdf973a2eacfcbf9cfe20477d81639a][a9c5d215ac]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK][project thread]]/
+
+*Base: =418-devonthink-search= (#418)*. Stack: #414 → #415 → #418 → #419 → #420. Docs only.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- =docs/architecture/devonthink-emacs-integration.org= is deleted; its content is a bullet-point "Design" section of =docs/tangles/academic/sp-devonthink.org=, with a status table (which PR delivers which step) and a new "Open questions" list of everything still unclear or untested.
+- Five ADRs, listed in =adr/README.org=: 0027 citekey joins BibTeX/litnote/DEVONthink; 0028 DEVONthink only through its scripting interface; 0029 litdb indexes only highlighted pages; 0030 two-way litnote and record link (proposed); 0031 the small =reading= database.
+- Links to the old doc in the sibling module docs, =sp-litdb.org=, =devonthink-reading.org=, =sp-org-lint.org= and two architecture docs now point to =sp-devonthink.org=. Generated =dotfiles-prs/= and the CHANGELOG are untouched.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- Nothing to run; the tangle check passes.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 419-devonthink-design-adrs; git checkout 419-devonthink-design-adrs=.
+- [ ] Open =~/.config/emacs-modular/docs/tangles/academic/sp-devonthink.org=: "Design" is the first section, then the module sections; everything is bullet lists or tables.
+- [ ] =C-c C-o= on each of the five ADR links in the Design intro → each ADR opens.
+- [ ] Read "Open questions": is anything missing or wrong? Tell me what to add.
+- [ ] =ls ~/.config/emacs-modular/docs/architecture/= shows no =devonthink-emacs-integration.org=.
+- [ ] Follow the "Design:" link at the top of =sp-devonthink-tags.org=, =sp-devonthink-browse.org=, =sp-devonthink-search.org=, =sp-litdb.org= and =devonthink-reading.org= → each lands in =sp-devonthink.org=.
+- [ ] =cd ~/.config/emacs-modular; bash tools/check-tangle.sh= → "All tangled modules match their docs."
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC]]
+
+** Commits (7)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d][b22a07d95e]] 📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031 (Claude, 2026-11-12 22:02)
+- [[https://github.com/siainbuletin/dotfiles/commit/99b4873f6cad1b601798cd42412a491d11e51a02][99b4873f6c]] Merge 418-devonthink-search into 419-devonthink-design-adrs (Claude, 2026-11-12 22:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/45090fafe698eb0c64e83c6b699060bf873622ce][45090fafe6]] Merge branch '418-devonthink-search' into 419-devonthink-design-adrs (Claude, 2026-11-12 22:27)
+- [[https://github.com/siainbuletin/dotfiles/commit/67d2a5f4905e7eedba28438d1cf73583ea7dfab8][67d2a5f490]] Merge branch '418-devonthink-search' into 419-devonthink-design-adrs (Claude, 2026-11-12 22:47)
+- [[https://github.com/siainbuletin/dotfiles/commit/801bb7a2af8c759e4efd9fcc19647965f6feac34][801bb7a2af]] Merge branch '418-devonthink-search' into 419-devonthink-design-adrs (Claude, 2026-11-12 23:00)
+- [[https://github.com/siainbuletin/dotfiles/commit/1d38d1201f92114315878d7fdca7e75a813a5064][1d38d1201f]] Merge branch '418-devonthink-search' into 419-devonthink-design-adrs (Claude, 2026-11-13 00:34)
+- [[https://github.com/siainbuletin/dotfiles/commit/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71][6bf6b68cb0]] Merge branch '418-devonthink-search' into 419-devonthink-design-adrs (Claude, 2026-11-13 00:57)

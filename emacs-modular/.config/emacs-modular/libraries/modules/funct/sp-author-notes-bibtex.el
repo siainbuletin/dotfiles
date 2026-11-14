@@ -605,7 +605,8 @@ note.  The all-authors report is `sp-author-notes-bibtex'."
   "Insert the report of GROUPS, as `sp-author-notes-bibtex--compute' returns them."
   (insert (format "Works in BibTeX files without a literature note: %d author note%s\n"
                   (length groups) (if (= 1 (length groups)) "" "s")))
-  (insert "RET visit entry   o visit author note   c create litnote   C create for all exact   g refresh\n")
+  (sp-echo-help-set '(("RET" "Visit entry") ("o" "Visit author note") ("c" "Create litnote" t)
+                      ("C" "Create for all exact") ("g" "Refresh")))
   (if (null groups)
       (insert "\n  none\n")
     (dolist (group groups)
