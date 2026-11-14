@@ -359,7 +359,11 @@ read or when the format string changes, and the emoji cells of the type column a
 it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
   (when (and (boundp 'citar-cache--bibliographies)
              (fboundp 'citar-cache--preformat-bibliography))
-    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+    ;; A bibliography the preload took from the disk has no format string yet
+    ;; (`citar-cache--get-bibliography' sets it); `citar-format--parse' on nil fails.
+    (maphash (lambda (_file bib)
+               (when (cl-struct-slot-value 'citar-cache--bibliography 'format-string bib)
+                 (citar-cache--preformat-bibliography bib)))
              citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)
@@ -591,6 +595,38 @@ They are used only for a file whose size and contents are the same."
 (defvar sp-citations-preload--queue nil
   "The files the preload still has to read.")
 
+(defvar sp-citations-preload--primed nil
+  "The files whose entries came from the disk cache and were not checked yet.")
+
+(defvar sp-citations-preload--last-error nil
+  "The last error of the preload, as a string with the file and a backtrace.")
+
+(defun sp-citations-preload--capture (&rest args)
+  "Debugger function: keep the backtrace of the error in ARGS.
+Bound as `debugger' around a file; the error is then handled as usual."
+  (when (eq (car args) 'error)
+    (setq sp-citations-preload--last-error
+          (format "%s\n%s" (error-message-string (cadr args))
+                  (with-output-to-string (backtrace))))))
+
+(defun sp-citations-preload--record-error (file err)
+  "Remember ERR for FILE, with the backtrace that `sp-citations-preload--capture' kept."
+  (setq sp-citations-preload--last-error
+        (format "%s: %s\n%s" (abbreviate-file-name file) (error-message-string err)
+                (or sp-citations-preload--last-error ""))))
+
+(defun sp-citations-preload-show-error ()
+  "Show the last error of the preload with its backtrace."
+  (interactive)
+  (if (not sp-citations-preload--last-error)
+      (message "citar preload: no error")
+    (with-current-buffer (get-buffer-create "*citar preload error*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert sp-citations-preload--last-error))
+      (goto-char (point-min))
+      (pop-to-buffer (current-buffer)))))
+
 (defvar sp-citations-preload--saved nil
   "The entry tables of `citar' as they were when the disk cache was last in step.
 An alist of (FILE . ENTRIES), compared with `equal': the tables by identity, and
@@ -669,6 +705,7 @@ contents and the parsed fields, and parses the file again when they differ."
               (sp-citations-preload--set-slot bib 'entries table)
               (sp-citations-preload--set-slot bib 'props props)
               (sp-citations-preload--set-slot bib 'buffers (list 'global))
+              (push file sp-citations-preload--primed)
               (puthash file bib citar-cache--bibliographies)))))
       (setq sp-citations-preload--saved (sp-citations-preload--snapshot)))))
 
@@ -729,21 +766,39 @@ Also when the cache file does not exist yet."
         (sp-citations-preload--save-if-needed)
         (message "citar preload: %d bibliography file(s) ready"
                  (hash-table-count citar-cache--bibliographies)))
-    (let ((file (pop sp-citations-preload--queue)))
+    (let ((file (pop sp-citations-preload--queue))
+          (stopped nil))
       (condition-case err
-          (progn
-            (sp-citations-preload--read file)
-            (setq sp-citations-preload--timer
-                  (run-with-idle-timer 0.3 nil #'sp-citations-preload--next)))
+          (let ((debug-on-error t)
+                (debugger #'sp-citations-preload--capture))
+            ;; `debug' in the handler below makes Emacs call the debugger first.
+            (condition-case err2
+                (sp-citations-preload--read file)
+              ((debug error) (signal (car err2) (cdr err2))))
+            (setq sp-citations-preload--primed
+                  (delete file sp-citations-preload--primed)))
         (quit
-         (setq sp-citations-preload--queue nil)
+         (setq stopped t
+               sp-citations-preload--queue nil)
          (message "citar preload stopped; citar reads the rest when you ask for a reference")
          (sp-citations-preload--save-if-needed))
         (error
-         (setq sp-citations-preload--queue nil)
-         (message "citar preload: %s: %s" (abbreviate-file-name file)
-                  (error-message-string err))
-         (sp-citations-preload--save-if-needed))))))
+         (sp-citations-preload--record-error file err)
+         (if (member file sp-citations-preload--primed)
+             ;; The entries saved on disk did not work: read the file again.
+             (progn
+               (setq sp-citations-preload--primed
+                     (delete file sp-citations-preload--primed))
+               (remhash file citar-cache--bibliographies)
+               (push file sp-citations-preload--queue)
+               (message "citar preload: the saved entries of %s did not work (%s); reading it again"
+                        (abbreviate-file-name file) (error-message-string err)))
+           (message "citar preload: %s: %s; M-x sp-citations-preload-show-error has the backtrace"
+                    (abbreviate-file-name file) (error-message-string err)))))
+      ;; Go on with the next file, also after an error in this one.
+      (unless stopped
+        (setq sp-citations-preload--timer
+              (run-with-idle-timer 0.3 nil #'sp-citations-preload--next))))))
 
 (defun sp-citations-preload--start (tries)
   "Load `citar' and start reading its files; TRIES counts the attempts.
@@ -807,6 +862,8 @@ Use it when `citar' still shows `Updating bibliography' on a call."
                               ((not (equal (plist-get props :size) size)) "size changed")
                               (t "ready")))
                 lines)))
+      (when sp-citations-preload--last-error
+        (push "last error: M-x sp-citations-preload-show-error" lines))
       (message "%s" (string-join (nreverse lines) "\n")))))
 
 (defun sp-citations-preload--after-save ()
