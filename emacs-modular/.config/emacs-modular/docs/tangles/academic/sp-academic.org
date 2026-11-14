@@ -71,7 +71,7 @@ The ones that change how the setup behaves most. All are set in the modules name
 - =bibtex-entry-format= [=sp-bibprocess=]: what cleaning does to an entry (page dashes, whitespace, alignment, trailing comma, braces). Required-field checks are left out so incomplete =biblio= entries are not rejected.
 - =bibtex-search-entry-globally= with =bibtex-files= [=sp-bibprocess=]: key look-ups and duplicate checks span all registered files, not just the open buffer.
 - =bibtex-dialect= [=sp-bibprocess=]: =biblatex=, so =date=, =journaltitle= and =file= are valid fields.
-- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
+- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-; B r=.
 - =org-cite-global-bibliography= and =citar-bibliography= [=sp-citations=]: both read the registered list, so Org and =citar= always see the same files.
 - =citar-library-paths=, =citar-library-file-extensions=, =citar-file-additional-files-separator= [=sp-citations=]: where =citar= looks for PDFs (=~/Documents/literature/=), which extensions count, and the separator for several files per key. The library path was commented out before, so =citar= found no PDFs.
 - =citar-notes-paths= and =citar-templates= [=sp-citations=]: where notes live and how candidates are displayed.
@@ -164,6 +164,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
+(require 'sp-devonthink-search)
 (require 'sp-devonthink-bibsync)
 (require 'sp-fetch-inbox)
 (require 'sp-see-also)
@@ -855,7 +856,7 @@ Also:
 
 - =bibtex-aux-opt-alist= carries the same two fields. It used to be saved by Customize in =init.el= and is now set here.
 - =:demand t= loads it at once, which registers the bibliography files (=sp-bibtex-register= in =:config=) before anything reads them; =sp-academic= used to do that with =(require 'bibtex)=.
-- =C-c w b r= runs =sp-bibtex-register= at any time; =C-c w b k= runs =sp-bibtex-lint-fix-keys=.
+- The keys of the BibTeX commands are in =sp-keys=, under the leader: =C-; B r= runs =sp-bibtex-register= at any time and the BibTeX lint is under =C-; L b=: =l= report, =a= apply, =r= restore, =f= one fix per kind (=sp-keys.org=, "Lint (L)"). The old =C-c w b= keys are unbound.
 - =H-b= in a BibTeX buffer opens the org-ref hydra (it needs a Hyper key). It was =define-key= in =sp-academic=.
 
 #+begin_src emacs-lisp -i
@@ -901,11 +902,7 @@ Also:
   (sp-bibtex-register)
   :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
-  (("C-c w b r" . sp-bibtex-register)
-   ("C-c w b l" . sp-bibtex-lint-dryrun)
-   ("C-c w b L" . sp-bibtex-lint-convert)
-   ("C-c w b k" . sp-bibtex-lint-fix-keys)
-   :map bibtex-mode-map
+  (:map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
 #+end_src
@@ -1061,6 +1058,10 @@ renamed on disk."
 
 (defvar sp-bibtex-lint--library nil
   "The index of `sp-literature-dir' while a lint job checks attachment paths.")
+
+(defvar sp-bibtex-lint--parents nil
+  "While a lint job checks `crossref' fields, a hash table from key to (TYPE . FIELDS).
+It holds the entries of the file and of `sp-bibtex-files'; nil outside such a job.")
 
 (defcustom sp-bibtex-people-cache-seconds 600
   "Seconds the list of author notes is kept for name completion and the lint."
@@ -1593,7 +1594,8 @@ OLD is the text of the entry, between START and END.  KINDS are `order',
 misplaced particles), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
 compatible initials), `ambiguous' (the same for several notes; reported only)
-and `files' (attachment paths, see `sp-bibtex-files--rewrite').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+`files' (attachment paths, see `sp-bibtex-files--rewrite') and `crossref'
+(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
@@ -1607,6 +1609,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
          (filed (and (memq 'files kinds) sp-bibtex-lint--library
                      (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
+         (crossed (and (memq 'crossref kinds) (sp-bibtex-crossref--plan type fields)))
          (base (list :start start :end end :old old))
          rewrites)
     (when (and filled (not (equal filled old)))
@@ -1637,6 +1640,10 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                 ((not (equal (car filed) old))))
       (push (cons 'files (append base (list :new (car filed) :desc changes :moves (nth 2 filed))))
             rewrites))
+    (when-let* ((added (car crossed)))
+      (push (cons 'crossref (append base (list :new (sp-bibtex-crossref--insert old added)
+                                               :desc (sp-bibtex-crossref--describe added (nth 1 crossed)))))
+            rewrites))
     (when-let* (((memq 'keys kinds))
                 (max (bound-and-true-p sp-bibtex-key-max-length))
                 ((> (length key) max)))
@@ -1654,6 +1661,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
     (cons (nreverse rewrites)
           (append form (nth 1 prefix) (nth 2 prefix) near (and order (list order))
                   (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'problem)) (nth 1 filed)))
+                  (nth 2 crossed)
                   (and filled (not (equal filled old))
                        (list "indentation differs from bibtex-mode"))))))
 
@@ -1995,6 +2003,314 @@ files are moved to the top of the library."
     (sp-bibtex-lint--fix file 'files)))
 #+end_src
 
+*** Fields from the crossref parent
+
+A further fix of the lint: =M-x sp-bibtex-lint-fix-crossref=. A child entry (=crossref = {parent}=) gets the fields it lacks from its parent, so tools that do not resolve =crossref= (litnote autofill from BibTeX, =sp-litnotes-meta-fill=) find =year=, =booktitle=, =publisher= and the rest in the child itself.
+
+- The rule:
+  - a field is added only when the child lacks it and the parent has it
+  - nothing is ever overwritten or removed; fields of the child are not touched
+  - a field with an empty value in the parent is not copied
+  - added fields go at the end of the entry; =M-x sp-bibtex-lint-fix-order= puts them in place
+  - an entry that was laid out like =bibtex-mode= stays so after the fix
+- Where the parent is looked up:
+  - the entry with the key of the =crossref= field, in the same file first, then in the other files of =sp-bibtex-files=
+  - the exact key first, then the key in lower case (BibTeX ignores the case of keys, biber does not)
+  - the parent is read as it is written: if it has a =crossref= of its own, its parent is /not/ followed; the report says so
+  - a parent that is not found is listed as a problem in the report
+- What biblatex does itself:
+  - biber copies fields from the parent at run time, by the "default inheritance setup" of the biblatex manual
+  - the copy here is the same one done ahead of time, so an added field has the value biber would use anyway
+  - fields biblatex does not inherit (=pages=, =doi=, =url=, =file=, =keywords=, =abstract=, =note=, =author=, =title=) are never copied, only renamed ones, see the table below
+- Which fields (=sp-bibtex-crossref-fields=):
+  - a list of field names, each a string or a list of names that mean the same
+  - a list is a /group/: the child counts as having it when it has any name of the group, and the parent's names of the group are then copied together
+  - default groups, all of which the biblatex default setup inherits:
+    - =year=, =date= and =month= (a child with its own =year= or =date= gets no =month=)
+    - =location= and =address=
+    - =publisher=, =series=, =volume=, =number=, =edition=, =isbn=, =editor=, =organization=, =eventtitle=, =venue=
+- Fields that change their name (=sp-bibtex-crossref-renames=):
+  - a list of rules (PARENT-TYPES CHILD-TYPES (FROM . TO) ...); a nil list of types matches every type; types are compared in lower case
+  - a field named by a rule is copied under its new name only, never under its own
+  - the first rule that names a field wins, so the order matters
+  - default rules:
+    - parent =@mvbook=, =@mvcollection=, =@mvproceedings= or =@mvreference=: =title= → =maintitle=, =subtitle= → =mainsubtitle=, =titleaddon= → =maintitleaddon=
+    - child =@inbook=, =@incollection=, =@inproceedings=, =@conference=, =@bookinbook=, =@suppbook=, =@suppcollection=: =title= → =booktitle=, =subtitle= → =booksubtitle=, =titleaddon= → =booktitleaddon=
+    - child =@inbook=, =@bookinbook=, =@suppbook=: =author= → =bookauthor=
+    - parent =@periodical=, child =@article= or =@suppperiodical=: =title= → =journaltitle=, =subtitle= → =journalsubtitle=
+  - the parent's =editor= is copied as =editor= (it is in the field list), as biblatex does
+- How to use it:
+  - =M-x sp-bibtex-lint-crossref-entry=: the entry at point, in a =.bib= buffer
+    - it asks before it inserts, listing what it would add
+    - with a prefix argument it only says what it would add (dry run)
+    - one undo step brings the entry back
+  - =M-x sp-bibtex-lint-crossref-dryrun=: the whole file, a report with each entry and what it would get; writes nothing
+  - =M-x sp-bibtex-lint-fix-crossref=: the whole file at once, after one question and a backup, like =sp-bibtex-lint-fix-files=
+  - the report of =M-x sp-bibtex-lint-dryrun= has a section and a button for it, and =M-x sp-bibtex-lint-convert= has an entry
+  - the buffer-wide commands run as a job of =sp-async-work=: the parents are indexed first, in slices, and =M-x sp-batch-cancel= stops the job
+  - the buffer-wide fix needs the file saved first, as the other fixes do
+- What is not done:
+  - a parent's parent (=@inbook= → =@book= → =@mvbook=) is not followed
+  - a run does not see its own changes, so with a chain the parent gets its fields first and a second run passes them on to the child
+  - the =xref= field is not used, since biblatex does not inherit from it
+  - values are copied as written (a string macro such as =mitpress= stays a macro)
+
+#+begin_src emacs-lisp -i
+;;;; Fields from the crossref parent
+
+(defcustom sp-bibtex-crossref-fields
+  '(("year" "date" "month") ("location" "address")
+    "publisher" "series" "volume" "number" "edition" "isbn" "editor"
+    "organization" "eventtitle" "venue")
+  "Fields a child entry takes from its `crossref' parent when it lacks them.
+Each element is a field name, or a list of names that mean the same: the child
+has the group when it has any of its names, and the group is copied as a whole."
+  :type '(repeat (choice string (repeat string)))
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-crossref-renames
+  '((("mvbook" "mvcollection" "mvproceedings" "mvreference") nil
+     ("title" . "maintitle") ("subtitle" . "mainsubtitle") ("titleaddon" . "maintitleaddon"))
+    (nil ("inbook" "incollection" "inproceedings" "conference" "bookinbook" "suppbook" "suppcollection")
+     ("title" . "booktitle") ("subtitle" . "booksubtitle") ("titleaddon" . "booktitleaddon"))
+    (nil ("inbook" "bookinbook" "suppbook")
+     ("author" . "bookauthor"))
+    (("periodical") ("article" "suppperiodical")
+     ("title" . "journaltitle") ("subtitle" . "journalsubtitle")))
+  "Parent fields that a child takes under another name.
+Each rule is (PARENT-TYPES CHILD-TYPES (FROM . TO) ...); a nil list of types
+matches every type.  A field named by a rule is copied under its new name only,
+and the first rule that names it wins."
+  :type '(repeat (cons (choice (const :tag "Any parent type" nil) (repeat string))
+                       (cons (choice (const :tag "Any child type" nil) (repeat string))
+                             (repeat (cons string string)))))
+  :group 'sp-bibtex)
+
+(defun sp-bibtex-crossref--field (name fields)
+  "The raw value of the field NAME in FIELDS, ignoring case; nil when absent or empty."
+  (when-let* ((value (cdr (assoc-string name fields t)))
+              ((not (string-empty-p (string-trim (or (car (sp-bibtex--unwrap value)) value))))))
+    value))
+
+(defun sp-bibtex-crossref--has (names fields)
+  "Non-nil when FIELDS has any of the field NAMES, even with an empty value."
+  (seq-some (lambda (n) (assoc-string n fields t)) names))
+
+(defun sp-bibtex-crossref--renames (parent-type child-type)
+  "The (FROM . TO) pairs for PARENT-TYPE and CHILD-TYPE; the first rule naming a FROM wins."
+  (let (pairs)
+    (dolist (rule sp-bibtex-crossref-renames)
+      (when (and (or (null (car rule)) (member-ignore-case parent-type (car rule)))
+                 (or (null (nth 1 rule)) (member-ignore-case child-type (nth 1 rule))))
+        (dolist (pair (nthcdr 2 rule))
+          (unless (assoc-string (car pair) pairs t)
+            (push pair pairs)))))
+    (nreverse pairs)))
+
+(defun sp-bibtex-crossref--additions (child-type fields parent-type parent)
+  "The fields of PARENT (an alist) that the child FIELDS of CHILD-TYPE lack.
+Return a list of (NAME RAW-VALUE SOURCE-NAME), in the order of the rules."
+  (let ((renames (sp-bibtex-crossref--renames parent-type child-type))
+        added)
+    (dolist (pair renames)
+      (when-let* ((value (sp-bibtex-crossref--field (car pair) parent))
+                  ((not (sp-bibtex-crossref--has (list (cdr pair)) fields))))
+        (push (list (cdr pair) value (car pair)) added)))
+    (dolist (group sp-bibtex-crossref-fields)
+      (let ((names (if (listp group) group (list group))))
+        (unless (sp-bibtex-crossref--has names fields)
+          (dolist (name names)
+            (when-let* ((value (sp-bibtex-crossref--field name parent))
+                        ((not (assoc-string name renames t)))
+                        ((not (assoc-string name added t))))
+              (push (list name value name) added))))))
+    (nreverse added)))
+
+(defun sp-bibtex-crossref--remember (key type fields)
+  "Add the entry KEY, of TYPE with FIELDS, to the table of parents."
+  (let ((value (cons (downcase type) fields)))
+    (unless (gethash key sp-bibtex-lint--parents)
+      (puthash key value sp-bibtex-lint--parents))
+    (unless (gethash (downcase key) sp-bibtex-lint--parents)
+      (puthash (downcase key) value sp-bibtex-lint--parents))))
+
+(defun sp-bibtex-crossref--index-chunk (limit)
+  "Add the entries from point, at most LIMIT of them, to the table of parents.
+Return non-nil when LIMIT was reached, so there may be more."
+  (let ((count 0))
+    (while (and (< count limit)
+                (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t))
+      (cl-incf count)
+      (let ((beg (match-beginning 0)))
+        (goto-char beg)
+        (let* ((entry (ignore-errors (bibtex-parse-entry)))
+               (type (cdr (assoc "=type=" entry)))
+               (key (cdr (assoc "=key=" entry)))
+               (end (and entry (ignore-errors (bibtex-end-of-entry)))))
+          (if (and entry key end (not (member (downcase type) '("string" "preamble" "comment"))))
+              (progn (sp-bibtex-crossref--remember
+                      key type (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))
+                     (goto-char end))
+            (goto-char (min (point-max) (1+ beg)))))))
+    (>= count limit)))
+
+(defun sp-bibtex-crossref--index-stage (files)
+  "The `sp-async-work' stage that fills the table of parents from FILES and `sp-bibtex-files'."
+  (list "indexing crossref parents"
+        (lambda ()
+          (delete-dups
+           (mapcar #'expand-file-name
+                   (append files (seq-filter #'file-readable-p
+                                             (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))))))
+        (lambda (item job)
+          (let* ((file (if (consp item) (car item) item))
+                 (buffer (if (consp item)
+                             (cdr item)
+                           (let ((b (generate-new-buffer " *sp-bibtex-crossref*")))
+                             (sp-async-work-on-cleanup job (lambda () (when (buffer-live-p b) (kill-buffer b))))
+                             (with-current-buffer b
+                               (insert-file-contents file)
+                               (delay-mode-hooks (bibtex-mode))
+                               (goto-char (point-min)))
+                             b))))
+            (with-current-buffer buffer
+              (if (sp-bibtex-crossref--index-chunk 200)
+                  (sp-async-work-push job (cons file buffer))
+                (kill-buffer buffer)))))))
+
+(defun sp-bibtex-crossref--scan-buffer (key)
+  "The (TYPE . FIELDS) of the entry KEY in the current buffer, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (let ((case-fold-search nil)) ; `bibtex-parse-entry' needs the default
+            (re-search-forward (concat "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*" (regexp-quote key) "[ \t]*,") nil t))
+      (goto-char (match-beginning 0))
+      (when-let* ((entry (ignore-errors (bibtex-parse-entry))))
+        (cons (downcase (cdr (assoc "=type=" entry)))
+              (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))))))
+
+(defun sp-bibtex-crossref--parent (key)
+  "The parent entry KEY as (TYPE . FIELDS), or nil.
+Inside a lint job (`sp-bibtex-lint--parents') the table is used.  Outside one the
+current buffer is searched, then the files of `sp-bibtex-files'."
+  (if sp-bibtex-lint--parents
+      (or (gethash key sp-bibtex-lint--parents)
+          (gethash (downcase key) sp-bibtex-lint--parents))
+    (or (and (derived-mode-p 'bibtex-mode) (sp-bibtex-crossref--scan-buffer key))
+        (seq-some (lambda (file)
+                    (with-temp-buffer
+                      (insert-file-contents file)
+                      (delay-mode-hooks (bibtex-mode))
+                      (sp-bibtex-crossref--scan-buffer key)))
+                  (seq-filter #'file-readable-p
+                              (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))))))
+
+(defun sp-bibtex-crossref--plan (type fields)
+  "What the entry of TYPE with FIELDS (an alist of name and raw value) takes from its parent.
+Return nil when it has no `crossref' field; otherwise (ADDED PARENT-KEY PROBLEMS):
+ADDED lists (NAME RAW-VALUE SOURCE-NAME) and PROBLEMS are lines for the report."
+  (when-let* ((raw (sp-bibtex-crossref--field "crossref" fields))
+              (key (string-trim (or (car (sp-bibtex--unwrap raw)) raw))))
+    (if-let* ((parent (sp-bibtex-crossref--parent key)))
+        (list (sp-bibtex-crossref--additions type fields (car parent) (cdr parent))
+              key
+              (when (sp-bibtex-crossref--field "crossref" (cdr parent))
+                (list (format "crossref parent %s has a crossref of its own, not followed" key))))
+      (list nil key (list (format "crossref parent %s not found" key))))))
+
+(defun sp-bibtex-crossref--describe (added parent-key)
+  "Report lines for the fields ADDED from the entry PARENT-KEY."
+  (mapcar (lambda (a)
+            (format "%s = %s   (%s of %s)" (nth 0 a)
+                    (truncate-string-to-width (replace-regexp-in-string "[ \t\n]+" " " (nth 1 a)) 70 nil nil "…")
+                    (nth 2 a) parent-key))
+          added))
+
+(defun sp-bibtex-crossref--insert (old added)
+  "The entry text OLD with the fields ADDED after its last field.
+ADDED lists (NAME RAW-VALUE ...).  The indentation of the entry is kept; an entry
+that `bibtex-fill-entry' would leave as it is is filled again."
+  (let* ((close (or (string-match "[})][ \t\n]*\\'" old) (1- (length old))))
+         (body (string-trim-right (substring old 0 close)))
+         (indent (if (string-match "\n\\([ \t]+\\)[[:alnum:]_-]+[ \t]*=" old) (match-string 1 old) "  "))
+         (new (concat body (if (string-suffix-p "," body) "" ",")
+                      (mapconcat (lambda (a) (format "\n%s%s = %s," indent (nth 0 a) (nth 1 a)))
+                                 added "")
+                      "\n" (substring old close))))
+    (if (equal (sp-bibtex--fill-text old) old) (sp-bibtex--fill-text new) new)))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-crossref (file)
+  "Add to the entries of the .bib FILE the fields their `crossref' parent has and they lack.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Nothing is
+overwritten.  All entries are fixed at once, after one question and a backup.
+See `sp-bibtex-crossref-fields' and `sp-bibtex-crossref-renames'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix file 'crossref))
+
+(defun sp-bibtex-lint--render-crossref (file results)
+  "Show RESULTS of the crossref lint of FILE as a report."
+  (let* ((pairs (cl-mapcar #'cons results
+                           (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
+         (added (seq-filter (lambda (r) (alist-get 'crossref (nth 4 r))) results))
+         (others (seq-remove (lambda (r) (alist-get 'crossref (nth 4 r))) results)))
+    (sp-batch-report-open
+     sp-bibtex-lint--buffer
+     (concat
+      (format "#+title: Crossref fields of %s\n\n" (file-name-nondirectory file))
+      (format "- %d entr%s would get fields from the crossref parent in %s; nothing is written.\n"
+              (length added) (if (= 1 (length added)) "y" "ies") (sp-batch-report-file-link file))
+      (format "- %s\n" (sp-bibtex-lint--button "crossref" file "add them" (length added)))
+      (sp-bibtex-lint--section "Fields to add" 'crossref added pairs file)
+      (and others
+           (concat "\n* Problems\n"
+                   (mapconcat (lambda (r)
+                                (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
+                                        (mapconcat (lambda (p) (concat "- " p "\n")) (nth 3 r) "")))
+                              others ""))))
+     :refresh (lambda (_excluded) (sp-bibtex-lint-crossref-dryrun file)))))
+
+;;;###autoload
+(defun sp-bibtex-lint-crossref-dryrun (file)
+  "List what the entries of the .bib FILE would take from their `crossref' parents.
+Nothing is written; the report has a button for `sp-bibtex-lint-fix-crossref'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(crossref)
+                       (lambda (results) (sp-bibtex-lint--render-crossref file results))))
+
+;;;###autoload
+(defun sp-bibtex-lint-crossref-entry (&optional dry-run)
+  "Add to the entry at point the fields its `crossref' parent has and it lacks.
+It lists the fields and asks first.  With a prefix argument DRY-RUN it only
+says what it would add."
+  (interactive "P")
+  (unless (derived-mode-p 'bibtex-mode)
+    (user-error "Not in a BibTeX buffer"))
+  (save-excursion
+    (bibtex-beginning-of-entry)
+    (let* ((beg (point))
+           (entry (or (ignore-errors (bibtex-parse-entry)) (user-error "Cannot read the entry at point")))
+           (end (progn (bibtex-end-of-entry) (point)))
+           (type (cdr (assoc "=type=" entry)))
+           (key (cdr (assoc "=key=" entry)))
+           (plan (sp-bibtex-crossref--plan type (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry)))
+           (added (car plan)))
+      (cond
+       ((null plan) (user-error "%s has no crossref field" key))
+       ((null added)
+        (message "%s" (or (car (nth 2 plan)) (format "%s already has what %s offers" key (nth 1 plan)))))
+       (dry-run
+        (message "%s would get: %s" key (string-join (sp-bibtex-crossref--describe added (nth 1 plan)) "; ")))
+       ((y-or-n-p (format "Add %s from %s to %s? "
+                          (string-join (mapcar #'car added) ", ") (nth 1 plan) key))
+        (let ((new (sp-bibtex-crossref--insert (buffer-substring-no-properties beg end) added)))
+          (goto-char beg)
+          (delete-region beg end)
+          (insert new)
+          (message "%s: added %s" key (string-join (mapcar #'car added) ", "))))))))
+#+end_src
+
 *** Report and apply
 
 The lint works on one =.bib= file at a time, and it is read-only. The fixes are five separate commands, each with a button in the report.
@@ -2002,7 +2318,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
 - Which file:
   - the file of the current buffer, when it is a =.bib= file
   - otherwise, or with a prefix argument, one read with completion from =sp-bibtex-files=
-- =M-x sp-bibtex-lint-dryrun= (=C-c w b l=):
+- =M-x sp-bibtex-lint-dryrun= (=C-; L b l=):
   - lists the entries to fix in the shared report buffer (=sp-batch-report=)
   - each entry is a link to its line: =RET= visits it, =n= and =p= move, =g= refreshes
   - the top of the report has one button for each fix, with the number of entries it would change
@@ -2047,7 +2363,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
     - those with as many given names as the BibTeX name are preferred, so =TW Adorno= is =Theodor W. Adorno=, not =Tamara Adorno=
     - if more than one is left (=T Adorno=), the name is ambiguous
     - an ambiguous name is listed in its own section of the report (with the candidates) and is never changed or aliased
-- =M-x sp-bibtex-lint-fix-files= is a further fix, described under "Attachment paths" above; =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks which of the five to run.
+- =M-x sp-bibtex-lint-fix-files= is a further fix, described under "Attachment paths" above; =M-x sp-bibtex-lint-convert= (=C-; L b a=) asks which of the five to run. Each fix has a key under =C-; L b f= (=n= names, =c= crossref, =f= files, =i= indent, =k= keys, =o= order, =p= prefixes).
 - Dropping entries for later (author fixes only), the mechanism of the other lint reports (=sp-batch-report=):
   - in the report: =d= drops the entry at point, =u= on a dropped one brings it back, =A= runs the author fixes with what is left
   - the dropped entries move to a section "Dropped from the list" at the end of the report, with their count
@@ -2086,7 +2402,8 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
     (prefixes . "name prefixes")
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes")
-    (files . "attachment paths") (keys . "long citation keys"))
+    (files . "attachment paths") (keys . "long citation keys")
+    (crossref . "fields from the crossref parent"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -2121,9 +2438,14 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
         all)
     (setq sp-bibtex-lint--library
           (and (memq 'files kinds) (sp-bibtex-files--library)))
+    (setq sp-bibtex-lint--parents
+          (and (memq 'crossref kinds) (make-hash-table :test #'equal)))
     (sp-async-work-run
      name
-     (list (list "reading BibTeX" (lambda () files)
+     (append
+      (when sp-bibtex-lint--parents
+        (list (sp-bibtex-crossref--index-stage files)))
+      (list (list "reading BibTeX" (lambda () files)
                  (lambda (item job)
                    (let* ((file (if (consp item) (car item) item))
                           (buffer (if (consp item)
@@ -2140,9 +2462,10 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
                          (setq all (append all (car result)))
                          (if (cdr result)
                              (sp-async-work-push job (cons file buffer))
-                           (kill-buffer buffer))))))))
+                           (kill-buffer buffer)))))))))
      :done (lambda (_job)
-             (setq sp-bibtex-lint--library nil)
+             (setq sp-bibtex-lint--library nil
+                   sp-bibtex-lint--parents nil)
              (funcall done all)))))
 
 (defun sp-bibtex-lint--backup (file stamp)
@@ -2187,6 +2510,7 @@ Each position is the start of a line."
       ("authors" (sp-bibtex-lint-fix-authors file))
       ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       ("files" (sp-bibtex-lint-fix-files file))
+      ("crossref" (sp-bibtex-lint-fix-crossref file))
       ("keys" (sp-bibtex-lint-fix-keys file))
       (other (user-error "Unknown lint button: %s" other)))))
 
@@ -2308,6 +2632,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count shown 'prefixes)))
       (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
                                                  (sp-bibtex-lint--count results 'files)))
+      (format "  - %s\n" (sp-bibtex-lint--button "crossref" file "fields from the crossref parent"
+                                                 (sp-bibtex-lint--count results 'crossref)))
       (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
                                                  (sp-bibtex-lint--count results 'keys)))
       (format "  - %s\n" (sp-bibtex-lint--button
@@ -2323,6 +2649,7 @@ back; the dropped ones are listed at the end."
                     'sp-batch-report-file file))
                  main "")
       (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
+      (sp-bibtex-lint--section "Fields from the crossref parent" 'crossref shown pairs file)
       (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
@@ -2349,7 +2676,7 @@ author note or of several), the order of the fields (`sp-bibtex-field-order'), t
 button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
 prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -2747,27 +3074,28 @@ Notes for authors are never made."
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
   "Ask which fix to run on the .bib FILE.
-The fixes are field order, indentation, name prefixes, author names, attachment paths
-and long citation keys.
+The fixes are field order, indentation, name prefixes, author names, attachment paths,
+fields from the crossref parent and long citation keys.
 See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
-`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files' and
-`sp-bibtex-lint-fix-keys'."
+`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files',
+`sp-bibtex-lint-fix-crossref' and `sp-bibtex-lint-fix-keys'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths"
-                                         "long citation keys")
+                                         "fields from the crossref parent" "long citation keys")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
     ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
     ("author names" (sp-bibtex-lint-fix-authors file))
     ("attachment paths" (sp-bibtex-lint-fix-files file))
+    ("fields from the crossref parent" (sp-bibtex-lint-fix-crossref file))
     ("long citation keys" (sp-bibtex-lint-fix-keys file))))
 
 #+end_src
 
 *** Long citation keys
 
-The lint kind =keys= and its fix =sp-bibtex-lint-fix-keys= (~C-c w b k~, or the =keys= button of the report, or =sp-bibtex-lint-convert=).
+The lint kind =keys= and its fix =sp-bibtex-lint-fix-keys= (~C-; L b f k~, or the =keys= button of the report, or =sp-bibtex-lint-convert=).
 
 - the entries whose key is over =sp-bibtex-key-max-length= get a rewrite of the kind =keys=; the dry run lists them in a section of their own.
 - the fix goes in batches of =sp-bibtex-lint-batch-size=, as the other fixes do, with a backup of the =.bib= file before the first write:
@@ -3215,7 +3543,7 @@ Candidate layout widths (=sp-citations--layout=, from the display):
 
 The notes path was written inside =:custom= once, which expects pairs of variable and value, so use-package tried to customise variables literally named when and setq and neither was ever applied.
 
-Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
+Keybindings: ~C-; B o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
 
 Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does not filter library files by extension and will offer any attached file. It used to be a =setq= after the =use-package=.
 
@@ -3541,7 +3869,11 @@ read or when the format string changes, and the emoji cells of the type column a
 it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
   (when (and (boundp 'citar-cache--bibliographies)
              (fboundp 'citar-cache--preformat-bibliography))
-    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+    ;; A bibliography the preload took from the disk has no format string yet
+    ;; (`citar-cache--get-bibliography' sets it); `citar-format--parse' on nil fails.
+    (maphash (lambda (_file bib)
+               (when (cl-struct-slot-value 'citar-cache--bibliography 'format-string bib)
+                 (citar-cache--preformat-bibliography bib)))
              citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)
@@ -3582,7 +3914,7 @@ again."
 ;; Do you really need to make use of citar?
 (use-package citar
   :ensure t
-  :commands (citar-open-notes
+  :commands (citar-open citar-open-notes
              citar-insert-citation)
   
   :custom
@@ -3615,11 +3947,12 @@ again."
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (add-to-list 'citar-display-transform-functions '(lastfirst . (sp-citations--last-first)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
+  (advice-add 'citar--fields-to-parse :filter-return #'sp-citations--stable-fields)
     (advice-add 'citar-select-ref :before #'sp-citations--before-select)
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
-         (("C-c w b o" . citar-open))
+         ;; citar-open is C-; B o (sp-keys)
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
          
          :hook
@@ -3785,6 +4118,32 @@ Cache on disk:
 - at the start of a pass the file is read into the cache; =citar= then compares size, contents and fields as always, so a file that changed, or a template with other fields, is parsed again.
 - the candidates are formatted again from the entries (this is fast), because they hold faces and widths.
 - a missing, old or damaged cache file is ignored.
+- the file is written at the end of a pass, when a pass stops on an error or =C-g=, and when Emacs quits (=kill-emacs-hook=), each time only if the entries of =citar= differ from what was last written, or the file does not exist.
+- so a parse that =citar= did itself, on a call, is saved at exit too.
+
+Why =citar= could still read a file again (found from a report of =Updating bibliography= on =citar-open=):
+
+- =citar= keeps with each file the list of fields it parsed (=citar--fields-to-parse=) and reads the file again when the list is different.
+- the list is made from the templates, and the layout only adds the tags and keywords column on a wide frame, so the list depended on the width of the frame.
+- the preload ran at one width and the first call at another (the posframe takes a fraction of the frame), so the cache was thrown away.
+- =sp-citations--stable-fields= (a filter on =citar--fields-to-parse=) sorts the list and always has =tags= and =keywords= in it, so it is the same at any width.
+- the disk cache from before this change has the old list, so each file is read once more after the update.
+- =M-x sp-citations-preload-explain= tells for each file whether it is in the cache, tied to =global=, and has the same fields and size, and whether the preload is still waiting; the end of a pass says =citar preload: N bibliography file(s) ready= in =*Messages*=.
+
+When a file fails (=Wrong type argument: stringp, nil= after the cache on disk was used):
+
+- cause (found by running the preload against the real =citar= 1.4.0 on the Mac): a bibliography taken from the disk cache has no =format-string= and no pre-formatted candidates yet; =sp-citations--apply-layout= runs first in a new session, sees the layout as changed and calls =sp-citations--repreformat=, which pre-formatted every bibliography in the cache, and =citar-format--parse= fails on a nil format string.
+- the fix: =sp-citations--repreformat= skips a bibliography without a format string; =citar-cache--get-bibliography= sets it and pre-formats the file itself.
+- the preload used to take this for "the saved entries did not work" and read the file again; that fallback stays, with the backtrace, for other errors.
+- the error handler runs the debugger function =sp-citations-preload--capture= (through =debug= in =condition-case=), which keeps the backtrace; =M-x sp-citations-preload-show-error= shows it, and =sp-citations-preload-explain= says that there is one.
+- an error on a file whose entries came from the disk cache removes those entries and reads the file again, once; the stale entries are then not written back.
+- an error on another file no longer stops the pass: the next file is read.
+
+Citar internals:
+
+- the preload uses =citar-cache--bibliographies=, =citar-cache--get-bibliography=, =citar-cache--make-bibliography= and the slots =entries=, =props= and =buffers=.
+- the slots are read and set by name (=cl-struct-slot-value=), never with =setf= on the accessors or on =cl-struct-slot-value= (that warns when this file loads without =citar=); they are set with =aset= at the offset of the slot: this file is loaded before =citar=, so Emacs expanded =setf= on an accessor it did not know yet into a call of =(setf citar-cache--bibliography-buffers)=, which does not exist (the first version of the preload failed on every file with that error).
+- =sp-citations-preload--compatible-p= checks all of this before the first file; if it fails, the preload says so once in the echo area and stays off.
 
 Options:
 
@@ -3797,15 +4156,13 @@ Options:
 ;;;; Preload the bibliography
 (require 'cl-lib)
 (require 'seq)
+(require 'subr-x)
 ;; `citar' parses the .bib files the first time a command asks for a reference.
 ;; This reads them while Emacs is idle, one file at a time.
 (defvar citar-cache--bibliographies)
 (declare-function citar--bibliography-files "citar")
 (declare-function citar-cache--get-bibliography "citar-cache")
 (declare-function citar-cache--make-bibliography "citar-cache")
-(declare-function citar-cache--bibliography-entries "citar-cache")
-(declare-function citar-cache--bibliography-props "citar-cache")
-(declare-function citar-cache--bibliography-buffers "citar-cache")
 
 (defcustom sp-citations-preload t
   "When non-nil, read the BibTeX files of `citar' while Emacs is idle."
@@ -3844,8 +4201,87 @@ They are used only for a file whose size and contents are the same."
 (defvar sp-citations-preload--queue nil
   "The files the preload still has to read.")
 
-(defvar sp-citations-preload--changed nil
-  "Non-nil when the preload parsed a file, so the disk cache is out of date.")
+(defvar sp-citations-preload--primed nil
+  "The files whose entries came from the disk cache and were not checked yet.")
+
+(defvar sp-citations-preload--last-error nil
+  "The last error of the preload, as a string with the file and a backtrace.")
+
+(defun sp-citations-preload--capture (&rest args)
+  "Debugger function: keep the backtrace of the error in ARGS.
+Bound as `debugger' around a file; the error is then handled as usual."
+  (when (eq (car args) 'error)
+    (setq sp-citations-preload--last-error
+          (format "%s\n%s" (error-message-string (cadr args))
+                  (with-output-to-string (backtrace))))))
+
+(defun sp-citations-preload--record-error (file err)
+  "Remember ERR for FILE, with the backtrace that `sp-citations-preload--capture' kept."
+  (setq sp-citations-preload--last-error
+        (format "%s: %s\n%s" (abbreviate-file-name file) (error-message-string err)
+                (or sp-citations-preload--last-error ""))))
+
+(defun sp-citations-preload-show-error ()
+  "Show the last error of the preload with its backtrace."
+  (interactive)
+  (if (not sp-citations-preload--last-error)
+      (message "citar preload: no error")
+    (with-current-buffer (get-buffer-create "*citar preload error*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert sp-citations-preload--last-error))
+      (goto-char (point-min))
+      (pop-to-buffer (current-buffer)))))
+
+(defvar sp-citations-preload--saved nil
+  "The entry tables of `citar' as they were when the disk cache was last in step.
+An alist of (FILE . ENTRIES), compared with `equal': the tables by identity, and
+`citar' makes a new table whenever it parses a file again.")
+
+(defun sp-citations-preload--slot (bib slot)
+  "Return the value of SLOT (a symbol) of the bibliography object BIB.
+The slots are read by name: `setf' on the accessors of `citar-cache' is expanded
+when this file is loaded, before `citar' is, and then it calls a function that
+does not exist (`(setf citar-cache--bibliography-buffers)' is void)."
+  (cl-struct-slot-value 'citar-cache--bibliography slot bib))
+
+(defun sp-citations-preload--set-slot (bib slot value)
+  "Set SLOT of the bibliography object BIB to VALUE; see `sp-citations-preload--slot'."
+  (aset bib (cl-struct-slot-offset 'citar-cache--bibliography slot) value))
+
+(defun sp-citations-preload--compatible-p ()
+  "Return non-nil when the installed `citar' has what the preload uses.
+Citar's cache is internal: this checks the variable, the functions and the three
+slots, so that a change in a new version of `citar' turns the preload off with a
+message instead of an error on every file."
+  (and (boundp 'citar-cache--bibliographies)
+       (hash-table-p citar-cache--bibliographies)
+       (fboundp 'citar--bibliography-files)
+       (fboundp 'citar-cache--get-bibliography)
+       (fboundp 'citar-cache--make-bibliography)
+       (condition-case nil
+           (let ((bib (citar-cache--make-bibliography "x")))
+             (dolist (slot '(entries props buffers))
+               (sp-citations-preload--slot bib slot))
+             t)
+         (error nil))))
+
+(defun sp-citations-preload--snapshot ()
+  "Return the entry tables now in the cache of `citar', as an alist by file."
+  (let (alist)
+    (maphash (lambda (file bib)
+               (push (cons file (sp-citations-preload--slot bib 'entries)) alist))
+             citar-cache--bibliographies)
+    (sort alist (lambda (a b) (string< (car a) (car b))))))
+
+(defun sp-citations--stable-fields (fields)
+  "Return FIELDS, the fields `citar' parses, sorted and with the tags added.
+`citar' reads a bibliography again when this list differs from the one it kept.
+The tags column of the layout only exists on a wide frame, so the list changed
+with the width of the frame: the preload, run at another width than the first
+call, was thrown away by it.  Sorted and with `tags' and `keywords' always in
+it, the list is the same at any width.  Filter of `citar--fields-to-parse'."
+  (sort (delete-dups (append fields (list "tags" "keywords"))) #'string<))
 
 (defun sp-citations-preload--files ()
   "Return the readable global bibliography files of `citar'."
@@ -3872,10 +4308,12 @@ contents and the parsed fields, and parses the file again when they differ."
                   (table (make-hash-table :test #'equal)))
               (dolist (entry entries)
                 (puthash (car entry) (cdr entry) table))
-              (setf (citar-cache--bibliography-entries bib) table
-                    (citar-cache--bibliography-props bib) props
-                    (citar-cache--bibliography-buffers bib) (list 'global))
-              (puthash file bib citar-cache--bibliographies))))))))
+              (sp-citations-preload--set-slot bib 'entries table)
+              (sp-citations-preload--set-slot bib 'props props)
+              (sp-citations-preload--set-slot bib 'buffers (list 'global))
+              (push file sp-citations-preload--primed)
+              (puthash file bib citar-cache--bibliographies)))))
+      (setq sp-citations-preload--saved (sp-citations-preload--snapshot)))))
 
 (defun sp-citations-preload--save ()
   "Write the parsed entries of `citar' to `sp-citations-preload-cache-file'."
@@ -3885,8 +4323,8 @@ contents and the parsed fields, and parses the file again when they differ."
        (lambda (file bib)
          (let (entries)
            (maphash (lambda (key entry) (push (cons key entry) entries))
-                    (citar-cache--bibliography-entries bib))
-           (push (list file (citar-cache--bibliography-props bib) entries) data)))
+                    (sp-citations-preload--slot bib 'entries))
+           (push (list file (sp-citations-preload--slot bib 'props) entries) data)))
        citar-cache--bibliographies)
       (condition-case err
           (progn
@@ -3895,43 +4333,78 @@ contents and the parsed fields, and parses the file again when they differ."
                   (print-length nil)
                   (print-level nil))
               (with-temp-file sp-citations-preload-cache-file
-                (prin1 (cons sp-citations-preload--version data) (current-buffer)))))
+                (prin1 (cons sp-citations-preload--version data) (current-buffer))))
+            (setq sp-citations-preload--saved (sp-citations-preload--snapshot)))
         (error (message "citar preload: cannot write the cache: %s"
                         (error-message-string err)))))))
+
+(defun sp-citations-preload--save-if-needed ()
+  "Write the disk cache when the entries of `citar' differ from what it holds.
+Also when the cache file does not exist yet."
+  (when (and sp-citations-preload-persist
+             (featurep 'citar)
+             (sp-citations-preload--compatible-p)
+             (not (hash-table-empty-p citar-cache--bibliographies))
+             (or (not (file-exists-p sp-citations-preload-cache-file))
+                 (not (equal sp-citations-preload--saved
+                             (sp-citations-preload--snapshot)))))
+    (sp-citations-preload--save)))
 
 (defun sp-citations-preload--read (file)
   "Read FILE into the cache of `citar', unless it is up to date there."
   (when (fboundp 'sp-citations--apply-layout)
     (sp-citations--apply-layout))
   (let* ((old (gethash file citar-cache--bibliographies))
-         (before (and old (citar-cache--bibliography-entries old)))
+         (before (and old (sp-citations-preload--slot old 'entries)))
          (bib (citar-cache--get-bibliography file)))
     ;; Tied to `global', as `citar--bibliographies' does; a bibliography with
     ;; no buffer is dropped the next time `citar' releases the unused ones.
-    (cl-pushnew 'global (citar-cache--bibliography-buffers bib))
-    (unless (eq before (citar-cache--bibliography-entries bib))
-      (setq sp-citations-preload--changed t))))
+    (unless (memq 'global (sp-citations-preload--slot bib 'buffers))
+      (sp-citations-preload--set-slot
+       bib 'buffers (cons 'global (sp-citations-preload--slot bib 'buffers))))
+    before))
 
 (defun sp-citations-preload--next ()
   "Read the next file of the queue, then wait for Emacs to be idle again."
   (setq sp-citations-preload--timer nil)
   (if (null sp-citations-preload--queue)
-      (when sp-citations-preload--changed
-        (setq sp-citations-preload--changed nil)
-        (sp-citations-preload--save))
-    (let ((file (pop sp-citations-preload--queue)))
+      (progn
+        (sp-citations-preload--save-if-needed)
+        (message "citar preload: %d bibliography file(s) ready"
+                 (hash-table-count citar-cache--bibliographies)))
+    (let ((file (pop sp-citations-preload--queue))
+          (stopped nil))
       (condition-case err
-          (progn
-            (sp-citations-preload--read file)
-            (setq sp-citations-preload--timer
-                  (run-with-idle-timer 0.3 nil #'sp-citations-preload--next)))
+          (let ((debug-on-error t)
+                (debugger #'sp-citations-preload--capture))
+            ;; `debug' in the handler below makes Emacs call the debugger first.
+            (condition-case err2
+                (sp-citations-preload--read file)
+              ((debug error) (signal (car err2) (cdr err2))))
+            (setq sp-citations-preload--primed
+                  (delete file sp-citations-preload--primed)))
         (quit
-         (setq sp-citations-preload--queue nil)
-         (message "citar preload stopped; citar reads the rest when you ask for a reference"))
+         (setq stopped t
+               sp-citations-preload--queue nil)
+         (message "citar preload stopped; citar reads the rest when you ask for a reference")
+         (sp-citations-preload--save-if-needed))
         (error
-         (setq sp-citations-preload--queue nil)
-         (message "citar preload: %s: %s" (abbreviate-file-name file)
-                  (error-message-string err)))))))
+         (sp-citations-preload--record-error file err)
+         (if (member file sp-citations-preload--primed)
+             ;; The entries saved on disk did not work: read the file again.
+             (progn
+               (setq sp-citations-preload--primed
+                     (delete file sp-citations-preload--primed))
+               (remhash file citar-cache--bibliographies)
+               (push file sp-citations-preload--queue)
+               (message "citar preload: the saved entries of %s did not work (%s); reading it again"
+                        (abbreviate-file-name file) (error-message-string err)))
+           (message "citar preload: %s: %s; M-x sp-citations-preload-show-error has the backtrace"
+                    (abbreviate-file-name file) (error-message-string err)))))
+      ;; Go on with the next file, also after an error in this one.
+      (unless stopped
+        (setq sp-citations-preload--timer
+              (run-with-idle-timer 0.3 nil #'sp-citations-preload--next))))))
 
 (defun sp-citations-preload--start (tries)
   "Load `citar' and start reading its files; TRIES counts the attempts.
@@ -3941,10 +4414,12 @@ Elpaca may not have installed `citar' yet, so it tries again later."
       (when (< tries 6)
         (setq sp-citations-preload--timer
               (run-with-idle-timer 10 nil #'sp-citations-preload--start (1+ tries))))
-    (let ((files (sp-citations-preload--files)))
-      (sp-citations-preload--prime files)
-      (setq sp-citations-preload--queue files)
-      (sp-citations-preload--next))))
+    (if (not (sp-citations-preload--compatible-p))
+        (message "citar preload is off: this version of citar has no cache the preload knows (see sp-citations-preload--compatible-p)")
+      (let ((files (sp-citations-preload--files)))
+        (sp-citations-preload--prime files)
+        (setq sp-citations-preload--queue files)
+        (sp-citations-preload--next)))))
 
 ;;;###autoload
 (defun sp-citations-preload-schedule (&optional delay)
@@ -3967,6 +4442,36 @@ only checked, so this is cheap to repeat."
   (setq sp-citations-preload--timer nil
         sp-citations-preload--queue nil))
 
+(defun sp-citations-preload-explain ()
+  "Say in the echo area, for each bibliography file, whether `citar' has it ready.
+Use it when `citar' still shows `Updating bibliography' on a call."
+  (interactive)
+  (if (not (and (require 'citar nil t) (sp-citations-preload--compatible-p)))
+      (message "citar preload: citar is not loaded or has another cache")
+    (let ((fields (citar--fields-to-parse))
+          (lines (list (format "preload: %s, %d file(s) waiting"
+                               (cond ((not sp-citations-preload) "off")
+                                     ((timerp sp-citations-preload--timer) "scheduled or running")
+                                     (t "idle"))
+                               (length sp-citations-preload--queue)))))
+      (dolist (file (sp-citations-preload--files))
+        (let* ((bib (gethash file citar-cache--bibliographies))
+               (props (and bib (sp-citations-preload--slot bib 'props)))
+               (size (file-attribute-size (file-attributes file))))
+          (push (format "%s: %s" (file-name-nondirectory file)
+                        (cond ((null bib) "not in the cache")
+                              ((not (memq 'global (sp-citations-preload--slot bib 'buffers)))
+                               "in the cache, not tied to global")
+                              ((not (equal (plist-get props :fields) fields))
+                               (format "parsed fields differ: cached %S, now %S"
+                                       (plist-get props :fields) fields))
+                              ((not (equal (plist-get props :size) size)) "size changed")
+                              (t "ready")))
+                lines)))
+      (when sp-citations-preload--last-error
+        (push "last error: M-x sp-citations-preload-show-error" lines))
+      (message "%s" (string-join (nreverse lines) "\n")))))
+
 (defun sp-citations-preload--after-save ()
   "After saving a BibTeX file of `citar', read it again when idle."
   (when (and sp-citations-preload
@@ -3984,6 +4489,7 @@ only checked, so this is cheap to repeat."
     (sp-citations-preload-schedule)))
 
 (add-hook 'after-save-hook #'sp-citations-preload--after-save)
+(add-hook 'kill-emacs-hook #'sp-citations-preload--save-if-needed)
 (advice-add 'sp-bibtex-register :after #'sp-citations-preload--after-register)
 
 (when sp-citations-preload
@@ -4010,7 +4516,7 @@ This academic module connects bibliography entries to notes. Literature notes ar
 - =citar-vulpea= makes Citar use Vulpea notes, tagged =litnote=, in =~/notes/litnotes=.
 - A note's citation key is the =@key= value of its =ROAM_REFS= property (the property Org-roam and Vulpea use for references), not a =#+reference:= keyword. =sp-litnotes-refs= converts the existing notes.
 
-It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
+It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-; B= group of the leader holds the literature-note keys.
 
 ** Literature notes as Vulpea nodes
 
@@ -4020,8 +4526,8 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulp
 
 - Notes use the =litnote= tag and the =ROAM_REFS= property, notes are titled "author (date) title" and live in =~/notes/litnotes=.
 - Citar always creates a note when you open notes for a reference that has none (=citar-open-always-create-notes=, which was set by the =citar-denote= block).
-- Global keys: =C-c w b c= creates a note, =C-c w b n= opens one.
-- In Org buffers: =C-c w b k= and =C-c w b K= add or remove a citekey of the current note, =C-c w b d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-c w b e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
+- Global keys: =C-; B c= creates a note, =C-; B n= opens one.
+- For the note in the current buffer (these keys used to be local to Org; they are global now and act on the note of the current buffer): =C-; B k= and =C-; B K= add or remove a citekey, =C-; B d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-; B e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
 - =C-c w b x= (=citar-denote-nocite=) is gone; =citar-vulpea= has no equivalent.
 - The title template still has to be matched to the titles of the existing notes (many are just the citekey).
 
@@ -4060,15 +4566,10 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulp
   :config
   (citar-vulpea-mode 1)
 
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-open-notes)
-
-   :map org-mode-map
-   ("C-c w b k" . citar-vulpea-add-reference)
-   ("C-c w b K" . citar-vulpea-remove-reference)
-   ("C-c w b d" . citar-vulpea-dwim)
-   ("C-c w b e" . citar-open-entry)))
+  ;; Keys: C-; B c, n, d, k, K, e (sp-keys).
+  :commands (citar-create-note citar-open-notes citar-open-entry
+             citar-vulpea-add-reference citar-vulpea-remove-reference
+             citar-vulpea-dwim))
 #+end_src
 
 ** Provide
@@ -4140,3 +4641,67 @@ What each pull request changed in this module, newest last; the one-line summary
   - =sp-bibtex-files-devonthink-tool= makes that move go through =tools/devonthink-move.py=, so DEVONthink records keep their UUID.
   - Tested in Emacs 29.3 in batch (=tests/sp-bibprocess-lint-test.el=)
     - not run on the real =.bib= files.
+- [[https://github.com/siainbuletin/dotfiles/pull/405][#405]]
+  - ✨ Added bold indicators L, F and N, each in its own face (=sp-citar-indicator-link=, =-file=, =-note=), coloured from the Modus palette
+    - without Modus they inherit =font-lock-function-name-face=, =error= and =success=
+  - 🔧 Changed the citekey to come after the title and authors, in the face =sp-citar-key= (=shadow= and italic)
+  - 🔧 Changed =citar-indicators= to be set directly: =citar-symbols= has been obsolete since citar 1.4
+- [[https://github.com/siainbuletin/dotfiles/pull/406][#406]]
+  - ✨ Added the fitting of the candidate columns to the posframe width (=:around= advice on =citar--format-candidates=) and a year column
+    - removed again by #429
+- [[https://github.com/siainbuletin/dotfiles/pull/409][#409]]
+  - ✨ Added aligned columns: one stretched space (=display (space :align-to N)=) instead of padding
+    - columns served by priority (=sp-citations-column-priorities=), the citekey cut at 45 (=sp-citations-column-max-widths=)
+  - ✨ Added the emoji indicators 🌿️ link, 📁️ file, 📝️ note and 🎓️ cited, with no padding between them
+  - 🔧 Changed the type and =beref= columns to be hidden
+    - the fitting code was removed by #429; the emoji stayed
+- [[https://github.com/siainbuletin/dotfiles/pull/410][#410]]
+  - ✨ Added =sp-bibtex-lint-fix-keys= (=C-c w b k=): flags BibTeX citekeys over =sp-bibtex-key-max-length= (45) and asks for a shorter one
+    - the key is suggested from =bibtex-generate-autokey= and checked (length, characters, not another entry's key)
+    - a plan in =*BibTeX key renames*= updates what uses the key (=sp-bibtex-key-update-targets=: notes, files, bibrefs)
+- [[https://github.com/siainbuletin/dotfiles/pull/411][#411]]
+  - ✨ Added the entry type as an emoji in the first column instead of the type name
+    - the tags are in the =sp-org-tag-groups= doc
+- [[https://github.com/siainbuletin/dotfiles/pull/414][#414]]
+  - ✨ Added =sp-devonthink= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]
+  - ✨ Added =sp-devonthink-browse= and =sp-devonthink-tags= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/427][#427]]
+  - 🐛 Fixed the column alignment
+    - the Vertico mark takes two places before the indicators, so =sp-citations-prefix-width= (2) is added to the block width; a guess from the code, not seen in the window
+  - 🔧 Changed the column order to emoji, authors, year, title, citekey, then tags
+    - removed again with the fitting by #429, except the order
+- [[https://github.com/siainbuletin/dotfiles/pull/429][#429]]
+  - 🔥 Removed the width fitting of #406, #409 and #427
+    - =sp-citations--format-candidates=, =--fit-widths=, =--assemble=, =--candidate-width=, =sp-citations-candidate-margin=, =-column-priorities=, =-column-max-widths=, =-prefix-width=, =--indicator-block-width= and the stretched spaces
+    - =tests/sp-citations-columns-test.el= goes too
+  - 🔧 Kept the faded italic citekey, the emoji indicators, the entry-type emoji and the column order
+- [[https://github.com/siainbuletin/dotfiles/pull/432][#432]]
+  - ✨ Added the widths for a half frame, worked out from the display
+    - =sp-citations--half-frame-columns=: (display width - 24 AeroSpace gaps) / 2, minus the frame border, times =sp-posframe-width-fraction=, divided by the character width of the =default= face
+    - 27 columns are fixed; authors take a fifth, the citekey up to 45 without leaving the title under 20; tags only come back at 110 columns or more
+    - the emoji cells are exact (pixel width)
+- [[https://github.com/siainbuletin/dotfiles/pull/433][#433]]
+  - 🔧 Changed the widths to come from the frame on the screen: the text width in pixels over the pixel width of a =default= character (=sp-citations--frame-columns=)
+    - with the posframe on, =sp-posframe-width-fraction= of that
+  - ✨ Added =sp-citations--apply-layout=, run before =citar-select-ref= and =citar-select-refs=: it compares columns, character width and font, and makes the cells and templates again only when they changed
+- [[https://github.com/siainbuletin/dotfiles/pull/439][#439]]
+  - 🐛 Fixed the citekey not being faded italic
+    - =citar-templates= has no =completion= entry, so citar builds it with =propertize ... 'face 'citar=, which replaced the face of the citekey field
+    - =sp-citations--completion-template= makes the =completion= entry itself: the main part in =citar-highlight= and the =citar= face added after the faces the suffix already has
+- [[https://github.com/siainbuletin/dotfiles/pull/448][#448]]
+  - ✨ Added the author column with the last name first (=sp-citations--last-first=, the =lastfirst= transform, =${author editor:N%lastfirst}=)
+    - =Last, First= stays, =Jane Q. Doe= becomes =Doe, Jane Q.=; particles and suffixes stay with the last name
+    - names in braces and single words are left as they are; =others= becomes =et al.=; several names are joined with =; =
+- [[https://github.com/siainbuletin/dotfiles/pull/453][#453]]
+  - ✨ Added =sp-pdf-reader= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added =sp-fetch-inbox= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
+  - ✨ Added =sp-devonthink-bibsync= to the modules required from =sp-academic=
+- [[https://github.com/siainbuletin/dotfiles/pull/471][#471]]
+  - ✨ Added a preload of the bibliography in idle time (=sp-citations-preload=)
+    - an idle timer loads =citar= and reads one file per idle slice; =C-g= stops it
+    - saving a =.bib= buffer or =sp-bibtex-register= schedules a new pass
+    - the cache =citar-bibliography.eld= in =sp-cache-dir= is written after a pass that parsed something; citar still validates it
+  - ✨ Added the options =sp-citations-preload=, =-delay= (3 s), =-refresh-on-save=, =-persist= and =-cache-file=

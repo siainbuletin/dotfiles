@@ -12,7 +12,7 @@
 - Merged :: 2026-11-13 13:07
 - Branch :: =444-aerospace-devonthink-tiling= → =main=
 - Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/e8e60beee79a2cc93229ba631f94efcb19f47c0b][e8e60beee7]]
-- Labels :: bugfix, needs-further-testing
+- Labels :: bugfix, does-what-it-should, check-later, small-tasks-remaining
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2T5aLZeyqd93VC4qKjXVG6U][project thread]]/

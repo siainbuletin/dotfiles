@@ -9,8 +9,8 @@
 - State :: open
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 11:07
-- Branch :: =443-devonthink-tags-litnote-keywords= → =415-devonthink-browse-tags=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/edb85285024196ff266a11fbd93d31d0d92c6d5d][edb8528502]]
+- Branch :: =443-devonthink-tags-litnote-keywords= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c434882e81ce5bcc45104405023c91af9aaf396a][c434882e81]]
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23N1cZVA1k1j52YPJWeeLJF][project thread]]/

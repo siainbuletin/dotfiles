@@ -32,15 +32,10 @@
   :config
   (citar-vulpea-mode 1)
 
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-open-notes)
-
-   :map org-mode-map
-   ("C-c w b k" . citar-vulpea-add-reference)
-   ("C-c w b K" . citar-vulpea-remove-reference)
-   ("C-c w b d" . citar-vulpea-dwim)
-   ("C-c w b e" . citar-open-entry)))
+  ;; Keys: C-; B c, n, d, k, K, e (sp-keys).
+  :commands (citar-create-note citar-open-notes citar-open-entry
+             citar-vulpea-add-reference citar-vulpea-remove-reference
+             citar-vulpea-dwim))
 
 (require 'sp-litnotes-refs)
 (require 'sp-litnotes-titles)

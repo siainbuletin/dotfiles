@@ -255,7 +255,7 @@ end tell"
 
 * Keys
 
-- =C-c k d t= tags the record of the current litnote (=C-u= removes).
+- =C-; k d t= tags the record of the current litnote (=C-u= removes).
 
 #+begin_src emacs-lisp
 ;;;; Keys
@@ -273,3 +273,13 @@ end tell"
   - the way to list tags: =name of (children of (tags group of database ...))=;
   - =lookup records with tags {...} in root of database ...=;
   - whether =set tags of= replaces the whole list as assumed.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]
+  - ✨ Added the module: tags are read and written only in DEVONthink, through =osascript=
+    - one prompt completes from the database's tags and accepts new ones; a confirmation marks =(new)= tags
+    - =sp-devonthink-tag-note= (=C-c k d t=, =C-u= removes)
+    - =sp-devonthink-split-comma-tags= splits a comma-joined tag after showing a plan; the old tag is kept

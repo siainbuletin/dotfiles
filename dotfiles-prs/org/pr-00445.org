@@ -2,15 +2,16 @@
 :PROPERTIES:
 :PR_NUMBER: 445
 :URL: https://github.com/siainbuletin/dotfiles/pull/445
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/445][https://github.com/siainbuletin/dotfiles/pull/445]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 13:12
+- Merged :: 2026-11-14 12:50
 - Branch :: =445-ibuffer-org-title= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/ec575ed50dd942a68fcc3a0a47d0d4782cd836d3][ec575ed50d]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/a67ada555fb78cd6bd4f08ee4312f862bfb7f1e6][a67ada555f]]
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW22wggX35m5FkHWdDhrw8fGm][project thread]]/

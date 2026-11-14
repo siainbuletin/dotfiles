@@ -2,15 +2,17 @@
 :PROPERTIES:
 :PR_NUMBER: 439
 :URL: https://github.com/siainbuletin/dotfiles/pull/439
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/439][https://github.com/siainbuletin/dotfiles/pull/439]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 00:55
+- Merged :: 2026-11-14 13:08
 - Branch :: =claude/citar-key-italic= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/910020f8a1404c9f7b1331341d98025c335bbeed][910020f8a1]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/90427ed063f298c8f75911e3d65737942f595cd6][90427ed063]]
+- Labels :: needs-further-testing
 
 ** Description
 /Requested by *Sia*/

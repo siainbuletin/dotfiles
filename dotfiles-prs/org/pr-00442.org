@@ -10,7 +10,7 @@
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 01:24
 - Branch :: =442-changelog-devonthink-docs= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/532552a101842a55cd2faf1dc2b33e697ade8bfe][532552a101]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f84b5d0146b1313f17a45f88f40d7b5f9b06888f][f84b5d0146]]
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Uykw2tGtptiMTUvkEx9AzF][project thread]]/

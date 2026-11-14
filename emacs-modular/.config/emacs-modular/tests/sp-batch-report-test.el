@@ -294,5 +294,19 @@
               (should (string-match-p "Quit" (car shown))))
           (when (buffer-live-p buffer) (kill-buffer buffer)))))))
 
+(ert-deftest sp-batch-report-table-section ()
+  (let ((text (sp-batch-report-text
+               "T"
+               (list (sp-batch-report-table-section
+                      "S" '("H1" "H2")
+                      (list (sp-batch-report-item nil :row '("a|b" "x") :key "k1" :props '(foo 1))
+                            (sp-batch-report-item nil :row '("longer" "y") :key "k2"))))
+               :excluded '("k1"))))
+    (should (string-match (regexp-quote "| H1     | H2 |\n|--------+----|\n| longer | y  |\n") text))
+    (should (string-match "^| a\\\\vert{}b | x |$" text))
+    (should (equal (get-text-property (string-match "| longer" text) 'sp-batch-report-key text) "k2"))
+    (should (get-text-property (string-match "| a" text) 'sp-batch-report-dropped text))
+    (should (= 1 (get-text-property (string-match "| a" text) 'foo text)))))
+
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

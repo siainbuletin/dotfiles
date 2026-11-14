@@ -356,6 +356,108 @@ the line, respectively."
            ("n" . flyspell-correct-next)
            ("." . flyspell-correct-at-point))
 
+;;;;;; Bibliography Keybindings
+(bind-keys :prefix-map lem+biblio-keys
+           :prefix (concat sp-prefix " B")
+           ("r" . sp-bibtex-register)
+           ("o" . citar-open)
+           ("e" . citar-open-entry)
+           ("n" . citar-open-notes)
+           ("c" . citar-create-note)
+           ("d" . citar-vulpea-dwim)
+           ("k" . citar-vulpea-add-reference)
+           ("K" . citar-vulpea-remove-reference)
+           ("b" . sp-fetch-academic-biblio-lookup)
+           ("i" . sp-fetch-academic-doi)
+           ("u" . sp-fetch-academic-download)
+           ("s" . sp-fetch-academic-omni)
+           ("a" . sp-fetch-inbox))
+
+;;;;;; Knowledge Search Keybindings
+(bind-keys :prefix-map lem+knowledge-keys
+           :prefix (concat sp-prefix " k")
+           ("l" . sp-litdb-search)
+           ("I" . sp-litdb-index)
+           ("s" . org-semantic-find)
+           ("S" . org-semantic-find-in-directory)
+           ("." . org-semantic-find-at-point)
+           ("R" . org-semantic-reindex)
+           ("t" . sp-tab-psearch)
+           ("T" . sp-tab-psearch-engine))
+
+;;;;;; Lint Keybindings
+;; Verbs shared by every group: l list (dry run), a apply (convert), r restore.
+(bind-keys :prefix-map lem+lint-keys
+           :prefix (concat sp-prefix " L"))
+
+(bind-keys :prefix-map lem+lint-bibtex-keys
+           :prefix (concat sp-prefix " L b")
+           ("l" . sp-bibtex-lint-dryrun)
+           ("a" . sp-bibtex-lint-convert)
+           ("r" . sp-bibtex-lint-restore-dropped))
+(bind-keys :prefix-map lem+lint-bibtex-fix-keys
+           :prefix (concat sp-prefix " L b f")
+           ("n" . sp-bibtex-lint-fix-authors)
+           ("c" . sp-bibtex-lint-fix-crossref)
+           ("C" . sp-bibtex-lint-crossref-dryrun)
+           ("f" . sp-bibtex-lint-fix-files)
+           ("i" . sp-bibtex-lint-fix-indent)
+           ("k" . sp-bibtex-lint-fix-keys)
+           ("o" . sp-bibtex-lint-fix-order)
+           ("p" . sp-bibtex-lint-fix-prefixes))
+
+(bind-keys :prefix-map lem+lint-meta-keys
+           :prefix (concat sp-prefix " L m")
+           ("l" . sp-litnotes-meta-fill-all-dryrun)
+           ("a" . sp-litnotes-meta-fill-all-convert))
+(bind-keys :prefix-map lem+lint-quotes-keys
+           :prefix (concat sp-prefix " L q")
+           ("l" . sp-litnotes-meta-title-lint-dryrun)
+           ("a" . sp-litnotes-meta-title-lint-convert))
+(bind-keys :prefix-map lem+lint-titles-keys
+           :prefix (concat sp-prefix " L t")
+           ("l" . sp-litnotes-titles-dryrun)
+           ("a" . sp-litnotes-titles-convert))
+(bind-keys :prefix-map lem+lint-refs-keys
+           :prefix (concat sp-prefix " L r")
+           ("l" . sp-litnotes-refs-dryrun)
+           ("a" . sp-litnotes-refs-convert))
+
+(bind-keys :prefix-map lem+lint-footnotes-keys
+           :prefix (concat sp-prefix " L f")
+           ("l" . sp-org-lint-footnotes-dryrun)
+           ("a" . sp-org-lint-footnotes-convert))
+(bind-keys :prefix-map lem+lint-tags-keys
+           :prefix (concat sp-prefix " L g")
+           ("l" . sp-org-tag-lint)
+           ("b" . sp-org-tag-lint-buffer))
+
+(bind-keys :prefix-map lem+lint-authors-keys
+           :prefix (concat sp-prefix " L u")
+           ("l" . sp-author-notes-dryrun)
+           ("a" . sp-author-notes-convert))
+(bind-keys :prefix-map lem+lint-authors-works-keys
+           :prefix (concat sp-prefix " L u w")
+           ("l" . sp-author-notes-works-dryrun)
+           ("a" . sp-author-notes-works-convert))
+
+(bind-keys :prefix-map lem+lint-filing-keys
+           :prefix (concat sp-prefix " L n")
+           ("l" . sp-notes-filing-dryrun)
+           ("a" . sp-notes-filing-convert)
+           ("r" . sp-notes-filing-restore)
+           ("s" . sp-notes-filing-schedule))
+
+;; Names for which-key (the bind-keys forms above give the maps no label).
+(with-eval-after-load 'which-key
+  (which-key-add-keymap-based-replacements lem+leader-map
+    "B" "bibliography" "k" "knowledge" "L" "lint")
+  (which-key-add-keymap-based-replacements lem+lint-keys
+    "b" "bibtex" "m" "litnote metadata" "q" "litnote quotes" "t" "litnote titles"
+    "r" "litnote references" "f" "footnotes" "g" "tags" "u" "author notes" "n" "filing")
+  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind")
+  (which-key-add-keymap-based-replacements lem+lint-authors-keys "w" "works"))
+
 ;;;;;; Moved keys (shims)
 (defconst sp-keys-moved
   '(("C-c s s" "S s" easysession-save-as)
@@ -544,7 +646,7 @@ an inline branching lambda from the prior implementation."
 
 (use-package which-key
     :ensure nil
-    
+
     :config
     (which-key-mode 1)
 

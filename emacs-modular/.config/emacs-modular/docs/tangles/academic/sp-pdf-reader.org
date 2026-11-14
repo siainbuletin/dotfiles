@@ -157,3 +157,20 @@ Falls back to `find-file' when emureader is not ready."
 - =emureader-open-doc= and =emureader-goto-page= exist in the 0.4.0 source (=emureader-open-doc (document)=, =emureader-goto-page (n)=), so the =sp-pdf-reader-function-*= defaults are right.
 - =emureader-build= exists since 0.4.0 (NEWS).
 - Check from Emacs: =M-: (list (fboundp 'emureader-open-doc) (fboundp 'emureader-goto-page))= after =(require 'emureader)=.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/453][#453]]
+  - ✨ Added the module: =use-package emureader :ensure t= (GNU ELPA through Elpaca)
+    - =sp-pdf-open FILE &optional PAGE= opens at a PDF page (from 1) and falls back to =find-file= with a message
+    - the three emureader functions used are variables (=sp-pdf-reader-function-open=, =-goto-page=, =-build=)
+    - emureader only views: highlights and annotations stay in DEVONthink
+- [[https://github.com/siainbuletin/dotfiles/pull/463][#463]]
+  - 🐛 Fixed emureader not loading: Elpaca's cached GNU ELPA menu (7 October) predates the rename from emacs-reader (4 November)
+    - =:ensure t= queued a recipe with no repository; =:ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git")= gives it one
+- [[https://github.com/siainbuletin/dotfiles/pull/464][#464]]
+  - 🐛 Fixed =M-x emureader-build= failing with =No rule to make target 'module'=
+    - Elpaca links only =*.el= into the builds folder, so there is no =Makefile=; the sources are in =var/elpaca/sources/emureader/=
+    - =:build (:before elpaca-build-link sp-pdf-reader--elpaca-build-module)= runs =gmake module= in the source folder

@@ -2,15 +2,16 @@
 :PROPERTIES:
 :PR_NUMBER: 415
 :URL: https://github.com/siainbuletin/dotfiles/pull/415
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/415][https://github.com/siainbuletin/dotfiles/pull/415]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-12 21:58
+- Merged :: 2026-11-14 00:25
 - Branch :: =415-devonthink-browse-tags= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1955786223b111e857bdbf02eba6ce3e00a01609][1955786223]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f2c58f4155ceed9b4b64450c9e3569964734c227][f2c58f4155]]
 - Labels :: new-feature, needs-further-testing
 
 ** Description
@@ -39,11 +40,11 @@ Step 2 of 5. *Base: =414-devonthink-core= (#414)*; GitHub retargets to =main= wh
 :END:
 Mac, fish, =~/.config/emacs-modular=, DEVONthink open on =literature=. Use throw-away tags =test-tag-1=, =test-tag-2=.
 
-- [ ] Check out: =cd ~/dotfiles; git fetch origin 415-devonthink-browse-tags; git checkout 415-devonthink-browse-tags=, restart Emacs.
+- [X] Check out: =cd ~/dotfiles; git fetch origin 415-devonthink-browse-tags; git checkout 415-devonthink-browse-tags=, restart Emacs.
 - [ ] Unit tests: =cd ~/.config/emacs-modular; for f in tags browse; do emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-$f-test.el -f ert-run-tests-batch-and-exit; done= → 10 and 6 tests pass.
-- [ ] =C-c k d b= → list of =KEY.pdf= grouped by DEVONthink group (first call takes seconds); =RET= on one opens it in DEVONthink.
-- [ ] Embark (=C-.=) on a candidate: =p= opens the PDF in Emacs; =n= goes to its litnote (or the create prompt); =l= inserts =[[devonthink:UUID][key]]= in an Org buffer.
-- [ ] =t= on one record, tag =test-tag-1= → confirmation "Tags: test-tag-1 (new). Create the new ones?" → =y=; the record shows the tag in DEVONthink's inspector.
+- [X] =C-c k d b= → list of =KEY.pdf= grouped by DEVONthink group (first call takes seconds); =RET= on one opens it in DEVONthink.
+- [X] Embark (=C-.=) on a candidate: =p= opens the PDF in Emacs; =n= goes to its litnote (or the create prompt); =l= inserts =[[devonthink:UUID][key]]= in an Org buffer.
+- [X] =t= on one record, tag =test-tag-1= → confirmation "Tags: test-tag-1 (new). Create the new ones?" → =y=; the record shows the tag in DEVONthink's inspector.
 - [ ] Several records: select 2--3 candidates (=embark-select=), =embark-act-all=, =t=, tag =test-tag-2= → "Added tags to N of N records".
 - [ ] In a litnote with =#+devonthink:= (or a citekey): =C-c k d t= with an existing tag (completes) → "Added: 1 record changed"; =C-u C-c k d t= with the same tag → "Removed: 1 record changed".
 - [ ] Typo guard: type a near-typo of an existing tag → shown as =(new)=; answer =n= → "Cancelled", nothing changed in DEVONthink.
