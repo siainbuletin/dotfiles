@@ -345,6 +345,7 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
 - The keys the report has are shown in the echo area by =sp-echo-help-set= (from [[file:../base/sp-interaction.org][sp-interaction]]), not in the header line.
   - The header line did not wrap, so a long list ran off the window.
   - =sp-batch-report--hints= builds the list as =(KEY DESCRIPTION [STRONG])=; it leaves out =d=, =u=, =A= and =g= when the report has no function for them.
+  - A mode derived from this one adds its own keys by setting =sp-batch-report-extra-hints= in its body (as =sp-author-notes-bibtex-report-mode= does for =o=, =c= and =C=); they come before =b Backups=.
   - =sp-batch-report-open= sets the hints again after it has set the refresh, redraw and apply functions, so the list matches what the report can do.
   - It does so after =pop-to-buffer=: only a buffer in the selected window shows its hints at once.
   - A mode derived from this one that sets its own =header-line-format= keeps that header; only the keys moved.
@@ -497,6 +498,10 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
+(defvar-local sp-batch-report-extra-hints nil
+  "Hints (KEY DESCRIPTION [STRONG]) of the keys a derived mode adds, set in its body.
+They come before the backup keys in the echo area.")
+
 (defun sp-batch-report--hints ()
   "The keys of this report, as hints for the echo area."
   (append '(("RET" "Visit") ("n/p" "Next/previous link"))
@@ -504,6 +509,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
                '(("d" "Drop") ("u" "Restore")))
           (and sp-batch-report-apply-function '(("A" "Apply" t)))
           (and sp-batch-report-refresh-function '(("g" "Refresh")))
+          sp-batch-report-extra-hints
           '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map

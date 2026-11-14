@@ -89,11 +89,19 @@
     (save-window-excursion
       (sp-author-notes-bibtex)
       (with-current-buffer sp-author-notes-bibtex--buffer-name
-        (should (string-match-p "John Smith  (2)" (buffer-string)))
+        (should (derived-mode-p 'sp-batch-report-mode))
+        (should (derived-mode-p 'org-mode))
+        (should (member "c" (mapcar #'car sp-echo-help--hints)))
+        (should (member "d" (mapcar #'car sp-echo-help--hints)))
+        (should (member "q" (mapcar #'car sp-echo-help--hints)))
+        (should-not header-line-format)
+        (should (string-match-p "^\\* John Smith (2)" (buffer-string)))
         (should (string-match-p "exact +smith2020attention" (buffer-string)))
         (goto-char (point-min))
         (search-forward "smith2020attention")
         (should (plist-get (sp-author-notes-bibtex--at-point) :key))
+        (sp-batch-report-drop)
+        (should (string-match-p "Dropped from the list" (buffer-string)))
         (kill-buffer)))))
 
 (ert-deftest sp-an-bib-test-no-files ()
