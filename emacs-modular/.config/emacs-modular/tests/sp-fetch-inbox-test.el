@@ -150,5 +150,14 @@
       (sp-fetch-inbox--set-key "smith2020")
       (should-error (sp-fetch-inbox-confirm) :type 'user-error))))
 
+(ert-deftest sp-fetch-inbox-hints-in-echo-area-not-header ()
+  (with-temp-buffer
+    (sp-fetch-inbox-edit-mode)
+    (sp-fetch-inbox--set-hints "no DOI found")
+    (should-not header-line-format)
+    (should (equal sp-echo-help--hints sp-fetch-inbox--hints))
+    (should (equal sp-echo-help--note "no DOI found"))
+    (should sp-echo-help-mode)))
+
 (provide 'sp-fetch-inbox-test)
 ;;; sp-fetch-inbox-test.el ends here
