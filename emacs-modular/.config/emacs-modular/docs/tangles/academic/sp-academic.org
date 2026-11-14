@@ -161,6 +161,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-cite-match)
 (require 'sp-reading)
 (require 'sp-devonthink)
+(require 'sp-devonthink-autohighlight)
 (require 'sp-see-also)
 #+end_src
 
