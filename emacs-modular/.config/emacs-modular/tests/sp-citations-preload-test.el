@@ -114,14 +114,16 @@
    (sp-citations-test--run)
    (should (= (length sp-citations-test--parses) 2))))
 
-(ert-deftest sp-citations-preload-error-stops-quietly ()
+(ert-deftest sp-citations-preload-error-is-recorded-and-the-rest-goes-on ()
   (sp-citations-test--with-bibs
    (cl-letf (((symbol-function 'citar-cache--get-bibliography)
               (lambda (_f) (error "boom"))))
      (setq sp-citations-preload--queue (list a b))
      (sp-citations-preload--next)
-     (should-not sp-citations-preload--queue))))
-;;;; Compatibility and persistence
+     (when (timerp sp-citations-preload--timer)
+       (cancel-timer sp-citations-preload--timer))
+     (should (equal sp-citations-preload--queue (list b)))
+     (should (string-match-p "boom" sp-citations-preload--last-error)))))
 
 (ert-deftest sp-citations-preload-works-when-loaded-before-citar ()
   "Regression: `setf' on citar's accessors was void when the preload loaded first."
@@ -183,4 +185,50 @@
          (setq text nil)
          (sp-citations-preload-explain)
          (should (string-match-p "a.bib: ready" text)))))))
+(defun sp-citations-test--run-with-timers ()
+  "Run the pass like the idle timers would, one file per step."
+  (setq sp-citations-preload--queue (sp-citations-preload--files))
+  (sp-citations-preload--prime sp-citations-preload--queue)
+  (let ((guard 0))
+    (while (and (< (cl-incf guard) 20)
+                (or sp-citations-preload--queue (timerp sp-citations-preload--timer)))
+      (when (timerp sp-citations-preload--timer)
+        (cancel-timer sp-citations-preload--timer))
+      (sp-citations-preload--next))
+    (when (timerp sp-citations-preload--timer)
+      (cancel-timer sp-citations-preload--timer))))
+
+(ert-deftest sp-citations-preload-error-in-one-file-goes-on-with-the-next ()
+  "Wrong type argument: stringp, nil in the first file does not stop the rest."
+  (sp-citations-test--with-bibs
+   (let ((real (symbol-function 'citar-cache--get-bibliography)))
+     (cl-letf (((symbol-function 'citar-cache--get-bibliography)
+                (lambda (file)
+                  (if (equal file a) (string-width nil) (funcall real file)))))
+       (sp-citations-test--run-with-timers)
+       (should (gethash b citar-cache--bibliographies))
+       (should-not (gethash a citar-cache--bibliographies))
+       (should (string-match-p "stringp" sp-citations-preload--last-error))
+       (should (string-match-p "string-width" sp-citations-preload--last-error))))))
+
+(ert-deftest sp-citations-preload-unusable-disk-entries-are-read-again ()
+  "An error on entries taken from the disk cache is retried from the file."
+  (sp-citations-test--with-bibs
+   (sp-citations-test--run)
+   (clrhash citar-cache--bibliographies)
+   (setq sp-citations-test--parses nil)
+   (let ((real (symbol-function 'citar-cache--get-bibliography))
+         (failed nil))
+     (cl-letf (((symbol-function 'citar-cache--get-bibliography)
+                (lambda (file)
+                  ;; fails once for a file whose entries came from the disk
+                  (if (and (equal file a) (not failed)
+                           (member file sp-citations-preload--primed))
+                      (progn (setq failed t) (string-width nil))
+                    (funcall real file)))))
+       (sp-citations-test--run-with-timers)
+       (should failed)
+       (should (member a sp-citations-test--parses))
+       (should (gethash a citar-cache--bibliographies))
+       (should-not (member a sp-citations-preload--primed))))))
 ;;; sp-citations-preload-test.el ends here
