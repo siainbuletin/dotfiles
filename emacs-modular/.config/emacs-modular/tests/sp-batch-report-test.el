@@ -205,6 +205,9 @@
           (kill-buffer buffer))
       (delete-file file))))
 
+(unless (fboundp 'org-table-widget-mode)
+  (define-minor-mode org-table-widget-mode "Stands in for the real mode in this test."))
+
 (ert-deftest sp-batch-report-hints-follow-the-functions ()
   (with-temp-buffer
     (sp-batch-report-mode)
@@ -283,6 +286,18 @@
     (should (equal (get-text-property (string-match "| longer" text) 'sp-batch-report-key text) "k2"))
     (should (get-text-property (string-match "| a" text) 'sp-batch-report-dropped text))
     (should (= 1 (get-text-property (string-match "| a" text) 'foo text)))))
+
+(ert-deftest sp-batch-report-turns-the-table-widget-off ()
+  (let ((org-mode-hook (list #'org-table-widget-mode))
+        (name "*sp-batch-report-widget-test*"))
+    (unwind-protect
+        (progn
+          (with-current-buffer (sp-batch-report-open name "#+title: T\n\n* A\n| a |\n")
+            (should-not org-table-widget-mode))
+          (let ((sp-batch-report-table-widgets t))
+            (with-current-buffer (sp-batch-report-open name "#+title: T\n")
+              (should org-table-widget-mode))))
+      (when (get-buffer name) (kill-buffer name)))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

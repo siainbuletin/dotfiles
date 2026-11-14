@@ -409,6 +409,27 @@ They come before the backup keys in the echo area.")
     map)
   "Keymap of `sp-batch-report-mode'.")
 
+(defcustom sp-batch-report-table-widgets nil
+  "Whether `org-table-widget-mode' may draw the tables of a report.
+nil: a report keeps its plain Org tables, which are already aligned.  The
+widget lays out every table on its own, about 10 to 20 ms each, so a report
+with hundreds of tables (one per author, say) takes seconds to show."
+  :type 'boolean
+  :group 'sp-batch-report)
+
+(defvar org-table-widget-mode)
+(declare-function org-table-widget-mode "org-table-widget")
+
+(defun sp-batch-report--quiet-table-widget ()
+  "Turn `org-table-widget-mode' off in this report, unless `sp-batch-report-table-widgets'.
+This runs from `sp-batch-report-mode-hook', after `org-mode-hook' has turned the
+widget on in the still empty buffer, so it costs nothing."
+  (when (and (not sp-batch-report-table-widgets)
+             (bound-and-true-p org-table-widget-mode))
+    (org-table-widget-mode -1)))
+
+(add-hook 'sp-batch-report-mode-hook #'sp-batch-report--quiet-table-widget)
+
 (define-derived-mode sp-batch-report-mode org-mode "Report"
   "Read-only Org buffer holding the report of a batch command.
 Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the one at point,
