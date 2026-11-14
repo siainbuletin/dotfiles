@@ -3229,6 +3229,11 @@ What the module relies on in =vulpea-ui=, all of it internal, so a =vulpea-ui= u
    + The name is added to these, and cannot be overridden here.
 - =sp-vulpea-ui-view-return-focus=: after opening the frame, select the frame the command was run in, so typing continues in the note.
 - =sp-vulpea-ui-view-focus-on-visit=: after a click in the view opens a note, give the input focus to the frame that shows it.
+- =sp-vulpea-ui-view-switch-buffer-action=: what =C-x b= and other =switch-to-buffer= calls do while the view window is selected.
+   + The view window is dedicated, so Emacs would stop with "Cannot switch buffers in a dedicated window".
+   + =other-window= (the default): show the buffer in the window of the notes and give that frame the input focus; the view stays as it is.
+   + =prompt=: Emacs asks whether to undedicate the view window and then switches in place; the view is gone from that window afterwards.
+   + nil: Emacs's own error.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-vulpea-ui-view-buffer-name "*vulpea-ui-view*"
@@ -3264,6 +3269,40 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   "Non-nil means opening a note from the view focuses the frame that shows it."
   :type 'boolean
   :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-switch-buffer-action 'other-window
+  "What a buffer switch does when the selected window shows the view.
+The view window is dedicated, so `switch-to-buffer' would signal
+\"Cannot switch buffers in a dedicated window\".
+`other-window' shows the buffer in the window of the notes and focuses it.
+`prompt' asks whether to undedicate the view window, then switches in place.
+Nil leaves it to Emacs, which signals the error."
+  :type '(choice (const :tag "Show in the notes window" other-window)
+                 (const :tag "Ask to undedicate the window" prompt)
+                 (const :tag "Emacs default (error)" nil))
+  :group 'sp-vulpea-ui-view)
+#+end_src
+
+*** Line wrapping
+
+- =sp-vulpea-ui-view-wrap-lines=: non-nil (the default) wraps long lines of every widget at the window edge, at word boundaries, so no content is cut off.
+   + It is local to the view buffer; the sidebar and every other buffer are not touched.
+   + Nil leaves the lines as the sidebar shows them.
+- =sp-vulpea-ui-view-wrap-indent=: non-nil (the default) indents the wrapped part of a line like its start, so a wrapped backlink stays under its bullet.
+   + It needs =visual-wrap-prefix-mode=, which is in Emacs 30 and later; older Emacs wraps without the indent.
+   + It has an effect only while =sp-vulpea-ui-view-wrap-lines= is non-nil.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-vulpea-ui-view-wrap-lines t
+  "Non-nil means long lines in the view wrap at the window edge."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-indent t
+  "Non-nil means a wrapped line is indented like its beginning.
+This needs `visual-wrap-prefix-mode' (Emacs 30 or later)."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
 #+end_src
 
 ** State and mode
@@ -3297,17 +3336,45 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   "Non-nil while the view renders.")
 #+end_src
 
+*** Wrapping the lines
+
+- =sp-vulpea-ui-view--apply-wrap= sets up the wrapping in the current buffer from the two options.
+   + Wrapping on: =truncate-lines= is nil and =visual-line-mode= is on, so the lines break at words.
+   + The indent of the wrapped part comes from =visual-wrap-prefix-mode= when it exists and =sp-vulpea-ui-view-wrap-indent= is non-nil.
+   + Wrapping off: both modes are turned off in the view buffer; nothing else is changed.
+- The mode body and the first render call it, because the mode body runs before the mount, and a mount may reset the buffer-local settings.
+- A =hard= render (=g=) calls it too, so a changed option takes effect on refresh.
+
+#+begin_src emacs-lisp -i
+(declare-function visual-wrap-prefix-mode "visual-wrap")
+
+(defun sp-vulpea-ui-view--apply-wrap ()
+  "Set the line wrapping of the current buffer from the wrap options."
+  (if sp-vulpea-ui-view-wrap-lines
+      (progn
+        (setq-local truncate-lines nil)
+        (visual-line-mode 1)
+        (when (and sp-vulpea-ui-view-wrap-indent
+                   (fboundp 'visual-wrap-prefix-mode))
+          (visual-wrap-prefix-mode 1)))
+    (visual-line-mode -1)
+    (when (fboundp 'visual-wrap-prefix-mode)
+      (visual-wrap-prefix-mode -1))))
+#+end_src
+
 *** The mode
 
 - It derives from =vulpea-ui-sidebar-mode=, so the keys of the sidebar (=g= to refresh, =RET= and click to follow) and the widget toggling work in it.
 - =q= closes the view (the sidebar's =q= would close the sidebar of the selected frame) and =g= refreshes it.
 - Killing the buffer removes the hooks and timers (=kill-buffer-hook=, set in the mode body).
+- The mode body also applies the line wrapping.
 
 #+begin_src emacs-lisp -i
 (define-derived-mode sp-vulpea-ui-view-mode vulpea-ui-sidebar-mode "vulpea-ui-view"
   "Major mode of the vulpea-ui view buffer.
 \\{sp-vulpea-ui-view-mode-map}"
   :group 'sp-vulpea-ui-view
+  (sp-vulpea-ui-view--apply-wrap)
   (add-hook 'kill-buffer-hook #'sp-vulpea-ui-view--teardown nil t))
 
 (define-key sp-vulpea-ui-view-mode-map (kbd "q") #'sp-vulpea-ui-view-close)
@@ -3376,6 +3443,7 @@ The view follows the most recently used window that shows a vulpea note.
    + =note=: another note; the first mount, or the props of the instance change, and point goes to the top.
    + =soft=: the same note; memoised widget data is kept, only what depends on the buffers recomputes (this is the sidebar's idle refresh).
    + =hard=: caches are dropped (=vui-update= and a bump of =vulpea-ui--refresh-generation=), for =g= and for database changes.
+- The line wrapping is applied after a mount and after a =hard= render (see "Wrapping the lines").
 - Without a window for the view nothing is rendered.
 
 #+begin_src emacs-lisp -i
@@ -3394,11 +3462,13 @@ KIND is `note', `soft' or `hard'."
                      (buffer-live-p (vui-instance-buffer instance)))
                 (pcase kind
                   ('hard (cl-incf vulpea-ui--refresh-generation)
-                         (vui-update instance (list :note note)))
+                         (vui-update instance (list :note note))
+                         (sp-vulpea-ui-view--apply-wrap))
                   (_ (vui-update-props instance (list :note note))))
               (setq sp-vulpea-ui-view--instance
                     (vui-mount (vui-component 'vulpea-ui-sidebar-root :note note)
-                               (buffer-name)))))
+                               (buffer-name)))
+              (sp-vulpea-ui-view--apply-wrap)))
           (when (eq kind 'note)
             (goto-char (point-min))))))))
 
@@ -3477,6 +3547,12 @@ In the view frame the only main window is the view itself, so =vulpea-ui= would 
 - =sp-vulpea-ui-view--editing-window= picks the window to use instead: the newest window that shows a note, or the newest window of any other buffer.
 - An =:around= advice on =vulpea-ui--get-main-window= returns it when the selected window of the frame shows the view. The sidebar is not affected.
 - Another =:around= advice on the four functions that open a note or a position gives the input focus to the frame of that window afterwards (=sp-vulpea-ui-view-focus-on-visit=), because =select-window= does not move the input focus to another frame.
+- An =:around= advice on =switch-to-buffer= acts when the selected window is the dedicated view window (=sp-vulpea-ui-view-switch-buffer-action=).
+   + With =other-window= it selects the window from =sp-vulpea-ui-view--editing-window=, calls the original there, and focuses that frame.
+   + If the switch fails (quit, no such buffer), the view window is selected again.
+   + With no window for notes, or with =prompt=, it calls the original; =prompt= binds =switch-to-buffer-in-dedicated-window=.
+   + In every other window the original runs untouched.
+   + Packages that call =switch-to-buffer= (consult, tabspaces, =sp-tabs-switch-to-buffer=) are covered.
 
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-ui-view--editing-window ()
@@ -3515,6 +3591,35 @@ When the call comes from the view, focus the frame that shows the note."
                     vulpea-ui--jump-to-file-position
                     vulpea-ui--jump-to-file-line))
   (advice-add function :around #'sp-vulpea-ui-view--focus-visit))
+
+(defun sp-vulpea-ui-view--switch-to-buffer (orig &rest args)
+  "Advice for `switch-to-buffer' (ORIG, ARGS) in the dedicated view window.
+Act on `sp-vulpea-ui-view-switch-buffer-action'; elsewhere call ORIG."
+  (let ((window (selected-window)))
+    (if (not (and sp-vulpea-ui-view-switch-buffer-action
+                  (window-dedicated-p window)
+                  (sp-vulpea-ui-view--buffer-p (window-buffer window))))
+        (apply orig args)
+      (if-let* ((target (and (eq sp-vulpea-ui-view-switch-buffer-action
+                                 'other-window)
+                             (sp-vulpea-ui-view--editing-window))))
+          (let ((done nil))
+            (unwind-protect
+                (progn
+                  (select-window target)
+                  (prog1 (apply orig args)
+                    (setq done t)
+                    (when sp-vulpea-ui-view-focus-on-visit
+                      (select-frame-set-input-focus (selected-frame)))))
+              (unless (or done (not (window-live-p window)))
+                (select-window window))))
+        (let ((switch-to-buffer-in-dedicated-window
+               (if (eq sp-vulpea-ui-view-switch-buffer-action 'prompt)
+                   'prompt
+                 switch-to-buffer-in-dedicated-window)))
+          (apply orig args))))))
+
+(advice-add 'switch-to-buffer :around #'sp-vulpea-ui-view--switch-to-buffer)
 #+end_src
 
 ** Commands
@@ -3811,6 +3916,10 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
 - With the view window selected, the main window is the window of a note, not the view window.
 - With another window selected, the original function decides.
 - A visit from the view focuses the frame of the note window; a visit from elsewhere does not.
+- Buffer switch from the view window (=sp-vulpea-ui-view-switch-buffer-action=):
+   + =other-window=: the buffer goes to the newest note window, which is selected; the view window keeps the view and stays dedicated.
+   + nil: the Emacs =user-error= is kept.
+   + In an ordinary window nothing changes.
 
 #+begin_src emacs-lisp -i
 (ert-deftest sp-vulpea-ui-view-test-main-window-from-view ()
@@ -3837,6 +3946,36 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
         (let ((sp-vulpea-ui-view-focus-on-visit nil))
           (vulpea-ui-visit-note nil))
         (should (= test-focus-calls 1))))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-other-window ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (select-window wb)
+    (select-window wv)
+    (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+      (let ((sp-vulpea-ui-view-switch-buffer-action 'other-window))
+        (switch-to-buffer p)))
+    (should (eq (selected-window) wb))
+    (should (eq (window-buffer wb) p))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))
+    (should (window-dedicated-p wv))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-error-when-nil ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wv)
+    (let ((sp-vulpea-ui-view-switch-buffer-action nil))
+      (should-error (switch-to-buffer p) :type 'user-error))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-elsewhere-unchanged ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (switch-to-buffer b)
+    (should (eq (window-buffer wa) b))
+    (should (eq (selected-window) wa))))
 #+end_src
 
 *** Frame, toggle and teardown
@@ -3853,6 +3992,34 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
       (should (equal (alist-get 'name parameters) "tile-me"))
       (should (= (length (seq-filter (lambda (p) (eq (car p) 'name)) parameters)) 1))
       (should (equal (alist-get 'width parameters) 40)))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-on ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (sp-vulpea-ui-view-wrap-indent t))
+    (with-temp-buffer
+      (setq-local truncate-lines t)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should visual-line-mode)
+      (should-not truncate-lines))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-off ()
+  (let ((sp-vulpea-ui-view-wrap-lines nil))
+    (with-temp-buffer
+      (visual-line-mode 1)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should-not visual-line-mode))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-is-local-to-the-view ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (other (generate-new-buffer " test-other"))
+        (view (generate-new-buffer " test-view")))
+    (unwind-protect
+        (progn
+          (with-current-buffer view (sp-vulpea-ui-view-mode))
+          (should (buffer-local-value 'visual-line-mode view))
+          (should-not (buffer-local-value 'visual-line-mode other)))
+      (kill-buffer other)
+      (kill-buffer view))))
 
 (ert-deftest sp-vulpea-ui-view-test-toggle-and-teardown ()
   (let ((sp-vulpea-ui-view-use-frame nil)
@@ -4012,6 +4179,7 @@ Customisation:
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-interaction)
 
 (declare-function vulpea-db-query-links-to "vulpea-db-query")
 (declare-function vulpea-db-get-by-id "vulpea-db")
@@ -4250,9 +4418,8 @@ lines of the entry point is on.  Point stays put when there is none."
                                       (vulpea-note-title note))
                                     id))
                         'face 'bold)
-            "\n"
-            (propertize "RET: visit  n/p: move  g: refresh  q: quit" 'face 'shadow)
             "\n\n")
+    (sp-echo-help-set '(("RET" "Visit") ("n/p" "Move") ("g" "Refresh") ("q" "Quit")))
     (if (null groups)
         (insert "Not backlinked.\n")
       (dolist (group groups)
@@ -4695,3 +4862,29 @@ What each pull request changed in these modules, newest last; the one-line summa
     - the result is an Embark target (=sp-vulpea-backlinks=); =embark-act= opens a buffer with each backlink's note, heading, line and context, and =RET= jumps to it.
   - 18 ERT tests in headless Emacs 29.3 (Vulpea stubbed)
     - not run with real Vulpea, Embark or the GUI.
+- [[https://github.com/siainbuletin/dotfiles/pull/407][#407]]
+  - ✨ Changed =Mentions= in =sp-grouped-backlinks= into a section with one subsection per kind of source note
+    - notes (tagged =concept= or =zettel=, and untagged ones), litnotes (tagged =litnote=), writing projects (files below =sp-writing-projects=, which wins over the tags)
+    - empty kinds are not shown; meta-key groups such as =pub-author= are unchanged
+  - ✨ Added =sp-vulpea-grouped-backlinks-block-padding= (default 2 blank lines), read by the Org buffer, the sidebar and the widget
+  - 🔧 Changed the three views to share =sp-vulpea-grouped-backlinks-sections=
+- [[https://github.com/siainbuletin/dotfiles/pull/416][#416]]
+  - 🔧 Changed =sp-vulpea-start-autosync= to be idempotent: it cancels the pending timer and does nothing if the mode is on
+    - =sp-vulpea-schedule-autosync= sets the idle timer, and runs at once if init is over
+  - 🔧 Changed =sp-vulpea-autosync-delay= to a =number=, default 10 s (was 30 s); =sp-find-note= calls =sp-vulpea-start-autosync= first
+- [[https://github.com/siainbuletin/dotfiles/pull/447][#447]]
+  - ✨ Added =sp-vulpea-ui-view=: the =vulpea-ui= widgets in a buffer and frame of their own
+    - =M-o v= (=sp-vulpea-ui-view-toggle=) opens a frame named =vulpea-ui-view= and closes it again; =q= closes, =g= refreshes
+    - it mounts =vulpea-ui-sidebar-root=, so the widgets and their order are the sidebar's
+    - it follows the most recently used window that shows a vulpea note, in any frame
+- [[https://github.com/siainbuletin/dotfiles/pull/456][#456]]
+  - ✨ Added =sp-vulpea-ui-view-wrap-lines= (default =t=): long lines wrap at word boundaries in the view buffer only
+  - ✨ Added =sp-vulpea-ui-view-wrap-indent= (default =t=): the wrapped part is indented like the line start (=visual-wrap-prefix-mode=, Emacs 30 and later)
+    - applied in the mode body, after the first mount and after =g=
+- [[https://github.com/siainbuletin/dotfiles/pull/469][#469]]
+  - ✨ Added =sp-vulpea-ui-view-switch-buffer-action= for =C-x b= in the dedicated view window
+    - =other-window= (default): the buffer opens in the notes window and that frame gets the focus; the view keeps following the current note
+    - =prompt=: Emacs asks whether to undedicate the window and switches in place
+    - nil: Emacs's own error
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the view to the echo-area hints of =sp-echo-help-set= (=RET=, =n/p=, =g=, =q=) instead of a line in the buffer

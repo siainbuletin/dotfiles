@@ -1012,3 +1012,12 @@ Provides the =sp-helper-funct= feature and closes the file.
 (provide 'sp-helper-funct)
 ;;; sp-helper-funct.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/450][#450]]
+  - ✨ Added the abnormal hook =sp-copy-last-message-functions=, run on the text =sp-copy-last-message= copied
+    - a function returns the text as a propertized string, or nil; the first non-nil value is what the =Copied: ...= message shows, so a module can make it an Embark target (=sp-vulpea-backlink-check-restore= does)
+    - the kill ring always gets the plain text

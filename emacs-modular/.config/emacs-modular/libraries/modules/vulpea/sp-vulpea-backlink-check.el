@@ -12,6 +12,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-interaction)
 
 (declare-function vulpea-db-query-links-to "vulpea-db-query")
 (declare-function vulpea-db-get-by-id "vulpea-db")
@@ -226,9 +227,8 @@ lines of the entry point is on.  Point stays put when there is none."
                                       (vulpea-note-title note))
                                     id))
                         'face 'bold)
-            "\n"
-            (propertize "RET: visit  n/p: move  g: refresh  q: quit" 'face 'shadow)
             "\n\n")
+    (sp-echo-help-set '(("RET" "Visit") ("n/p" "Move") ("g" "Refresh") ("q" "Quit")))
     (if (null groups)
         (insert "Not backlinked.\n")
       (dolist (group groups)

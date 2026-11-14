@@ -15,9 +15,13 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-interaction)
 
 (declare-function sp-backup-open "sp-backup-lookup")
 (declare-function sp-backup-diff "sp-backup-lookup")
+(declare-function sp-echo-help-set "sp-interaction")
+(autoload 'sp-batch-cancel "sp-async-work" nil t)
+(defvar sp-async-work--jobs)
 
 (defgroup sp-batch-report nil
   "The report buffer of the batch conversions and lints."
@@ -63,6 +67,13 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
   "Return a section named TITLE of ITEMS; EMPTY is shown when there are none."
   (list :title title :items items :empty empty))
 
+(defun sp-batch-report-table-section (title header items &optional empty)
+  "Return a section named TITLE that is shown as an Org table.
+HEADER is the list of the column names.  Every item of ITEMS has a :row, the
+list of its cells as strings (the other item arguments work as in
+`sp-batch-report-item'); EMPTY is shown when there are none."
+  (append (sp-batch-report-section title items empty) (list :header header)))
+
 (defun sp-batch-report--item-key (item)
   "The key of ITEM: its :key, else its file."
   (if (plist-member item :key) (plist-get item :key) (plist-get item :file)))
@@ -71,8 +82,68 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
   "TEXT with PREFIX in front of every line after the first."
   (replace-regexp-in-string "\n" (concat "\n" prefix) text t t))
 
+(defun sp-batch-report--cell (cell)
+  "CELL as the text of an Org table cell: on one line, with no bar."
+  (let ((text (if (stringp cell) cell (format "%s" cell))))
+    (if (string-match-p "[|\n\r]" text)
+        (replace-regexp-in-string
+         "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " text) t t)
+      text)))
+
+(defun sp-batch-report--row-line (cells &optional widths)
+  "The Org table line of CELLS; WIDTHS, when given, pads each column to its width."
+  (concat "| "
+          (mapconcat
+           #'identity
+           (let ((i -1))
+             (mapcar (lambda (cell)
+                       (setq i (1+ i))
+                       (let ((cell (sp-batch-report--cell cell)))
+                         (concat cell (make-string (max 0 (- (or (nth i widths) 0)
+                                                             (string-width cell)))
+                                                   ?\s))))
+                     cells))
+           " | ")
+          " |\n"))
+
+(defun sp-batch-report--item-props (item &optional dropped)
+  "The text properties of ITEM, as a plist.  DROPPED marks a dropped one."
+  (let ((file (plist-get item :file))
+        (line (plist-get item :line))
+        (key (sp-batch-report--item-key item)))
+    (append (and key (list 'sp-batch-report-key key))
+            (and file (list 'sp-batch-report-file file))
+            (and line (list 'sp-batch-report-line line))
+            (and dropped (list 'sp-batch-report-dropped t))
+            (plist-get item :props))))
+
+(defun sp-batch-report--table-string (header items)
+  "The Org table of ITEMS, with the column names HEADER, aligned.
+Each row line carries the text properties of its item, so the keys that work on
+an entry work on the row."
+  (let* ((rows (mapcar (lambda (item) (mapcar #'sp-batch-report--cell (plist-get item :row))) items))
+         (head (mapcar #'sp-batch-report--cell header))
+         (widths (apply #'cl-mapcar
+                        (lambda (&rest cells) (apply #'max (mapcar #'string-width cells)))
+                        head rows)))
+    (concat (sp-batch-report--row-line head widths)
+            "|" (mapconcat (lambda (w) (make-string (+ w 2) ?-)) widths "+") "|\n"
+            (mapconcat
+             (lambda (item)
+               (apply #'propertize (sp-batch-report--row-line (plist-get item :row) widths)
+                      (sp-batch-report--item-props item)))
+             items ""))))
+
 (defun sp-batch-report--item-string (item &optional dropped)
-  "The Org text of ITEM, with its text properties.  DROPPED marks a dropped one."
+  "The Org text of ITEM, with its text properties.  DROPPED marks a dropped one.
+An item with a :row is a line of an Org table."
+  (if (plist-get item :row)
+      (apply #'propertize (sp-batch-report--row-line (plist-get item :row))
+             (sp-batch-report--item-props item dropped))
+    (sp-batch-report--list-item-string item dropped)))
+
+(defun sp-batch-report--list-item-string (item &optional dropped)
+  "The Org list item of ITEM, with its text properties.  DROPPED marks a dropped one."
   (let* ((file (plist-get item :file))
          (line (plist-get item :line))
          (label (or (plist-get item :label)
@@ -84,14 +155,8 @@ string, on what that Org search option finds (\"/REGEXP/\" or a text)."
                        "\n"
                        (mapconcat (lambda (c)
                                     (concat "  - " (sp-batch-report--indent c "    ") "\n"))
-                                  (plist-get item :children) "")))
-         (key (sp-batch-report--item-key item)))
-    (apply #'propertize text
-           (append (and key (list 'sp-batch-report-key key))
-                   (and file (list 'sp-batch-report-file file))
-                   (and line (list 'sp-batch-report-line line))
-                   (and dropped (list 'sp-batch-report-dropped t))
-                   (plist-get item :props)))))
+                                  (plist-get item :children) ""))))
+    (apply #'propertize text (sp-batch-report--item-props item dropped))))
 
 (defun sp-batch-report--key-label (key)
   "A label for the dropped KEY."
@@ -164,7 +229,9 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
                (setq kept (nreverse kept))
                (concat "* " (plist-get section :title) " (" (number-to-string (length kept)) ")\n"
                        (if kept
-                           (mapconcat #'sp-batch-report--item-string kept "")
+                           (if (plist-get section :header)
+                               (sp-batch-report--table-string (plist-get section :header) kept)
+                             (mapconcat #'sp-batch-report--item-string kept ""))
                          (concat (or (plist-get section :empty) "none") "\n"))
                        "\n")))
            sections "")))
@@ -314,15 +381,19 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
-(defun sp-batch-report--header-line ()
-  "The keys of this report, for the header line."
-  (concat " RET visit  n/p link"
+(defvar-local sp-batch-report-extra-hints nil
+  "Hints (KEY DESCRIPTION [STRONG]) of the keys a derived mode adds, set in its body.
+They come before the backup keys in the echo area.")
+
+(defun sp-batch-report--hints ()
+  "The keys of this report, as hints for the echo area."
+  (append '(("RET" "Visit") ("n/p" "Next/previous link"))
           (and (or sp-batch-report-redraw-function sp-batch-report-refresh-function)
-               "  d drop  u restore")
-          (and sp-batch-report-apply-function "  A apply")
-          (and sp-batch-report-refresh-function "  g refresh")
-          "  b backups  D diff backup"
-          "  q quit"))
+               '(("d" "Drop") ("u" "Restore")))
+          (and sp-batch-report-apply-function '(("A" "Apply" t)))
+          (and sp-batch-report-refresh-function '(("g" "Refresh")))
+          sp-batch-report-extra-hints
+          '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -336,9 +407,31 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (define-key map (kbd "g") #'sp-batch-report-refresh)
     (define-key map (kbd "b") #'sp-backup-open)
     (define-key map (kbd "D") #'sp-backup-diff)
+    (define-key map (kbd "k") #'sp-batch-cancel)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap of `sp-batch-report-mode'.")
+
+(defcustom sp-batch-report-table-widgets nil
+  "Whether `org-table-widget-mode' may draw the tables of a report.
+nil: a report keeps its plain Org tables, which are already aligned.  The
+widget lays out every table on its own, about 10 to 20 ms each, so a report
+with hundreds of tables (one per author, say) takes seconds to show."
+  :type 'boolean
+  :group 'sp-batch-report)
+
+(defvar org-table-widget-mode)
+(declare-function org-table-widget-mode "org-table-widget")
+
+(defun sp-batch-report--quiet-table-widget ()
+  "Turn `org-table-widget-mode' off in this report, unless `sp-batch-report-table-widgets'.
+This runs from `sp-batch-report-mode-hook', after `org-mode-hook' has turned the
+widget on in the still empty buffer, so it costs nothing."
+  (when (and (not sp-batch-report-table-widgets)
+             (bound-and-true-p org-table-widget-mode))
+    (org-table-widget-mode -1)))
+
+(add-hook 'sp-batch-report-mode-hook #'sp-batch-report--quiet-table-widget)
 
 (define-derived-mode sp-batch-report-mode org-mode "Report"
   "Read-only Org buffer holding the report of a batch command.
@@ -348,7 +441,11 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
+  (sp-echo-help-set (sp-batch-report--hints)))
+
+(defun sp-batch-report--set-hints ()
+  "Show the keys of this report in the echo area, now that its functions are set."
+  (sp-echo-help-set (sp-batch-report--hints)))
 
 (defvar use-short-answers)
 (defvar save-silently)
@@ -460,7 +557,12 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
   (let ((line (gethash name sp-batch-report--pending-lines)))
     (remhash name sp-batch-report--pending-lines)
     (with-current-buffer (get-buffer-create name)
-      (funcall (or (plist-get args :mode) #'sp-batch-report-mode))
+      ;; Running the mode again resets Org for the whole buffer (its hooks,
+      ;; indentation, numbering), which costs seconds in a big report that is
+      ;; only drawn again after a drop or a refresh.
+      (let ((mode (or (plist-get args :mode) #'sp-batch-report-mode)))
+        (unless (eq major-mode mode)
+          (funcall mode)))
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert text)
@@ -473,7 +575,10 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
+      (when (fboundp 'sp-echo-help-set)
+        (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
+      (sp-batch-report--set-hints)
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))

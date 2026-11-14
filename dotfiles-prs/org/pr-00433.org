@@ -1,0 +1,79 @@
+* PR #433: ✨ Compute the citar column widths from the frame on the screen
+:PROPERTIES:
+:PR_NUMBER: 433
+:URL: https://github.com/siainbuletin/dotfiles/pull/433
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/433][https://github.com/siainbuletin/dotfiles/pull/433]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 23:51
+- Merged :: 2026-11-12 23:54
+- Branch :: =claude/citar-layout-follows-frame= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/270cca1895b43aa0110412d9854d5324452911a0][270cca1895]]
+- Labels :: bugfix, new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia*/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: follows #432 (merged into main); independent of the open DEVONthink stack (#415, #418-#421) and #426.
+- Depends on: #432 (merged). It replaces =sp-citations--half-frame-columns= and the load-time widths from that PR.
+- If merged out of order with the others: no conflict expected; they touch other parts of =sp-academic.org=.
+- After merging: nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Real frame size:* the columns come from the frame Emacs has on the screen (=sp-citations--frame-columns=): the text width of the selected frame in pixels divided by the pixel width of a character of the =default= face (so a font change shows at once, before the frame is resized). While the posframe is on in a graphical frame it takes =sp-posframe-width-fraction= of that, as =sp-posframe-get-size= does. The assumed half-display and AeroSpace gaps are gone.
+- *Dynamic:* =sp-citations--apply-layout= runs before =citar-select-ref= and =citar-select-refs= (so before =citar-open=, =citar-insert-citation= and =citar-create-note=). It compares the state (columns, character width, font family and height) with the last one and only then makes the emoji cells and the templates again. A command in an unchanged frame and font costs nothing.
+- *Fix for "=sp-citations-fit-layout= does nothing on a font change":* two causes found in citar's source.
+  - =citar-refresh= does not exist in current citar, so my guarded call (=(when (fboundp 'citar-refresh) ...)=) never ran, in this module and in the earlier docs.
+  - citar keeps every candidate as a pre-formatted string, made when the bibliography is read or when the format string changes. The type emoji cells are in those strings, so with the same templates after a font change nothing made citar format them again. Now, when only the font changed, =sp-citations--repreformat= calls =citar-cache--preformat-bibliography= on the cached bibliographies (no file is read); when the templates change citar does it by itself.
+- *Kept:* column order emoji, author, year, title, citekey, keywords; pixel-exact emoji cells; =sp-citations-layout-columns= to override; =M-x sp-citations-fit-layout= to force it.
+- *Not done:* no =window-size-change-functions= hook; a resize while the prompt is open applies at the next command.
+- *Other places that call =citar-refresh=:* =sp-bibprocess.el= (the long-key fix and =sp-academic.org= lines 2778/2874) also guard it with =fboundp=, so they are harmless no-ops; I did not change them here.
+- Tests: =tests/sp-citations-layout-test.el=, 7 pass (columns follow pixel width, character width and posframe mode; the state change makes the templates and, for a font-only change, the re-preformat; plus the layout and emoji-cell tests). Tangle check passes.
+- Docs updated in =docs/tangles/academic/sp-academic.org= (bullet lists). No CHANGELOG edit.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Pull this branch, restart Emacs (or =M-x sp-reload-modules=) (untested by Claude: GUI)
+- [ ] Half-frame tile: =C-c w b o=; note the column widths and that nothing wraps (untested by Claude)
+- [ ] =C-g=, maximize the frame, =C-c w b o= again: the columns are wider (untested by Claude)
+- [ ] =C-g=, back to the half tile, open again: narrow again
+- [ ] Font size: =M-+= or =M--= a few steps, =C-g=, =C-c w b o=: the emoji cells and columns follow the new size with no manual command (untested by Claude)
+- [ ] =M-x sp-citations-fit-layout=: it prints the column count; the next open is aligned
+- [ ] =M-: (sp-citations--frame-columns)= in each size and font: tell me the numbers
+- [ ] Citekey shows 45 characters once the frame gives 110 columns or more
+- [ ] Regression: =citar-insert-citation= and =citar-create-note= work
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after checking =git clean -nd=).
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D claude/citar-layout-follows-frame= (the remote copy stays until the PR is merged or closed).
+- Restart Emacs (or =M-x sp-reload-modules=).
+- No notes or vault files change, so nothing to restore there.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9m8fmtgNiBeMPZDGW]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/6f9231f72bf9f0da4b47efbad1de522f4f80af56][6f9231f72b]] ✨ Compute the citar column widths from the frame on the screen (Claude, 2026-11-12 23:51)
+- [[https://github.com/siainbuletin/dotfiles/commit/29039751f1f406d6f22bdccd8cb3e430519bb941][29039751f1]] 🐛 Make the citar layout follow font changes and drop the missing citar-refresh (Claude, 2026-11-12 23:53)

@@ -1,0 +1,84 @@
+* PR #437: 🐛 Resolve a citekey to its DEVONthink record through crossref in every command
+:PROPERTIES:
+:PR_NUMBER: 437
+:URL: https://github.com/siainbuletin/dotfiles/pull/437
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/437][https://github.com/siainbuletin/dotfiles/pull/437]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 00:53
+- Merged :: 2026-11-13 00:59
+- Branch :: =437-devonthink-record-resolver= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/7d6ebb2398b7efb10e82ab5c1d031166e030ef7b][7d6ebb2398]]
+- Labels :: bugfix, needs-further-testing
+
+** Description
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- *Merge this PR first.* Based on =main=.
+- #415, #418, #420 and #421 now contain this PR's commits (they follow =crossref= in tags, search, highlights and sync through the resolver defined here). After this merges, their diffs shrink to their own changes. Order: #437, #415, #418, #419, #420, #421.
+- *Overlap with the PDF page labels thread:* both change page logic in =sp-devonthink.org=. This PR leaves =sp-devonthink-first-page=, the offset options and the page parsing as #436 merged them; the resolver does not depend on how the page is computed.
+- #435 (store-link) is untouched here.
+
+**** Why #436 missed insert-link
+:PROPERTIES:
+:CUSTOM_ID: why-436-missed-insert-link
+:END:
+- #436 added the crossref lookup inside =sp-devonthink-citar-open= (the =D= action) only.
+- =sp-devonthink-insert-link=, =sp-devonthink-open-from-note= and =sp-devonthink-set-keyword= each called =sp-reading-uuid= on the entry's own key, so an entry with only a crossref parent still failed with =No DEVONthink record named KEY.pdf=.
+- My #436 tests never went through the insert-link path.
+
+**** Change
+:PROPERTIES:
+:CUSTOM_ID: change
+:END:
+- One shared resolver in the core module: =sp-devonthink-record KEY= returns =(:uuid U :supplier KEY-OR-PARENT :via PARENT-OR-NIL)=: own record first, then =crossref=, then =xref=. =sp-devonthink-resolve= (page logic from #436) builds on it.
+- =sp-devonthink-note-record-uuid [ACTION]= is the same decision for the current litnote: the =#+devonthink:= keyword, else the entry's record, else the parent's. When it uses the parent's record it says so in the echo area; with an =ACTION= it asks first (the action would reach the whole book).
+- =crossref= and =pages= are read with =citar-get-value=, then from =citar-get-entry= (case-insensitive) when that gives nothing.
+- Commands that now follow =crossref=:
+  - In this PR: =sp-devonthink-insert-link= (page prompt starts with the chapter's page plus offset), =sp-devonthink-open-from-note=, =sp-devonthink-set-keyword= (asks first), =sp-devonthink-citar-open=, and =sp-reading-open= (reading module, via =sp-devonthink-resolve= when loaded).
+  - In the stack (see Merge order): =sp-devonthink-tag-note= (#415, asks first), =sp-devonthink-similar-to-note= (#418, read-only, says which record), =sp-devonthink-highlights-import= (#420, asks first), and the sync report, backfill and field probe (#421; the backfill asks once before writing the parent's UUID into chapter notes, the probe asks first, the report lists "Covered by the record of the crossref parent").
+- Doc: "Which record a citekey means" in =sp-devonthink.org=. Tests: 31 in =sp-devonthink-test.el= (including the real interactive =insert-link= with an entry that has only a crossref parent) and 13 in =sp-reading-test.el=; the stack PRs add tests for their commands.
+
+**** What was verified
+:PROPERTIES:
+:CUSTOM_ID: what-was-verified
+:END:
+- [X] Unit tests, with citar and DEVONthink stubbed; tangle check passes on every branch.
+- [ ] Not verified: =citar-get-value= returning your =crossref= and =pages= fields, and real DEVONthink opens (no DEVONthink or your bibliography here).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] Entry =incollection= with ~crossref = {parent}~ and ~pages = {45--67}~; the parent has a PDF in DEVONthink, the entry does not.
+- [X] =M-x sp-devonthink-insert-link=, pick the entry: the echo area says =... is in PARENT: PDF page N ...=, the prompt starts with that page; Enter inserts =[[devonthink:PARENT-UUID::N][ENTRY p. N]]=; clicking opens the parent at page N.
+- [X] Clear the prompt, Enter: a link without a page.
+- [X] Litnote of the chapter (no =#+devonthink:=): =C-c k d o= opens the parent at the chapter's page.
+- [X] Same note, =C-c k d k=: asks about the parent's record; =n= writes nothing, =y= writes the parent's UUID.
+- [X] =D= in the citar Embark menu on the entry: opens the parent at the chapter's page.
+- [X] =M-x sp-reading-open= on the entry: same, with the message.
+- [ ] Entry with neither own record nor a parent record: =insert-link= says =No DEVONthink record named KEY.pdf, and no record for its crossref=.
+- [ ] If the crossref isn't found at all: =M-:= =(citar-get-value 'crossref "KEY")= and =(citar-get-entry "KEY")=, paste the output.
+- [ ] Stack commands (after merging them): on the chapter's note, =C-c k d t= (tags), =C-c k d a= (similar), =C-c k d h= (highlights), =M-x sp-devonthink-sync-report=, =sp-devonthink-sync-backfill=: each names the parent's record; the writing ones ask first and do nothing on =n=.
+
+**** Revert guide
+:PROPERTIES:
+:CUSTOM_ID: revert-guide
+:END:
+- =git revert= the commits of this PR (three, newest first). If #415, #418, #420 or #421 merged already, revert their crossref commits first, since they call =sp-devonthink-note-record-uuid=.
+- Reverting restores the direct =sp-reading-uuid= lookups; =citar-open= keeps the #436 behaviour.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/4629c7cf7797246376b8d69209d9f5c13a759e59][4629c7cf77]] 🐛 Resolve a citekey to its DEVONthink record through crossref in every command (Claude, 2026-11-13 00:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/db3128dba06bf0346b7e39c1643824cc043cd23f][db3128dba0]] 🐛 Follow crossref in sp-reading-open and add a note-level record resolver (Claude, 2026-11-13 00:56)
+- [[https://github.com/siainbuletin/dotfiles/commit/54d439ca167fb2a7ec2e4a1b19174c9b10d7f6ce][54d439ca16]] 🔧 Keep the case of the action verb in the crossref confirmation (Claude, 2026-11-13 00:57)

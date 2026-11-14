@@ -55,6 +55,29 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   :type 'boolean
   :group 'sp-vulpea-ui-view)
 
+(defcustom sp-vulpea-ui-view-switch-buffer-action 'other-window
+  "What a buffer switch does when the selected window shows the view.
+The view window is dedicated, so `switch-to-buffer' would signal
+\"Cannot switch buffers in a dedicated window\".
+`other-window' shows the buffer in the window of the notes and focuses it.
+`prompt' asks whether to undedicate the view window, then switches in place.
+Nil leaves it to Emacs, which signals the error."
+  :type '(choice (const :tag "Show in the notes window" other-window)
+                 (const :tag "Ask to undedicate the window" prompt)
+                 (const :tag "Emacs default (error)" nil))
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-lines t
+  "Non-nil means long lines in the view wrap at the window edge."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-indent t
+  "Non-nil means a wrapped line is indented like its beginning.
+This needs `visual-wrap-prefix-mode' (Emacs 30 or later)."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
 (defvar sp-vulpea-ui-view--note nil
   "The vulpea note the view shows, or nil before there was one.")
 
@@ -73,10 +96,26 @@ Emacs uses it as the window title, so a tiling window manager can match it."
 (defvar sp-vulpea-ui-view--rendering nil
   "Non-nil while the view renders.")
 
+(declare-function visual-wrap-prefix-mode "visual-wrap")
+
+(defun sp-vulpea-ui-view--apply-wrap ()
+  "Set the line wrapping of the current buffer from the wrap options."
+  (if sp-vulpea-ui-view-wrap-lines
+      (progn
+        (setq-local truncate-lines nil)
+        (visual-line-mode 1)
+        (when (and sp-vulpea-ui-view-wrap-indent
+                   (fboundp 'visual-wrap-prefix-mode))
+          (visual-wrap-prefix-mode 1)))
+    (visual-line-mode -1)
+    (when (fboundp 'visual-wrap-prefix-mode)
+      (visual-wrap-prefix-mode -1))))
+
 (define-derived-mode sp-vulpea-ui-view-mode vulpea-ui-sidebar-mode "vulpea-ui-view"
   "Major mode of the vulpea-ui view buffer.
 \\{sp-vulpea-ui-view-mode-map}"
   :group 'sp-vulpea-ui-view
+  (sp-vulpea-ui-view--apply-wrap)
   (add-hook 'kill-buffer-hook #'sp-vulpea-ui-view--teardown nil t))
 
 (define-key sp-vulpea-ui-view-mode-map (kbd "q") #'sp-vulpea-ui-view-close)
@@ -138,11 +177,13 @@ KIND is `note', `soft' or `hard'."
                      (buffer-live-p (vui-instance-buffer instance)))
                 (pcase kind
                   ('hard (cl-incf vulpea-ui--refresh-generation)
-                         (vui-update instance (list :note note)))
+                         (vui-update instance (list :note note))
+                         (sp-vulpea-ui-view--apply-wrap))
                   (_ (vui-update-props instance (list :note note))))
               (setq sp-vulpea-ui-view--instance
                     (vui-mount (vui-component 'vulpea-ui-sidebar-root :note note)
-                               (buffer-name)))))
+                               (buffer-name)))
+              (sp-vulpea-ui-view--apply-wrap)))
           (when (eq kind 'note)
             (goto-char (point-min))))))))
 
@@ -240,6 +281,35 @@ When the call comes from the view, focus the frame that shows the note."
                     vulpea-ui--jump-to-file-position
                     vulpea-ui--jump-to-file-line))
   (advice-add function :around #'sp-vulpea-ui-view--focus-visit))
+
+(defun sp-vulpea-ui-view--switch-to-buffer (orig &rest args)
+  "Advice for `switch-to-buffer' (ORIG, ARGS) in the dedicated view window.
+Act on `sp-vulpea-ui-view-switch-buffer-action'; elsewhere call ORIG."
+  (let ((window (selected-window)))
+    (if (not (and sp-vulpea-ui-view-switch-buffer-action
+                  (window-dedicated-p window)
+                  (sp-vulpea-ui-view--buffer-p (window-buffer window))))
+        (apply orig args)
+      (if-let* ((target (and (eq sp-vulpea-ui-view-switch-buffer-action
+                                 'other-window)
+                             (sp-vulpea-ui-view--editing-window))))
+          (let ((done nil))
+            (unwind-protect
+                (progn
+                  (select-window target)
+                  (prog1 (apply orig args)
+                    (setq done t)
+                    (when sp-vulpea-ui-view-focus-on-visit
+                      (select-frame-set-input-focus (selected-frame)))))
+              (unless (or done (not (window-live-p window)))
+                (select-window window))))
+        (let ((switch-to-buffer-in-dedicated-window
+               (if (eq sp-vulpea-ui-view-switch-buffer-action 'prompt)
+                   'prompt
+                 switch-to-buffer-in-dedicated-window)))
+          (apply orig args))))))
+
+(advice-add 'switch-to-buffer :around #'sp-vulpea-ui-view--switch-to-buffer)
 
 (defun sp-vulpea-ui-view--frame-parameters ()
   "Return the frame parameters of the view frame, including its name."

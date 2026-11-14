@@ -386,7 +386,7 @@ An idea is a =(FILE LINE TEXT)= list, the shape =sp-tab-inbox-collect-all= takes
 
 * Key bindings
 
-Next to the =org-semantic= keys of [[file:../academic/sp-semantic.org][sp-semantic]] (=C-c k s=, =S=, =.=, =R=): =C-c k t= is =sp-tab-psearch=, =C-c k T= is =sp-tab-psearch-engine=. The binding block is at the end of the file, after the embark code.
+Next to the =org-semantic= keys of [[file:../academic/sp-semantic.org][sp-semantic]] (=C-; k s=, =S=, =.=, =R=): =C-; k t= is =sp-tab-psearch=, =C-; k T= is =sp-tab-psearch-engine=. The binding block is at the end of the file, after the embark code.
 
 * Embark
 
@@ -433,8 +433,7 @@ Two targets in a p-search buffer: the idea at point (=sp-tab-idea=) and the whol
   (add-to-list 'embark-target-finders #'sp-tab-psearch-target-results)
   (add-to-list 'embark-target-finders #'sp-tab-psearch-target-idea))
 
-(keymap-global-set "C-c k t" #'sp-tab-psearch)
-(keymap-global-set "C-c k T" #'sp-tab-psearch-engine)
+;; C-; k t and C-; k T are bound in `sp-keys' (they were C-c k t and C-c k T).
 
 (provide 'sp-tab-psearch)
 ;; sp-tab-psearch.el ends here

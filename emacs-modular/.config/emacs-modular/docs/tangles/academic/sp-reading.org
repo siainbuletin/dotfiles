@@ -339,3 +339,20 @@ The module provides =sp-reading=.
   - whether =search "kind:pdf"= returns every PDF in nested groups;
   - the exact wording of the =index path ... to= command and of =get record at=;
   - (fixed 2026-11-12) =uuid of every item of= on a search result returned object references (=content id … of database id …=), so the script now loops over the records and reads =uuid of r= and =name of r=.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/422][#422]]
+  - 🐛 Fixed =sp-reading-refresh= failing with =Can't get uuid of {content id ...}= (error -1728)
+    - the listing is JavaScript for Automation (=sp-reading--jxa=): =uuid= and =name= of all records in bulk
+- [[https://github.com/siainbuletin/dotfiles/pull/426][#426]]
+  - 🐛 Fixed =sp-reading-refresh= reporting =0 PDFs in literature=: the listing keeps records whose file path ends in =.pdf= and adds =.pdf= to a name that lacks it
+  - ✨ Added =M-x sp-reading-diagnose=: the open databases, the record count, the PDFs found by path and by name, and a sample
+- [[https://github.com/siainbuletin/dotfiles/pull/430][#430]]
+  - 🐛 Fixed the single-record lookup requiring the name =KEY.pdf=
+    - =sp-reading--lookup-script= is JXA: it searches =name:KEY= and accepts a name without =.pdf= or a file name on disk equal to KEY
+    - =sp-reading-uuid= falls back, on a miss, to one full =sp-reading-refresh= and looks again
+- [[https://github.com/siainbuletin/dotfiles/pull/437][#437]]
+  - 🔧 Changed the open command of =sp-reading=: an entry with no record of its own opens its crossref parent's record at the entry's first page, through =sp-devonthink-resolve= when =sp-devonthink= is loaded

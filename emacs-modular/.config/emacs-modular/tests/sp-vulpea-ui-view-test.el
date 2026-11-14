@@ -149,6 +149,36 @@
           (vulpea-ui-visit-note nil))
         (should (= test-focus-calls 1))))))
 
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-other-window ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (select-window wb)
+    (select-window wv)
+    (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+      (let ((sp-vulpea-ui-view-switch-buffer-action 'other-window))
+        (switch-to-buffer p)))
+    (should (eq (selected-window) wb))
+    (should (eq (window-buffer wb) p))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))
+    (should (window-dedicated-p wv))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-error-when-nil ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wv)
+    (let ((sp-vulpea-ui-view-switch-buffer-action nil))
+      (should-error (switch-to-buffer p) :type 'user-error))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-elsewhere-unchanged ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (switch-to-buffer b)
+    (should (eq (window-buffer wa) b))
+    (should (eq (selected-window) wa))))
+
 (ert-deftest sp-vulpea-ui-view-test-frame-name ()
   (let ((sp-vulpea-ui-view-frame-name "tile-me")
         (sp-vulpea-ui-view-frame-parameters '((name . "other") (width . 40))))
@@ -156,6 +186,34 @@
       (should (equal (alist-get 'name parameters) "tile-me"))
       (should (= (length (seq-filter (lambda (p) (eq (car p) 'name)) parameters)) 1))
       (should (equal (alist-get 'width parameters) 40)))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-on ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (sp-vulpea-ui-view-wrap-indent t))
+    (with-temp-buffer
+      (setq-local truncate-lines t)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should visual-line-mode)
+      (should-not truncate-lines))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-off ()
+  (let ((sp-vulpea-ui-view-wrap-lines nil))
+    (with-temp-buffer
+      (visual-line-mode 1)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should-not visual-line-mode))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-is-local-to-the-view ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (other (generate-new-buffer " test-other"))
+        (view (generate-new-buffer " test-view")))
+    (unwind-protect
+        (progn
+          (with-current-buffer view (sp-vulpea-ui-view-mode))
+          (should (buffer-local-value 'visual-line-mode view))
+          (should-not (buffer-local-value 'visual-line-mode other)))
+      (kill-buffer other)
+      (kill-buffer view))))
 
 (ert-deftest sp-vulpea-ui-view-test-toggle-and-teardown ()
   (let ((sp-vulpea-ui-view-use-frame nil)
