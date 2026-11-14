@@ -299,7 +299,7 @@ a PDF goes to `sp-fetch-academic-download'."
 
 * Keys
 
-The four commands are bound in =sp-keys=, in the bibliography group =C-; B= (=b= look-up, =i= DOI, =u= URL, =s= search with consult-omni). They were =C-c w b b/i/u/s=; those keys are shims that print the new key.
+The four commands are bound in =sp-keys=, in the bibliography group =C-; B= (=b= look-up, =i= DOI, =u= URL, =s= search with consult-omni). They were =C-c w b b/i/u/s=, which are unbound now.
 
 #+begin_src emacs-lisp -i
 ;;;; Keys

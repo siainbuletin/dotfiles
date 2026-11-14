@@ -655,7 +655,7 @@ collection it sits in.  The buffer is left unsaved."
 
 * Keys and Embark
 
-- The prefix =C-; k d= holds the commands (=C-; k= is the knowledge group of the leader: =l= litdb, =s= semantic; the map is mounted there by =sp-devonthink=, and =C-; k d= is a shim).
+- The prefix =C-; k d= holds the commands (=C-; k= is the knowledge group of the leader: =l= litdb, =s= semantic; the map is mounted there by =sp-devonthink=, and the old =C-c k d= is unbound now).
 - Terminal Emacs is not covered: keys are for the GUI, as the rest of the config.
 
 | Key | Command |

@@ -545,7 +545,6 @@ relative to it."
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-org-lint-fn-visit)
     (define-key map (kbd "A") #'sp-org-lint-footnotes-convert)
-    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
     (define-key map (kbd "g") #'sp-org-lint-footnotes-dryrun)
     map)
   "Keymap of `sp-org-lint-fn-report-mode'.")
@@ -559,16 +558,8 @@ relative to it."
 (make-obsolete 'sp-org-lint-fn-report-mode 'sp-org-lint-fn-batch-mode "2026-11-09")
 (make-obsolete-variable 'sp-org-lint-fn-report-mode-map 'sp-org-lint-fn-batch-mode-map "2026-11-09")
 
-(defun sp-org-lint-fn-apply-old-key ()
-  "Apply the moves, after saying that `A' is the key now (it was `a')."
-  (interactive)
-  (message "a moved to A")
-  (call-interactively #'sp-org-lint-footnotes-convert))
-
 (defvar sp-org-lint-fn-batch-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "a") #'sp-org-lint-fn-apply-old-key)
-    map)
+  (make-sparse-keymap)
   "Keymap of `sp-org-lint-fn-batch-mode'.")
 
 (define-derived-mode sp-org-lint-fn-batch-mode sp-batch-report-mode "FnLint"

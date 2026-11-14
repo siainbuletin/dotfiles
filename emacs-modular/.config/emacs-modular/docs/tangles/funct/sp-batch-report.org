@@ -68,7 +68,7 @@ One key means one kind of action in every report, and in the leader (=C-; L=, se
 - Rule for the letters a report adds:
   + a lower-case letter acts on the entry at point (=a= register the tag, =c= create a litnote, =o= visit the author note);
   + an upper-case letter acts on the whole list (=A= apply, =C= create for every exact match).
-- The footnote lint used =a= for apply. =a= is now a shim that says "a moved to A" and applies, until it is removed.
+- The footnote lint used =a= for apply; it is =A= now, like the others, and =a= is unbound there.
 - The leader mirrors the verbs: in each lint group =l= lists (the dry run), =a= applies (the convert), =r= restores.
 - Not in a batch report, so not covered: the status list of =sp-litnotes-meta= (a =tabulated-list= with its own mark keys =m= =u= =M= =U=, change =s=).
 
@@ -1051,4 +1051,4 @@ What each pull request changed in this module, newest last; the one-line summary
     - the hints follow what the report can do (=d=/=u=, =A=, =g= only with the function); =A= and =q= are bold
 - [[https://github.com/siainbuletin/dotfiles/pull/489][#489]]
   - 📝 Documented the keys every report shares and the rule for the letters a report adds
-  - 🔧 Changed the footnote report to apply with =A= like the others; =a= is a shim (=sp-org-lint-fn-apply-old-key=)
+  - 🔧 Changed the footnote report to apply with =A= like the others; =a= is unbound

@@ -711,7 +711,7 @@ Notes:
   + litnote in the current buffer: =d= do-what-I-mean, =k= add a citekey, =K= remove one;
   + get new entries: =b= biblio look-up, =i= by DOI, =u= PDF from a URL, =s= scholarly search, =a= the DEVONthink inbox.
 - =k=, =K=, =d= and =e= were bound in =org-mode-map= only, and =k= was also the key of =sp-bibtex-lint-fix-keys= everywhere else. So in an Org note =C-c w b k= added a citekey and in any other buffer it fixed long keys, and the fix looked unbound. The lint commands now live under =L b=.
-- The old =C-c w b= keys are shims (see [[*Moved keys (shims)][Moved keys]]).
+- The old =C-c w b= keys are gone, with no shims.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Bibliography Keybindings
@@ -843,7 +843,7 @@ Notes:
 ** Moved keys (shims)
 
 - =sp-keys-moved= lists each key that moved: old key, new key (below =sp-prefix=) and command.
-- =sp-keys--shim= builds a command that prints where the key went, then runs the command (or, when the "command" is a keymap variable, waits for the next key in that map).
+- =sp-keys--shim= builds a command that prints where the key went, then runs the command.
 - =sp-keys-define-shims= binds every old key to its shim.
 - The shims stay until you remove them: delete a row of =sp-keys-moved=.
 - Keys that moved without a shim, because they were not working or are used by another command now:
@@ -851,8 +851,7 @@ Notes:
   + =C-c m= (now =supersonic=; the minibuffer jump is =w M=),
   + =<f6>= (now =projectile-run-project=; redraw is =w D=),
   + =C-c f= (now only the Org footnote prefix; dirvish is =f d=, the focus HUD =a f=).
-- =C-c w b k= has a shim for =citar-vulpea-add-reference= (what it did in an Org note). The BibTeX key fix was shadowed by it and moved to =L b f k=.
-- Old keys of the academic modules: =C-c w b ...= is now =B ...= (BibTeX lint: =L b ...=), =C-c k ...= is now =k ...=.
+- The old academic keys have no shims (removed on request): =C-c w b ...= is now =B ...= (BibTeX lint: =L b ...=, the key fix =L b f k=), =C-c k ...= is now =k ...=. They are unbound.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Moved keys (shims)
@@ -861,44 +860,15 @@ Notes:
     ("C-c s L" "S L" easysession-switch-to-and-restore-geometry)
     ("C-c s d" "S d" easysession-delete)
     ("C-c s R" "S R" easysession-reset)
-    ("C-c e b b" "e b" eval-buffer)
-    ;; Academic: C-c w b is now B, the BibTeX lint is L b
-    ("C-c w b r" "B r" sp-bibtex-register)
-    ("C-c w b o" "B o" citar-open)
-    ("C-c w b e" "B e" citar-open-entry)
-    ("C-c w b n" "B n" citar-open-notes)
-    ("C-c w b c" "B c" citar-create-note)
-    ("C-c w b d" "B d" citar-vulpea-dwim)
-    ("C-c w b k" "B k" citar-vulpea-add-reference)
-    ("C-c w b K" "B K" citar-vulpea-remove-reference)
-    ("C-c w b b" "B b" sp-fetch-academic-biblio-lookup)
-    ("C-c w b i" "B i" sp-fetch-academic-doi)
-    ("C-c w b u" "B u" sp-fetch-academic-download)
-    ("C-c w b s" "B s" sp-fetch-academic-omni)
-    ("C-c w b a" "B a" sp-fetch-inbox)
-    ("C-c w b l" "L b l" sp-bibtex-lint-dryrun)
-    ("C-c w b L" "L b a" sp-bibtex-lint-convert)
-    ;; Academic: C-c k is now k
-    ("C-c k l" "k l" sp-litdb-search)
-    ("C-c k I" "k I" sp-litdb-index)
-    ("C-c k s" "k s" org-semantic-find)
-    ("C-c k S" "k S" org-semantic-find-in-directory)
-    ("C-c k ." "k ." org-semantic-find-at-point)
-    ("C-c k R" "k R" org-semantic-reindex)
-    ("C-c k t" "k t" sp-tab-psearch)
-    ("C-c k T" "k T" sp-tab-psearch-engine)
-    ("C-c k d" "k d" sp-devonthink-map))
-  "Old key, new key below `sp-prefix' and command of each key that moved.
-A command that is a keymap variable makes the old key wait for the next key.")
+    ("C-c e b b" "e b" eval-buffer))
+  "Old key, new key below `sp-prefix' and command of each key that moved.")
 
 (defun sp-keys--shim (old new command)
   "Return a command that says OLD moved to NEW, then runs COMMAND."
   (lambda ()
     (interactive)
     (message "%s moved to %s %s" old sp-prefix new)
-    (if (and (boundp command) (keymapp (symbol-value command)))
-        (set-transient-map (symbol-value command))
-      (call-interactively command))))
+    (call-interactively command)))
 
 (defun sp-keys-define-shims ()
   "Bind every old key of `sp-keys-moved' to a shim for its new key."
@@ -1276,7 +1246,7 @@ Provides the =sp-keys= feature and closes the file.
   + every lint group lists with =l= (a =-dryrun= command) and applies with =a= (a =-convert= command);
   + the BibTeX key fix has its key, =L b f k=;
   + every old key of =sp-keys-moved= is unique, is not below the leader, and its new key is bound to the same command;
-  + a shim for a keymap variable waits for the next key.
+  + (the shim table only holds keys that still have a shim).
 
 #+begin_src emacs-lisp -i
 ;;; sp-keys-test.el --- Tests for the academic and lint groups of sp-keys -*- lexical-binding: t; -*-
@@ -1364,21 +1334,10 @@ Provides the =sp-keys= feature and closes the file.
                    (not (string-suffix-p "-map" (symbol-name command))))
           (should (eq (key-binding (kbd (concat sp-prefix " " new))) command)))))))
 
-(ert-deftest sp-keys-academic-old-keys-all-move ()
+(ert-deftest sp-keys-academic-old-keys-are-gone ()
   (sp-keys-test--setup)
-  (dolist (old '("C-c w b r" "C-c w b l" "C-c w b L" "C-c w b k" "C-c w b a"
-                 "C-c k l" "C-c k s" "C-c k d"))
-    (should (assoc old sp-keys-moved))))
-
-(ert-deftest sp-keys-shim-of-a-keymap-waits-for-the-next-key ()
-  (sp-keys-test--setup)
-  (defvar sp-keys-test--map (make-sparse-keymap))
-  (let (waited)
-    (cl-letf (((symbol-function 'set-transient-map)
-               (lambda (map &rest _) (setq waited map)))
-              ((symbol-function 'message) #'ignore))
-      (funcall (sp-keys--shim "C-c k d" "k d" 'sp-keys-test--map)))
-    (should (eq waited sp-keys-test--map))))
+  (dolist (old '("C-c w b r" "C-c w b l" "C-c w b k" "C-c w b a" "C-c k l" "C-c k s" "C-c k d"))
+    (should-not (assoc old sp-keys-moved))))
 
 (provide 'sp-keys-test)
 ;;; sp-keys-test.el ends here
@@ -1403,6 +1362,6 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/489][#489]]
   - ✨ Added three leader groups for the academic part: =C-; B= (bibliography, was =C-c w b=), =C-; k= (knowledge search, was =C-c k=) and =C-; L= (every batch lint, one sub-letter per module)
     - =L= uses the same verbs everywhere: =l= list (dry run), =a= apply (convert), =r= restore; =L b f= has one key per BibTeX fix, so =sp-bibtex-lint-fix-keys= is =C-; L b f k=
-    - the old keys are shims in =sp-keys-moved=; a shim for a keymap (=C-c k d=) waits for the next key
+    - the old =C-c w b= and =C-c k= keys are removed, with no shims
   - 🐛 Fixed =C-c w b k= meaning two commands: =citar-vulpea-add-reference= in Org (local) and =sp-bibtex-lint-fix-keys= elsewhere, so the key fix looked unbound
   - Tests in =tests/sp-keys-test.el=; the keys are not tried in a GUI.

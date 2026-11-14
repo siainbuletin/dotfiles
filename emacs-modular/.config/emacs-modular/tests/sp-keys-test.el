@@ -83,21 +83,10 @@
                    (not (string-suffix-p "-map" (symbol-name command))))
           (should (eq (key-binding (kbd (concat sp-prefix " " new))) command)))))))
 
-(ert-deftest sp-keys-academic-old-keys-all-move ()
+(ert-deftest sp-keys-academic-old-keys-are-gone ()
   (sp-keys-test--setup)
-  (dolist (old '("C-c w b r" "C-c w b l" "C-c w b L" "C-c w b k" "C-c w b a"
-                 "C-c k l" "C-c k s" "C-c k d"))
-    (should (assoc old sp-keys-moved))))
-
-(ert-deftest sp-keys-shim-of-a-keymap-waits-for-the-next-key ()
-  (sp-keys-test--setup)
-  (defvar sp-keys-test--map (make-sparse-keymap))
-  (let (waited)
-    (cl-letf (((symbol-function 'set-transient-map)
-               (lambda (map &rest _) (setq waited map)))
-              ((symbol-function 'message) #'ignore))
-      (funcall (sp-keys--shim "C-c k d" "k d" 'sp-keys-test--map)))
-    (should (eq waited sp-keys-test--map))))
+  (dolist (old '("C-c w b r" "C-c w b l" "C-c w b k" "C-c w b a" "C-c k l" "C-c k s" "C-c k d"))
+    (should-not (assoc old sp-keys-moved))))
 
 (provide 'sp-keys-test)
 ;;; sp-keys-test.el ends here

@@ -856,7 +856,7 @@ Also:
 
 - =bibtex-aux-opt-alist= carries the same two fields. It used to be saved by Customize in =init.el= and is now set here.
 - =:demand t= loads it at once, which registers the bibliography files (=sp-bibtex-register= in =:config=) before anything reads them; =sp-academic= used to do that with =(require 'bibtex)=.
-- The keys of the BibTeX commands are in =sp-keys=, under the leader: =C-; B r= runs =sp-bibtex-register= at any time and the BibTeX lint is under =C-; L b=: =l= report, =a= apply, =r= restore, =f= one fix per kind (=sp-keys.org=, "Lint (L)"). The old =C-c w b= keys print where they moved.
+- The keys of the BibTeX commands are in =sp-keys=, under the leader: =C-; B r= runs =sp-bibtex-register= at any time and the BibTeX lint is under =C-; L b=: =l= report, =a= apply, =r= restore, =f= one fix per kind (=sp-keys.org=, "Lint (L)"). The old =C-c w b= keys are unbound.
 - =H-b= in a BibTeX buffer opens the org-ref hydra (it needs a Hyper key). It was =define-key= in =sp-academic=.
 
 #+begin_src emacs-lisp -i
