@@ -165,4 +165,22 @@
    (cl-letf (((symbol-function 'citar-cache--make-bibliography) nil))
      (fmakunbound 'citar-cache--make-bibliography)
      (should-not (sp-citations-preload--compatible-p)))))
+(ert-deftest sp-citations-stable-fields-do-not-depend-on-the-layout ()
+  "The fields are the same with and without the tags column of the layout."
+  (let ((narrow '("=type=" "author" "title" "=key=" "doi" "url"))
+        (wide '("=type=" "author" "title" "=key=" "tags" "keywords" "doi" "url")))
+    (should (equal (sp-citations--stable-fields narrow)
+                   (sp-citations--stable-fields wide)))))
+
+(ert-deftest sp-citations-preload-explain-reports-each-file ()
+  (sp-citations-test--with-bibs
+   (cl-letf (((symbol-function 'citar--fields-to-parse) (lambda () '("title"))))
+     (let (text)
+       (cl-letf (((symbol-function 'message) (lambda (fmt &rest args) (setq text (apply #'format fmt args)))))
+         (sp-citations-preload-explain)
+         (should (string-match-p "a.bib: not in the cache" text))
+         (sp-citations-test--run)
+         (setq text nil)
+         (sp-citations-preload-explain)
+         (should (string-match-p "a.bib: ready" text)))))))
 ;;; sp-citations-preload-test.el ends here

@@ -433,6 +433,7 @@ again."
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
   (add-to-list 'citar-display-transform-functions '(lastfirst . (sp-citations--last-first)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
+  (advice-add 'citar--fields-to-parse :filter-return #'sp-citations--stable-fields)
     (advice-add 'citar-select-ref :before #'sp-citations--before-select)
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
@@ -631,6 +632,15 @@ message instead of an error on every file."
              citar-cache--bibliographies)
     (sort alist (lambda (a b) (string< (car a) (car b))))))
 
+(defun sp-citations--stable-fields (fields)
+  "Return FIELDS, the fields `citar' parses, sorted and with the tags added.
+`citar' reads a bibliography again when this list differs from the one it kept.
+The tags column of the layout only exists on a wide frame, so the list changed
+with the width of the frame: the preload, run at another width than the first
+call, was thrown away by it.  Sorted and with `tags' and `keywords' always in
+it, the list is the same at any width.  Filter of `citar--fields-to-parse'."
+  (sort (delete-dups (append fields (list "tags" "keywords"))) #'string<))
+
 (defun sp-citations-preload--files ()
   "Return the readable global bibliography files of `citar'."
   (seq-filter #'file-readable-p
@@ -715,7 +725,10 @@ Also when the cache file does not exist yet."
   "Read the next file of the queue, then wait for Emacs to be idle again."
   (setq sp-citations-preload--timer nil)
   (if (null sp-citations-preload--queue)
-      (sp-citations-preload--save-if-needed)
+      (progn
+        (sp-citations-preload--save-if-needed)
+        (message "citar preload: %d bibliography file(s) ready"
+                 (hash-table-count citar-cache--bibliographies)))
     (let ((file (pop sp-citations-preload--queue)))
       (condition-case err
           (progn
@@ -767,6 +780,34 @@ only checked, so this is cheap to repeat."
     (cancel-timer sp-citations-preload--timer))
   (setq sp-citations-preload--timer nil
         sp-citations-preload--queue nil))
+
+(defun sp-citations-preload-explain ()
+  "Say in the echo area, for each bibliography file, whether `citar' has it ready.
+Use it when `citar' still shows `Updating bibliography' on a call."
+  (interactive)
+  (if (not (and (require 'citar nil t) (sp-citations-preload--compatible-p)))
+      (message "citar preload: citar is not loaded or has another cache")
+    (let ((fields (citar--fields-to-parse))
+          (lines (list (format "preload: %s, %d file(s) waiting"
+                               (cond ((not sp-citations-preload) "off")
+                                     ((timerp sp-citations-preload--timer) "scheduled or running")
+                                     (t "idle"))
+                               (length sp-citations-preload--queue)))))
+      (dolist (file (sp-citations-preload--files))
+        (let* ((bib (gethash file citar-cache--bibliographies))
+               (props (and bib (sp-citations-preload--slot bib 'props)))
+               (size (file-attribute-size (file-attributes file))))
+          (push (format "%s: %s" (file-name-nondirectory file)
+                        (cond ((null bib) "not in the cache")
+                              ((not (memq 'global (sp-citations-preload--slot bib 'buffers)))
+                               "in the cache, not tied to global")
+                              ((not (equal (plist-get props :fields) fields))
+                               (format "parsed fields differ: cached %S, now %S"
+                                       (plist-get props :fields) fields))
+                              ((not (equal (plist-get props :size) size)) "size changed")
+                              (t "ready")))
+                lines)))
+      (message "%s" (string-join (nreverse lines) "\n")))))
 
 (defun sp-citations-preload--after-save ()
   "After saving a BibTeX file of `citar', read it again when idle."
