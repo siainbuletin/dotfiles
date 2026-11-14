@@ -43,6 +43,34 @@ Configuration for the services that run on my Synology NAS lives here too, as li
 
 - *beets* (music library manager, in Container Manager): [[file:.config/beets/beets.org][.config/beets/beets.org]] tangles the beets =config.yaml= and the Container Manager =compose.yaml= into =.config/beets/synology/=, and [[file:.config/beets/deploy-to-synology.sh][.config/beets/deploy-to-synology.sh]] copies them to =/volume1/docker/beets=. API keys go in a =secrets.yaml= that is kept out of the repository.
 
+** Fish plugins with fisher
+
+- Plugin manager: [[https://github.com/jorgebucaran/fisher][fisher]]; the plugin list is =fish/.config/fish/fish_plugins= (stowed to =~/.config/fish/fish_plugins=).
+- The list holds only =jorgebucaran/fisher= (fisher updates itself). Add plugins one by one when needed.
+- Fisher is never downloaded at shell startup; run =fisher-bootstrap= by hand (=fish/.config/fish/functions/fisher-bootstrap.fish=).
+
+*** New machine
+- Stow the fish package: =cd ~/dotfiles && stow fish=.
+- Start fish and run =fisher-bootstrap=.
+- It downloads fisher (needs =curl=), then runs =fisher update=, which installs everything in =fish_plugins=.
+- To pin fisher to a tag instead of =main=: =fisher-bootstrap v7.4.0=.
+- If fisher is already installed, =fisher-bootstrap= just runs =fisher update=.
+
+*** Day to day
+- Add: =fisher install owner/repo=. Fisher appends it to =fish_plugins= (the file in the repo, through the Stow symlink). Commit it.
+- Update: =fisher update= (all) or =fisher update owner/repo=.
+- Remove: =fisher remove owner/repo=. Fisher deletes the plugin's files and its line in =fish_plugins=. Commit it.
+- List: =fisher list=.
+- Restore the exact set after pulling a changed =fish_plugins=: =fisher update=.
+
+*** How it fits with Stow
+- Fisher copies plugin files into =~/.config/fish/functions=, =conf.d= and =completions=.
+- =.stowrc= has =--no-folding=, so those directories are real directories in =~= with per-file symlinks: plugin files stay out of =~/dotfiles=.
+- Stow only conflicts if a repo file has the same name as a plugin file. Check =fisher list= and =ls fish/.config/fish/functions= before adding a plugin.
+- =.gitignore= lists =completions/= and =functions/fisher.fish= of the fish package, in case it is ever stowed with folding.
+- =fish_variables= is tracked and stores fisher's state (=_fisher_plugins=, =_fisher_*_files=): it is machine state, so do not commit those lines; =fisher update= rebuilds them.
+- Plugin =conf.d/= files are not ignored (your own files live there): if =git status= shows one, a plugin wrote into the repo; remove it and re-run =fisher update=.
+
 ** Required software to install
 
 All names for the software are listed as they can be found either in the official Arch Linux repository or in the AUR. All may be downloadable through =pacman= or =paru= (prefered AUR helper in this case).
