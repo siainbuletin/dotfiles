@@ -3221,9 +3221,11 @@ a dropped one, A writes what is left, g shows the preview again.")
                            (format "author %s" (substring key 5))
                          (sp-author-notes--short key)))
          nil nil key)))
-    (insert (if apply
-                "\nRET visit   g preview again\n"
-              "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
+    (sp-echo-help-set
+     (if apply
+         '(("RET" "Visit") ("g" "Preview again"))
+       '(("RET" "Visit") ("d" "Drop candidate") ("u" "Restore")
+         ("A" "Write what is left" t) ("g" "Refresh"))))))
 
 (defun sp-author-notes--show-old (run)
   "Show the report of RUN in the old `sp-author-notes-report-mode'."
@@ -4427,7 +4429,8 @@ note.  The all-authors report is `sp-author-notes-bibtex'."
   "Insert the report of GROUPS, as `sp-author-notes-bibtex--compute' returns them."
   (insert (format "Works in BibTeX files without a literature note: %d author note%s\n"
                   (length groups) (if (= 1 (length groups)) "" "s")))
-  (insert "RET visit entry   o visit author note   c create litnote   C create for all exact   g refresh\n")
+  (sp-echo-help-set '(("RET" "Visit entry") ("o" "Visit author note") ("c" "Create litnote" t)
+                      ("C" "Create for all exact") ("g" "Refresh")))
   (if (null groups)
       (insert "\n  none\n")
     (dolist (group groups)
