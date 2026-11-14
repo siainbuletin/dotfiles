@@ -153,6 +153,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
@@ -4705,3 +4706,5 @@ What each pull request changed in this module, newest last; the one-line summary
     - saving a =.bib= buffer or =sp-bibtex-register= schedules a new pass
     - the cache =citar-bibliography.eld= in =sp-cache-dir= is written after a pass that parsed something; citar still validates it
   - ✨ Added the options =sp-citations-preload=, =-delay= (3 s), =-refresh-on-save=, =-persist= and =-cache-file=
+- [[https://github.com/siainbuletin/dotfiles/pull/490][#490]]
+  - ✨ Added =sp-bibtex-zotero= (own doc: [[file:sp-bibtex-zotero.org][sp-bibtex-zotero.org]]) to the modules required from =sp-academic=: Zotero attachment paths of a =.bib= file are matched to the PDFs in =literature/inbox/zotero-backup= and moved to the top of =literature/=
