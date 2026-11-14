@@ -7,7 +7,7 @@ Literate source for =libraries/modules/academic/sp-pdf-reader.el=.
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
-- Status: install fixed with an explicit recipe. The function names of =emureader= 0.4.0 are still not verified against its source (see "Not verified").
+- Status: install and module build fixed; the function names of =emureader= 0.4.0 are still not verified against its source (see "Not verified").
 
 * What it is for
 
@@ -27,14 +27,33 @@ Literate source for =libraries/modules/academic/sp-pdf-reader.el=.
 * Install and build
 
 - The =use-package= form only runs under Elpaca, so batch tests never try to install it.
-- The recipe is explicit: =:ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git")=.
+- The recipe is explicit: =:ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git" ...)=.
   - Why: Elpaca keeps a cached copy of the GNU ELPA menu (=var/elpaca/cache/gnu-elpa.eld=) and does not refresh it by itself.
   - emureader (renamed from emacs-reader on 2026-11-04, version 0.4.0) is not in an older cached menu.
   - A package missing from the menu gets a recipe with no repository, and =elpaca-update-all= fails with =(wrong-type-argument stringp nil)= in =elpaca-git--fetch=.
   - The upstream repository is the one GNU ELPA mirrors, so the code is the same.
 - Packages that depend on emureader (for example =lsp-mode=) fail with it until it installs.
 - The dynamic module needs MuPDF 1.26.0, gcc and GNU Make; on macOS: =brew install mupdf gcc make=.
-- Then run =M-x emureader-build= once (and after each package update); the command exists since 0.4.0.
+
+** Where the module is built
+
+- Elpaca keeps two directories per package:
+  - =var/elpaca/sources/emureader/=: the git checkout, with the =Makefile=, =render/*.c= and the module.
+  - =var/elpaca/builds/emureader/=: only symlinks to the files selected by =:files=; Elpaca deletes and recreates it on every build.
+- Elpaca's default =:files= leaves out the =Makefile= and =render/=, so the builds dir had no =Makefile=.
+  - =M-x emureader-build= runs =gmake module= in the directory of =emureader.el=, which is the builds dir.
+  - Result: =gmake: *** No rule to make target 'module'=.
+- =emureader= also looks for =emureader-dyn.dylib= (=.so= on Linux) in that same builds dir, so the module must end up there.
+- The recipe therefore does two things:
+  - =:build (:before elpaca-build-link sp-pdf-reader--elpaca-build-module)= runs =gmake module= (or =make=) in the source dir before Elpaca links the build dir.
+    - The module is kept in the source dir, so it survives the build dir being recreated.
+    - make is incremental, so later builds are fast.
+    - A failure (for example MuPDF missing) is printed in the Elpaca log but does not fail the install, so =lsp-mode= and the other dependants still build.
+  - =:files (:defaults "Makefile" "render" "emureader-dyn.*")= links the module, the =Makefile= and =render/= into the builds dir.
+    - The module is found by =emureader=.
+    - =M-x emureader-build= works as a manual fallback; its objects land in the source dir through the =render/= symlink.
+- =elpaca-defscript= is a macro that only exists under Elpaca, so the step is defined through =eval=.
+- To build after changing the recipe or updating the package: =M-x elpaca-rebuild RET emureader=, then restart Emacs.
 - =sp-pdf-reader-ready-p= tells whether the module is built; until then =sp-pdf-open= uses =find-file=.
 
 * Options
@@ -76,9 +95,26 @@ Literate source for =libraries/modules/academic/sp-pdf-reader.el=.
 ;; The recipe is explicit: Elpaca's cached GNU ELPA menu can predate the
 ;; rename to emureader, and a package missing from the menu gets a recipe
 ;; with no repository (error in `elpaca-git--fetch').
+;;
+;; The module is built in the source dir, before Elpaca links the build dir.
+;; Elpaca deletes and recreates the build dir on every (re)build, and its
+;; default :files leave out the Makefile and render/, so `emureader-build'
+;; (which runs make in the build dir) has nothing to run there.  The module,
+;; the Makefile and render/ are linked into the build dir, where emureader
+;; looks for the module.
 (when (fboundp 'elpaca)
+  ;; `eval' because `elpaca-defscript' is a macro that only exists under Elpaca.
+  (eval
+   '(elpaca-defscript sp-pdf-reader--elpaca-build-module (:type system :dir source)
+      "Build the emureader dynamic module in E's source directory.
+A failure is only reported, so a missing MuPDF does not block the install."
+      ("sh" "-c"
+       "m=$(command -v gmake || echo make); \"$m\" module || echo 'emureader: module build failed (brew install mupdf gcc make), then M-x emureader-build'"))
+   t)
   (use-package emureader
-    :ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git")
+    :ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git"
+             :files (:defaults "Makefile" "render" "emureader-dyn.*")
+             :build (:before elpaca-build-link sp-pdf-reader--elpaca-build-module))
     :defer t))
 
 ;;;; Opening
@@ -116,7 +152,8 @@ Falls back to `find-file' when emureader is not ready."
 
 * Not verified
 
-- =emureader-build= is confirmed by the 0.4.0 NEWS ("Add emureader-build command to automatically build the dynamic module").
-- =emureader-open-doc= and =emureader-goto-page= are still assumed from the old =reader-open-doc= and =reader-goto-page=; the source (Codeberg, Savannah) could not be read from the cloud container.
-- If one is wrong, set the matching =sp-pdf-reader-function-*= variable.
+- Verified against the checkout on Sia's Mac (2026-11-14): the =Makefile= target =module=, the output name =emureader-dyn.dylib=, and that =emureader-build= runs in =emureader-directory= (the directory of the loaded =emureader.el=).
+- Not run end to end yet: the =:build= step and the =:files= linking (see the PR's manual testing).
+- =emureader-open-doc= and =emureader-goto-page= exist in the 0.4.0 source (=emureader-open-doc (document)=, =emureader-goto-page (n)=), so the =sp-pdf-reader-function-*= defaults are right.
+- =emureader-build= exists since 0.4.0 (NEWS).
 - Check from Emacs: =M-: (list (fboundp 'emureader-open-doc) (fboundp 'emureader-goto-page))= after =(require 'emureader)=.
