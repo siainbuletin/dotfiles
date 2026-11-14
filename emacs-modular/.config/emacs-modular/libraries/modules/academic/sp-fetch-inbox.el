@@ -1,0 +1,473 @@
+;;; sp-fetch-inbox.el --- File new articles from the inbox with their BibTeX entry -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Takes an article from the DEVONthink inbox group or the inbox folder,
+;; fetches its BibTeX entry, shows the PDF beside an editable entry, and on
+;; confirmation files the PDF as KEY.pdf, updates DEVONthink and appends the
+;; entry to a .bib file.  Literate source: docs/tangles/academic/sp-fetch-inbox.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'seq)
+(require 'bibtex)
+(require 'sp-reading)
+
+(defvar sp-literature-dir)
+(defvar sp-bibtex-files)
+(declare-function sp--fetch-academic-attach "sp-fetch-academic")
+(declare-function doi-utils-doi-to-bibtex-string "doi-utils")
+
+(defgroup sp-fetch-inbox nil
+  "File new articles from the inbox."
+  :group 'sp-academic)
+
+(defcustom sp-fetch-inbox-dir (expand-file-name "inbox" sp-literature-dir)
+  "Folder where downloaded articles wait."
+  :type 'directory :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-exclude "\\`mac-bibdesk/"
+  "Regexp; files of the inbox whose relative path matches are skipped."
+  :type 'regexp :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-devonthink t
+  "Non-nil to list and update records in DEVONthink (macOS only)."
+  :type 'boolean :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-devonthink-group "inbox"
+  "Name of the inbox group in `sp-reading-database'."
+  :type 'string :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-index-new t
+  "Non-nil to index in DEVONthink a file that had no record, after filing it."
+  :type 'boolean :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-pdf-function #'sp-fetch-inbox-show-pdf
+  "Function taking a PDF file and returning the buffer that shows it."
+  :type 'function :group 'sp-fetch-inbox)
+
+(defcustom sp-fetch-inbox-pdftotext "pdftotext"
+  "Program that writes the text of a PDF to standard output."
+  :type 'string :group 'sp-fetch-inbox)
+
+(defconst sp-fetch-inbox--placeholder-key "newkey"
+  "The key of an entry that has none yet.")
+
+(defvar sp-fetch-inbox--last-bibfile nil
+  "The .bib file chosen last time.")
+
+(defun sp-fetch-inbox--dt-p ()
+  "Non-nil when DEVONthink can be used."
+  (and sp-fetch-inbox-devonthink (eq system-type 'darwin) (executable-find "osascript")))
+
+(defun sp-fetch-inbox--list-script ()
+  "The JavaScript that lists UUID, name and path of the PDFs in the inbox group."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const group = app.getRecordAt(%s, {in: db});
+const out = [];
+if (group) {
+  for (const r of group.children()) {
+    const name = r.name(), path = r.path() || \"\", kind = String(r.kind() || \"\");
+    if (/pdf/i.test(kind) || /\\.pdf$/i.test(path) || /\\.pdf$/i.test(name))
+      out.push([r.uuid(), name, path].join(\"\\t\"));
+  }
+}
+out.join(\"\\n\");"
+          (json-encode-string sp-reading-database)
+          (json-encode-string (concat "/" sp-fetch-inbox-devonthink-group))))
+
+(defun sp-fetch-inbox--parse-records (text)
+  "Items from TEXT, lines of UUID, name and path separated by tabs."
+  (delq nil
+        (mapcar (lambda (line)
+                  (let ((parts (split-string line "\t")))
+                    (when (>= (length parts) 2)
+                      (list :uuid (nth 0 parts) :name (nth 1 parts)
+                            :file (let ((p (nth 2 parts))) (and p (not (string-empty-p p)) p))
+                            :imported (let ((p (nth 2 parts))) (or (null p) (string-empty-p p)))))))
+                (split-string text "\n" t))))
+
+(defun sp-fetch-inbox--folder-files ()
+  "The PDF files of `sp-fetch-inbox-dir', without the excluded ones."
+  (when (file-directory-p sp-fetch-inbox-dir)
+    (seq-filter
+     (lambda (f)
+       (not (and sp-fetch-inbox-exclude
+                 (string-match-p sp-fetch-inbox-exclude
+                                 (file-relative-name f sp-fetch-inbox-dir)))))
+     (directory-files-recursively sp-fetch-inbox-dir "\\.pdf\\'" nil nil))))
+
+(defun sp-fetch-inbox--merge (records files)
+  "Items from RECORDS and FILES; a file that a record points at is not repeated."
+  (let ((known (delq nil (mapcar (lambda (r) (and (plist-get r :file)
+                                                  (file-truename (plist-get r :file))))
+                                 records))))
+    (append records
+            (mapcar (lambda (f) (list :file f :name (file-name-nondirectory f)))
+                    (seq-remove (lambda (f) (member (file-truename f) known)) files)))))
+
+(defun sp-fetch-inbox-items ()
+  "All articles waiting in the inbox, from DEVONthink and the inbox folder."
+  (let ((records (when (sp-fetch-inbox--dt-p)
+                   (condition-case err
+                       (sp-fetch-inbox--parse-records
+                        (sp-reading--jxa (sp-fetch-inbox--list-script)))
+                     (error (message "sp-fetch-inbox: DEVONthink: %s" (error-message-string err))
+                            nil)))))
+    (sp-fetch-inbox--merge records (sp-fetch-inbox--folder-files))))
+
+(defun sp-fetch-inbox--select (items)
+  "Choose one of ITEMS; with a single item, that one."
+  (if (null (cdr items))
+      (car items)
+    (let* ((table (mapcar (lambda (i)
+                            (cons (format "%s%s" (plist-get i :name)
+                                          (if (plist-get i :uuid) "  [DEVONthink]" ""))
+                                  i))
+                          items))
+           (choice (completing-read "Article: " table nil t)))
+      (cdr (assoc choice table)))))
+
+(defun sp-fetch-inbox--pdf-text (file)
+  "The text of the first two pages of FILE, or an empty string without pdftotext."
+  (if (executable-find sp-fetch-inbox-pdftotext)
+      (with-temp-buffer
+        (call-process sp-fetch-inbox-pdftotext nil '(t nil) nil "-l" "2" (expand-file-name file) "-")
+        (buffer-string))
+    ""))
+
+(defun sp-fetch-inbox--find-doi (text)
+  "The first DOI in TEXT, or nil."
+  (when (string-match "10\\.[0-9]\\{4,9\\}/[^ \t\n\"<>{}]+" text)
+    (string-trim-right (match-string 0 text) "[.,;:)]+")))
+
+(defun sp-fetch-inbox--doi-bibtex (doi)
+  "The BibTeX string for DOI, or nil when the look-up fails."
+  (require 'doi-utils)
+  (condition-case err
+      (let ((s (doi-utils-doi-to-bibtex-string doi)))
+        (and (stringp s) (string-match-p "@" s) s))
+    (error (message "sp-fetch-inbox: DOI %s: %s" doi (error-message-string err)) nil)))
+
+(defun sp-fetch-inbox--skeleton (file)
+  "An empty article entry for FILE, with the file name as title guess."
+  (format "@article{%s,\n  author = {},\n  title = {%s},\n  journal = {},\n  year = {},\n}\n"
+          sp-fetch-inbox--placeholder-key
+          (replace-regexp-in-string "[-_]+" " " (file-name-base file))))
+
+(defun sp-fetch-inbox--entry-key ()
+  "The key of the entry in the current buffer, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "@[A-Za-z]+[ \t]*{[ \t]*\\([^, \t\n]*\\)" nil t)
+      (match-string-no-properties 1))))
+
+(defun sp-fetch-inbox--set-key (key)
+  "Make KEY the key of the entry in the current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "@[A-Za-z]+[ \t]*{[ \t]*\\([^, \t\n]*\\)" nil t)
+      (replace-match key t t nil 1))))
+
+(defun sp-fetch-inbox--key-taken-p (key)
+  "Non-nil when KEY is the key of an entry in one of `sp-bibtex-files'."
+  (let ((re (format "^[ \t]*@[A-Za-z]+[ \t]*{[ \t]*%s[ \t]*," (regexp-quote key))))
+    (seq-some (lambda (f)
+                (and (file-readable-p f)
+                     (with-temp-buffer
+                       (insert-file-contents f)
+                       (re-search-forward re nil t))))
+              (bound-and-true-p sp-bibtex-files))))
+
+(defun sp-fetch-inbox--unique-key (key taken-p)
+  "KEY, or KEY with a letter appended, the first for which TAKEN-P is nil."
+  (if (not (funcall taken-p key))
+      key
+    (or (seq-some (lambda (c) (let ((k (concat key (string c)))) (and (not (funcall taken-p k)) k)))
+                  (number-sequence ?a ?z))
+        (user-error "No free key based on %s" key))))
+
+(defun sp-fetch-inbox--make-key ()
+  "Generate the key of the entry in the current buffer with `bibtex-autokey'."
+  (save-excursion
+    (goto-char (point-min))
+    (bibtex-beginning-of-entry)
+    (let ((key (condition-case nil
+                   (let ((bibtex-autokey-edit-before-use nil))
+                     (bibtex-clean-entry t)
+                     (sp-fetch-inbox--entry-key))
+                 (error nil))))
+      (when (or (null key) (string-empty-p key))
+        (user-error "Fill in author, year and title first"))
+      (sp-fetch-inbox--set-key
+       (sp-fetch-inbox--unique-key key #'sp-fetch-inbox--key-taken-p)))))
+
+(defvar-local sp-fetch-inbox--item nil "The item being filed.")
+(defvar-local sp-fetch-inbox--bibfile nil "The .bib file the entry goes to.")
+(defvar-local sp-fetch-inbox--pdf-buffer nil "The buffer showing the PDF.")
+(defvar-local sp-fetch-inbox--config nil "The window configuration before the layout.")
+
+(defvar-keymap sp-fetch-inbox-edit-mode-map
+  :doc "Keys of `sp-fetch-inbox-edit-mode'."
+  "C-c C-c" #'sp-fetch-inbox-confirm
+  "C-c C-k" #'sp-fetch-inbox-abort
+  "C-c C-r" #'sp-fetch-inbox-regenerate-key
+  "C-c C-d" #'sp-fetch-inbox-fetch-doi)
+
+(define-derived-mode sp-fetch-inbox-edit-mode bibtex-mode "Inbox-BibTeX"
+  "BibTeX entry of an article of the inbox, beside its PDF.")
+
+(defun sp-fetch-inbox--check-buffer ()
+  "Signal a `user-error' unless the current buffer is an inbox edit buffer."
+  (unless (and (derived-mode-p 'sp-fetch-inbox-edit-mode) sp-fetch-inbox--item)
+    (user-error "Not an inbox BibTeX buffer")))
+
+(defun sp-fetch-inbox--set-header (note)
+  "Show NOTE and the keys in the header line."
+  (setq header-line-format
+        (replace-regexp-in-string
+         "%" "%%"
+         (format " %s  |  C-c C-c file it  C-c C-k abort  C-c C-r new key  C-c C-d DOI" note))))
+
+(defun sp-fetch-inbox--insert-entry (string)
+  "Replace the buffer with the entry STRING, cleaned and keyed."
+  (erase-buffer)
+  (insert string)
+  (goto-char (point-min))
+  (when (and (not (equal (sp-fetch-inbox--entry-key) sp-fetch-inbox--placeholder-key)))
+    (condition-case nil (sp-fetch-inbox--make-key)
+      (user-error (sp-fetch-inbox--set-key sp-fetch-inbox--placeholder-key))))
+  (goto-char (point-min)))
+
+(defun sp-fetch-inbox-fetch-doi (doi)
+  "Replace the entry with the one for DOI."
+  (interactive (list (read-string "DOI: ")))
+  (sp-fetch-inbox--check-buffer)
+  (let ((bib (sp-fetch-inbox--doi-bibtex (string-trim doi))))
+    (unless bib (user-error "No entry found for %s" doi))
+    (sp-fetch-inbox--insert-entry bib)
+    (sp-fetch-inbox--set-header (format "DOI %s" doi))))
+
+(defun sp-fetch-inbox-regenerate-key ()
+  "Make the key again from the author, year and title in the buffer."
+  (interactive)
+  (sp-fetch-inbox--check-buffer)
+  (sp-fetch-inbox--make-key)
+  (message "Key: %s" (sp-fetch-inbox--entry-key)))
+
+(defun sp-fetch-inbox-show-pdf (file)
+  "Return the buffer showing FILE: with `sp-pdf-open' when defined, else `find-file'."
+  (if (fboundp 'sp-pdf-open)
+      (save-window-excursion (funcall 'sp-pdf-open file) (current-buffer))
+    (find-file-noselect file)))
+
+(defun sp-fetch-inbox--layout (pdf-buffer edit-buffer)
+  "Show PDF-BUFFER on the left and EDIT-BUFFER on the right; select the latter."
+  (delete-other-windows)
+  (switch-to-buffer pdf-buffer)
+  (let ((right (split-window-right)))
+    (set-window-buffer right edit-buffer)
+    (select-window right)))
+
+(defun sp-fetch-inbox--read-bibfile ()
+  "Ask which .bib file the entry goes to."
+  (let ((files (bound-and-true-p sp-bibtex-files)))
+    (cond ((null files) (user-error "No BibTeX file(s) defined"))
+          ((null (cdr files)) (car files))
+          (t (let ((choice (completing-read
+                            "BibTeX file: "
+                            (mapcar #'abbreviate-file-name files) nil t nil nil
+                            (and sp-fetch-inbox--last-bibfile
+                                 (abbreviate-file-name sp-fetch-inbox--last-bibfile)))))
+               (setq sp-fetch-inbox--last-bibfile (expand-file-name choice)))))))
+
+(defun sp-fetch-inbox--export-script (uuid dir)
+  "The JavaScript that exports the record UUID into DIR and returns the file path."
+  (format "const app = Application(\"DEVONthink\");
+const r = app.getRecordWithUuid(%s);
+app.exportRecord(r, {to: %s});
+r.name();"
+          (json-encode-string uuid) (json-encode-string dir)))
+
+(defun sp-fetch-inbox--ensure-file (item)
+  "ITEM with a :file; an imported record is exported to a temporary folder."
+  (if (plist-get item :file)
+      item
+    (let* ((dir (make-temp-file "sp-fetch-inbox" t))
+           (name (sp-reading--jxa (sp-fetch-inbox--export-script (plist-get item :uuid) dir)))
+           (file (or (car (directory-files dir t "\\.pdf\\'"))
+                     (expand-file-name name dir))))
+      (unless (file-exists-p file) (user-error "Could not export %s" (plist-get item :name)))
+      (plist-put (copy-sequence item) :file file))))
+
+(defun sp-fetch-inbox--start (item)
+  "Set up the side-by-side view for ITEM."
+  (let* ((item (sp-fetch-inbox--ensure-file item))
+         (file (plist-get item :file))
+         (bibfile (sp-fetch-inbox--read-bibfile))
+         (config (current-window-configuration))
+         (doi (sp-fetch-inbox--find-doi
+               (concat (file-name-base file) "\n" (sp-fetch-inbox--pdf-text file))))
+         (bib (and doi (sp-fetch-inbox--doi-bibtex doi)))
+         (pdf (funcall sp-fetch-inbox-pdf-function file))
+         (edit (generate-new-buffer (format "*inbox: %s*" (file-name-nondirectory file)))))
+    (with-current-buffer edit
+      (sp-fetch-inbox-edit-mode)
+      (setq sp-fetch-inbox--item item
+            sp-fetch-inbox--bibfile bibfile
+            sp-fetch-inbox--pdf-buffer pdf
+            sp-fetch-inbox--config config)
+      (sp-fetch-inbox--insert-entry (or bib (sp-fetch-inbox--skeleton file)))
+      (sp-fetch-inbox--set-header
+       (cond (bib (format "DOI %s" doi))
+             (doi (format "DOI %s found, no entry" doi))
+             (t "no DOI found: fill the entry from the PDF"))))
+    (sp-fetch-inbox--layout pdf edit)
+    edit))
+
+;;;###autoload
+(defun sp-fetch-inbox ()
+  "Pick an article of the inbox and open its PDF beside an editable BibTeX entry."
+  (interactive)
+  (let ((items (sp-fetch-inbox-items)))
+    (unless items (user-error "The inbox is empty"))
+    (sp-fetch-inbox--start (sp-fetch-inbox--select items))))
+
+;;;###autoload
+(defun sp-fetch-inbox-record (candidate)
+  "File the DEVONthink record CANDIDATE (an Embark action of `sp-devonthink-browse')."
+  (interactive (list (sp-devonthink-browse--read)))
+  (let* ((record (sp-devonthink-browse--record candidate))
+         (uuid (plist-get record :uuid))
+         (item (or (seq-find (lambda (i) (equal (plist-get i :uuid) uuid))
+                             (sp-fetch-inbox--parse-records
+                              (sp-reading--jxa (sp-fetch-inbox--uuid-script uuid))))
+                   (user-error "No such record"))))
+    (sp-fetch-inbox--start item)))
+
+(defun sp-fetch-inbox--uuid-script (uuid)
+  "The JavaScript that returns UUID, name and path of the record UUID."
+  (format "const app = Application(\"DEVONthink\");
+const r = app.getRecordWithUuid(%s);
+[r.uuid(), r.name(), r.path() || \"\"].join(\"\\t\");"
+          (json-encode-string uuid)))
+
+(defun sp-fetch-inbox--file-script (uuid key group)
+  "The JavaScript that renames the record UUID to KEY.pdf, moves it into GROUP, returns its path.
+GROUP nil means the root of `sp-reading-database'."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const r = app.getRecordWithUuid(%s);
+r.name = %s;
+const dest = %s;
+app.move({record: r, to: dest});
+r.path();"
+          (json-encode-string sp-reading-database)
+          (json-encode-string uuid)
+          (json-encode-string (concat key ".pdf"))
+          (if group
+              (format "app.getRecordAt(%s, {in: db})" (json-encode-string (concat "/" group)))
+            "db.root()")))
+
+(defun sp-fetch-inbox--trash-script (uuid)
+  "The JavaScript that moves the record UUID to the trash."
+  (format "const app = Application(\"DEVONthink\");
+app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string uuid)))
+
+(defun sp-fetch-inbox--same-file-p (a b)
+  "Non-nil when A and B are the same existing file."
+  (and a b (file-exists-p a) (file-exists-p b)
+       (equal (file-truename a) (file-truename b))))
+
+(defun sp-fetch-inbox--file-pdf (item key dest)
+  "Move the PDF of ITEM to DEST as KEY.pdf and update DEVONthink.  Return DEST."
+  (let ((uuid (plist-get item :uuid))
+        (file (plist-get item :file))
+        (dt (sp-fetch-inbox--dt-p)))
+    (make-directory (file-name-directory dest) t)
+    (cond
+     ((and uuid dt (not (plist-get item :imported)))
+      (let ((path (string-trim
+                   (sp-reading--jxa
+                    (sp-fetch-inbox--file-script uuid key sp-reading-index-group)))))
+        (unless (sp-fetch-inbox--same-file-p path dest)
+          (error "DEVONthink did not move the file to %s (it reports %s); the record is now named %s.pdf"
+                 dest path key))
+        (when sp-reading-index (puthash key uuid sp-reading-index))))
+     (t
+      (rename-file file dest)
+      (when (and dt (or uuid sp-fetch-inbox-index-new))
+        (sp-reading-index-file key dest)
+        (when (and uuid (y-or-n-p (format "Move the imported record %s to the DEVONthink trash? "
+                                          (plist-get item :name))))
+          (sp-reading--jxa (sp-fetch-inbox--trash-script uuid))))))
+    dest))
+
+(defun sp-fetch-inbox--append (bibfile text)
+  "Append the entry TEXT to BIBFILE and save it."
+  (with-current-buffer (find-file-noselect bibfile)
+    (save-excursion
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (insert "\n" (string-trim text) "\n")
+      (save-buffer))))
+
+(defun sp-fetch-inbox--finish (edit)
+  "Restore the windows and kill the edit buffer EDIT."
+  (let ((config (buffer-local-value 'sp-fetch-inbox--config edit)))
+    (kill-buffer edit)
+    (when (window-configuration-p config) (set-window-configuration config))))
+
+(defun sp-fetch-inbox-confirm ()
+  "File the PDF as KEY.pdf, update DEVONthink and append the entry to the .bib file."
+  (interactive)
+  (sp-fetch-inbox--check-buffer)
+  (let* ((edit (current-buffer))
+         (item sp-fetch-inbox--item)
+         (bibfile sp-fetch-inbox--bibfile)
+         (pdf sp-fetch-inbox--pdf-buffer)
+         (key (sp-fetch-inbox--entry-key)))
+    (when (or (null key) (string-empty-p key) (equal key sp-fetch-inbox--placeholder-key))
+      (user-error "Give the entry a key first (C-c C-r makes one from author, year and title)"))
+    (when (sp-fetch-inbox--key-taken-p key)
+      (user-error "The key %s is already in a .bib file; change it or press C-c C-r" key))
+    (let ((dest (expand-file-name (concat key ".pdf") sp-literature-dir)))
+      (when (file-exists-p dest) (user-error "%s already exists" dest))
+      (unless (y-or-n-p (format "Move %s to %s, update DEVONthink, add %s to %s? "
+                                (plist-get item :name) (abbreviate-file-name dest) key
+                                (file-name-nondirectory bibfile)))
+        (user-error "Nothing changed"))
+      (when (buffer-live-p pdf) (kill-buffer pdf))
+      (sp-fetch-inbox--file-pdf item key dest)
+      (unless (fboundp 'sp--fetch-academic-attach) (require 'sp-fetch-academic))
+      (goto-char (point-min))
+      (sp--fetch-academic-attach dest)
+      (sp-fetch-inbox--append bibfile (buffer-string))
+      (sp-fetch-inbox--finish edit)
+      (message "Filed %s in %s" key (abbreviate-file-name dest))
+      (when (and (sp-fetch-inbox-items) (y-or-n-p "Next article? "))
+        (sp-fetch-inbox)))))
+
+(defun sp-fetch-inbox-abort ()
+  "Forget this article for now; nothing is changed."
+  (interactive)
+  (sp-fetch-inbox--check-buffer)
+  (let ((pdf sp-fetch-inbox--pdf-buffer)
+        (edit (current-buffer)))
+    (when (and (buffer-live-p pdf) (not (buffer-modified-p pdf))) (kill-buffer pdf))
+    (sp-fetch-inbox--finish edit)
+    (message "Left in the inbox")))
+
+(global-set-key (kbd "C-c w b a") #'sp-fetch-inbox)
+
+(with-eval-after-load 'sp-devonthink-browse
+  (keymap-set sp-devonthink-record-map "f" #'sp-fetch-inbox-record))
+
+(declare-function sp-devonthink-browse--read "sp-devonthink-browse")
+(declare-function sp-devonthink-browse--record "sp-devonthink-browse")
+
+(provide 'sp-fetch-inbox)
+;;; sp-fetch-inbox.el ends here

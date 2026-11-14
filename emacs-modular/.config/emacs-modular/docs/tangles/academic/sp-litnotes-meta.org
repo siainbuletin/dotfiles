@@ -2718,7 +2718,7 @@ file to `fixed' or the error text."
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
-  (when (and sp-litnotes-meta-auto (stringp key))
+  (when (and sp-litnotes-meta-auto (stringp key) (sp-litnotes-meta--entry key))
     (condition-case err
         (sp-litnotes-meta-fill key)
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
