@@ -30,7 +30,7 @@ Literate source for =libraries/modules/academic/sp-fetch-inbox.el=.
 | 5 | you correct the entry while scrolling the PDF; =C-c C-c= files it |
 | 6 | after a yes/no question, the PDF is moved to =~/Documents/literature/KEY.pdf=, DEVONthink is updated, the entry is appended to the =.bib= and saved |
 
-- No DOI in the PDF: the buffer holds an empty =@article= with the file name as title guess, and the header line says so.
+- No DOI in the PDF: the buffer holds an empty =@article= with the file name as title guess, and the echo-area hint says so.
 - A DOI you find yourself while reading: =C-c C-d= in the BibTeX buffer fetches it and replaces the entry.
 - The key comes from the =bibtex-autokey= scheme of =sp-bibprocess=; a key already in any registered =.bib= gets a letter (=a=, =b=, ...).
 - Nothing on disk or in DEVONthink changes before the question in step 6.
@@ -44,6 +44,7 @@ Keys in the BibTeX buffer:
 | =C-c C-r= | =sp-fetch-inbox-regenerate-key= | new key from the author, year and title now in the buffer |
 | =C-c C-d= | =sp-fetch-inbox-fetch-doi=      | fetch the entry of a DOI you type                    |
 
+- The keys are listed as hints in the echo area while the BibTeX buffer is current (no header line).
 - =C-M-v= in the BibTeX buffer scrolls the PDF on the left.
 - Global key: =C-c w b a= runs =sp-fetch-inbox=.
 - Embark: on a DEVONthink record (=sp-devonthink-browse=), =f= files that record.
@@ -104,6 +105,7 @@ Keys in the BibTeX buffer:
 (require 'seq)
 (require 'bibtex)
 (require 'sp-reading)
+(require 'sp-interaction)
 
 (defvar sp-literature-dir)
 (defvar sp-bibtex-files)
@@ -343,12 +345,26 @@ out.join(\"\\n\");"
   (unless (and (derived-mode-p 'sp-fetch-inbox-edit-mode) sp-fetch-inbox--item)
     (user-error "Not an inbox BibTeX buffer")))
 
-(defun sp-fetch-inbox--set-header (note)
-  "Show NOTE and the keys in the header line."
-  (setq header-line-format
-        (replace-regexp-in-string
-         "%" "%%"
-         (format " %s  |  C-c C-c file it  C-c C-k abort  C-c C-r new key  C-c C-d DOI" note))))
+#+end_src
+
+** Key hints in the echo area
+
+- The keys of the BibTeX buffer are shown as hints in the echo area, in the style of nano-emacs, not as a header line (which did not wrap).
+- =sp-fetch-inbox--hints= lists them as =(KEY DESCRIPTION [STRONG])=; filing and aborting are emphasised.
+- =sp-echo-help-set= (from [[file:../base/sp-interaction.org][sp-interaction]]) shows them and keeps them there while the buffer is current.
+- The NOTE (DOI found, no DOI, ...) is a line above the grid of hints.
+
+#+begin_src emacs-lisp -i
+(defconst sp-fetch-inbox--hints
+  '(("C-c C-c" "File it" t)
+    ("C-c C-k" "Abort" t)
+    ("C-c C-r" "New key")
+    ("C-c C-d" "Fetch DOI"))
+  "The key hints of the BibTeX buffer, see `sp-echo-help-set'.")
+
+(defun sp-fetch-inbox--set-hints (note)
+  "Show NOTE and the keys as hints in the echo area."
+  (sp-echo-help-set sp-fetch-inbox--hints note))
 
 (defun sp-fetch-inbox--insert-entry (string)
   "Replace the buffer with the entry STRING, cleaned and keyed."
@@ -367,7 +383,7 @@ out.join(\"\\n\");"
   (let ((bib (sp-fetch-inbox--doi-bibtex (string-trim doi))))
     (unless bib (user-error "No entry found for %s" doi))
     (sp-fetch-inbox--insert-entry bib)
-    (sp-fetch-inbox--set-header (format "DOI %s" doi))))
+    (sp-fetch-inbox--set-hints (format "DOI %s" doi))))
 
 (defun sp-fetch-inbox-regenerate-key ()
   "Make the key again from the author, year and title in the buffer."
@@ -449,7 +465,7 @@ r.name();"
             sp-fetch-inbox--pdf-buffer pdf
             sp-fetch-inbox--config config)
       (sp-fetch-inbox--insert-entry (or bib (sp-fetch-inbox--skeleton file)))
-      (sp-fetch-inbox--set-header
+      (sp-fetch-inbox--set-hints
        (cond (bib (format "DOI %s" doi))
              (doi (format "DOI %s found, no entry" doi))
              (t "no DOI found: fill the entry from the PDF"))))

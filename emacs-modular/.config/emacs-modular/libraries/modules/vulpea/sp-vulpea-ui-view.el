@@ -55,6 +55,17 @@ Emacs uses it as the window title, so a tiling window manager can match it."
   :type 'boolean
   :group 'sp-vulpea-ui-view)
 
+(defcustom sp-vulpea-ui-view-wrap-lines t
+  "Non-nil means long lines in the view wrap at the window edge."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-indent t
+  "Non-nil means a wrapped line is indented like its beginning.
+This needs `visual-wrap-prefix-mode' (Emacs 30 or later)."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
 (defvar sp-vulpea-ui-view--note nil
   "The vulpea note the view shows, or nil before there was one.")
 
@@ -73,10 +84,26 @@ Emacs uses it as the window title, so a tiling window manager can match it."
 (defvar sp-vulpea-ui-view--rendering nil
   "Non-nil while the view renders.")
 
+(declare-function visual-wrap-prefix-mode "visual-wrap")
+
+(defun sp-vulpea-ui-view--apply-wrap ()
+  "Set the line wrapping of the current buffer from the wrap options."
+  (if sp-vulpea-ui-view-wrap-lines
+      (progn
+        (setq-local truncate-lines nil)
+        (visual-line-mode 1)
+        (when (and sp-vulpea-ui-view-wrap-indent
+                   (fboundp 'visual-wrap-prefix-mode))
+          (visual-wrap-prefix-mode 1)))
+    (visual-line-mode -1)
+    (when (fboundp 'visual-wrap-prefix-mode)
+      (visual-wrap-prefix-mode -1))))
+
 (define-derived-mode sp-vulpea-ui-view-mode vulpea-ui-sidebar-mode "vulpea-ui-view"
   "Major mode of the vulpea-ui view buffer.
 \\{sp-vulpea-ui-view-mode-map}"
   :group 'sp-vulpea-ui-view
+  (sp-vulpea-ui-view--apply-wrap)
   (add-hook 'kill-buffer-hook #'sp-vulpea-ui-view--teardown nil t))
 
 (define-key sp-vulpea-ui-view-mode-map (kbd "q") #'sp-vulpea-ui-view-close)
@@ -138,11 +165,13 @@ KIND is `note', `soft' or `hard'."
                      (buffer-live-p (vui-instance-buffer instance)))
                 (pcase kind
                   ('hard (cl-incf vulpea-ui--refresh-generation)
-                         (vui-update instance (list :note note)))
+                         (vui-update instance (list :note note))
+                         (sp-vulpea-ui-view--apply-wrap))
                   (_ (vui-update-props instance (list :note note))))
               (setq sp-vulpea-ui-view--instance
                     (vui-mount (vui-component 'vulpea-ui-sidebar-root :note note)
-                               (buffer-name)))))
+                               (buffer-name)))
+              (sp-vulpea-ui-view--apply-wrap)))
           (when (eq kind 'note)
             (goto-char (point-min))))))))
 

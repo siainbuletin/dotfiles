@@ -169,5 +169,14 @@
         (sp-fetch-inbox--sync-metadata "k1" "x"))
       (should (string-match-p "not copied: boom" (car msgs))))))
 
+(ert-deftest sp-fetch-inbox-hints-in-echo-area-not-header ()
+  (with-temp-buffer
+    (sp-fetch-inbox-edit-mode)
+    (sp-fetch-inbox--set-hints "no DOI found")
+    (should-not header-line-format)
+    (should (equal sp-echo-help--hints sp-fetch-inbox--hints))
+    (should (equal sp-echo-help--note "no DOI found"))
+    (should sp-echo-help-mode)))
+
 (provide 'sp-fetch-inbox-test)
 ;;; sp-fetch-inbox-test.el ends here
