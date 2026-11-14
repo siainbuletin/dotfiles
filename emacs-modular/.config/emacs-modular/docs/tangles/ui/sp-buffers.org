@@ -93,10 +93,35 @@ The Main groups are activated by =sp-buffers-activate-filter-groups= on =ibuffer
 Org files are listed by their =#+title= instead of the file name.
 - It is a display-only column, =sp-name=; buffers are not renamed.
 - So =switch-to-buffer=, Uniquify, Popper and the =name= filters still see the real buffer name.
-- Why not rename: the title changes while you type, the file name carries meaning, and two notes can share a title.
+- Why not rename: see "Why the buffers are not renamed" below.
 - Both format lists use =sp-name= where they used =name=.
 - The column copies the built-in =name= column (mouse map, help text, summary, face); only the text differs.
 - Sorting is unchanged: the sorters still compare the real buffer names, and the Org filter group still matches by mode.
+
+Why the buffers are not renamed to the title:
+- Rejected idea: =rename-buffer= each Org buffer to its =#+title= (what the Name column shows now).
+- Reasons that hold in this config:
+  - The title is not stable.
+    - It changes whenever you edit the =#+title= line.
+    - Every buffer would have to be renamed on each such edit (a hook), and the name you typed into =C-x b= a minute ago stops matching.
+  - Titles are not unique.
+    - Two notes can share a title, and the buffer name must be unique.
+    - A second buffer with the same name gets =<2>= appended, so which note is which would depend on open order.
+    - Today =uniquify= tells same-named files apart by directory; a title name would bypass that.
+  - Code that finds a buffer by its name would break or return a different buffer.
+    - =sp-org-tree-to-indirect-buffer= (=sp-org-base=) builds the indirect buffer name as =heading::(buffer-name)= and reuses it with =get-buffer=.
+    - The tabspaces =consult-buffer= source (=sp-tabs=) lists buffers with =:as #'buffer-name=, and filters them per tab.
+  - The file name carries meaning.
+    - It is the cue in =C-x b=, the mode line and =find-file= completion; a title can hide which file you are in (two files, or a renamed file, can show the same title).
+    - Title and file name are two different things, so the list should show both: the Name column the title, the Filename column the path.
+  - Notes with no title would have to be treated as a special case; the display column falls back to the buffer name with no extra code path.
+- Reasons that are plausible but not checked here (not verified in this config; treat as uncertain):
+  - =find-file= on a file that is already open finds the buffer through =buffer-file-name=, not its name, so a renamed buffer should still be found. Not tested with Vulpea (=vulpea-visit=) or org-roam style jumps.
+  - Session restore: tabspaces saves and restores sessions (=sp-tabs=). Whether it stores buffer names or file names was not checked; if it stores names, a renamed buffer would not match after the title changes.
+  - Package behaviour that depends on =buffer-name=, for example Popper's reference list (matches by name or mode), was not traced for Org buffers.
+- Cost of the choice:
+  - The title shows only in ibuffer; =C-x b= and the mode line still show the file name.
+  - If the title is wanted in =C-x b= later, add a completion annotation or a separate display column there; do not rename buffers.
 
 Variables and functions:
 - =sp-buffers-org-title-in-ibuffer=: option, non-nil by default; set it to nil to list buffer names again.
