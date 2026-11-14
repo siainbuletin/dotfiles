@@ -544,7 +544,7 @@ an inline branching lambda from the prior implementation."
 
 (use-package which-key
     :ensure nil
-    
+
     :config
     (which-key-mode 1)
 

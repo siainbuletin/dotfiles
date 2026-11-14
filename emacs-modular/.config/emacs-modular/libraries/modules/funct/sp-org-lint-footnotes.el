@@ -17,9 +17,16 @@
 (require 'org-element)
 (require 'subr-x)
 (require 'sp-batch-report)
-(require 'sp-globals nil t)
+
+;; The worker sets this: it needs no settings of the config, and `sp-globals'
+;; cannot load without early-init.el.
+(defvar sp-org-lint-fn--worker nil
+  "Non-nil in the headless worker Emacs.")
+(unless sp-org-lint-fn--worker
+  (require 'sp-globals nil t))
 
 (defvar sp-notes-dir)
+(defvar sp-var-dir)
 
 ;;;; Sectional footnotes
 
@@ -54,7 +61,8 @@ it.  The default skips hidden folders and the usual attachment ones."
   :group 'spcustom)
 
 (defcustom sp-org-lint-fn-backup-directory
-  (expand-file-name "org-lint-backups/" sp-var-dir)
+  (expand-file-name "org-lint-backups/"
+                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
   "Folder that receives a copy of every file before it is changed.
 It is below `sp-var-dir', which Git ignores."
   :type 'directory
@@ -819,6 +827,30 @@ The hints in the echo area follow the phase of the run."
                           "")))))))
       (when (buffer-live-p err) (kill-buffer err)))))
 
+;; The worker is a bare emacs -Q, so it must be told where the modules are.
+;; This is the same recursive load path init.el builds, because the library
+;; requires shared modules from other folders (sp-batch-report needs
+;; sp-interaction from base/).
+
+(defun sp-org-lint-fn--worker-load-dirs ()
+  "Folders the worker Emacs needs on its `load-path'.
+The folder of this library, its parent and the parent's sub-folders."
+  (let* ((here (file-name-directory sp-org-lint--library))
+         (root (file-name-directory (directory-file-name here))))
+    (delete-dups
+     (append (list here root)
+             (seq-filter #'file-directory-p
+                         (directory-files root t directory-files-no-dot-files-regexp))))))
+
+(defun sp-org-lint-fn--worker-command (control-file)
+  "The command line of the worker Emacs for CONTROL-FILE."
+  (append (list (expand-file-name invocation-name invocation-directory)
+                "-Q" "--batch")
+          (mapcan (lambda (dir) (list "-L" dir)) (sp-org-lint-fn--worker-load-dirs))
+          (list "--eval" "(defvar sp-org-lint-fn--worker t)"
+                "-l" sp-org-lint--library
+                "--eval" (format "(sp-org-lint-fn--batch %S)" control-file))))
+
 (defun sp-org-lint-fn--start (phase files extra)
   "Start the worker for PHASE (`scan' or `apply') on FILES in this buffer.
 EXTRA is a plist merged into the control file."
@@ -837,13 +869,7 @@ EXTRA is a plist merged into the control file."
     (setq proc (make-process
                 :name "sp-org-lint-footnotes"
                 :buffer nil
-                :command (list (expand-file-name invocation-name
-                                                 invocation-directory)
-                               "-Q" "--batch"
-                               "-L" (file-name-directory sp-org-lint--library)
-                               "-l" sp-org-lint--library
-                               "--eval"
-                               (format "(sp-org-lint-fn--batch %S)" ctl))
+                :command (sp-org-lint-fn--worker-command ctl)
                 :connection-type 'pipe
                 :coding 'utf-8-unix
                 :noquery t
