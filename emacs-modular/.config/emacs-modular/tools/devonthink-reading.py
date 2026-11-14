@@ -8,7 +8,7 @@
 Both actions are dry runs unless --apply is given.  Settings: options, then
 ~/.config/devonthink-reading/config.json, then the defaults below.
 
-Tangled from docs/tangles/academic/devonthink-reading.org; edit that file.
+Tangled from docs/tangles/devonthink/devonthink-reading.org; edit that file.
 """
 
 import argparse

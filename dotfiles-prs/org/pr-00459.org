@@ -1,0 +1,92 @@
+* PR #459: ✨ Show the keys of the report and lint buffers as echo-area hints
+:PROPERTIES:
+:PR_NUMBER: 459
+:URL: https://github.com/siainbuletin/dotfiles/pull/459
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/459][https://github.com/siainbuletin/dotfiles/pull/459]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 11:15
+- Merged :: 2026-11-14 11:32
+- Branch :: =459-echo-help-linting-uis= → =457-echo-area-help-hints=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/43c4e0dc9de0719db82dd1d393379dc427c80185][43c4e0dc9d]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25PFxuq2GjykReQ26LTWPmi][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: 2 of 2, merge after #457.
+- Depends on: #457 (=sp-echo-help-set=, =sp-echo-help-format= in =sp-interaction=). This PR is stacked on its branch =457-echo-area-help-hints=, so the diff shows only this PR's changes.
+- If merged first (into #457's branch): fine. If its base were =main= before #457: load error, =sp-echo-help-set= undefined in the report buffers.
+- Conflicts with: nothing else open (#455, #456 do not touch these modules); =sp-litnotes-meta.el= may touch near #455/#443 but not the same hunks.
+- After merging #457: GitHub retargets this PR to =main=; if it does not, change the base to =main= by hand. Do not rename or delete =457-echo-area-help-hints= before that.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* the linting and batch-processing interfaces (and every other buffer that lists its keys) show them as echo-area hints like =nano-help.el=, reusing the helper of #457, so all help keys look the same.
+- *Converted* (all use =sp-echo-help-set=, list of =(KEY DESCRIPTION [STRONG])=):
+  - =sp-batch-report-mode=: shared by every batch command (litnote titles/refs/meta, author notes, tag lint, normalise, BibTeX lint, property conversion). The hints follow what the report can do (=d=/=u=, =A=, =g= only when it has the function); =A Apply= and =q Quit= are bold. =sp-batch-report-open= sets them again once the functions are set.
+  - Footnote lint: the header line keeps only the progress; the keys follow the phase of the run (=sp-org-lint-fn--render= sets them). The obsolete old view gets them too.
+  - Litnote status table: counts stay in the header line; the keys are hints.
+  - Author notes report (old view): the key line at the bottom is gone.
+  - Author works from BibTeX report: the key line under the title is gone.
+  - Tag lint report (old view): the key line at the bottom is gone.
+  - Backlink check (=sp-vulpea-backlink-check=): the key line under the title is gone.
+  - Relationship graph view (=sp-graphs=): the title line keeps the depth; the keys are hints.
+- Docs are bullet lists (=sp-batch-report.org=, =sp-org-lint.org=, =sp-org-tag-lint.org=, =sp-litnotes-meta.org=, =sp-vulpea.org=, =sp-graphs.org=); =.el= files re-tangled from them. =when-let*= only; no CHANGELOG edit.
+- *Tested* (Emacs 29.3 batch): 18 =sp-batch-report= tests pass (1 new), =sp-echo-help= 4 and =sp-fetch-inbox= 15 still pass; syntax check of all touched modules.
+- *Untested by Claude:* everything outside the batch report (footnote lint, litnote status table, author notes, tag lint, backlink check, graph view): their tests or modules need your real vulpea/=sp-globals= environment. Also the look in the real GUI with your theme, and how the grid fits a narrow frame (the batch report has up to 8 hints).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Needs #457 checked out first (this branch includes it).
+
+- [ ] =cd ~/dotfiles; git fetch origin 459-echo-help-linting-uis; git checkout 459-echo-help-linting-uis=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -L libraries/modules/base -L libraries/modules/academic -L libraries/modules/ui -L libraries/modules/vulpea -l tests/sp-batch-report-test.el -f ert-run-tests-batch-and-exit= → 18 pass (more =-L= if Emacs asks)
+- [ ] =M-x sp-litnotes-titles-dryrun=: no keys in the header line; the echo area shows the grid of hints with =Apply= and =Quit= bold (untested by Claude)
+- [ ] In that report press =d= on an entry: the "dropped" message is not overwritten; the hints return after the next command
+- [ ] A report with no apply function (for example a preview-only one): no =Apply= hint
+- [ ] =M-x sp-org-lint-footnotes-dryrun=: while scanning the header shows progress and the echo area only =[q] Quit=; when done the full hints appear (untested by Claude)
+- [ ] After =a= apply in the footnote lint: header says "applied", hints change to =Visit / Rescan / Quit=
+- [ ] =M-x sp-litnotes-meta-status-report=: counts in the header, hints in the echo area (untested by Claude)
+- [ ] =M-x sp-author-notes-bibtex= (or its report command): no key line in the buffer, hints in the echo area (untested by Claude)
+- [ ] =M-x sp-org-tag-lint= with =sp-batch-report-interface= set to =old=: no footer line, hints show =Register tag at point= (untested by Claude)
+- [ ] The backlink check of a note (=sp-vulpea-backlink-check=): title only, hints =Visit / Move / Refresh / Quit= (untested by Claude)
+- [ ] The relationship graph view: title with depth, hints =Expand / Visit / Re-scope / Rebuild=; =TAB=, =c=, =g= still work (untested by Claude)
+- [ ] Narrow the frame: the hints wrap or shrink, nothing runs off the window
+- [ ] Switch to another buffer: no stray hints there; =*Messages*= has no hint lines
+- [ ] Regression: =RET=, =n=, =p=, =d=, =u=, =A=, =g=, =q= still work in a report
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to the previous branch of the stack (=457-echo-area-help-hints=) if you only test part of it, otherwise to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D 459-echo-help-linting-uis=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- The dry runs only read the vault; no vault restore is needed.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNiA3876SADjpTLYKDZ5][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiA3876SADjpTLYKDZ5]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/a47a438750c46ab1be04bfb7c9b1cc3e4d319bf5][a47a438750]] ✨ Show the keys of the report and lint buffers as echo-area hints (Claude, 2026-11-14 11:14)
+- [[https://github.com/siainbuletin/dotfiles/commit/cb04b22ca66afe66c882f794696da3caf4e9e942][cb04b22ca6]] ✨ Use echo-area hints in the author notes, tag lint, backlink and graph views (Claude, 2026-11-14 11:19)

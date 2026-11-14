@@ -1,0 +1,1002 @@
+{
+    "_links": {
+        "comments": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/issues/419/comments"
+        },
+        "commits": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419/commits"
+        },
+        "html": {
+            "href": "https://github.com/siainbuletin/dotfiles/pull/419"
+        },
+        "issue": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/issues/419"
+        },
+        "review_comment": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/comments{/number}"
+        },
+        "review_comments": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419/comments"
+        },
+        "self": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419"
+        },
+        "statuses": {
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71"
+        }
+    },
+    "active_lock_reason": null,
+    "additions": 314,
+    "assignee": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    },
+    "assignees": [
+        {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    ],
+    "author_association": "OWNER",
+    "auto_merge": null,
+    "base": {
+        "label": "siainbuletin:418-devonthink-search",
+        "ref": "418-devonthink-search",
+        "repo": {
+            "allow_forking": true,
+            "archive_url": "https://api.github.com/repos/siainbuletin/dotfiles/{archive_format}{/ref}",
+            "archived": false,
+            "assignees_url": "https://api.github.com/repos/siainbuletin/dotfiles/assignees{/user}",
+            "blobs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/blobs{/sha}",
+            "branches_url": "https://api.github.com/repos/siainbuletin/dotfiles/branches{/branch}",
+            "clone_url": "https://github.com/siainbuletin/dotfiles.git",
+            "collaborators_url": "https://api.github.com/repos/siainbuletin/dotfiles/collaborators{/collaborator}",
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/comments{/number}",
+            "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits{/sha}",
+            "compare_url": "https://api.github.com/repos/siainbuletin/dotfiles/compare/{base}...{head}",
+            "contents_url": "https://api.github.com/repos/siainbuletin/dotfiles/contents/{+path}",
+            "contributors_url": "https://api.github.com/repos/siainbuletin/dotfiles/contributors",
+            "created_at": "2025-11-03T05:53:26Z",
+            "default_branch": "main",
+            "deployments_url": "https://api.github.com/repos/siainbuletin/dotfiles/deployments",
+            "description": "Cross-platform dotfiles managed with GNU Stow (MacOS, Linux, hopefully Windows).",
+            "disabled": false,
+            "downloads_url": "https://api.github.com/repos/siainbuletin/dotfiles/downloads",
+            "events_url": "https://api.github.com/repos/siainbuletin/dotfiles/events",
+            "fork": false,
+            "forks": 0,
+            "forks_count": 0,
+            "forks_url": "https://api.github.com/repos/siainbuletin/dotfiles/forks",
+            "full_name": "siainbuletin/dotfiles",
+            "git_commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits{/sha}",
+            "git_refs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/refs{/sha}",
+            "git_tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/tags{/sha}",
+            "git_url": "git://github.com/siainbuletin/dotfiles.git",
+            "has_discussions": false,
+            "has_downloads": false,
+            "has_issues": true,
+            "has_pages": false,
+            "has_projects": true,
+            "has_pull_requests": true,
+            "has_wiki": false,
+            "homepage": "",
+            "hooks_url": "https://api.github.com/repos/siainbuletin/dotfiles/hooks",
+            "html_url": "https://github.com/siainbuletin/dotfiles",
+            "id": 1088549576,
+            "is_template": false,
+            "issue_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments{/number}",
+            "issue_events_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/events{/number}",
+            "issues_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues{/number}",
+            "keys_url": "https://api.github.com/repos/siainbuletin/dotfiles/keys{/key_id}",
+            "labels_url": "https://api.github.com/repos/siainbuletin/dotfiles/labels{/name}",
+            "language": "Emacs Lisp",
+            "languages_url": "https://api.github.com/repos/siainbuletin/dotfiles/languages",
+            "license": null,
+            "merges_url": "https://api.github.com/repos/siainbuletin/dotfiles/merges",
+            "milestones_url": "https://api.github.com/repos/siainbuletin/dotfiles/milestones{/number}",
+            "mirror_url": null,
+            "name": "dotfiles",
+            "node_id": "R_kgDOQOHyyA",
+            "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
+            "open_issues": 19,
+            "open_issues_count": 19,
+            "owner": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "private": false,
+            "pull_request_creation_policy": "all",
+            "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
+            "pushed_at": "2026-11-14T12:10:30Z",
+            "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
+            "size": 115104,
+            "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
+            "stargazers_count": 0,
+            "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
+            "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/{sha}",
+            "subscribers_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscribers",
+            "subscription_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscription",
+            "svn_url": "https://github.com/siainbuletin/dotfiles",
+            "tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/tags",
+            "teams_url": "https://api.github.com/repos/siainbuletin/dotfiles/teams",
+            "topics": [],
+            "trees_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees{/sha}",
+            "updated_at": "2026-11-12T15:34:24Z",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles",
+            "visibility": "public",
+            "watchers": 0,
+            "watchers_count": 0,
+            "web_commit_signoff_required": false
+        },
+        "sha": "95360b34d231cbda939171b53ec76d4e8595b6d2",
+        "user": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    },
+    "body": "<!-- claude-projects-attribution: {\"github_login\":\"siainbuletin\"} -->\n_Requested by **Sia** · [project thread](https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK)_\n\n**Base: `418-devonthink-search` (#418)**. Stack: #414 → #415 → #418 → #419 → #420. Docs only.\n\n## What\n- `docs/architecture/devonthink-emacs-integration.org` is deleted; its content is a bullet-point \"Design\" section of `docs/tangles/academic/sp-devonthink.org`, with a status table (which PR delivers which step) and a new \"Open questions\" list of everything still unclear or untested.\n- Five ADRs, listed in `adr/README.org`: 0027 citekey joins BibTeX/litnote/DEVONthink; 0028 DEVONthink only through its scripting interface; 0029 litdb indexes only highlighted pages; 0030 two-way litnote and record link (proposed); 0031 the small `reading` database.\n- Links to the old doc in the sibling module docs, `sp-litdb.org`, `devonthink-reading.org`, `sp-org-lint.org` and two architecture docs now point to `sp-devonthink.org`. Generated `dotfiles-prs/` and the CHANGELOG are untouched.\n\n## Not tested\n- Nothing to run; the tangle check passes.\n\n## Manual testing\n- [ ] Check out: `cd ~/dotfiles; git fetch origin 419-devonthink-design-adrs; git checkout 419-devonthink-design-adrs`.\n- [ ] Open `~/.config/emacs-modular/docs/tangles/academic/sp-devonthink.org`: \"Design\" is the first section, then the module sections; everything is bullet lists or tables.\n- [ ] `C-c C-o` on each of the five ADR links in the Design intro → each ADR opens.\n- [ ] Read \"Open questions\": is anything missing or wrong? Tell me what to add.\n- [ ] `ls ~/.config/emacs-modular/docs/architecture/` shows no `devonthink-emacs-integration.org`.\n- [ ] Follow the \"Design:\" link at the top of `sp-devonthink-tags.org`, `sp-devonthink-browse.org`, `sp-devonthink-search.org`, `sp-litdb.org` and `devonthink-reading.org` → each lands in `sp-devonthink.org`.\n- [ ] `cd ~/.config/emacs-modular; bash tools/check-tangle.sh` → \"All tangled modules match their docs.\"\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC\n",
+    "changed_files": 16,
+    "closed_at": null,
+    "comment_data": [],
+    "comment_regular_data": [],
+    "comments": 0,
+    "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/419/comments",
+    "commit_data": [
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-12T22:02:28Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-12T22:02:28Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC",
+                "tree": {
+                    "sha": "58a6c88d034a5313b98e2959bbfdb580ef955cbe",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/58a6c88d034a5313b98e2959bbfdb580ef955cbe"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d",
+                "verification": {
+                    "payload": "tree 58a6c88d034a5313b98e2959bbfdb580ef955cbe\nparent 9e7be76fa1d041953e27e496cf8e166909df21a8\nauthor Claude <noreply@anthropic.com> 1794520948 +0000\ncommitter Claude <noreply@anthropic.com> 1794520948 +0000\n\n📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQD0y4mvq\nimI+0I4+Zt3VQeBayxzX/CMfEk868etUaE12BSssCkRIZpXYeTVuTp3p9pa58m/wnOzqAZz4hoEJ\n3wM=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-12T22:02:30Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d",
+            "node_id": "C_kwDOQOHyyNoAKGIyMmEwN2Q5NWUwNzQ2YzliNWVhZGJlM2ExMDJlZGNhMWZiY2IxMGQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/9e7be76fa1d041953e27e496cf8e166909df21a8",
+                    "sha": "9e7be76fa1d041953e27e496cf8e166909df21a8",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/9e7be76fa1d041953e27e496cf8e166909df21a8"
+                }
+            ],
+            "sha": "b22a07d95e0746c9b5eadbe3a102edca1fbcb10d",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/99b4873f6cad1b601798cd42412a491d11e51a02/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-12T22:25:07Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-12T22:25:07Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge 418-devonthink-search into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "f14bac6b2af5efb9d578d7e8f1773d8bc8f6fbaa",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/f14bac6b2af5efb9d578d7e8f1773d8bc8f6fbaa"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/99b4873f6cad1b601798cd42412a491d11e51a02",
+                "verification": {
+                    "payload": "tree f14bac6b2af5efb9d578d7e8f1773d8bc8f6fbaa\nparent b22a07d95e0746c9b5eadbe3a102edca1fbcb10d\nparent 49574fcbc4f2090a8763f629b42090c4123a0c73\nauthor Claude <noreply@anthropic.com> 1794522307 +0000\ncommitter Claude <noreply@anthropic.com> 1794522307 +0000\n\nMerge 418-devonthink-search into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQLC3MUEQ\nJmysmRjHqp/ON7U9wuMbYJ9WkIYYyDoeXUBbAIdifZ54EhYJYDtA7JVkLP6s02EQSoMQyu7VVMnp\nLQo=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-12T22:25:09Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/99b4873f6cad1b601798cd42412a491d11e51a02",
+            "node_id": "C_kwDOQOHyyNoAKDk5YjQ4NzNmNmNhZDFiNjAxNzk4Y2Q0MjQxMmE0OTFkMTFlNTFhMDI",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d",
+                    "sha": "b22a07d95e0746c9b5eadbe3a102edca1fbcb10d",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/49574fcbc4f2090a8763f629b42090c4123a0c73",
+                    "sha": "49574fcbc4f2090a8763f629b42090c4123a0c73",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/49574fcbc4f2090a8763f629b42090c4123a0c73"
+                }
+            ],
+            "sha": "99b4873f6cad1b601798cd42412a491d11e51a02",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/99b4873f6cad1b601798cd42412a491d11e51a02"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/45090fafe698eb0c64e83c6b699060bf873622ce/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-12T22:27:15Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-12T22:27:15Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '418-devonthink-search' into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "8a86e607eaa491e6e02374b98beec9d78297b047",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/8a86e607eaa491e6e02374b98beec9d78297b047"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/45090fafe698eb0c64e83c6b699060bf873622ce",
+                "verification": {
+                    "payload": "tree 8a86e607eaa491e6e02374b98beec9d78297b047\nparent 99b4873f6cad1b601798cd42412a491d11e51a02\nparent 3adb362084c4651d97c8cb5e2dc2e715bd78d6cf\nauthor Claude <noreply@anthropic.com> 1794522435 +0000\ncommitter Claude <noreply@anthropic.com> 1794522435 +0000\n\nMerge branch '418-devonthink-search' into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQHiO+L+f\ne7qJejEL6fnVOZJDG1Q9JxPfXoE94D/rrnvoCO44QrZxhACCtXTV4WeeAmB97U56ikfSV87nX+PU\niQM=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-12T22:27:17Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/45090fafe698eb0c64e83c6b699060bf873622ce",
+            "node_id": "C_kwDOQOHyyNoAKDQ1MDkwZmFmZTY5OGViMGM2NGU4M2M2YjY5OTA2MGJmODczNjIyY2U",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/99b4873f6cad1b601798cd42412a491d11e51a02",
+                    "sha": "99b4873f6cad1b601798cd42412a491d11e51a02",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/99b4873f6cad1b601798cd42412a491d11e51a02"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/3adb362084c4651d97c8cb5e2dc2e715bd78d6cf",
+                    "sha": "3adb362084c4651d97c8cb5e2dc2e715bd78d6cf",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/3adb362084c4651d97c8cb5e2dc2e715bd78d6cf"
+                }
+            ],
+            "sha": "45090fafe698eb0c64e83c6b699060bf873622ce",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/45090fafe698eb0c64e83c6b699060bf873622ce"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/67d2a5f4905e7eedba28438d1cf73583ea7dfab8/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-12T22:47:04Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-12T22:47:04Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '418-devonthink-search' into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "3509918030c689aed82ecaf564e1310e38ebbef2",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/3509918030c689aed82ecaf564e1310e38ebbef2"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/67d2a5f4905e7eedba28438d1cf73583ea7dfab8",
+                "verification": {
+                    "payload": "tree 3509918030c689aed82ecaf564e1310e38ebbef2\nparent 45090fafe698eb0c64e83c6b699060bf873622ce\nparent f69801d1e87f3d7686229344139e3852e45f5807\nauthor Claude <noreply@anthropic.com> 1794523624 +0000\ncommitter Claude <noreply@anthropic.com> 1794523624 +0000\n\nMerge branch '418-devonthink-search' into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQCBQ6WKo\nYETZ1RHCbA6w/uvfYFzWehYzOzOL35KaABboLKmBWDRWuBsEGgUfSIPbEg+vaW7z+VlaHbNZDKgj\nWAs=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-12T22:47:08Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/67d2a5f4905e7eedba28438d1cf73583ea7dfab8",
+            "node_id": "C_kwDOQOHyyNoAKDY3ZDJhNWY0OTA1ZTdlZWRiYTI4NDM4ZDFjZjczNTgzZWE3ZGZhYjg",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/45090fafe698eb0c64e83c6b699060bf873622ce",
+                    "sha": "45090fafe698eb0c64e83c6b699060bf873622ce",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/45090fafe698eb0c64e83c6b699060bf873622ce"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/f69801d1e87f3d7686229344139e3852e45f5807",
+                    "sha": "f69801d1e87f3d7686229344139e3852e45f5807",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/f69801d1e87f3d7686229344139e3852e45f5807"
+                }
+            ],
+            "sha": "67d2a5f4905e7eedba28438d1cf73583ea7dfab8",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/67d2a5f4905e7eedba28438d1cf73583ea7dfab8"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/801bb7a2af8c759e4efd9fcc19647965f6feac34/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-12T23:00:47Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-12T23:00:47Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '418-devonthink-search' into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "416f99b5ea3da2c531d8ac1d4ce00c3c8ce32d35",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/416f99b5ea3da2c531d8ac1d4ce00c3c8ce32d35"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/801bb7a2af8c759e4efd9fcc19647965f6feac34",
+                "verification": {
+                    "payload": "tree 416f99b5ea3da2c531d8ac1d4ce00c3c8ce32d35\nparent 67d2a5f4905e7eedba28438d1cf73583ea7dfab8\nparent 385cd53404b7f72c099c3b0c132bbdf0cd2257bd\nauthor Claude <noreply@anthropic.com> 1794524447 +0000\ncommitter Claude <noreply@anthropic.com> 1794524447 +0000\n\nMerge branch '418-devonthink-search' into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQN6qZOpX\n5ylVYz3UrqxNKswr7kX23L+fcRl6j3nBSUlklRJ+LgoA3cmYNXBuWs7EzTZndvP0Y/AHvng4Ij25\nCgg=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-12T23:00:49Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/801bb7a2af8c759e4efd9fcc19647965f6feac34",
+            "node_id": "C_kwDOQOHyyNoAKDgwMWJiN2EyYWY4Yzc1OWU0ZWZkOWZjYzE5NjQ3OTY1ZjZmZWFjMzQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/67d2a5f4905e7eedba28438d1cf73583ea7dfab8",
+                    "sha": "67d2a5f4905e7eedba28438d1cf73583ea7dfab8",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/67d2a5f4905e7eedba28438d1cf73583ea7dfab8"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/385cd53404b7f72c099c3b0c132bbdf0cd2257bd",
+                    "sha": "385cd53404b7f72c099c3b0c132bbdf0cd2257bd",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/385cd53404b7f72c099c3b0c132bbdf0cd2257bd"
+                }
+            ],
+            "sha": "801bb7a2af8c759e4efd9fcc19647965f6feac34",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/801bb7a2af8c759e4efd9fcc19647965f6feac34"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1d38d1201f92114315878d7fdca7e75a813a5064/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-13T00:34:45Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-13T00:34:45Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '418-devonthink-search' into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "b65d9de488ff86acde23b7117ce5d3ebb2d5e0b6",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/b65d9de488ff86acde23b7117ce5d3ebb2d5e0b6"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/1d38d1201f92114315878d7fdca7e75a813a5064",
+                "verification": {
+                    "payload": "tree b65d9de488ff86acde23b7117ce5d3ebb2d5e0b6\nparent 801bb7a2af8c759e4efd9fcc19647965f6feac34\nparent 3b7c82d6a04d0f879053799f77b03c530a263af9\nauthor Claude <noreply@anthropic.com> 1794530085 +0000\ncommitter Claude <noreply@anthropic.com> 1794530085 +0000\n\nMerge branch '418-devonthink-search' into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQKfLNu4b\nivw3ykj9e3rP9zubHrTaZXpLLNpsGpJrnYyAVWiGF3SNszuk7jjuLv4jyu4o0bluU0IpR3DOaIQw\ntAg=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-13T00:35:00Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/1d38d1201f92114315878d7fdca7e75a813a5064",
+            "node_id": "C_kwDOQOHyyNoAKDFkMzhkMTIwMWY5MjExNDMxNTg3OGQ3ZmRjYTdlNzVhODEzYTUwNjQ",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/801bb7a2af8c759e4efd9fcc19647965f6feac34",
+                    "sha": "801bb7a2af8c759e4efd9fcc19647965f6feac34",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/801bb7a2af8c759e4efd9fcc19647965f6feac34"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/3b7c82d6a04d0f879053799f77b03c530a263af9",
+                    "sha": "3b7c82d6a04d0f879053799f77b03c530a263af9",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/3b7c82d6a04d0f879053799f77b03c530a263af9"
+                }
+            ],
+            "sha": "1d38d1201f92114315878d7fdca7e75a813a5064",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1d38d1201f92114315878d7fdca7e75a813a5064"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-13T00:57:34Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-13T00:57:34Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '418-devonthink-search' into 419-devonthink-design-adrs",
+                "tree": {
+                    "sha": "3ae516f1d1fc323827907e806ad46b1747595d8e",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/3ae516f1d1fc323827907e806ad46b1747595d8e"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+                "verification": {
+                    "payload": "tree 3ae516f1d1fc323827907e806ad46b1747595d8e\nparent 1d38d1201f92114315878d7fdca7e75a813a5064\nparent 95360b34d231cbda939171b53ec76d4e8595b6d2\nauthor Claude <noreply@anthropic.com> 1794531454 +0000\ncommitter Claude <noreply@anthropic.com> 1794531454 +0000\n\nMerge branch '418-devonthink-search' into 419-devonthink-design-adrs\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQEIlF3rB\ni3Zb/qfbo4TNym468PJD00KsLGACPIGmSXs1Vb+CfJHqK62vvQPvysPnBX+Q5TI2KelRyEq+eK35\nxAk=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-13T00:57:36Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+            "node_id": "C_kwDOQOHyyNoAKDZiZjZiNjhjYjAyNGMyZmIxZTNmNzcwYjU4YzcwOGJjNGY0MzFkNzE",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/1d38d1201f92114315878d7fdca7e75a813a5064",
+                    "sha": "1d38d1201f92114315878d7fdca7e75a813a5064",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1d38d1201f92114315878d7fdca7e75a813a5064"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/95360b34d231cbda939171b53ec76d4e8595b6d2",
+                    "sha": "95360b34d231cbda939171b53ec76d4e8595b6d2",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/95360b34d231cbda939171b53ec76d4e8595b6d2"
+                }
+            ],
+            "sha": "6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71"
+        }
+    ],
+    "commits": 7,
+    "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419/commits",
+    "created_at": "2026-11-12T22:02:41Z",
+    "deletions": 219,
+    "diff_url": "https://github.com/siainbuletin/dotfiles/pull/419.diff",
+    "draft": false,
+    "head": {
+        "label": "siainbuletin:419-devonthink-design-adrs",
+        "ref": "419-devonthink-design-adrs",
+        "repo": {
+            "allow_forking": true,
+            "archive_url": "https://api.github.com/repos/siainbuletin/dotfiles/{archive_format}{/ref}",
+            "archived": false,
+            "assignees_url": "https://api.github.com/repos/siainbuletin/dotfiles/assignees{/user}",
+            "blobs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/blobs{/sha}",
+            "branches_url": "https://api.github.com/repos/siainbuletin/dotfiles/branches{/branch}",
+            "clone_url": "https://github.com/siainbuletin/dotfiles.git",
+            "collaborators_url": "https://api.github.com/repos/siainbuletin/dotfiles/collaborators{/collaborator}",
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/comments{/number}",
+            "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits{/sha}",
+            "compare_url": "https://api.github.com/repos/siainbuletin/dotfiles/compare/{base}...{head}",
+            "contents_url": "https://api.github.com/repos/siainbuletin/dotfiles/contents/{+path}",
+            "contributors_url": "https://api.github.com/repos/siainbuletin/dotfiles/contributors",
+            "created_at": "2025-11-03T05:53:26Z",
+            "default_branch": "main",
+            "deployments_url": "https://api.github.com/repos/siainbuletin/dotfiles/deployments",
+            "description": "Cross-platform dotfiles managed with GNU Stow (MacOS, Linux, hopefully Windows).",
+            "disabled": false,
+            "downloads_url": "https://api.github.com/repos/siainbuletin/dotfiles/downloads",
+            "events_url": "https://api.github.com/repos/siainbuletin/dotfiles/events",
+            "fork": false,
+            "forks": 0,
+            "forks_count": 0,
+            "forks_url": "https://api.github.com/repos/siainbuletin/dotfiles/forks",
+            "full_name": "siainbuletin/dotfiles",
+            "git_commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits{/sha}",
+            "git_refs_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/refs{/sha}",
+            "git_tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/tags{/sha}",
+            "git_url": "git://github.com/siainbuletin/dotfiles.git",
+            "has_discussions": false,
+            "has_downloads": false,
+            "has_issues": true,
+            "has_pages": false,
+            "has_projects": true,
+            "has_pull_requests": true,
+            "has_wiki": false,
+            "homepage": "",
+            "hooks_url": "https://api.github.com/repos/siainbuletin/dotfiles/hooks",
+            "html_url": "https://github.com/siainbuletin/dotfiles",
+            "id": 1088549576,
+            "is_template": false,
+            "issue_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments{/number}",
+            "issue_events_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/events{/number}",
+            "issues_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues{/number}",
+            "keys_url": "https://api.github.com/repos/siainbuletin/dotfiles/keys{/key_id}",
+            "labels_url": "https://api.github.com/repos/siainbuletin/dotfiles/labels{/name}",
+            "language": "Emacs Lisp",
+            "languages_url": "https://api.github.com/repos/siainbuletin/dotfiles/languages",
+            "license": null,
+            "merges_url": "https://api.github.com/repos/siainbuletin/dotfiles/merges",
+            "milestones_url": "https://api.github.com/repos/siainbuletin/dotfiles/milestones{/number}",
+            "mirror_url": null,
+            "name": "dotfiles",
+            "node_id": "R_kgDOQOHyyA",
+            "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
+            "open_issues": 19,
+            "open_issues_count": 19,
+            "owner": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "private": false,
+            "pull_request_creation_policy": "all",
+            "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
+            "pushed_at": "2026-11-14T12:10:30Z",
+            "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
+            "size": 115104,
+            "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
+            "stargazers_count": 0,
+            "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
+            "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/{sha}",
+            "subscribers_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscribers",
+            "subscription_url": "https://api.github.com/repos/siainbuletin/dotfiles/subscription",
+            "svn_url": "https://github.com/siainbuletin/dotfiles",
+            "tags_url": "https://api.github.com/repos/siainbuletin/dotfiles/tags",
+            "teams_url": "https://api.github.com/repos/siainbuletin/dotfiles/teams",
+            "topics": [],
+            "trees_url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees{/sha}",
+            "updated_at": "2026-11-12T15:34:24Z",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles",
+            "visibility": "public",
+            "watchers": 0,
+            "watchers_count": 0,
+            "web_commit_signoff_required": false
+        },
+        "sha": "6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+        "user": {
+            "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+            "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+            "followers_url": "https://api.github.com/users/siainbuletin/followers",
+            "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+            "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+            "gravatar_id": "",
+            "html_url": "https://github.com/siainbuletin",
+            "id": 97026492,
+            "login": "siainbuletin",
+            "node_id": "U_kgDOBciBvA",
+            "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+            "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+            "repos_url": "https://api.github.com/users/siainbuletin/repos",
+            "site_admin": false,
+            "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+            "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+            "type": "User",
+            "url": "https://api.github.com/users/siainbuletin",
+            "user_view_type": "public"
+        }
+    },
+    "html_url": "https://github.com/siainbuletin/dotfiles/pull/419",
+    "id": 5285955858,
+    "issue_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/419",
+    "labels": [],
+    "locked": false,
+    "maintainer_can_modify": false,
+    "merge_commit_sha": "a9c5d215acdf973a2eacfcbf9cfe20477d81639a",
+    "mergeable": true,
+    "mergeable_state": "clean",
+    "merged": false,
+    "merged_at": null,
+    "merged_by": null,
+    "milestone": null,
+    "node_id": "PR_kwDOQOHyyM8AAAABOxFJEg",
+    "number": 419,
+    "patch_url": "https://github.com/siainbuletin/dotfiles/pull/419.patch",
+    "rebaseable": true,
+    "requested_reviewers": [],
+    "requested_teams": [],
+    "review_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/comments{/number}",
+    "review_comments": 0,
+    "review_comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419/comments",
+    "review_data": [],
+    "state": "open",
+    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+    "title": "📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031",
+    "updated_at": "2026-11-13T00:57:36Z",
+    "url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/419",
+    "user": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    }
+}

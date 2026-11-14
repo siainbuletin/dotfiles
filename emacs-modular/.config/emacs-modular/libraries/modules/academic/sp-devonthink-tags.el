@@ -5,7 +5,7 @@
 ;; Reads and sets the tags of DEVONthink records through `osascript', for one
 ;; record or many, and splits the comma-joined tag of the literature database.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-tags.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-tags.org.
 
 ;;; Code:
 

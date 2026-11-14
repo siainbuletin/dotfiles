@@ -5,7 +5,7 @@
 ;; A completion over the records of a DEVONthink database, grouped by their
 ;; DEVONthink group, with Embark actions: open, PDF, note, link and tags.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-browse.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-browse.org.
 
 ;;; Code:
 
@@ -16,6 +16,7 @@
 (require 'sp-reading)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
+(require 'sp-pdf-reader)
 
 (declare-function citar-open-notes "citar")
 
@@ -134,20 +135,23 @@ end tell"
           (sp-reading--quote uuid)))
 
 (defun sp-devonthink-record-pdf (candidate)
-  "Open the file of the record CANDIDATE in Emacs."
+  "Open the file of the record CANDIDATE in Emacs, in emureader (see `sp-pdf-open')."
   (interactive (list (sp-devonthink-browse--read)))
   (let ((path (sp-reading--osascript
                (sp-devonthink-browse--path-script
                 (plist-get (sp-devonthink-browse--record candidate) :uuid)))))
     (if (and (not (string-empty-p path)) (file-exists-p path))
-        (find-file path)
+        (sp-pdf-open path)
       (user-error "No file on disk for %s" candidate))))
 
 (defun sp-devonthink-record-note (candidate)
   "Go to the litnote of the record CANDIDATE, or create it."
   (interactive (list (sp-devonthink-browse--read)))
   (unless (fboundp 'citar-open-notes) (user-error "citar is not loaded"))
-  (citar-open-notes (list (sp-devonthink-browse--key (sp-devonthink-browse--record candidate)))))
+  (let ((key (sp-devonthink-browse--key (sp-devonthink-browse--record candidate))))
+    (when (and (fboundp 'sp-litnotes-meta--entry) (not (sp-litnotes-meta--entry key)))
+      (user-error "%s is not a citekey with a BibTeX entry; file it first (M-x sp-fetch-inbox)" key))
+    (citar-open-notes (list key))))
 
 (defun sp-devonthink-record-link (candidate)
   "Insert a `devonthink:' link to the record CANDIDATE."

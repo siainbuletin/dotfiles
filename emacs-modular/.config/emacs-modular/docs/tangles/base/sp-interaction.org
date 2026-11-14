@@ -8,7 +8,7 @@ Literate source for =libraries/modules/base/sp-interaction.el=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
-This module handles the lowest level of interaction with the graphical interface: how the mouse wheel and trackpad scroll, whether pixel scrolling is used, how windows react to the pointer, and what the right-click context menu offers. It only configures built-in libraries (=mwheel=, =pixel-scroll= and =mouse=), so it has no package dependencies.
+This module handles the lowest level of interaction with the graphical interface: how the mouse wheel and trackpad scroll, whether pixel scrolling is used, how windows react to the pointer, and what the right-click context menu offers. It only configures built-in libraries (=mwheel=, =pixel-scroll= and =mouse=), so it has no package dependencies. It also holds the echo-area help hints helper (=sp-echo-help-set=).
 
 The scrolling settings are noted as taken from Lambda Emacs. The module is loaded early, as part of the core group in both the default and minimal module lists in =init.el=.
 
@@ -115,6 +115,204 @@ A reminder to link to the window management packages and to move the EXWM setup 
 #+begin_src emacs-lisp -i
 ;; This should include a link to the window management packages that I use in this case.
 ;; and exwm should be moved to the window management macro library.
+#+end_src
+
+* Echo-area help hints
+
+A small helper for showing key hints in the echo area, in the style of =nano-help.el= from nano-emacs, instead of a long header line that does not wrap. Other modules call =sp-echo-help-set= with a list of hints; see =sp-fetch-inbox= for the first user.
+
+** Look of the hints
+
+- The hints are laid out as a grid of =[KEY] Description= cells, two rows by default, like the screenshot of nano-emacs.
+- Normal hints use =sp-echo-help-face=, which inherits from =shadow=, so they are faded in any theme.
+- Emphasised hints use =sp-echo-help-strong-face=, which inherits from =bold=; use it for the keys that finish or cancel.
+- =sp-echo-help-rows= sets the number of rows; hints fill the columns top to bottom.
+- Everything is plain text properties in the echo area, so no window, frame or mode line is changed.
+
+#+begin_src emacs-lisp -i
+;;;; Echo-area help hints
+;; Key hints in the echo area, in the style of nano-emacs' nano-help.el.
+(require 'subr-x)
+
+(defgroup sp-interaction nil
+  "Mouse, scrolling and echo-area hints."
+  :group 'convenience)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-echo-help-rows 2
+  "Number of rows the key hints are laid out in."
+  :type 'integer
+  :group 'sp-interaction)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defface sp-echo-help-face '((t :inherit shadow))
+  "Face of the key hints in the echo area."
+  :group 'sp-interaction)
+
+(defface sp-echo-help-strong-face '((t :inherit bold))
+  "Face of the emphasised key hints in the echo area."
+  :group 'sp-interaction)
+#+end_src
+
+** State per buffer
+
+- =sp-echo-help--hints= holds the hints of the current buffer.
+- =sp-echo-help--note= holds an optional line shown above them, for example a status.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-echo-help--hints nil
+  "The hints of the current buffer, see `sp-echo-help-set'.")
+
+(defvar-local sp-echo-help--note nil
+  "The line shown above the hints of the current buffer.")
+#+end_src
+
+** Formatting
+
+- =sp-echo-help-format= turns a list of =(KEY DESCRIPTION [STRONG])= into the echo-area text.
+- It is a pure function, so it can be tested without a display.
+- Columns are padded to their widest cell, except the last one, so there is no trailing whitespace.
+- A non-empty NOTE goes on its own line above the grid.
+
+#+begin_src emacs-lisp -i
+(defun sp-echo-help-format (hints &optional note rows)
+  "Return the echo-area text for HINTS.
+HINTS is a list of (KEY DESCRIPTION [STRONG]).
+The hints fill ROWS rows (default `sp-echo-help-rows'), column by column,
+each column but the last padded to its widest hint.  A non-nil STRONG
+shows the hint in `sp-echo-help-strong-face'.  A non-empty NOTE is put on a
+line above."
+  (let* ((rows (max 1 (min (or rows sp-echo-help-rows) (max 1 (length hints)))))
+         (ncols (ceiling (length hints) rows))
+         (texts (mapcar (lambda (h) (format "[%s] %s" (nth 0 h) (nth 1 h))) hints))
+         (widths (make-vector ncols 0))
+         (lines nil))
+    (dotimes (i (length texts))
+      (aset widths (/ i rows)
+            (max (aref widths (/ i rows)) (string-width (nth i texts)))))
+    (dotimes (r rows)
+      (let ((cells nil))
+        (dotimes (c ncols)
+          (let ((i (+ (* c rows) r)))
+            (when (< i (length hints))
+              (push (propertize
+                     (concat (nth i texts)
+                             (if (< c (1- ncols))
+                                 (make-string (- (aref widths c) (string-width (nth i texts))) ?\s)
+                               ""))
+                     'face (if (nth 2 (nth i hints))
+                               'sp-echo-help-strong-face
+                             'sp-echo-help-face))
+                    cells))))
+        (push (concat " " (string-join (nreverse cells) "   ")) lines)))
+    (let ((body (string-join (nreverse lines) "\n")))
+      (cond ((and note (not (string-empty-p note)) hints)
+             (concat " " (propertize note 'face 'sp-echo-help-face) "\n" body))
+            ((and note (not (string-empty-p note)))
+             (concat " " (propertize note 'face 'sp-echo-help-face)))
+            (t body)))))
+#+end_src
+
+** Showing
+
+- =sp-echo-help-show= prints the text with =message=, with =message-log-max= bound to nil so nothing goes to =*Messages*=.
+- It does nothing while the minibuffer is active, and while another message is showing, unless FORCE is given.
+- So a message from a command (for example "Key: ...") is never overwritten; the hints come back after the next command.
+
+#+begin_src emacs-lisp -i
+(defun sp-echo-help-show (&optional force)
+  "Show the hints of the current buffer in the echo area, without logging them.
+Does nothing while the minibuffer is active or another message is showing,
+unless FORCE is non-nil."
+  (when (and sp-echo-help--hints
+             (not (active-minibuffer-window))
+             (or force (not (current-message))))
+    (let ((message-log-max nil))
+      (message "%s" (sp-echo-help-format sp-echo-help--hints sp-echo-help--note)))))
+#+end_src
+
+** Keeping the hints visible
+
+- A message in the echo area can be replaced or cleared by other things (a prompt, eldoc, a command's own message).
+- Instead of nano's blocking =sit-for= loop, which would freeze Emacs, two things bring the hints back:
+  - After every command in the buffer, when the echo area is empty (see above).
+  - After =sp-echo-help-idle-delay= seconds of idle time, replacing any message still there (a job's last message must not hide the hints for good); nil turns this off.
+- =sp-echo-help-show-now= (=C-c ?= in a buffer with the mode) shows them on demand, replacing whatever message is there.
+- The idle timer is shared by all buffers with the mode, starts with the first one and stops when the last one turns it off.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-echo-help-idle-delay 1.5
+  "Seconds of idle time after which the hints are shown again.
+Nil never shows them again on idle."
+  :type '(choice (const :tag "Never" nil) number)
+  :group 'sp-interaction)
+
+(defvar sp-echo-help-mode)
+
+(defvar sp-echo-help--timer nil
+  "The idle timer that shows the hints again, shared by all buffers.")
+
+(defun sp-echo-help--any-buffer-p ()
+  "Non-nil when a live buffer has `sp-echo-help-mode' on."
+  (seq-some (lambda (b) (buffer-local-value 'sp-echo-help-mode b)) (buffer-list)))
+
+(defun sp-echo-help--idle-show ()
+  "Show the hints of the selected window's buffer; stop the timer when unused.
+The hints replace a message that has been there for the whole idle delay,
+so the last message of a job does not hide them for good."
+  (if (not (sp-echo-help--any-buffer-p))
+      (when (timerp sp-echo-help--timer)
+        (cancel-timer sp-echo-help--timer)
+        (setq sp-echo-help--timer nil))
+    (with-current-buffer (window-buffer (selected-window))
+      (when sp-echo-help-mode (sp-echo-help-show t)))))
+
+(defun sp-echo-help-show-now ()
+  "Show the key hints of this buffer in the echo area now."
+  (interactive)
+  (if sp-echo-help--hints
+      (sp-echo-help-show t)
+    (user-error "No key hints for this buffer")))
+
+(defvar-keymap sp-echo-help-mode-map
+  :doc "Keys of `sp-echo-help-mode'."
+  "C-c ?" #'sp-echo-help-show-now)
+#+end_src
+
+** Minor mode and entry point
+
+- =sp-echo-help-mode= adds =sp-echo-help-show= to the buffer-local =post-command-hook= and starts the idle timer.
+- =sp-echo-help-set= is the only function other modules need:
+  - It stores HINTS and NOTE in the buffer and turns the mode on.
+  - It shows them at once when the buffer is in the selected window.
+  - Passing nil HINTS turns the mode off.
+
+#+begin_src emacs-lisp -i
+(define-minor-mode sp-echo-help-mode
+  "Keep the key hints of this buffer in the echo area.
+Set them with `sp-echo-help-set'.  \\{sp-echo-help-mode-map}"
+  :lighter nil
+  (if sp-echo-help-mode
+      (progn
+        (add-hook 'post-command-hook #'sp-echo-help-show nil t)
+        (when (and sp-echo-help-idle-delay (not (timerp sp-echo-help--timer)))
+          (setq sp-echo-help--timer
+                (run-with-idle-timer sp-echo-help-idle-delay t #'sp-echo-help--idle-show))))
+    (remove-hook 'post-command-hook #'sp-echo-help-show t)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-echo-help-set (hints &optional note)
+  "Show HINTS in the echo area whenever this buffer is current.
+HINTS is a list of (KEY DESCRIPTION [STRONG]); see `sp-echo-help-format'.
+NOTE is an optional line above them.  Nil HINTS turn the hints off."
+  (setq sp-echo-help--hints hints
+        sp-echo-help--note note)
+  (sp-echo-help-mode (if hints 1 -1))
+  (when (and hints (eq (current-buffer) (window-buffer (selected-window))))
+    (sp-echo-help-show t)))
 #+end_src
 
 * Provide

@@ -4,7 +4,7 @@
 
 Literate source for the Vulpea modules in =libraries/modules/vulpea/=.
 
-- One file tangles twelve =.el= files, one per module, each with its own =provide=.
+- One file tangles thirteen =.el= files, one per module, each with its own =provide=.
 - No module loads them as a group; =sp-org-ext= requires them.
 - Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading.
 - The =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written.
@@ -32,12 +32,15 @@ The table modules (=sp-collection-query=, a custom module of mine) are deliberat
 | [[*sp-vulpea-convert-keywords.el]] | =libraries/modules/vulpea/sp-vulpea-convert-keywords.el= | Convert file-header keywords to meta lines |
 | [[*sp-vulpea-grouped-backlinks.el]] | =libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el= | Backlinks grouped by meta property |
 | [[*sp-vulpea-grouped-backlinks-widget.el]] | =libraries/modules/vulpea/sp-vulpea-grouped-backlinks-widget.el= | Grouped backlinks as a =vulpea-ui= widget |
+| [[*sp-vulpea-ui-view.el]] | =libraries/modules/vulpea/sp-vulpea-ui-view.el= | The =vulpea-ui= widgets in a buffer and frame of their own |
+| [[*sp-vulpea-backlink-check.el]] | =libraries/modules/vulpea/sp-vulpea-backlink-check.el= | Check whether a heading is backlinked (Embark target) |
 | [[*sp-vulpea-org-ql.el]] | =libraries/modules/vulpea/sp-vulpea-org-ql.el= | org-ql query draft (not loaded) |
 
 Load order:
 
-- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks=, =sp-vulpea-grouped-backlinks-widget= and =sp-refile= (which holds =sp-split-leave-parents=).
+- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks=, =sp-vulpea-grouped-backlinks-widget=, =sp-vulpea-backlink-check= and =sp-refile= (which holds =sp-split-leave-parents=).
 - =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query=.
+- =sp-vulpea-ui= requires =sp-vulpea-ui-view= at its end (it needs =vulpea-ui=, which =sp-vulpea-ui= installs).
 - Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
 - Both are still tangled, so the files stay in step with their docs.
 
@@ -511,9 +514,11 @@ A placeholder for a custom widget showing unlinked mentions from a tab folder. T
 
 ** Provide
 
-Provides the =sp-vulpea-ui= feature and closes the file.
+Loads =sp-vulpea-ui-view= (the widgets in a frame of their own, see its part below), provides the =sp-vulpea-ui= feature and closes the file.
 
 #+begin_src emacs-lisp -i
+(require 'sp-vulpea-ui-view) ;; the same widgets in a frame of their own (M-o v)
+
 (provide 'sp-vulpea-ui)
 ;; sp-vulpea-ui.el ends here.
 #+end_src
@@ -1186,6 +1191,16 @@ Loads =sp-vulpea-grouped-backlinks-widget=, which adds the groups to the =vulpea
 
 #+begin_src emacs-lisp -i
 (require 'sp-vulpea-grouped-backlinks-widget)
+#+end_src
+
+*** Backlink check
+
+Loads =sp-vulpea-backlink-check=, which reports in the echo area whether the heading at point is backlinked, as an Embark target that lists the backlinks.
+
+#+begin_src emacs-lisp -i
+;; Is this heading backlinked? (echo area result, Embark action)
+
+(require 'sp-vulpea-backlink-check)
 #+end_src
 
 *** Smarter heading split
@@ -3140,6 +3155,902 @@ Registers the widget as =grouped-backlinks= with order 310.
 ;;; sp-vulpea-grouped-backlinks-widget.el ends here
 #+end_src
 
+* sp-vulpea-ui-view.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ui-view.el
+:END:
+
+This module shows what the =vulpea-ui= sidebar shows in a buffer of its own, which can sit in a frame of its own.
+
+- Why: a tiling window manager (AeroSpace on the Mac, i3 or sway on Linux) can only tile frames, not Emacs windows. A frame holding the backlinks and the other widgets can be tiled beside the frame with the note.
+- It reuses =vulpea-ui=: the view mounts =vulpea-ui-sidebar-root=, the root component of the sidebar, in the view buffer.
+- So the view shows the same widgets, in the same order, as the sidebar:
+   + the standard ones (outline, backlinks, links, unlinked mentions and so on);
+   + the ones registered with =vulpea-ui-register-widget= in this config: =grouped-backlinks=, =see-also=, =concept-usage=, the Link inbox and the book position.
+- Widgets are pluggable: the view reads the registry (=vulpea-ui--widget-registry=) at every render, so a widget that a later module registers shows up in both places with no change here.
+- The sidebar and the view are independent; either, both or neither can be open.
+- Command: =sp-vulpea-ui-view-toggle=, bound to =M-o v= (the =M-o= keys are my note keys, next to =M-o n a=; =C-z=, =C-c=, =C-x=, =C-v=, Cmd+Space and Ctrl+Space are not used).
+
+What the module relies on in =vulpea-ui=, all of it internal, so a =vulpea-ui= update can break it:
+
+- =vulpea-ui-sidebar-root= (the component) and =vulpea-ui-sidebar-mode= (the parent mode).
+- =vulpea-ui--get-note-from-buffer=, to turn a buffer into the note the sidebar would show.
+- =vulpea-ui--get-main-window= and the four jump functions, which the widgets call to open a note.
+
+** Header and requires
+
+*** Header
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-ui-view.el --- vulpea-ui widgets in a buffer and frame of their own -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Shows the vulpea-ui sidebar widgets (backlinks and every other registered
+;; widget) in a buffer of their own, by default in a frame of their own, so a
+;; tiling window manager can place it.  The view follows the most recently used
+;; vulpea note buffer of any frame.  Documented in
+;; docs/tangles/vulpea/sp-vulpea.org.
+
+;;; Code:
+#+end_src
+
+*** Requires
+
+- =vulpea-ui= and =vui= are required, not installed: =sp-vulpea-ui= installs them with Elpaca and loads this module afterwards.
+
+#+begin_src emacs-lisp -i
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'vulpea-ui)
+(require 'vui)
+#+end_src
+
+** Settings
+
+*** The group
+
+#+begin_src emacs-lisp -i
+(defgroup sp-vulpea-ui-view nil
+  "The vulpea-ui widgets in a buffer and frame of their own."
+  :group 'vulpea-ui
+  :prefix "sp-vulpea-ui-view-")
+#+end_src
+
+*** Buffer and frame
+
+- =sp-vulpea-ui-view-buffer-name=: name of the view buffer.
+   + There is one view for all frames.
+- =sp-vulpea-ui-view-use-frame=: non-nil (the default) opens the view in a new frame; nil opens it in a window of the current frame.
+- =sp-vulpea-ui-view-frame-name=: the name of that frame.
+   + Emacs uses it as the window title, so a window manager can match it (see the AeroSpace rule in =aerospace.org=).
+- =sp-vulpea-ui-view-frame-parameters=: the other frame parameters (size, no menu bar, no splitting).
+   + The name is added to these, and cannot be overridden here.
+- =sp-vulpea-ui-view-return-focus=: after opening the frame, select the frame the command was run in, so typing continues in the note.
+- =sp-vulpea-ui-view-focus-on-visit=: after a click in the view opens a note, give the input focus to the frame that shows it.
+- =sp-vulpea-ui-view-switch-buffer-action=: what =C-x b= and other =switch-to-buffer= calls do while the view window is selected.
+   + The view window is dedicated, so Emacs would stop with "Cannot switch buffers in a dedicated window".
+   + =other-window= (the default): show the buffer in the window of the notes and give that frame the input focus; the view stays as it is.
+   + =prompt=: Emacs asks whether to undedicate the view window and then switches in place; the view is gone from that window afterwards.
+   + nil: Emacs's own error.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-vulpea-ui-view-buffer-name "*vulpea-ui-view*"
+  "Name of the buffer that holds the vulpea-ui view."
+  :type 'string
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-use-frame t
+  "Non-nil means `sp-vulpea-ui-view-open' makes a frame for the view.
+Nil shows the view in a window of the selected frame."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-frame-name "vulpea-ui-view"
+  "Name of the frame made for the view.
+Emacs uses it as the window title, so a tiling window manager can match it."
+  :type 'string
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-frame-parameters
+  '((width . 60) (height . 50) (unsplittable . t)
+    (menu-bar-lines . 0) (tool-bar-lines . 0))
+  "Frame parameters of the view frame, besides its name."
+  :type '(alist :key-type symbol :value-type sexp)
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-return-focus t
+  "Non-nil means the frame that opened the view keeps the input focus."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-focus-on-visit t
+  "Non-nil means opening a note from the view focuses the frame that shows it."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-switch-buffer-action 'other-window
+  "What a buffer switch does when the selected window shows the view.
+The view window is dedicated, so `switch-to-buffer' would signal
+\"Cannot switch buffers in a dedicated window\".
+`other-window' shows the buffer in the window of the notes and focuses it.
+`prompt' asks whether to undedicate the view window, then switches in place.
+Nil leaves it to Emacs, which signals the error."
+  :type '(choice (const :tag "Show in the notes window" other-window)
+                 (const :tag "Ask to undedicate the window" prompt)
+                 (const :tag "Emacs default (error)" nil))
+  :group 'sp-vulpea-ui-view)
+#+end_src
+
+*** Line wrapping
+
+- =sp-vulpea-ui-view-wrap-lines=: non-nil (the default) wraps long lines of every widget at the window edge, at word boundaries, so no content is cut off.
+   + It is local to the view buffer; the sidebar and every other buffer are not touched.
+   + Nil leaves the lines as the sidebar shows them.
+- =sp-vulpea-ui-view-wrap-indent=: non-nil (the default) indents the wrapped part of a line like its start, so a wrapped backlink stays under its bullet.
+   + It needs =visual-wrap-prefix-mode=, which is in Emacs 30 and later; older Emacs wraps without the indent.
+   + It has an effect only while =sp-vulpea-ui-view-wrap-lines= is non-nil.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-vulpea-ui-view-wrap-lines t
+  "Non-nil means long lines in the view wrap at the window edge."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-wrap-indent t
+  "Non-nil means a wrapped line is indented like its beginning.
+This needs `visual-wrap-prefix-mode' (Emacs 30 or later)."
+  :type 'boolean
+  :group 'sp-vulpea-ui-view)
+#+end_src
+
+** State and mode
+
+*** State
+
+- =sp-vulpea-ui-view--note=: the note the view shows; it stays when no window shows a note.
+- =sp-vulpea-ui-view--instance=: the =vui= instance mounted in the view buffer.
+- =sp-vulpea-ui-view--sync-timer=: a pending sync, so one redisplay causes one sync.
+- =sp-vulpea-ui-view--idle-timer=: the auto-refresh timer, started with the view.
+- =sp-vulpea-ui-view--db-pending=: the database changed, so the next idle refresh drops the caches.
+- =sp-vulpea-ui-view--rendering=: non-nil during a render, so the render does not trigger a sync.
+
+#+begin_src emacs-lisp -i
+(defvar sp-vulpea-ui-view--note nil
+  "The vulpea note the view shows, or nil before there was one.")
+
+(defvar sp-vulpea-ui-view--instance nil
+  "The vui instance mounted in the view buffer.")
+
+(defvar sp-vulpea-ui-view--sync-timer nil
+  "Timer of the sync that is waiting for the command loop, or nil.")
+
+(defvar sp-vulpea-ui-view--idle-timer nil
+  "Idle timer that refreshes the view, or nil when no view exists.")
+
+(defvar sp-vulpea-ui-view--db-pending nil
+  "Non-nil when the note database changed since the last render.")
+
+(defvar sp-vulpea-ui-view--rendering nil
+  "Non-nil while the view renders.")
+#+end_src
+
+*** Wrapping the lines
+
+- =sp-vulpea-ui-view--apply-wrap= sets up the wrapping in the current buffer from the two options.
+   + Wrapping on: =truncate-lines= is nil and =visual-line-mode= is on, so the lines break at words.
+   + The indent of the wrapped part comes from =visual-wrap-prefix-mode= when it exists and =sp-vulpea-ui-view-wrap-indent= is non-nil.
+   + Wrapping off: both modes are turned off in the view buffer; nothing else is changed.
+- The mode body and the first render call it, because the mode body runs before the mount, and a mount may reset the buffer-local settings.
+- A =hard= render (=g=) calls it too, so a changed option takes effect on refresh.
+
+#+begin_src emacs-lisp -i
+(declare-function visual-wrap-prefix-mode "visual-wrap")
+
+(defun sp-vulpea-ui-view--apply-wrap ()
+  "Set the line wrapping of the current buffer from the wrap options."
+  (if sp-vulpea-ui-view-wrap-lines
+      (progn
+        (setq-local truncate-lines nil)
+        (visual-line-mode 1)
+        (when (and sp-vulpea-ui-view-wrap-indent
+                   (fboundp 'visual-wrap-prefix-mode))
+          (visual-wrap-prefix-mode 1)))
+    (visual-line-mode -1)
+    (when (fboundp 'visual-wrap-prefix-mode)
+      (visual-wrap-prefix-mode -1))))
+#+end_src
+
+*** The mode
+
+- It derives from =vulpea-ui-sidebar-mode=, so the keys of the sidebar (=g= to refresh, =RET= and click to follow) and the widget toggling work in it.
+- =q= closes the view (the sidebar's =q= would close the sidebar of the selected frame) and =g= refreshes it.
+- Killing the buffer removes the hooks and timers (=kill-buffer-hook=, set in the mode body).
+- The mode body also applies the line wrapping.
+
+#+begin_src emacs-lisp -i
+(define-derived-mode sp-vulpea-ui-view-mode vulpea-ui-sidebar-mode "vulpea-ui-view"
+  "Major mode of the vulpea-ui view buffer.
+\\{sp-vulpea-ui-view-mode-map}"
+  :group 'sp-vulpea-ui-view
+  (sp-vulpea-ui-view--apply-wrap)
+  (add-hook 'kill-buffer-hook #'sp-vulpea-ui-view--teardown nil t))
+
+(define-key sp-vulpea-ui-view-mode-map (kbd "q") #'sp-vulpea-ui-view-close)
+(define-key sp-vulpea-ui-view-mode-map (kbd "g") #'sp-vulpea-ui-view-refresh)
+
+(defun sp-vulpea-ui-view--buffer ()
+  "Return the view buffer, or nil when it does not exist."
+  (get-buffer sp-vulpea-ui-view-buffer-name))
+
+(defun sp-vulpea-ui-view--buffer-p (buffer)
+  "Return non-nil when BUFFER is a view buffer."
+  (and (buffer-live-p buffer)
+       (eq (buffer-local-value 'major-mode buffer) 'sp-vulpea-ui-view-mode)))
+
+(defun sp-vulpea-ui-view--window ()
+  "Return the window that shows the view, in any frame, or nil."
+  (when-let* ((buffer (sp-vulpea-ui-view--buffer)))
+    (get-buffer-window buffer t)))
+#+end_src
+
+** Following the note
+
+*** Which note
+
+The view follows the most recently used window that shows a vulpea note.
+
+- Windows of all visible frames count, except the view itself, the minibuffer and side windows (such as the sidebar).
+- The most recent one is the one with the newest =window-use-time=.
+- A window that shows no note is skipped, so the view keeps the last note while a code buffer or the view itself is selected.
+- =vulpea-ui--get-note-from-buffer= decides what a note buffer is, so the view anchors on the same note as the sidebar.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-ui-view--buffer-note (buffer)
+  "Return the note the sidebar would show for BUFFER, or nil."
+  (when (and (buffer-live-p buffer)
+             (not (sp-vulpea-ui-view--buffer-p buffer)))
+    (with-demoted-errors "vulpea-ui view: %S"
+      (vulpea-ui--get-note-from-buffer buffer))))
+
+(defun sp-vulpea-ui-view--candidate-windows ()
+  "Return the windows the view may follow, most recently used first."
+  (let (windows)
+    (dolist (frame (visible-frame-list))
+      (dolist (window (window-list frame 'no-minibuf))
+        (unless (or (window-parameter window 'window-side)
+                    (sp-vulpea-ui-view--buffer-p (window-buffer window)))
+          (push window windows))))
+    (sort windows (lambda (a b) (> (window-use-time a) (window-use-time b))))))
+
+(defun sp-vulpea-ui-view--find-note ()
+  "Return the note of the most recently used note window, or nil."
+  (seq-some (lambda (window)
+              (sp-vulpea-ui-view--buffer-note (window-buffer window)))
+            (sp-vulpea-ui-view--candidate-windows)))
+
+(defun sp-vulpea-ui-view--same-note-p (a b)
+  "Return non-nil when notes A and B have the same ID."
+  (and a b (equal (vulpea-note-id a) (vulpea-note-id b))))
+#+end_src
+
+*** Rendering
+
+- The view is rendered like the sidebar: the view window is selected, =vui-mount= shows the buffer in it, and the old selection comes back.
+- The mode is set before the mount, as =vulpea-ui= does, because a mode switch would delete the buffer-local state of =vui=.
+- Three kinds of render:
+   + =note=: another note; the first mount, or the props of the instance change, and point goes to the top.
+   + =soft=: the same note; memoised widget data is kept, only what depends on the buffers recomputes (this is the sidebar's idle refresh).
+   + =hard=: caches are dropped (=vui-update= and a bump of =vulpea-ui--refresh-generation=), for =g= and for database changes.
+- The line wrapping is applied after a mount and after a =hard= render (see "Wrapping the lines").
+- Without a window for the view nothing is rendered.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-ui-view--render (kind)
+  "Render the view for `sp-vulpea-ui-view--note'.
+KIND is `note', `soft' or `hard'."
+  (when-let* ((buffer (sp-vulpea-ui-view--buffer))
+              (window (sp-vulpea-ui-view--window)))
+    (let ((vulpea-ui--rendering t)
+          (sp-vulpea-ui-view--rendering t)
+          (note sp-vulpea-ui-view--note))
+      (with-selected-window window
+        (with-current-buffer buffer
+          (let ((instance sp-vulpea-ui-view--instance))
+            (if (and instance
+                     (buffer-live-p (vui-instance-buffer instance)))
+                (pcase kind
+                  ('hard (cl-incf vulpea-ui--refresh-generation)
+                         (vui-update instance (list :note note))
+                         (sp-vulpea-ui-view--apply-wrap))
+                  (_ (vui-update-props instance (list :note note))))
+              (setq sp-vulpea-ui-view--instance
+                    (vui-mount (vui-component 'vulpea-ui-sidebar-root :note note)
+                               (buffer-name)))
+              (sp-vulpea-ui-view--apply-wrap)))
+          (when (eq kind 'note)
+            (goto-char (point-min))))))))
+
+(defun sp-vulpea-ui-view--sync ()
+  "Show the note of the newest note window, when it is another note."
+  (when-let* ((note (sp-vulpea-ui-view--find-note)))
+    (unless (sp-vulpea-ui-view--same-note-p note sp-vulpea-ui-view--note)
+      (setq sp-vulpea-ui-view--note note)
+      (sp-vulpea-ui-view--render 'note))))
+#+end_src
+
+*** Hooks and timers
+
+- Window changes only schedule a sync (a timer at 0 seconds), as =vulpea-ui= does: the sync then runs after redisplay, not inside the window change functions.
+- One idle timer (=vulpea-ui-auto-refresh-delay=) refreshes the view while it exists: =soft=, or =hard= when the database changed.
+- =vulpea-db-updated-functions= only sets the pending flag, so a bulk sync costs one refresh.
+- The idle refresh also looks for the note again, so a note that was edited (and so changed its ID or title) is picked up.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-ui-view--on-window-change (&optional _frame)
+  "Schedule a sync after a change of selected window or window buffer."
+  (unless (or (minibufferp)
+              sp-vulpea-ui-view--rendering
+              sp-vulpea-ui-view--sync-timer)
+    (setq sp-vulpea-ui-view--sync-timer
+          (run-with-timer 0 nil #'sp-vulpea-ui-view--run-sync))))
+
+(defun sp-vulpea-ui-view--run-sync ()
+  "Timer function of `sp-vulpea-ui-view--on-window-change'."
+  (setq sp-vulpea-ui-view--sync-timer nil)
+  (when (sp-vulpea-ui-view--buffer)
+    (sp-vulpea-ui-view--sync)))
+
+(defun sp-vulpea-ui-view--on-db-updated (&rest _)
+  "Remember that the database changed (`vulpea-db-updated-functions')."
+  (setq sp-vulpea-ui-view--db-pending t))
+
+(defun sp-vulpea-ui-view--on-idle ()
+  "Refresh the view while Emacs is idle."
+  (when (and (sp-vulpea-ui-view--window)
+             (not sp-vulpea-ui-view--rendering))
+    (when-let* ((note (sp-vulpea-ui-view--find-note)))
+      (setq sp-vulpea-ui-view--note note))
+    (sp-vulpea-ui-view--render (if sp-vulpea-ui-view--db-pending 'hard 'soft))
+    (setq sp-vulpea-ui-view--db-pending nil)))
+
+(defun sp-vulpea-ui-view--setup ()
+  "Install the hooks and the idle timer of the view."
+  (add-hook 'window-selection-change-functions #'sp-vulpea-ui-view--on-window-change)
+  (add-hook 'window-buffer-change-functions #'sp-vulpea-ui-view--on-window-change)
+  (when (boundp 'vulpea-db-updated-functions)
+    (add-hook 'vulpea-db-updated-functions #'sp-vulpea-ui-view--on-db-updated))
+  (unless sp-vulpea-ui-view--idle-timer
+    (setq sp-vulpea-ui-view--idle-timer
+          (run-with-idle-timer vulpea-ui-auto-refresh-delay t
+                               #'sp-vulpea-ui-view--on-idle))))
+
+(defun sp-vulpea-ui-view--teardown ()
+  "Remove the hooks and timers of the view; run when its buffer is killed."
+  (remove-hook 'window-selection-change-functions #'sp-vulpea-ui-view--on-window-change)
+  (remove-hook 'window-buffer-change-functions #'sp-vulpea-ui-view--on-window-change)
+  (when (boundp 'vulpea-db-updated-functions)
+    (remove-hook 'vulpea-db-updated-functions #'sp-vulpea-ui-view--on-db-updated))
+  (dolist (timer '(sp-vulpea-ui-view--sync-timer sp-vulpea-ui-view--idle-timer))
+    (when (symbol-value timer)
+      (cancel-timer (symbol-value timer))
+      (set timer nil)))
+  (setq sp-vulpea-ui-view--instance nil
+        sp-vulpea-ui-view--db-pending nil))
+#+end_src
+
+** Opening notes from the view
+
+In the view frame the only main window is the view itself, so =vulpea-ui= would open a clicked note in the view window and replace the view.
+
+- =sp-vulpea-ui-view--editing-window= picks the window to use instead: the newest window that shows a note, or the newest window of any other buffer.
+- An =:around= advice on =vulpea-ui--get-main-window= returns it when the selected window of the frame shows the view. The sidebar is not affected.
+- Another =:around= advice on the four functions that open a note or a position gives the input focus to the frame of that window afterwards (=sp-vulpea-ui-view-focus-on-visit=), because =select-window= does not move the input focus to another frame.
+- An =:around= advice on =switch-to-buffer= acts when the selected window is the dedicated view window (=sp-vulpea-ui-view-switch-buffer-action=).
+   + With =other-window= it selects the window from =sp-vulpea-ui-view--editing-window=, calls the original there, and focuses that frame.
+   + If the switch fails (quit, no such buffer), the view window is selected again.
+   + With no window for notes, or with =prompt=, it calls the original; =prompt= binds =switch-to-buffer-in-dedicated-window=.
+   + In every other window the original runs untouched.
+   + Packages that call =switch-to-buffer= (consult, tabspaces, =sp-tabs-switch-to-buffer=) are covered.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-ui-view--editing-window ()
+  "Return the window a note opened from the view should use, or nil."
+  (let ((windows (sp-vulpea-ui-view--candidate-windows)))
+    (or (seq-find (lambda (window)
+                    (sp-vulpea-ui-view--buffer-note (window-buffer window)))
+                  windows)
+        (car windows))))
+
+(defun sp-vulpea-ui-view--main-window (orig &optional frame)
+  "Advice for `vulpea-ui--get-main-window' (ORIG, FRAME).
+In a frame whose selected window shows the view, return the window of
+the notes, so the view is not replaced."
+  (let ((frame (or frame (selected-frame))))
+    (or (and (sp-vulpea-ui-view--buffer-p
+              (window-buffer (frame-selected-window frame)))
+             (sp-vulpea-ui-view--editing-window))
+        (funcall orig frame))))
+
+(defun sp-vulpea-ui-view--focus-visit (orig &rest args)
+  "Advice for the functions that open a note (ORIG, ARGS).
+When the call comes from the view, focus the frame that shows the note."
+  (let ((from-view (sp-vulpea-ui-view--buffer-p (window-buffer (selected-window)))))
+    (prog1 (apply orig args)
+      (when (and from-view
+                 sp-vulpea-ui-view-focus-on-visit
+                 (not (sp-vulpea-ui-view--buffer-p
+                       (window-buffer (selected-window)))))
+        (select-frame-set-input-focus (selected-frame))))))
+
+(advice-add 'vulpea-ui--get-main-window :around #'sp-vulpea-ui-view--main-window)
+
+(dolist (function '(vulpea-ui-visit-note
+                    vulpea-ui--jump-to-position
+                    vulpea-ui--jump-to-file-position
+                    vulpea-ui--jump-to-file-line))
+  (advice-add function :around #'sp-vulpea-ui-view--focus-visit))
+
+(defun sp-vulpea-ui-view--switch-to-buffer (orig &rest args)
+  "Advice for `switch-to-buffer' (ORIG, ARGS) in the dedicated view window.
+Act on `sp-vulpea-ui-view-switch-buffer-action'; elsewhere call ORIG."
+  (let ((window (selected-window)))
+    (if (not (and sp-vulpea-ui-view-switch-buffer-action
+                  (window-dedicated-p window)
+                  (sp-vulpea-ui-view--buffer-p (window-buffer window))))
+        (apply orig args)
+      (if-let* ((target (and (eq sp-vulpea-ui-view-switch-buffer-action
+                                 'other-window)
+                             (sp-vulpea-ui-view--editing-window))))
+          (let ((done nil))
+            (unwind-protect
+                (progn
+                  (select-window target)
+                  (prog1 (apply orig args)
+                    (setq done t)
+                    (when sp-vulpea-ui-view-focus-on-visit
+                      (select-frame-set-input-focus (selected-frame)))))
+              (unless (or done (not (window-live-p window)))
+                (select-window window))))
+        (let ((switch-to-buffer-in-dedicated-window
+               (if (eq sp-vulpea-ui-view-switch-buffer-action 'prompt)
+                   'prompt
+                 switch-to-buffer-in-dedicated-window)))
+          (apply orig args))))))
+
+(advice-add 'switch-to-buffer :around #'sp-vulpea-ui-view--switch-to-buffer)
+#+end_src
+
+** Commands
+
+*** Showing the view
+
+- =sp-vulpea-ui-view--frame-parameters= is the user's parameters plus the name.
+- =sp-vulpea-ui-view--display= shows the buffer in a new frame or a window and returns that window.
+   + In the frame the window is dedicated, so nothing else is displayed in it.
+   + In the same-frame case =display-buffer-pop-up-window= makes the window.
+- =sp-vulpea-ui-view-open=:
+   + finds the note first (from the frame it is run in);
+   + raises the frame of the view when it already exists;
+   + otherwise creates the buffer and the frame, installs the hooks and renders;
+   + then returns the focus to the frame it was run in.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-ui-view--frame-parameters ()
+  "Return the frame parameters of the view frame, including its name."
+  (cons (cons 'name sp-vulpea-ui-view-frame-name)
+        (seq-remove (lambda (parameter) (eq (car parameter) 'name))
+                    sp-vulpea-ui-view-frame-parameters)))
+
+(defun sp-vulpea-ui-view--display (buffer)
+  "Show BUFFER in a new frame or window, and return that window."
+  (if sp-vulpea-ui-view-use-frame
+      (let* ((frame (make-frame (sp-vulpea-ui-view--frame-parameters)))
+             (window (frame-root-window frame)))
+        (set-window-buffer window buffer)
+        (set-window-dedicated-p window t)
+        window)
+    (display-buffer buffer '(display-buffer-pop-up-window))))
+
+;;;###autoload
+(defun sp-vulpea-ui-view-open ()
+  "Show the vulpea-ui widgets in a view of their own, in a frame of their own.
+The view follows the most recently used note window.  Calling it again
+raises the view."
+  (interactive)
+  (let ((origin (selected-frame))
+        (note (sp-vulpea-ui-view--find-note)))
+    (when note
+      (setq sp-vulpea-ui-view--note note))
+    (let* ((buffer (get-buffer-create sp-vulpea-ui-view-buffer-name))
+           (window (get-buffer-window buffer t)))
+      (with-current-buffer buffer
+        (unless (derived-mode-p 'sp-vulpea-ui-view-mode)
+          (sp-vulpea-ui-view-mode)))
+      (if (window-live-p window)
+          (raise-frame (window-frame window))
+        (setq window (sp-vulpea-ui-view--display buffer)))
+      (sp-vulpea-ui-view--setup)
+      (sp-vulpea-ui-view--render 'note)
+      (when (and sp-vulpea-ui-view-return-focus
+                 (frame-live-p origin)
+                 (not (eq origin (window-frame window))))
+        (select-frame-set-input-focus origin)))))
+
+;;;###autoload
+(defun sp-vulpea-ui-view-close ()
+  "Close the vulpea-ui view and its frame."
+  (interactive)
+  (when-let* ((buffer (sp-vulpea-ui-view--buffer)))
+    (when-let* ((window (get-buffer-window buffer t))
+                (frame (window-frame window)))
+      (cond ((and (window-dedicated-p window)
+                  (null (cdr (window-list frame 'no-minibuf)))
+                  (cdr (visible-frame-list)))
+             (delete-frame frame))
+            ((cdr (window-list frame 'no-minibuf))
+             (delete-window window))))
+    (kill-buffer buffer)))
+
+;;;###autoload
+(defun sp-vulpea-ui-view-toggle ()
+  "Open the vulpea-ui view, or close it when it is open."
+  (interactive)
+  (if (sp-vulpea-ui-view--window)
+      (sp-vulpea-ui-view-close)
+    (sp-vulpea-ui-view-open)))
+
+;;;###autoload
+(defun sp-vulpea-ui-view-refresh ()
+  "Refresh the vulpea-ui view, dropping the cached widget data."
+  (interactive)
+  (when-let* ((note (or (sp-vulpea-ui-view--find-note)
+                        sp-vulpea-ui-view--note)))
+    (setq sp-vulpea-ui-view--note note))
+  (sp-vulpea-ui-view--render 'hard))
+#+end_src
+
+*** Key
+
+=M-o v= toggles the view, in the =M-o= namespace that holds the note commands.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "M-o v" #'sp-vulpea-ui-view-toggle)
+#+end_src
+
+** Provide
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vulpea-ui-view)
+;;; sp-vulpea-ui-view.el ends here
+#+end_src
+
+** Using it with AeroSpace
+
+- The frame is named =vulpea-ui-view= (=sp-vulpea-ui-view-frame-name=), which Emacs uses as the window title.
+- Not applied: a rule is only needed if AeroSpace leaves the frame floating. Emacs frames made by =make-frame= are normally detected as standard windows and tile.
+- If it floats, add this to =aerospace.toml= (the same rule is in =aerospace.org=, section "Emacs vulpea-ui view frame"):
+
+#+begin_src toml :tangle no
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^vulpea-ui-view$'
+run = 'layout tiling'
+#+end_src
+
+- Check the app id with =aerospace list-windows --all --format '%{app-bundle-id} %{window-title}'=; Emacs Plus and Emacs for Mac OS X use other ids.
+- Other window managers match the same name: i3 and sway =[title="^vulpea-ui-view$"]= (the =name= parameter is the X11 and Wayland title).
+
+** Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-vulpea-ui-view-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-vulpea-ui-view-test.el= and run headless, from the folder of =init.el=:
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+*** Stand-ins
+
+=vulpea-ui=, =vui= and the vulpea note accessors are stubbed, so only the module's own logic runs.
+
+- A note is a plist with an =:id=; a buffer has a note when its buffer-local =test-note= is set.
+- =vui-mount=, =vui-update= and =vui-update-props= record their calls in =test-calls=.
+- The jump functions select a window, as the real ones do.
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-ui-view-test.el --- Tests for sp-vulpea-ui-view  -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+
+(provide 'vulpea-ui)
+(provide 'vui)
+
+(defvar vulpea-ui--rendering nil)
+(defvar-local vulpea-ui--refresh-generation 0)
+(defvar vulpea-ui-auto-refresh-delay 1.5)
+(defvar-local test-note nil)
+(defvar test-calls nil)
+(defvar test-focus-calls 0)
+
+(define-derived-mode vulpea-ui-sidebar-mode special-mode "vui")
+(defun vulpea-note-id (note) (plist-get note :id))
+(defun vulpea-ui--get-note-from-buffer (buffer)
+  (buffer-local-value 'test-note buffer))
+(defun vulpea-ui--get-main-window (&optional _frame) (selected-window))
+(defun vulpea-ui-visit-note (_note) (select-window test-main-window))
+(defun vulpea-ui--jump-to-position (_note _pos) nil)
+(defun vulpea-ui--jump-to-file-position (_path _pos) nil)
+(defun vulpea-ui--jump-to-file-line (_path _line) nil)
+(defvar test-main-window nil)
+(defun vui-component (type &rest props) (cons type props))
+(defun vui-instance-buffer (instance) (plist-get instance :buffer))
+(defun vui-mount (component name)
+  (push (list 'mount (plist-get (cdr component) :note) name) test-calls)
+  (list :buffer (get-buffer name)))
+(defun vui-update (_instance props) (push (list 'hard (plist-get props :note)) test-calls))
+(defun vui-update-props (_instance props) (push (list 'soft (plist-get props :note)) test-calls))
+
+(load (expand-file-name
+       "../libraries/modules/vulpea/sp-vulpea-ui-view.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+#+end_src
+
+*** Fixture
+
+=test-with-windows= makes a note buffer =A= (note =a=), a plain buffer =P=, a note buffer =B= (note =b=) and the view buffer, each in a window, and cleans up. Window use order is set by selecting windows. The window minimum heights are lowered, because a headless frame is only a few lines high.
+
+#+begin_src emacs-lisp -i
+(defmacro test-with-windows (&rest body)
+  "Run BODY with windows wa, wp, wb and wv showing A, P, B and the view."
+  (declare (indent 0))
+  `(let ((test-calls nil)
+         (sp-vulpea-ui-view--note nil)
+         (sp-vulpea-ui-view--instance nil)
+         (sp-vulpea-ui-view--sync-timer nil)
+         (sp-vulpea-ui-view--idle-timer nil)
+         (a (generate-new-buffer " test-a"))
+         (p (generate-new-buffer " test-p"))
+         (b (generate-new-buffer " test-b")))
+     (unwind-protect
+         (save-window-excursion
+           (delete-other-windows)
+           (with-current-buffer a (setq test-note '(:id "a")))
+           (with-current-buffer b (setq test-note '(:id "b")))
+           (let* ((window-min-height 1)
+                  (window-safe-min-height 1)
+                  (view (get-buffer-create sp-vulpea-ui-view-buffer-name))
+                  (wa (selected-window))
+                  (wp (split-window))
+                  (wb (split-window wp))
+                  (wv (split-window wb)))
+             (with-current-buffer view (sp-vulpea-ui-view-mode))
+             (set-window-buffer wa a)
+             (set-window-buffer wp p)
+             (set-window-buffer wb b)
+             (set-window-buffer wv view)
+             ,@body))
+       (when-let* ((view (sp-vulpea-ui-view--buffer))) (kill-buffer view))
+       (mapc #'kill-buffer (list a p b)))))
+#+end_src
+
+*** Which note the view follows
+
+- The newest window with a note wins; a plain buffer and the view are skipped.
+- With no note window the result is nil, and the view keeps its note.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-vulpea-ui-view-test-find-note-newest ()
+  (test-with-windows
+    (select-window wa)
+    (select-window wb)
+    (select-window wp)
+    (should (equal (sp-vulpea-ui-view--find-note) '(:id "b")))
+    (select-window wa)
+    (should (equal (sp-vulpea-ui-view--find-note) '(:id "a")))))
+
+(ert-deftest sp-vulpea-ui-view-test-find-note-skips-view ()
+  (test-with-windows
+    (select-window wb)
+    (select-window wv)
+    (should (equal (sp-vulpea-ui-view--find-note) '(:id "b")))))
+
+(ert-deftest sp-vulpea-ui-view-test-find-note-none ()
+  (test-with-windows
+    (with-current-buffer (window-buffer wa) (setq test-note nil))
+    (with-current-buffer (window-buffer wb) (setq test-note nil))
+    (should-not (sp-vulpea-ui-view--find-note))))
+#+end_src
+
+*** Sync and render
+
+- The first sync mounts the root component with the note and the buffer name.
+- Another sync with the same note does nothing; with another note it updates the props of the instance.
+- A hard refresh calls =vui-update= and bumps the generation counter.
+- With no window for the view nothing is rendered.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-vulpea-ui-view-test-sync-mounts-then-updates ()
+  (test-with-windows
+    (select-window wa)
+    (sp-vulpea-ui-view--sync)
+    (should (equal (car test-calls)
+                   (list 'mount '(:id "a") sp-vulpea-ui-view-buffer-name)))
+    (setq sp-vulpea-ui-view--instance
+          (list :buffer (sp-vulpea-ui-view--buffer)))
+    (sp-vulpea-ui-view--sync)
+    (should (= (length test-calls) 1))
+    (select-window wb)
+    (sp-vulpea-ui-view--sync)
+    (should (equal (car test-calls) '(soft (:id "b"))))
+    (should (equal sp-vulpea-ui-view--note '(:id "b")))))
+
+(ert-deftest sp-vulpea-ui-view-test-hard-refresh ()
+  (test-with-windows
+    (select-window wa)
+    (sp-vulpea-ui-view--sync)
+    (setq sp-vulpea-ui-view--instance
+          (list :buffer (sp-vulpea-ui-view--buffer)))
+    (sp-vulpea-ui-view-refresh)
+    (should (equal (car test-calls) '(hard (:id "a"))))
+    (should (= 1 (buffer-local-value 'vulpea-ui--refresh-generation
+                                     (sp-vulpea-ui-view--buffer))))))
+
+(ert-deftest sp-vulpea-ui-view-test-no-window-no-render ()
+  (test-with-windows
+    (select-window wa)
+    (delete-window wv)
+    (sp-vulpea-ui-view--sync)
+    (should-not test-calls)))
+#+end_src
+
+*** Opening a note from the view
+
+- With the view window selected, the main window is the window of a note, not the view window.
+- With another window selected, the original function decides.
+- A visit from the view focuses the frame of the note window; a visit from elsewhere does not.
+- Buffer switch from the view window (=sp-vulpea-ui-view-switch-buffer-action=):
+   + =other-window=: the buffer goes to the newest note window, which is selected; the view window keeps the view and stays dedicated.
+   + nil: the Emacs =user-error= is kept.
+   + In an ordinary window nothing changes.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-vulpea-ui-view-test-main-window-from-view ()
+  (test-with-windows
+    (select-window wb)
+    (select-window wv)
+    (should (eq (vulpea-ui--get-main-window) wb))
+    (select-window wa)
+    (should (eq (vulpea-ui--get-main-window) wa))))
+
+(ert-deftest sp-vulpea-ui-view-test-visit-focuses-frame ()
+  (test-with-windows
+    (let ((test-focus-calls 0)
+          (test-main-window wa))
+      (cl-letf (((symbol-function 'select-frame-set-input-focus)
+                 (lambda (_frame) (cl-incf test-focus-calls))))
+        (select-window wv)
+        (vulpea-ui-visit-note nil)
+        (should (= test-focus-calls 1))
+        (select-window wp)
+        (vulpea-ui-visit-note nil)
+        (should (= test-focus-calls 1))
+        (select-window wv)
+        (let ((sp-vulpea-ui-view-focus-on-visit nil))
+          (vulpea-ui-visit-note nil))
+        (should (= test-focus-calls 1))))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-other-window ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (select-window wb)
+    (select-window wv)
+    (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+      (let ((sp-vulpea-ui-view-switch-buffer-action 'other-window))
+        (switch-to-buffer p)))
+    (should (eq (selected-window) wb))
+    (should (eq (window-buffer wb) p))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))
+    (should (window-dedicated-p wv))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-error-when-nil ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wv)
+    (let ((sp-vulpea-ui-view-switch-buffer-action nil))
+      (should-error (switch-to-buffer p) :type 'user-error))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-elsewhere-unchanged ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (switch-to-buffer b)
+    (should (eq (window-buffer wa) b))
+    (should (eq (selected-window) wa))))
+#+end_src
+
+*** Frame, toggle and teardown
+
+- The frame parameters hold the name, whatever the parameter list says.
+- Toggling opens the view in a window (the frame is stubbed: headless Emacs cannot make one) and toggling again closes it and kills the buffer.
+- Killing the buffer removes the hooks and the timers.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-vulpea-ui-view-test-frame-name ()
+  (let ((sp-vulpea-ui-view-frame-name "tile-me")
+        (sp-vulpea-ui-view-frame-parameters '((name . "other") (width . 40))))
+    (let ((parameters (sp-vulpea-ui-view--frame-parameters)))
+      (should (equal (alist-get 'name parameters) "tile-me"))
+      (should (= (length (seq-filter (lambda (p) (eq (car p) 'name)) parameters)) 1))
+      (should (equal (alist-get 'width parameters) 40)))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-on ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (sp-vulpea-ui-view-wrap-indent t))
+    (with-temp-buffer
+      (setq-local truncate-lines t)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should visual-line-mode)
+      (should-not truncate-lines))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-off ()
+  (let ((sp-vulpea-ui-view-wrap-lines nil))
+    (with-temp-buffer
+      (visual-line-mode 1)
+      (sp-vulpea-ui-view--apply-wrap)
+      (should-not visual-line-mode))))
+
+(ert-deftest sp-vulpea-ui-view-test-wrap-is-local-to-the-view ()
+  (let ((sp-vulpea-ui-view-wrap-lines t)
+        (other (generate-new-buffer " test-other"))
+        (view (generate-new-buffer " test-view")))
+    (unwind-protect
+        (progn
+          (with-current-buffer view (sp-vulpea-ui-view-mode))
+          (should (buffer-local-value 'visual-line-mode view))
+          (should-not (buffer-local-value 'visual-line-mode other)))
+      (kill-buffer other)
+      (kill-buffer view))))
+
+(ert-deftest sp-vulpea-ui-view-test-toggle-and-teardown ()
+  (let ((sp-vulpea-ui-view-use-frame nil)
+        (sp-vulpea-ui-view--note nil)
+        (sp-vulpea-ui-view--instance nil)
+        (sp-vulpea-ui-view--sync-timer nil)
+        (sp-vulpea-ui-view--idle-timer nil)
+        (test-calls nil)
+        (a (generate-new-buffer " test-a")))
+    (unwind-protect
+        (save-window-excursion
+          (delete-other-windows)
+          (with-current-buffer a (setq test-note '(:id "a")))
+          (switch-to-buffer a)
+          (sp-vulpea-ui-view-toggle)
+          (should (sp-vulpea-ui-view--window))
+          (should (equal sp-vulpea-ui-view--note '(:id "a")))
+          (should (memq #'sp-vulpea-ui-view--on-window-change
+                        window-selection-change-functions))
+          (should sp-vulpea-ui-view--idle-timer)
+          (sp-vulpea-ui-view-toggle)
+          (should-not (sp-vulpea-ui-view--buffer))
+          (should-not sp-vulpea-ui-view--idle-timer)
+          (should-not (memq #'sp-vulpea-ui-view--on-window-change
+                            window-selection-change-functions)))
+      (kill-buffer a)
+      (when-let* ((view (sp-vulpea-ui-view--buffer))) (kill-buffer view)))))
+
+;;; sp-vulpea-ui-view-test.el ends here
+#+end_src
+
 * sp-vulpea-org-ql.el
 :PROPERTIES:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-org-ql.el
@@ -3204,6 +4115,714 @@ Provides the =sp-vulpea-org-ql= feature and closes the file.
 ;; sp-vulpea-org-ql.el ends here.
 #+end_src
 
+* sp-vulpea-backlink-check.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-backlink-check.el
+:END:
+
+This module answers one question about a heading: is it linked to from anywhere in the vault?
+
+- =M-x sp-vulpea-backlink-check= (or =(sp-vulpea-backlink-check)= evaluated) works on the heading at point.
+- The heading needs an =ID= property; without one the command says so and stops.
+- The answer appears in the echo area, for example =3 backlinks from 2 notes=, or =not backlinked=.
+- The answer is a propertized string, so it is an Embark target of type =sp-vulpea-backlinks=.
+- =embark-act= (=C-.=) on it opens the =*vulpea backlinks: TITLE*= buffer with every location.
+
+The check is one database query:
+
+- It calls =vulpea-db-query-links-to= with the heading ID, the same query as =sp-vulpea-grouped-backlinks=.
+- Headings with an =ID= are notes of their own in Vulpea, so a link to a heading is found, not only a link to a file.
+- It reads no file, so it stays fast on a big vault.
+- A link from the heading to itself is not counted.
+
+The locations buffer reads files, but only when you ask for it:
+
+- One group per source note, with its file name.
+- One entry per link: the heading it sits under, the line number and the text of the line.
+- =RET= or a click jumps to the link; =n= and =p= move between entries; =g= refreshes; =q= quits.
+- A file that is open in a buffer is read from that buffer, so unsaved edits count.
+- The position comes from the database, so it can be a little off until the file is synced again.
+
+How Embark finds the result, since the echo area is not a buffer:
+
+- =sp-vulpea-backlink-check-target= is added to =embark-target-finders= at the front.
+- It returns the result when the echo area still shows it (=current-message=).
+- It also returns it for =sp-vulpea-backlink-check-timeout= seconds after the command ran, in case the message was already replaced.
+- It also works on the line of the result in the =*Messages*= buffer, from the text property (if =*Messages*= keeps it).
+- If the message is already gone, run =M-x sp-copy-last-message= and then =embark-act=:
+  - =sp-copy-last-message= runs =sp-copy-last-message-functions= on the copied text.
+  - =sp-vulpea-backlink-check-restore= is on that hook; it finds the text among the last =sp-vulpea-backlink-check-history-size= results (20).
+  - The =Copied: ...= message is then the propertized result again, so =embark-act= works on it.
+  - If two headings gave the same text, the newest one wins.
+- Embark is configured with =with-eval-after-load=, as the other modules do, so this file does not load it.
+
+Customisation:
+
+- =sp-vulpea-backlink-check-timeout=: seconds the last result stays an Embark target after the echo area changes (default 10).
+- =sp-vulpea-backlink-check-history-size=: results remembered for =sp-copy-last-message= (default 20).
+- =sp-vulpea-backlink-check-context-width=: columns of the line of context in the buffer (default 100).
+
+** Header and requires
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-backlink-check.el --- Is this heading backlinked? -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-vulpea-backlink-check' reports in the echo area whether the heading
+;; at point (it needs an ID) is linked to from anywhere in the vault.  The
+;; result is an Embark target: `embark-act' on it lists the backlinks in a
+;; temporary buffer, where RET jumps to each one.
+
+;;; Code:
+
+(require 'org)
+(require 'seq)
+(require 'subr-x)
+(require 'sp-interaction)
+
+(declare-function vulpea-db-query-links-to "vulpea-db-query")
+(declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-note-id "vulpea-note")
+(declare-function vulpea-note-title "vulpea-note")
+(declare-function vulpea-note-path "vulpea-note")
+(declare-function org-fold-show-context "org-fold")
+
+(defvar embark-target-finders)
+(defvar embark-keymap-alist)
+(defvar embark-default-action-overrides)
+(defvar embark-general-map)
+
+(defgroup sp-vulpea-backlink-check nil
+  "Check whether a heading is backlinked."
+  :group 'vulpea)
+
+(defcustom sp-vulpea-backlink-check-timeout 10
+  "Seconds the last result stays an Embark target after the echo area changes."
+  :type 'natnum
+  :group 'sp-vulpea-backlink-check)
+
+(defcustom sp-vulpea-backlink-check-context-width 100
+  "Columns of the line of context shown for each backlink."
+  :type 'natnum
+  :group 'sp-vulpea-backlink-check)
+#+end_src
+
+** Query and result
+
+- The result string carries the heading ID in the text property =sp-vulpea-backlink-check=.
+- =sp-vulpea-backlink-check--last= holds the ID and the time of the last run, for the timeout.
+
+#+begin_src emacs-lisp -i
+
+(defvar sp-vulpea-backlink-check--last nil
+  "Cons of the ID and the time (`float-time') of the last check, or nil.")
+
+(defun sp-vulpea-backlink-check--links (id)
+  "Return the links to the note ID, without the ones from ID itself."
+  (seq-remove (lambda (link) (equal (plist-get link :source) id))
+              (vulpea-db-query-links-to id)))
+
+(defvar sp-vulpea-backlink-check--history nil
+  "Alist of (TEXT . ID) of the latest results, newest first.")
+
+(defcustom sp-vulpea-backlink-check-history-size 20
+  "Number of results kept to make them Embark targets again.
+See `sp-vulpea-backlink-check-restore'."
+  :type 'natnum
+  :group 'sp-vulpea-backlink-check)
+
+(defun sp-vulpea-backlink-check--propertize (text id)
+  "Return TEXT as a result string for the heading ID."
+  (propertize text
+              'sp-vulpea-backlink-check id
+              'face (if (equal text "not backlinked") 'shadow 'success)
+              'help-echo "embark-act: list the backlinks"))
+
+(defun sp-vulpea-backlink-check-restore (text)
+  "Return TEXT as a result string again, if it is a recent result, else nil.
+For `sp-copy-last-message-functions': the text copied out of *Messages*
+has lost its properties.  This also makes the heading the target for
+`sp-vulpea-backlink-check-timeout' seconds."
+  (when-let* ((cell (assoc (string-remove-prefix "Copied: " text)
+                           sp-vulpea-backlink-check--history)))
+    (setq sp-vulpea-backlink-check--last (cons (cdr cell) (float-time)))
+    (sp-vulpea-backlink-check--propertize (car cell) (cdr cell))))
+
+(defun sp-vulpea-backlink-check--format (id links)
+  "Return the echo-area result for ID with LINKS, a propertized string."
+  (let* ((n (length links))
+         (sources (length (seq-uniq (mapcar (lambda (l) (plist-get l :source))
+                                            links))))
+         (text (if (zerop n)
+                   "not backlinked"
+                 (format "%d backlink%s from %d note%s"
+                         n (if (= n 1) "" "s")
+                         sources (if (= sources 1) "" "s")))))
+    (sp-vulpea-backlink-check--propertize text id)))
+
+(defun sp-vulpea-backlink-check--id-at-point ()
+  "Return the ID of the heading at point, or signal a `user-error'."
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an Org buffer"))
+  (or (org-entry-get nil "ID")
+      (user-error "This heading has no ID")))
+
+;;;###autoload
+(defun sp-vulpea-backlink-check (&optional id)
+  "Say in the echo area whether the heading at point is backlinked.
+ID defaults to the ID property of the heading at point.  The result,
+for example \"3 backlinks from 2 notes\", is an Embark target: `embark-act'
+on it lists the backlinks.  Return the result string."
+  (interactive)
+  (let* ((id (or id (sp-vulpea-backlink-check--id-at-point)))
+         (result (sp-vulpea-backlink-check--format
+                  id (sp-vulpea-backlink-check--links id))))
+    (setq sp-vulpea-backlink-check--last (cons id (float-time)))
+    (setq sp-vulpea-backlink-check--history
+          (seq-take (cons (cons (substring-no-properties result) id)
+                          (assoc-delete-all (substring-no-properties result)
+                                            sp-vulpea-backlink-check--history))
+                    sp-vulpea-backlink-check-history-size))
+    (message "%s" result)
+    result))
+#+end_src
+
+** Locations
+
+- Each location is a plist: =:note=, =:path=, =:pos=, =:line=, =:heading= and =:context=.
+- A buffer visiting the file is used when there is one, otherwise the file is read into a temporary buffer.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-vulpea-backlink-check--location (link)
+  "Return the location plist of the LINK plist, or nil without a source file."
+  (when-let* ((note (vulpea-db-get-by-id (plist-get link :source)))
+              (path (vulpea-note-path note))
+              (pos (plist-get link :pos)))
+    (let ((buf (find-buffer-visiting path)))
+      (with-temp-buffer
+        (if buf
+            (insert (with-current-buffer buf
+                      (save-restriction (widen) (buffer-string))))
+          (insert-file-contents path))
+        (goto-char (min pos (point-max)))
+        (list :note note :path path :pos pos
+              :line (line-number-at-pos)
+              :heading (save-excursion
+                         (and (re-search-backward "^\\*+[ \t]+\\(.*\\)$" nil t)
+                              (string-trim (match-string 1))))
+              :context (truncate-string-to-width
+                        (string-trim (buffer-substring
+                                      (line-beginning-position)
+                                      (line-end-position)))
+                        sp-vulpea-backlink-check-context-width nil nil "…"))))))
+
+(defun sp-vulpea-backlink-check--locations (id)
+  "Return the locations of the links to ID, grouped by source note.
+The value is an alist of (NOTE . LOCATIONS), in file order."
+  (let (groups)
+    (dolist (link (sp-vulpea-backlink-check--links id))
+      (when-let* ((loc (sp-vulpea-backlink-check--location link)))
+        (let* ((key (plist-get loc :path))
+               (cell (assoc key groups)))
+          (if cell
+              (setcdr cell (cons loc (cdr cell)))
+            (push (list key loc) groups)))))
+    (mapcar (lambda (g)
+              (cons (plist-get (cadr g) :note)
+                    (sort (cdr g) (lambda (a b)
+                                    (< (plist-get a :pos) (plist-get b :pos))))))
+            (nreverse groups))))
+#+end_src
+
+** Locations buffer
+
+- The buffer is a =special-mode= buffer, named after the heading title.
+- Every entry line has the text property =sp-vulpea-backlink-check-loc= with its location.
+
+#+begin_src emacs-lisp -i
+
+(defvar-local sp-vulpea-backlink-check--buffer-id nil
+  "The heading ID the locations buffer lists.")
+
+(defun sp-vulpea-backlink-check-visit ()
+  "Jump to the backlink at point."
+  (interactive)
+  (let ((loc (get-text-property (point) 'sp-vulpea-backlink-check-loc)))
+    (unless loc (user-error "No backlink on this line"))
+    (find-file-other-window (plist-get loc :path))
+    (goto-char (plist-get loc :pos))
+    (when (derived-mode-p 'org-mode)
+      (org-fold-show-context 'link-search))))
+
+(defun sp-vulpea-backlink-check--next (n)
+  "Move N backlink entries forward; backward when N is negative.
+An entry spans two lines with the same location, so a step skips the
+lines of the entry point is on.  Point stays put when there is none."
+  (let ((step (if (> n 0) 1 -1)))
+    (dotimes (_ (abs n))
+      (let* ((start (point))
+             (here (get-text-property start 'sp-vulpea-backlink-check-loc)))
+        (while (and (not (if (> step 0) (eobp) (bobp)))
+                    (progn (forward-line step)
+                           (let ((loc (get-text-property
+                                       (point) 'sp-vulpea-backlink-check-loc)))
+                             (or (null loc) (eq loc here))))))
+        (let ((loc (get-text-property (point) 'sp-vulpea-backlink-check-loc)))
+          (when (or (null loc) (eq loc here))
+            (goto-char start)))
+        (when (< step 0)
+          ;; Backward lands on the second line of the entry: go to its first.
+          (let ((loc (get-text-property (point) 'sp-vulpea-backlink-check-loc)))
+            (while (and loc (not (bobp))
+                        (eq loc (get-text-property
+                                 (1- (line-beginning-position))
+                                 'sp-vulpea-backlink-check-loc)))
+              (forward-line -1))))))))
+
+(defun sp-vulpea-backlink-check-next-entry (&optional n)
+  "Move to the next backlink entry, N times."
+  (interactive "p")
+  (sp-vulpea-backlink-check--next (or n 1)))
+
+(defun sp-vulpea-backlink-check-previous-entry (&optional n)
+  "Move to the previous backlink entry, N times."
+  (interactive "p")
+  (sp-vulpea-backlink-check--next (- (or n 1))))
+
+(defvar-keymap sp-vulpea-backlink-check-mode-map
+  :doc "Keys of the backlink locations buffer."
+  :parent special-mode-map
+  "RET" #'sp-vulpea-backlink-check-visit
+  "<mouse-2>" #'sp-vulpea-backlink-check-visit
+  "n" #'sp-vulpea-backlink-check-next-entry
+  "p" #'sp-vulpea-backlink-check-previous-entry)
+
+(define-derived-mode sp-vulpea-backlink-check-mode special-mode "Backlinks"
+  "Major mode of the buffer that lists the backlinks of a heading."
+  (setq-local revert-buffer-function
+              (lambda (&rest _)
+                (when sp-vulpea-backlink-check--buffer-id
+                  (sp-vulpea-backlink-check--render
+                   sp-vulpea-backlink-check--buffer-id)))))
+
+(defun sp-vulpea-backlink-check--render (id)
+  "Draw the locations of the links to ID in the current buffer."
+  (let ((inhibit-read-only t)
+        (groups (sp-vulpea-backlink-check--locations id)))
+    (erase-buffer)
+    (setq sp-vulpea-backlink-check--buffer-id id)
+    (insert (propertize (format "Backlinks to %s"
+                                (or (when-let* ((note (vulpea-db-get-by-id id)))
+                                      (vulpea-note-title note))
+                                    id))
+                        'face 'bold)
+            "\n\n")
+    (sp-echo-help-set '(("RET" "Visit") ("n/p" "Move") ("g" "Refresh") ("q" "Quit")))
+    (if (null groups)
+        (insert "Not backlinked.\n")
+      (dolist (group groups)
+        (insert (propertize (vulpea-note-title (car group))
+                            'face 'font-lock-keyword-face)
+                (propertize (format "  %s"
+                                    (abbreviate-file-name
+                                     (vulpea-note-path (car group))))
+                            'face 'shadow)
+                "\n")
+        (dolist (loc (cdr group))
+          (insert (propertize
+                   (format "  %s (line %d)\n    %s\n"
+                           (or (plist-get loc :heading) "(before the first heading)")
+                           (plist-get loc :line)
+                           (plist-get loc :context))
+                   'sp-vulpea-backlink-check-loc loc
+                   'mouse-face 'highlight
+                   'follow-link t)))
+        (insert "\n")))
+    (goto-char (point-min))
+    (sp-vulpea-backlink-check--next 1)))
+
+(defun sp-vulpea-backlink-check--pending-id ()
+  "Return the ID of the result in the echo area or just reported, or nil."
+  (or (when-let* ((msg (current-message)))
+        (get-text-property 0 'sp-vulpea-backlink-check msg))
+      (when-let* ((last sp-vulpea-backlink-check--last)
+                  ((< (- (float-time) (cdr last))
+                      sp-vulpea-backlink-check-timeout)))
+        (car last))))
+
+;;;###autoload
+(defun sp-vulpea-backlink-check-show (id)
+  "List the backlinks of the heading with ID in a temporary buffer.
+Interactively, ID is the last result of `sp-vulpea-backlink-check' (Embark
+passes the target) or is asked for."
+  (interactive
+   (list (read-string "Backlinks of ID: " (sp-vulpea-backlink-check--pending-id))))
+  (let ((buf (get-buffer-create
+              (format "*vulpea backlinks: %s*"
+                      (or (when-let* ((note (vulpea-db-get-by-id id)))
+                            (vulpea-note-title note))
+                          id)))))
+    (with-current-buffer buf
+      (unless (derived-mode-p 'sp-vulpea-backlink-check-mode)
+        (sp-vulpea-backlink-check-mode))
+      (sp-vulpea-backlink-check--render id))
+    (pop-to-buffer buf)))
+#+end_src
+
+** Embark
+
+- The target type is =sp-vulpea-backlinks=; the target is the heading ID.
+- =RET= and =s= both show the buffer; the keymap inherits =embark-general-map=.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-vulpea-backlink-check-target ()
+  "Embark target finder: the result of `sp-vulpea-backlink-check'.
+Found on the line of a result in a buffer such as *Messages*, in the
+echo area, or for `sp-vulpea-backlink-check-timeout' seconds after a check."
+  (when-let* ((id (or (get-text-property (point) 'sp-vulpea-backlink-check)
+                      (sp-vulpea-backlink-check--pending-id))))
+    (cons 'sp-vulpea-backlinks id)))
+
+(with-eval-after-load 'embark
+  (defvar-keymap sp-vulpea-backlink-check-embark-map
+    :doc "Embark actions on the result of `sp-vulpea-backlink-check'."
+    :parent embark-general-map
+    "RET" #'sp-vulpea-backlink-check-show
+    "s" #'sp-vulpea-backlink-check-show)
+  (add-to-list 'embark-keymap-alist
+               '(sp-vulpea-backlinks . sp-vulpea-backlink-check-embark-map))
+  (add-to-list 'embark-default-action-overrides
+               '(sp-vulpea-backlinks . sp-vulpea-backlink-check-show))
+  (add-to-list 'embark-target-finders #'sp-vulpea-backlink-check-target))
+
+;; `sp-copy-last-message' (sp-helper-funct) calls this hook with the text.
+(defvar sp-copy-last-message-functions)
+(add-hook 'sp-copy-last-message-functions #'sp-vulpea-backlink-check-restore)
+#+end_src
+
+** Provide
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-vulpea-backlink-check)
+;;; sp-vulpea-backlink-check.el ends here
+#+end_src
+
+** Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-vulpea-backlink-check-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-vulpea-backlink-check-test.el= and run headless, from the folder of =init.el=:
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-vulpea-backlink-check-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+- Vulpea is stubbed: links and notes are plists, and the source notes are real files in a temporary directory.
+- Embark is not needed; the finder is a plain function.
+
+*** Stubs and fixtures
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-backlink-check-test.el --- Tests for sp-vulpea-backlink-check  -*- lexical-binding: t; -*-
+
+;;; Code:
+
+(require 'ert)
+(require 'cl-lib)
+(require 'org)
+
+(defvar sp-vulpea-backlink-check-test--links nil
+  "Alist of (TARGET-ID . LINK-PLISTS) the stubbed database answers with.")
+(defvar sp-vulpea-backlink-check-test--notes nil
+  "Alist of (ID . NOTE-PLIST) the stubbed database answers with.")
+
+(when noninteractive
+  (defun vulpea-db-query-links-to (id)
+    (cdr (assoc id sp-vulpea-backlink-check-test--links)))
+  (defun vulpea-db-get-by-id (id)
+    (cdr (assoc id sp-vulpea-backlink-check-test--notes)))
+  (defun vulpea-note-id (note) (plist-get note :id))
+  (defun vulpea-note-title (note) (plist-get note :title))
+  (defun vulpea-note-path (note) (plist-get note :path)))
+
+(load (expand-file-name
+       "../libraries/modules/vulpea/sp-vulpea-backlink-check.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(defmacro sp-vulpea-backlink-check-test--with-vault (&rest body)
+  "Run BODY with notes a and b linking to the heading \"target\".
+Note a links once, from under a heading; b links twice.  The files are
+real, in a temporary directory, and the database stub knows them."
+  (declare (indent 0))
+  `(let* ((dir (make-temp-file "sp-bc-" t))
+          (file-a (expand-file-name "a.org" dir))
+          (file-b (expand-file-name "b.org" dir)))
+     (unwind-protect
+         (progn
+           (with-temp-file file-a
+             (insert "* A\n** Part\nSee [[id:target][T]] here.\n"))
+           (with-temp-file file-b
+             (insert "* B\n- pub-author :: [[id:target][T]]\nand [[id:target][T]] again\n"))
+           (let ((sp-vulpea-backlink-check-test--notes
+                  `(("a" . (:id "a" :title "Note A" :path ,file-a))
+                    ("b" . (:id "b" :title "Note B" :path ,file-b))
+                    ("target" . (:id "target" :title "The target" :path ,file-a))))
+                 (sp-vulpea-backlink-check-test--links
+                  `(("target"
+                     (:source "b" :pos ,(+ 1 (length "* B\n- pub-author :: ")))
+                     (:source "a" :pos ,(+ 1 (length "* A\n** Part\nSee ")))
+                     (:source "b" :pos ,(+ 1 (length "* B\n- pub-author :: [[id:target][T]]\nand ")))
+                     (:source "target" :pos 1))))
+                 (sp-vulpea-backlink-check--last nil))
+             ,@body))
+       (delete-directory dir t))))
+#+end_src
+
+*** The result
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-counts-links-and-notes ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (should (equal (sp-vulpea-backlink-check--format
+                    "target" (sp-vulpea-backlink-check--links "target"))
+                   "3 backlinks from 2 notes"))))
+
+(ert-deftest sp-vulpea-backlink-check-test-singular ()
+  (should (equal (sp-vulpea-backlink-check--format "x" '((:source "a")))
+                 "1 backlink from 1 note")))
+
+(ert-deftest sp-vulpea-backlink-check-test-not-backlinked ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (should (equal (sp-vulpea-backlink-check--format
+                    "other" (sp-vulpea-backlink-check--links "other"))
+                   "not backlinked"))))
+
+(ert-deftest sp-vulpea-backlink-check-test-result-carries-the-id ()
+  (let ((s (sp-vulpea-backlink-check--format "xyz" nil)))
+    (should (equal (get-text-property 0 'sp-vulpea-backlink-check s) "xyz"))))
+
+(ert-deftest sp-vulpea-backlink-check-test-self-links-are-ignored ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (should-not (seq-find (lambda (l) (equal (plist-get l :source) "target"))
+                          (sp-vulpea-backlink-check--links "target")))))
+#+end_src
+
+*** The command
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-command-uses-the-heading-id ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (with-temp-buffer
+      (insert "* Heading\n:PROPERTIES:\n:ID: target\n:END:\nbody\n")
+      (org-mode)
+      (goto-char (point-max))
+      (let ((result (sp-vulpea-backlink-check)))
+        (should (equal (substring-no-properties result)
+                       "3 backlinks from 2 notes"))
+        (should (equal (car sp-vulpea-backlink-check--last) "target"))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-command-needs-an-id ()
+  (with-temp-buffer
+    (insert "* No id here\n")
+    (org-mode)
+    (should-error (sp-vulpea-backlink-check) :type 'user-error)))
+
+(ert-deftest sp-vulpea-backlink-check-test-command-needs-org ()
+  (with-temp-buffer
+    (fundamental-mode)
+    (should-error (sp-vulpea-backlink-check) :type 'user-error)))
+#+end_src
+
+*** The Embark target
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-target-on-a-result-line ()
+  (with-temp-buffer
+    (insert (sp-vulpea-backlink-check--format "xyz" nil) "\n")
+    (goto-char (point-min))
+    (should (equal (sp-vulpea-backlink-check-target)
+                   '(sp-vulpea-backlinks . "xyz")))))
+
+(ert-deftest sp-vulpea-backlink-check-test-target-just-after-a-check ()
+  (let ((sp-vulpea-backlink-check--last (cons "abc" (float-time))))
+    (with-temp-buffer
+      (should (equal (sp-vulpea-backlink-check-target)
+                     '(sp-vulpea-backlinks . "abc"))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-target-expires ()
+  (let ((sp-vulpea-backlink-check--last
+         (cons "abc" (- (float-time) sp-vulpea-backlink-check-timeout 1))))
+    (with-temp-buffer
+      (should-not (sp-vulpea-backlink-check-target)))))
+
+(ert-deftest sp-vulpea-backlink-check-test-no-target-by-default ()
+  (let ((sp-vulpea-backlink-check--last nil))
+    (with-temp-buffer
+      (should-not (sp-vulpea-backlink-check-target)))))
+#+end_src
+
+*** Restoring a result from *Messages*
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-restore-a-copied-result ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (let ((sp-vulpea-backlink-check--history nil))
+      (with-temp-buffer
+        (insert "* H\n:PROPERTIES:\n:ID: target\n:END:\n")
+        (org-mode)
+        (sp-vulpea-backlink-check))
+      (setq sp-vulpea-backlink-check--last nil)
+      (let ((s (sp-vulpea-backlink-check-restore
+                "Copied: 3 backlinks from 2 notes")))
+        (should (equal s "3 backlinks from 2 notes"))
+        (should (equal (get-text-property 0 'sp-vulpea-backlink-check s)
+                       "target"))
+        (should (equal (car sp-vulpea-backlink-check--last) "target"))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-restore-ignores-other-text ()
+  (let ((sp-vulpea-backlink-check--history '(("3 backlinks from 2 notes" . "t"))))
+    (should-not (sp-vulpea-backlink-check-restore "hello"))))
+
+;; sp-helper-funct needs the whole config to load: evaluate only the hook
+;; variable and the command from it.
+(defconst sp-vulpea-backlink-check-test--helper-file
+  (expand-file-name
+   "../libraries/modules/funct/sp-helper-funct.el"
+   (file-name-directory (or load-file-name buffer-file-name)))
+  "The file that holds `sp-copy-last-message'.")
+
+(defun sp-vulpea-backlink-check-test--load-copy-last-message ()
+  (with-temp-buffer
+    (insert-file-contents sp-vulpea-backlink-check-test--helper-file)
+    (goto-char (point-min))
+    (condition-case nil
+        (while t
+          (let ((form (read (current-buffer))))
+            (when (and (memq (car-safe form) '(defvar defun))
+                       (string-prefix-p "sp-copy-last-message"
+                                        (symbol-name (cadr form))))
+              (eval form t))))
+      (end-of-file nil))))
+
+(ert-deftest sp-vulpea-backlink-check-test-copy-last-message-uses-the-hook ()
+  (sp-vulpea-backlink-check-test--load-copy-last-message)
+  (let ((sp-copy-last-message-functions
+         (list (lambda (text) (propertize text 'sp-vulpea-backlink-check "id"))))
+        shown)
+    (with-current-buffer (get-buffer-create "*Messages*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "old\n3 backlinks from 2 notes\n")))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (setq shown (apply #'format fmt args)))))
+      (sp-copy-last-message))
+    (should (equal shown "Copied: 3 backlinks from 2 notes"))
+    (should (equal (car kill-ring) "3 backlinks from 2 notes"))))
+#+end_src
+
+*** The locations buffer
+
+#+begin_src emacs-lisp -i
+
+(ert-deftest sp-vulpea-backlink-check-test-locations-have-heading-and-context ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (let* ((groups (sp-vulpea-backlink-check--locations "target"))
+           (a (assoc-default "Note A" groups
+                             (lambda (note title)
+                               (equal (plist-get note :title) title))))
+           (b (assoc-default "Note B" groups
+                             (lambda (note title)
+                               (equal (plist-get note :title) title)))))
+      (should (= (length groups) 2))
+      (should (= (length a) 1))
+      (should (equal (plist-get (car a) :heading) "Part"))
+      (should (= (plist-get (car a) :line) 3))
+      (should (equal (plist-get (car a) :context) "See [[id:target][T]] here."))
+      (should (= (length b) 2))
+      (should (equal (plist-get (car b) :heading) "B"))
+      (should (< (plist-get (car b) :pos) (plist-get (cadr b) :pos))))))
+
+(ert-deftest sp-vulpea-backlink-check-test-buffer-lists-the-locations ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-vulpea-backlink-check-show "target")
+      (with-current-buffer "*vulpea backlinks: The target*"
+        (should (derived-mode-p 'sp-vulpea-backlink-check-mode))
+        (let ((text (buffer-string)))
+          (should (string-match-p "Backlinks to The target" text))
+          (should (string-match-p "Note A" text))
+          (should (string-match-p "Note B" text))
+          (should (string-match-p "Part (line 3)" text))
+          (should (string-match-p "See \\[\\[id:target\\]\\[T\\]\\] here\\." text)))
+        (should (get-text-property (point) 'sp-vulpea-backlink-check-loc))
+        (kill-buffer)))))
+
+(ert-deftest sp-vulpea-backlink-check-test-buffer-next-and-previous ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-vulpea-backlink-check-show "target")
+      (with-current-buffer "*vulpea backlinks: The target*"
+        (let ((first (get-text-property (point) 'sp-vulpea-backlink-check-loc)))
+          (sp-vulpea-backlink-check-next-entry)
+          (should-not (eq first (get-text-property
+                                 (point) 'sp-vulpea-backlink-check-loc)))
+          (sp-vulpea-backlink-check-previous-entry)
+          (should (eq first (get-text-property
+                             (point) 'sp-vulpea-backlink-check-loc))))
+        (kill-buffer)))))
+
+(ert-deftest sp-vulpea-backlink-check-test-visit-jumps-to-the-link ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-vulpea-backlink-check-show "target")
+      (with-current-buffer "*vulpea backlinks: The target*"
+        (let ((loc (get-text-property (point) 'sp-vulpea-backlink-check-loc))
+              visited)
+          (cl-letf (((symbol-function 'find-file-other-window)
+                     (lambda (f) (setq visited f)
+                       (set-buffer (find-file-noselect f)))))
+            (sp-vulpea-backlink-check-visit)
+            (should (equal visited (plist-get loc :path)))
+            (should (= (point) (plist-get loc :pos)))
+            (kill-buffer)))
+        (kill-buffer "*vulpea backlinks: The target*")))))
+
+(ert-deftest sp-vulpea-backlink-check-test-empty-buffer ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-vulpea-backlink-check-show "other")
+      (with-current-buffer "*vulpea backlinks: other*"
+        (should (string-match-p "Not backlinked" (buffer-string)))
+        (kill-buffer)))))
+
+(ert-deftest sp-vulpea-backlink-check-test-open-buffer-wins-over-the-file ()
+  (sp-vulpea-backlink-check-test--with-vault
+    (let* ((path (plist-get (cdr (assoc "a" sp-vulpea-backlink-check-test--notes))
+                            :path))
+           (buf (find-file-noselect path)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buf
+              (goto-char (point-min))
+              (insert "Unsaved line\n"))
+            (let ((loc (sp-vulpea-backlink-check--location
+                        (list :source "a" :pos (+ 1 (length "* A\n** Part\nSee ") 13)))))
+              (should (equal (plist-get loc :heading) "Part"))
+              (should (= (plist-get loc :line) 4))))
+        (with-current-buffer buf (set-buffer-modified-p nil))
+        (kill-buffer buf)))))
+#+end_src
+
 * Changes by pull request
 
 What each pull request changed in these modules, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
@@ -3238,3 +4857,8 @@ What each pull request changed in these modules, newest last; the one-line summa
   - Not tested in a running Emacs. The change is one =:bind= entry.
 - [[https://github.com/siainbuletin/dotfiles/pull/351][#351]]
   - ✨ The property conversion preview and the keyword conversion preview open in the shared =sp-batch-report-mode= buffer, with every note file as an Org link.
+- [[https://github.com/siainbuletin/dotfiles/pull/450][#450]]
+  - ✨ Added =sp-vulpea-backlink-check=: =M-x sp-vulpea-backlink-check= says in the echo area whether the heading at point (with an =ID=) is backlinked, for example =3 backlinks from 2 notes=
+    - the result is an Embark target (=sp-vulpea-backlinks=); =embark-act= opens a buffer with each backlink's note, heading, line and context, and =RET= jumps to it.
+  - 18 ERT tests in headless Emacs 29.3 (Vulpea stubbed)
+    - not run with real Vulpea, Embark or the GUI.

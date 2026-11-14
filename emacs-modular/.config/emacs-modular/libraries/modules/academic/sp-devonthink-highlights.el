@@ -5,7 +5,7 @@
 ;; Copies the highlights of the PDF of a litnote under a "* Highlights" heading,
 ;; each with a `devonthink:' link to its page.  One way: DEVONthink to Emacs.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-highlights.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-highlights.org.
 
 ;;; Code:
 
