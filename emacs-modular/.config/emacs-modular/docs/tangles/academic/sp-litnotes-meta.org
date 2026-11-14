@@ -109,6 +109,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 (require 'sp-author-notes-bibtex)
 (require 'sp-litnotes-titles)
 (require 'sp-batch-report)
+(require 'sp-interaction)
 (require 'sp-bibtex-types)
 (require 'sp-vulpea-meta-order)
 
@@ -898,7 +899,10 @@ Without marks, use the notes in the active region, else the note at point."
                                ("relevance" 9 t) ("title" 0 t)]
         tabulated-list-sort-key '("read-status")
         tabulated-list-padding 1)
-  (tabulated-list-init-header))
+  (tabulated-list-init-header)
+  (sp-echo-help-set '(("RET" "Visit") ("m/u" "Mark/unmark") ("M" "Mark a status")
+                      ("U" "Unmark all") ("s" "Set status" t) ("g" "Refresh")
+                      ("q" "Quit"))))
 
 ;;;###autoload
 (defun sp-litnotes-meta-status-report ()
