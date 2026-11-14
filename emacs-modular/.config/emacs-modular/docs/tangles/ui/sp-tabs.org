@@ -4,6 +4,8 @@
 
 Literate source for =libraries/modules/ui/sp-tabs.el=.
 
+- How workspaces are made and how to add one: [[file:../../architecture/tabspaces-workspaces.org][Tabspaces and workspaces]].
+
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
@@ -193,9 +195,9 @@ questions.  Otherwise use completion to select the tab."
 
 Installs =tabspaces= and makes its main commands autoload.
 
-- Buffer lists are filtered to the current workspace by default.
+- Buffer lists are not filtered by default: =C-x b= shows every buffer. Filtering is opt-in per tab, see the buffer filtering section below.
 - The default tab is called =Home=. Removed buffers go back to it.
-- =*scratch*= is included in every workspace. =*Messages*= and =*Compile-Log*= are left out.
+- =*scratch*= is included in every workspace. =*Messages*= and =*Compile-Log*= are left out of each workspace's buffer list, but the regular =C-x b= still shows them.
 - Opening a project creates a =project-todo.org= file.
 - Workspaces are saved as a session and restored automatically. Project paths are resolved to absolute ones.
 - =tabspaces-mode= starts from =after-init=. Without it the session options do nothing.
