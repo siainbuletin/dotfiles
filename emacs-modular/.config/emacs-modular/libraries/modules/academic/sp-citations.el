@@ -542,5 +542,200 @@ It is a font-lock matcher: it adds the property and never fontifies."
 
 (defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
 
+;;;; Preload the bibliography
+(require 'cl-lib)
+(require 'seq)
+;; `citar' parses the .bib files the first time a command asks for a reference.
+;; This reads them while Emacs is idle, one file at a time.
+(defvar citar-cache--bibliographies)
+(declare-function citar--bibliography-files "citar")
+(declare-function citar-cache--get-bibliography "citar-cache")
+(declare-function citar-cache--make-bibliography "citar-cache")
+(declare-function citar-cache--bibliography-entries "citar-cache")
+(declare-function citar-cache--bibliography-props "citar-cache")
+(declare-function citar-cache--bibliography-buffers "citar-cache")
+
+(defcustom sp-citations-preload t
+  "When non-nil, read the BibTeX files of `citar' while Emacs is idle."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-delay 3
+  "Seconds Emacs must be idle before the preload starts."
+  :type 'number
+  :group 'sp)
+
+(defcustom sp-citations-preload-refresh-on-save t
+  "When non-nil, read a BibTeX file again, when idle, after it is saved."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-persist t
+  "When non-nil, keep the parsed entries on disk between Emacs sessions.
+They are used only for a file whose size and contents are the same."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-cache-file
+  (expand-file-name "citar-bibliography.eld"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
+  "File where the parsed entries are kept when `sp-citations-preload-persist' is set."
+  :type 'file
+  :group 'sp)
+
+(defconst sp-citations-preload--version 1
+  "Format of `sp-citations-preload-cache-file'.")
+
+(defvar sp-citations-preload--timer nil
+  "The idle timer of the preload, or nil.")
+
+(defvar sp-citations-preload--queue nil
+  "The files the preload still has to read.")
+
+(defvar sp-citations-preload--changed nil
+  "Non-nil when the preload parsed a file, so the disk cache is out of date.")
+
+(defun sp-citations-preload--files ()
+  "Return the readable global bibliography files of `citar'."
+  (seq-filter #'file-readable-p
+              (condition-case nil (citar--bibliography-files 'global) (error nil))))
+
+(defun sp-citations-preload--prime (files)
+  "Put the entries kept on disk for FILES into the cache of `citar'.
+Nothing is trusted yet: `citar-cache--get-bibliography' compares the size, the
+contents and the parsed fields, and parses the file again when they differ."
+  (when (and sp-citations-preload-persist
+             (file-readable-p sp-citations-preload-cache-file))
+    (let ((data (condition-case nil
+                    (with-temp-buffer
+                      (let ((coding-system-for-read 'utf-8))
+                        (insert-file-contents sp-citations-preload-cache-file))
+                      (read (current-buffer)))
+                  (error nil))))
+      (when (eq (car-safe data) sp-citations-preload--version)
+        (pcase-dolist (`(,file ,props ,entries) (cdr data))
+          (when (and (member file files)
+                     (not (gethash file citar-cache--bibliographies)))
+            (let ((bib (citar-cache--make-bibliography file))
+                  (table (make-hash-table :test #'equal)))
+              (dolist (entry entries)
+                (puthash (car entry) (cdr entry) table))
+              (setf (citar-cache--bibliography-entries bib) table
+                    (citar-cache--bibliography-props bib) props
+                    (citar-cache--bibliography-buffers bib) (list 'global))
+              (puthash file bib citar-cache--bibliographies))))))))
+
+(defun sp-citations-preload--save ()
+  "Write the parsed entries of `citar' to `sp-citations-preload-cache-file'."
+  (when (and sp-citations-preload-persist (hash-table-p citar-cache--bibliographies))
+    (let (data)
+      (maphash
+       (lambda (file bib)
+         (let (entries)
+           (maphash (lambda (key entry) (push (cons key entry) entries))
+                    (citar-cache--bibliography-entries bib))
+           (push (list file (citar-cache--bibliography-props bib) entries) data)))
+       citar-cache--bibliographies)
+      (condition-case err
+          (progn
+            (make-directory (file-name-directory sp-citations-preload-cache-file) t)
+            (let ((coding-system-for-write 'utf-8)
+                  (print-length nil)
+                  (print-level nil))
+              (with-temp-file sp-citations-preload-cache-file
+                (prin1 (cons sp-citations-preload--version data) (current-buffer)))))
+        (error (message "citar preload: cannot write the cache: %s"
+                        (error-message-string err)))))))
+
+(defun sp-citations-preload--read (file)
+  "Read FILE into the cache of `citar', unless it is up to date there."
+  (when (fboundp 'sp-citations--apply-layout)
+    (sp-citations--apply-layout))
+  (let* ((old (gethash file citar-cache--bibliographies))
+         (before (and old (citar-cache--bibliography-entries old)))
+         (bib (citar-cache--get-bibliography file)))
+    ;; Tied to `global', as `citar--bibliographies' does; a bibliography with
+    ;; no buffer is dropped the next time `citar' releases the unused ones.
+    (cl-pushnew 'global (citar-cache--bibliography-buffers bib))
+    (unless (eq before (citar-cache--bibliography-entries bib))
+      (setq sp-citations-preload--changed t))))
+
+(defun sp-citations-preload--next ()
+  "Read the next file of the queue, then wait for Emacs to be idle again."
+  (setq sp-citations-preload--timer nil)
+  (if (null sp-citations-preload--queue)
+      (when sp-citations-preload--changed
+        (setq sp-citations-preload--changed nil)
+        (sp-citations-preload--save))
+    (let ((file (pop sp-citations-preload--queue)))
+      (condition-case err
+          (progn
+            (sp-citations-preload--read file)
+            (setq sp-citations-preload--timer
+                  (run-with-idle-timer 0.3 nil #'sp-citations-preload--next)))
+        (quit
+         (setq sp-citations-preload--queue nil)
+         (message "citar preload stopped; citar reads the rest when you ask for a reference"))
+        (error
+         (setq sp-citations-preload--queue nil)
+         (message "citar preload: %s: %s" (abbreviate-file-name file)
+                  (error-message-string err)))))))
+
+(defun sp-citations-preload--start (tries)
+  "Load `citar' and start reading its files; TRIES counts the attempts.
+Elpaca may not have installed `citar' yet, so it tries again later."
+  (setq sp-citations-preload--timer nil)
+  (if (not (condition-case nil (require 'citar nil t) (error nil)))
+      (when (< tries 6)
+        (setq sp-citations-preload--timer
+              (run-with-idle-timer 10 nil #'sp-citations-preload--start (1+ tries))))
+    (let ((files (sp-citations-preload--files)))
+      (sp-citations-preload--prime files)
+      (setq sp-citations-preload--queue files)
+      (sp-citations-preload--next))))
+
+;;;###autoload
+(defun sp-citations-preload-schedule (&optional delay)
+  "Read the BibTeX files of `citar' once Emacs has been idle for DELAY seconds.
+DELAY defaults to `sp-citations-preload-delay'.  A file that did not change is
+only checked, so this is cheap to repeat."
+  (interactive)
+  (when (timerp sp-citations-preload--timer)
+    (cancel-timer sp-citations-preload--timer))
+  (setq sp-citations-preload--queue nil
+        sp-citations-preload--timer
+        (run-with-idle-timer (or delay sp-citations-preload-delay) nil
+                             #'sp-citations-preload--start 0)))
+
+(defun sp-citations-preload-cancel ()
+  "Stop the preload; `citar' reads what is left when it is called."
+  (interactive)
+  (when (timerp sp-citations-preload--timer)
+    (cancel-timer sp-citations-preload--timer))
+  (setq sp-citations-preload--timer nil
+        sp-citations-preload--queue nil))
+
+(defun sp-citations-preload--after-save ()
+  "After saving a BibTeX file of `citar', read it again when idle."
+  (when (and sp-citations-preload
+             sp-citations-preload-refresh-on-save
+             buffer-file-name
+             (featurep 'citar)
+             (member (file-truename buffer-file-name)
+                     (condition-case nil (citar--bibliography-files 'global)
+                       (error nil))))
+    (sp-citations-preload-schedule)))
+
+(defun sp-citations-preload--after-register (&rest _)
+  "After `sp-bibtex-register' changed the files, read the new ones when idle."
+  (when sp-citations-preload
+    (sp-citations-preload-schedule)))
+
+(add-hook 'after-save-hook #'sp-citations-preload--after-save)
+(advice-add 'sp-bibtex-register :after #'sp-citations-preload--after-register)
+
+(when sp-citations-preload
+  (sp-citations-preload-schedule))
+
 (provide 'sp-citations)
 ;; sp-citations.el ends here
