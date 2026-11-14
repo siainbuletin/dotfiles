@@ -72,6 +72,28 @@ What is new:
 (defvar sp-async-work-synchronous nil
   "When non-nil, `sp-async-work-run' runs the whole job before it returns.
 The tests bind this; the commands behave as usual otherwise.")
+
+(defvar sp-var-dir)
+
+(defcustom sp-async-work-registry-directory nil
+  "Folder where a running job keeps its status file, or nil for the default.
+The default is batch-jobs/ in `sp-var-dir'.  The folder is shared by every
+Emacs of the same configuration, so one Emacs can list and stop the jobs of
+another, and so can the script tools/sp-batch-jobs."
+  :type '(choice (const :tag "batch-jobs/ in the var folder" nil) directory)
+  :group 'sp-async-work)
+
+(defcustom sp-async-work-registry-interval 1.0
+  "Seconds between two updates of the status file of a job.
+The job looks for a cancel request at the same moment."
+  :type 'number
+  :group 'sp-async-work)
+
+(defcustom sp-async-work-quit-cancels t
+  "Whether two C-g in a row, outside the minibuffer, stop the running jobs.
+A C-g that arrives while a slice runs always stops the job."
+  :type 'boolean
+  :group 'sp-async-work)
 #+end_src
 
 * The job
@@ -81,6 +103,9 @@ A job holds the stages still to do, the stage it is working on (=current=), the 
 #+begin_src emacs-lisp -i
 (cl-defstruct (sp-async-work-job (:constructor sp-async-work--make) (:copier nil))
   name          ; string, also the key of `sp-async-work-find'
+  id            ; PID-NAME, names the status file of the job
+  command       ; the command that started the job
+  (started 0) (synced 0) ; float times: the start, the last status file write
   stages        ; stages not started yet
   current       ; (LABEL ITEMS-FUNCTION STEP-FUNCTION) of the running stage
   queue         ; items of the running stage still to handle
@@ -109,6 +134,73 @@ it, then push the rest."
   (push function (sp-async-work-job-cleanup job)))
 #+end_src
 
+* Status files
+
+- A job that runs leaves a small file in =sp-async-work-registry-directory= (default =var/batch-jobs/=).
+  - =ID.job=: the status, written when the job starts, then at most once per =sp-async-work-registry-interval=; deleted when the job ends, however it ends.
+  - =ID.cancel=: a request to stop the job, written by another process; the job deletes it with its status file.
+- The ID is the Emacs PID and the job name, for example =4242-litnote-titles=.
+- The status file is plain =key=value= lines, so a shell script can read it without Emacs:
+  - =id=, =pid=, =name=, =command=, =stage=, =done=, =total=
+  - =started=, =updated=: seconds since the epoch
+- A status file whose PID no longer exists (Emacs was killed) is stale; listing deletes it.
+- Nothing is written in synchronous mode, and a failed write never stops a job.
+- The file is written to a temporary name and renamed, so a reader never sees half of it.
+
+#+begin_src emacs-lisp -i
+(defun sp-async-work-registry-directory ()
+  "The folder of the status files, see `sp-async-work-registry-directory'."
+  (file-name-as-directory
+   (or sp-async-work-registry-directory
+       (expand-file-name "batch-jobs"
+                         (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory)))))
+
+(defun sp-async-work--file (id extension)
+  "The file with EXTENSION that belongs to the job ID."
+  (expand-file-name (concat id extension) (sp-async-work-registry-directory)))
+
+(defun sp-async-work--slug (name)
+  "NAME as lower-case words joined by dashes."
+  (string-trim (replace-regexp-in-string "[^[:alnum:]]+" "-" (downcase name)) "-" "-"))
+
+(defun sp-async-work--registry-write (job)
+  "Write the status file of JOB.  An error is ignored: a job must not fail for it."
+  (setf (sp-async-work-job-synced job) (float-time))
+  (condition-case nil
+      (let* ((file (sp-async-work--file (sp-async-work-job-id job) ".job"))
+             (temp (concat file ".tmp"))
+             (label (car (sp-async-work-job-current job))))
+        (make-directory (file-name-directory file) t)
+        (with-temp-file temp
+          (dolist (pair `(("id" . ,(sp-async-work-job-id job))
+                          ("pid" . ,(emacs-pid))
+                          ("name" . ,(sp-async-work-job-name job))
+                          ("command" . ,(or (sp-async-work-job-command job) ""))
+                          ("stage" . ,(or label ""))
+                          ("done" . ,(sp-async-work-job-done job))
+                          ("total" . ,(sp-async-work-job-total job))
+                          ("started" . ,(floor (sp-async-work-job-started job)))
+                          ("updated" . ,(floor (float-time)))))
+            (insert (car pair) "=" (replace-regexp-in-string "[\n\r]+" " " (format "%s" (cdr pair))) "\n")))
+        (rename-file temp file t))
+    (error nil)))
+
+(defun sp-async-work--registry-remove (job)
+  "Delete the status file and the cancel request of JOB."
+  (dolist (extension '(".job" ".job.tmp" ".cancel"))
+    (ignore-errors (delete-file (sp-async-work--file (sp-async-work-job-id job) extension)))))
+
+(defun sp-async-work--sync (job)
+  "Update the status file of JOB, and stop JOB when a cancel request is there.
+Only once per `sp-async-work-registry-interval'."
+  (when (and (not sp-async-work-synchronous)
+             (>= (- (float-time) (sp-async-work-job-synced job))
+                 sp-async-work-registry-interval))
+    (if (ignore-errors (file-exists-p (sp-async-work--file (sp-async-work-job-id job) ".cancel")))
+        (sp-async-work-cancel-job job "cancel request from outside")
+      (sp-async-work--registry-write job))))
+#+end_src
+
 * The mode line
 
 #+begin_src emacs-lisp -i
@@ -122,7 +214,7 @@ it, then push the rest."
           (format " [%s%s %d/%d]" (sp-async-work-job-name job)
                   (if label (concat " " label) "")
                   (sp-async-work-job-done job) (sp-async-work-job-total job))
-          'help-echo "M-x sp-async-work-cancel stops the job"
+          'help-echo "C-g C-g or M-x sp-batch-cancel stops the job"
           'face 'mode-line-emphasis)))
      (reverse sp-async-work--jobs) "")))
 
@@ -154,6 +246,7 @@ An error in an item stops the job (the timer would otherwise repeat it) and goes
     (cancel-timer (sp-async-work-job-timer job)))
   (setf (sp-async-work-job-timer job) nil)
   (setq sp-async-work--jobs (delq job sp-async-work--jobs))
+  (sp-async-work--registry-remove job)
   (dolist (function (sp-async-work-job-cleanup job))
     (ignore-errors (funcall function)))
   (setf (sp-async-work-job-cleanup job) nil)
@@ -202,12 +295,17 @@ An error in an item stops the job (the timer would otherwise repeat it) and goes
 (defun sp-async-work--slice (job)
   "One slice of JOB, run by its timer."
   (setf (sp-async-work-job-timer job) nil)
+  (sp-async-work--sync job)
   (when (eq (sp-async-work-job-status job) 'running)
     (if (> (minibuffer-depth) 0)
         (sp-async-work--schedule job 0.5)
-      (condition-case err
-          (sp-async-work--work job nil)
-        (error (sp-async-work--fail job err)))
+      ;; Emacs runs timers with `inhibit-quit' set, so a C-g would wait until the
+      ;; slice is over and then do nothing: let it through, and stop the job.
+      (let ((inhibit-quit nil))
+        (condition-case err
+            (sp-async-work--work job nil)
+          (quit (let ((inhibit-quit t)) (sp-async-work-cancel-job job "C-g")))
+          (error (sp-async-work--fail job err))))
       (force-mode-line-update t)
       (sp-async-work--schedule job sp-async-work-pause))))
 
@@ -223,11 +321,15 @@ when a step signals one.  A job of the same NAME that runs already is an
 error.  With `sp-async-work-synchronous' the job is finished when this
 returns."
   (when (sp-async-work-find name)
-    (user-error "%s is still running; M-x sp-async-work-cancel stops it" name))
+    (user-error "%s is still running; M-x sp-batch-cancel stops it" name))
   (let ((job (sp-async-work--make :name name :stages stages :finish done
-                                  :error-function on-error)))
+                                  :error-function on-error
+                                  :id (format "%d-%s" (emacs-pid) (sp-async-work--slug name))
+                                  :command (and (symbolp this-command) this-command)
+                                  :started (float-time))))
     (sp-async-work--show-in-mode-line)
     (push job sp-async-work--jobs)
+    (unless sp-async-work-synchronous (sp-async-work--registry-write job))
     (if sp-async-work-synchronous
         (condition-case err
             (sp-async-work--work job t)
@@ -237,15 +339,138 @@ returns."
     job))
 #+end_src
 
+* Listing and stopping from outside
+
+- =M-x sp-batch-list-jobs= opens =*Batch jobs*=, the jobs of every Emacs that shares the folder:
+  - columns: job, command, stage, progress, running time, Emacs PID (=this= marks the current Emacs)
+  - =k=: stop the job at point
+  - =g=: refresh; =q=: close
+- Stopping a job of this Emacs is immediate (the same as =M-x sp-batch-cancel=).
+- Stopping a job of another Emacs writes =ID.cancel=; that job notices it at its next slice, within =sp-async-work-registry-interval= seconds, and stops the way a local cancel does.
+- The script =tools/sp-batch-jobs= does the same from a terminal (see "Options considered").
+
+#+begin_src emacs-lisp -i
+(defun sp-async-work-registry-read (file)
+  "The alist (KEY . VALUE) of the status file FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (alist)
+      (dolist (line (split-string (buffer-string) "\n" t))
+        (when (string-match "\\`\\([a-z]+\\)=\\(.*\\)\\'" line)
+          (push (cons (match-string 1 line) (match-string 2 line)) alist)))
+      alist)))
+
+(defun sp-async-work-registry-jobs ()
+  "The status alists of the running jobs of all Emacs instances, oldest first.
+The files of an Emacs that no longer exists are deleted."
+  (let ((dir (sp-async-work-registry-directory)) jobs)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.job\\'"))
+        (let* ((record (ignore-errors (sp-async-work-registry-read file)))
+               (pid (string-to-number (or (cdr (assoc "pid" record)) "0"))))
+          (if (and record (> pid 0)
+                   (or (= pid (emacs-pid)) (process-attributes pid)))
+              (push record jobs)
+            (ignore-errors
+              (delete-file file)
+              (delete-file (concat (file-name-sans-extension file) ".cancel")))))))
+    (sort jobs (lambda (a b)
+                 (< (string-to-number (or (cdr (assoc "started" a)) "0"))
+                    (string-to-number (or (cdr (assoc "started" b)) "0")))))))
+
+(defun sp-async-work-request-cancel (id)
+  "Stop the job ID, of this Emacs at once or of another by a cancel request."
+  (if-let* ((job (seq-find (lambda (job) (equal (sp-async-work-job-id job) id))
+                           sp-async-work--jobs)))
+      (sp-async-work-cancel-job job "stopped from the job list")
+    (let ((file (sp-async-work--file id ".cancel")))
+      (make-directory (file-name-directory file) t)
+      (write-region "" nil file nil 'silent)
+      (message "Asked %s to stop; it looks within %s s" id sp-async-work-registry-interval))))
+
+(defun sp-async-work--duration (seconds)
+  "SECONDS as a short text such as 3m12s."
+  (let ((seconds (max 0 (floor seconds))))
+    (cond ((< seconds 60) (format "%ds" seconds))
+          ((< seconds 3600) (format "%dm%02ds" (/ seconds 60) (% seconds 60)))
+          (t (format "%dh%02dm" (/ seconds 3600) (/ (% seconds 3600) 60))))))
+
+(defun sp-async-work--list-entries ()
+  "The `tabulated-list-entries' of the jobs."
+  (mapcar
+   (lambda (record)
+     (let ((field (lambda (key) (or (cdr (assoc key record)) ""))))
+       (list (funcall field "id")
+             (vector (funcall field "name")
+                     (funcall field "command")
+                     (funcall field "stage")
+                     (format "%s/%s" (funcall field "done") (funcall field "total"))
+                     (sp-async-work--duration
+                      (- (float-time) (string-to-number (funcall field "started"))))
+                     (concat (funcall field "pid")
+                             (if (equal (funcall field "pid") (number-to-string (emacs-pid)))
+                                 " this" ""))))))
+   (sp-async-work-registry-jobs)))
+
+(defun sp-async-work-jobs-cancel ()
+  "Stop the job at point."
+  (interactive)
+  (let ((id (or (tabulated-list-get-id) (user-error "No job here"))))
+    (sp-async-work-request-cancel id)
+    (revert-buffer)))
+
+(defvar-keymap sp-async-work-jobs-mode-map
+  :doc "Keys of `sp-async-work-jobs-mode'."
+  "k" #'sp-async-work-jobs-cancel)
+
+(define-derived-mode sp-async-work-jobs-mode tabulated-list-mode "Batch-jobs"
+  "List of the running batch jobs of all Emacs instances.
+\\<sp-async-work-jobs-mode-map>\\[sp-async-work-jobs-cancel] stops the job at point, \\[revert-buffer] refreshes."
+  (setq tabulated-list-format [("Job" 26 t) ("Command" 26 t) ("Stage" 14 t)
+                               ("Progress" 10 nil) ("Running" 9 nil) ("Emacs" 10 t)]
+        tabulated-list-padding 1)
+  (add-hook 'tabulated-list-revert-hook
+            (lambda () (setq tabulated-list-entries (sp-async-work--list-entries)))
+            nil t)
+  (tabulated-list-init-header))
+
+;;;###autoload
+(defun sp-async-work-list-jobs ()
+  "List the running batch jobs of all Emacs instances; k stops one."
+  (interactive)
+  (with-current-buffer (get-buffer-create "*Batch jobs*")
+    (sp-async-work-jobs-mode)
+    (setq tabulated-list-entries (sp-async-work--list-entries))
+    (tabulated-list-print)
+    (pop-to-buffer (current-buffer))))
+
+;;;###autoload
+(defalias 'sp-batch-list-jobs #'sp-async-work-list-jobs
+  "List the running batch jobs of all Emacs instances.")
+#+end_src
+
+* Why C-g did not work
+
+- Emacs runs every timer function with =inhibit-quit= set to =t=.
+  - A job runs in timer slices, so a =C-g= during a slice only set a flag.
+  - The flag was acted on after the slice, when there was nothing left to quit.
+- Between slices a =C-g= is just a keypress: =keyboard-quit= does nothing to a timer job.
+- A job does not appear in =proced=: it is not a process, it is timers inside the Emacs you are using.
+- The fix:
+  - a slice runs with =inhibit-quit= nil, so a =C-g= that lands in a slice stops the job (it used to leave a job that never ran again but was still "running")
+  - two =C-g= in a row, outside the minibuffer, stop every job (=sp-async-work-quit-cancels=)
+  - =M-x sp-batch-cancel= (alias of =sp-async-work-cancel=) always works
+
 * Cancelling
 
 #+begin_src emacs-lisp -i
-(defun sp-async-work-cancel-job (job)
-  "Stop JOB.  What it already did stays done."
+(defun sp-async-work-cancel-job (job &optional reason)
+  "Stop JOB.  What it already did stays done.  REASON is added to the message."
   (when (eq (sp-async-work-job-status job) 'running)
     (sp-async-work--end job 'cancelled)
-    (message "%s cancelled after %d of %d" (sp-async-work-job-name job)
-             (sp-async-work-job-done job) (sp-async-work-job-total job))))
+    (message "%s cancelled after %d of %d%s" (sp-async-work-job-name job)
+             (sp-async-work-job-done job) (sp-async-work-job-total job)
+             (if reason (format " (%s)" reason) ""))))
 
 ;;;###autoload
 (defun sp-async-work-cancel ()
@@ -257,6 +482,28 @@ returns."
           (t (sp-async-work-cancel-job
               (sp-async-work-find
                (completing-read "Stop: " (mapcar #'sp-async-work-job-name jobs) nil t)))))))
+
+(defun sp-async-work-cancel-all ()
+  "Stop every running job of this Emacs."
+  (interactive)
+  (if sp-async-work--jobs
+      (dolist (job (copy-sequence sp-async-work--jobs))
+        (sp-async-work-cancel-job job))
+    (message "No job is running")))
+
+(defun sp-async-work--keyboard-quit ()
+  "Stop the jobs on the second of two C-g in a row, see `sp-async-work-quit-cancels'.
+Runs before `keyboard-quit'."
+  (when (and sp-async-work-quit-cancels sp-async-work--jobs
+             (eq last-command 'keyboard-quit)
+             (zerop (minibuffer-depth)))
+    (sp-async-work-cancel-all)))
+
+(advice-add 'keyboard-quit :before #'sp-async-work--keyboard-quit)
+
+;;;###autoload
+(defalias 'sp-batch-cancel #'sp-async-work-cancel
+  "Stop a running batch job of this Emacs.")
 
 (defun sp-async-work-wait (job &optional timeout)
   "Wait until JOB has ended, for at most TIMEOUT seconds (default 30).
@@ -271,6 +518,31 @@ Meant for scripts and tests that start a job without
 (provide 'sp-async-work)
 ;;; sp-async-work.el ends here
 #+end_src
+
+* Options considered for stopping a job from outside
+
+- *Status file + cancel file* (chosen):
+  - works from another Emacs, from a shell and from a script, with no running server
+  - the job polls the file in each slice, so it is only as quick as one slice (50 ms, or the length of one item)
+  - a job stuck inside one huge item is not reached
+- =emacsclient --eval '(sp-async-work-cancel-all)'=:
+  - works only when that Emacs runs a server, and the socket name must be known
+  - it also waits for the busy Emacs to answer, so it hangs when a slice does
+  - still possible by hand; not needed for the script
+- =kill -USR2 PID= with a =special-event-map= handler:
+  - Emacs handles the signal only when it next reads input, the same moment a timer would
+  - a stray signal kills Emacs when the handler is not loaded
+  - not chosen
+- =kill PID= or =proced=: stops the whole Emacs, not the job.
+- A second Emacs per job (as the footnote lint does) would show up in =proced=, but see "Why this exists": these commands need the running Emacs.
+
+The script =tools/sp-batch-jobs= (plain =sh=, works from fish):
+
+- =sp-batch-jobs=: list the running jobs of all Emacs instances (also =sp-batch-jobs list=)
+- =sp-batch-jobs cancel ID=: ask a job to stop; ID may be a part of the job name
+- =sp-batch-jobs cancel --all=: ask every job to stop
+- Folder: =$SP_BATCH_JOBS_DIR=, else =$SP_VAR_DIR/batch-jobs=, else =~/.config/emacs-modular/var/batch-jobs=
+- =watch -n 1 sp-batch-jobs= follows the progress
 
 * Changes by pull request
 
