@@ -556,3 +556,9 @@ What each pull request changed in this module, newest last; the one-line summary
   - A second Emacs, like the footnote lint uses, was not chosen because these commands ask questions, query the Vulpea database and update open buffers. =sp-litnotes-refs-convert= and =sp-litnotes-titles-convert= skip a note whose buffer has unsaved changes or that changed since the report. =sp-litnotes-titles-convert= returns its results only when =sp-async-work-synchronous= is set.
   - Doc =docs/tangles/funct/sp-async-work.org=, tests =tests/sp-async-work-test.el=.
   - Not run: the real vault.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/468][#468]]
+  - ✨ =C-g= stops a job (timers run with =inhibit-quit= set; a slice now lets the quit through); two =C-g= in a row, =M-x sp-batch-cancel= and =k= in the report buffer stop jobs too.
+  - Running jobs leave a status file in =var/batch-jobs/=; =M-x sp-batch-list-jobs= and =tools/sp-batch-jobs= list and stop them from another Emacs or a shell.
+  - Tests =tests/sp-async-work-registry-test.el=.
+  - Not run: a real =C-g= in a GUI on the real vault.
