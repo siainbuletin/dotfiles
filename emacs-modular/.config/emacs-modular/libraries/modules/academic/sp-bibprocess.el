@@ -610,6 +610,10 @@ renamed on disk."
 (defvar sp-bibtex-lint--library nil
   "The index of `sp-literature-dir' while a lint job checks attachment paths.")
 
+(defvar sp-bibtex-lint--parents nil
+  "While a lint job checks `crossref' fields, a hash table from key to (TYPE . FIELDS).
+It holds the entries of the file and of `sp-bibtex-files'; nil outside such a job.")
+
 (defcustom sp-bibtex-people-cache-seconds 600
   "Seconds the list of author notes is kept for name completion and the lint."
   :type 'integer
@@ -1087,7 +1091,8 @@ OLD is the text of the entry, between START and END.  KINDS are `order',
 misplaced particles), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
 compatible initials), `ambiguous' (the same for several notes; reported only)
-and `files' (attachment paths, see `sp-bibtex-files--rewrite').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+`files' (attachment paths, see `sp-bibtex-files--rewrite') and `crossref'
+(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
@@ -1101,6 +1106,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (filled (and (memq 'indent kinds) (sp-bibtex--fill-text old)))
          (filed (and (memq 'files kinds) sp-bibtex-lint--library
                      (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
+         (crossed (and (memq 'crossref kinds) (sp-bibtex-crossref--plan type fields)))
          (base (list :start start :end end :old old))
          rewrites)
     (when (and filled (not (equal filled old)))
@@ -1131,6 +1137,10 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
                 ((not (equal (car filed) old))))
       (push (cons 'files (append base (list :new (car filed) :desc changes :moves (nth 2 filed))))
             rewrites))
+    (when-let* ((added (car crossed)))
+      (push (cons 'crossref (append base (list :new (sp-bibtex-crossref--insert old added)
+                                               :desc (sp-bibtex-crossref--describe added (nth 1 crossed)))))
+            rewrites))
     (when-let* (((memq 'keys kinds))
                 (max (bound-and-true-p sp-bibtex-key-max-length))
                 ((> (length key) max)))
@@ -1148,6 +1158,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
     (cons (nreverse rewrites)
           (append form (nth 1 prefix) (nth 2 prefix) near (and order (list order))
                   (mapcar #'cdr (seq-filter (lambda (n) (eq (car n) 'problem)) (nth 1 filed)))
+                  (nth 2 crossed)
                   (and filled (not (equal filled old))
                        (list "indentation differs from bibtex-mode"))))))
 
@@ -1462,6 +1473,260 @@ files are moved to the top of the library."
             (sp-bibtex-files--confirm-flatten))
     (sp-bibtex-lint--fix file 'files)))
 
+;;;; Fields from the crossref parent
+
+(defcustom sp-bibtex-crossref-fields
+  '(("year" "date" "month") ("location" "address")
+    "publisher" "series" "volume" "number" "edition" "isbn" "editor"
+    "organization" "eventtitle" "venue")
+  "Fields a child entry takes from its `crossref' parent when it lacks them.
+Each element is a field name, or a list of names that mean the same: the child
+has the group when it has any of its names, and the group is copied as a whole."
+  :type '(repeat (choice string (repeat string)))
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-crossref-renames
+  '((("mvbook" "mvcollection" "mvproceedings" "mvreference") nil
+     ("title" . "maintitle") ("subtitle" . "mainsubtitle") ("titleaddon" . "maintitleaddon"))
+    (nil ("inbook" "incollection" "inproceedings" "conference" "bookinbook" "suppbook" "suppcollection")
+     ("title" . "booktitle") ("subtitle" . "booksubtitle") ("titleaddon" . "booktitleaddon"))
+    (nil ("inbook" "bookinbook" "suppbook")
+     ("author" . "bookauthor"))
+    (("periodical") ("article" "suppperiodical")
+     ("title" . "journaltitle") ("subtitle" . "journalsubtitle")))
+  "Parent fields that a child takes under another name.
+Each rule is (PARENT-TYPES CHILD-TYPES (FROM . TO) ...); a nil list of types
+matches every type.  A field named by a rule is copied under its new name only,
+and the first rule that names it wins."
+  :type '(repeat (cons (choice (const :tag "Any parent type" nil) (repeat string))
+                       (cons (choice (const :tag "Any child type" nil) (repeat string))
+                             (repeat (cons string string)))))
+  :group 'sp-bibtex)
+
+(defun sp-bibtex-crossref--field (name fields)
+  "The raw value of the field NAME in FIELDS, ignoring case; nil when absent or empty."
+  (when-let* ((value (cdr (assoc-string name fields t)))
+              ((not (string-empty-p (string-trim (or (car (sp-bibtex--unwrap value)) value))))))
+    value))
+
+(defun sp-bibtex-crossref--has (names fields)
+  "Non-nil when FIELDS has any of the field NAMES, even with an empty value."
+  (seq-some (lambda (n) (assoc-string n fields t)) names))
+
+(defun sp-bibtex-crossref--renames (parent-type child-type)
+  "The (FROM . TO) pairs for PARENT-TYPE and CHILD-TYPE; the first rule naming a FROM wins."
+  (let (pairs)
+    (dolist (rule sp-bibtex-crossref-renames)
+      (when (and (or (null (car rule)) (member-ignore-case parent-type (car rule)))
+                 (or (null (nth 1 rule)) (member-ignore-case child-type (nth 1 rule))))
+        (dolist (pair (nthcdr 2 rule))
+          (unless (assoc-string (car pair) pairs t)
+            (push pair pairs)))))
+    (nreverse pairs)))
+
+(defun sp-bibtex-crossref--additions (child-type fields parent-type parent)
+  "The fields of PARENT (an alist) that the child FIELDS of CHILD-TYPE lack.
+Return a list of (NAME RAW-VALUE SOURCE-NAME), in the order of the rules."
+  (let ((renames (sp-bibtex-crossref--renames parent-type child-type))
+        added)
+    (dolist (pair renames)
+      (when-let* ((value (sp-bibtex-crossref--field (car pair) parent))
+                  ((not (sp-bibtex-crossref--has (list (cdr pair)) fields))))
+        (push (list (cdr pair) value (car pair)) added)))
+    (dolist (group sp-bibtex-crossref-fields)
+      (let ((names (if (listp group) group (list group))))
+        (unless (sp-bibtex-crossref--has names fields)
+          (dolist (name names)
+            (when-let* ((value (sp-bibtex-crossref--field name parent))
+                        ((not (assoc-string name renames t)))
+                        ((not (assoc-string name added t))))
+              (push (list name value name) added))))))
+    (nreverse added)))
+
+(defun sp-bibtex-crossref--remember (key type fields)
+  "Add the entry KEY, of TYPE with FIELDS, to the table of parents."
+  (let ((value (cons (downcase type) fields)))
+    (unless (gethash key sp-bibtex-lint--parents)
+      (puthash key value sp-bibtex-lint--parents))
+    (unless (gethash (downcase key) sp-bibtex-lint--parents)
+      (puthash (downcase key) value sp-bibtex-lint--parents))))
+
+(defun sp-bibtex-crossref--index-chunk (limit)
+  "Add the entries from point, at most LIMIT of them, to the table of parents.
+Return non-nil when LIMIT was reached, so there may be more."
+  (let ((count 0))
+    (while (and (< count limit)
+                (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t))
+      (cl-incf count)
+      (let ((beg (match-beginning 0)))
+        (goto-char beg)
+        (let* ((entry (ignore-errors (bibtex-parse-entry)))
+               (type (cdr (assoc "=type=" entry)))
+               (key (cdr (assoc "=key=" entry)))
+               (end (and entry (ignore-errors (bibtex-end-of-entry)))))
+          (if (and entry key end (not (member (downcase type) '("string" "preamble" "comment"))))
+              (progn (sp-bibtex-crossref--remember
+                      key type (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))
+                     (goto-char end))
+            (goto-char (min (point-max) (1+ beg)))))))
+    (>= count limit)))
+
+(defun sp-bibtex-crossref--index-stage (files)
+  "The `sp-async-work' stage that fills the table of parents from FILES and `sp-bibtex-files'."
+  (list "indexing crossref parents"
+        (lambda ()
+          (delete-dups
+           (mapcar #'expand-file-name
+                   (append files (seq-filter #'file-readable-p
+                                             (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))))))
+        (lambda (item job)
+          (let* ((file (if (consp item) (car item) item))
+                 (buffer (if (consp item)
+                             (cdr item)
+                           (let ((b (generate-new-buffer " *sp-bibtex-crossref*")))
+                             (sp-async-work-on-cleanup job (lambda () (when (buffer-live-p b) (kill-buffer b))))
+                             (with-current-buffer b
+                               (insert-file-contents file)
+                               (delay-mode-hooks (bibtex-mode))
+                               (goto-char (point-min)))
+                             b))))
+            (with-current-buffer buffer
+              (if (sp-bibtex-crossref--index-chunk 200)
+                  (sp-async-work-push job (cons file buffer))
+                (kill-buffer buffer)))))))
+
+(defun sp-bibtex-crossref--scan-buffer (key)
+  "The (TYPE . FIELDS) of the entry KEY in the current buffer, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (let ((case-fold-search nil)) ; `bibtex-parse-entry' needs the default
+            (re-search-forward (concat "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*" (regexp-quote key) "[ \t]*,") nil t))
+      (goto-char (match-beginning 0))
+      (when-let* ((entry (ignore-errors (bibtex-parse-entry))))
+        (cons (downcase (cdr (assoc "=type=" entry)))
+              (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))))))
+
+(defun sp-bibtex-crossref--parent (key)
+  "The parent entry KEY as (TYPE . FIELDS), or nil.
+Inside a lint job (`sp-bibtex-lint--parents') the table is used.  Outside one the
+current buffer is searched, then the files of `sp-bibtex-files'."
+  (if sp-bibtex-lint--parents
+      (or (gethash key sp-bibtex-lint--parents)
+          (gethash (downcase key) sp-bibtex-lint--parents))
+    (or (and (derived-mode-p 'bibtex-mode) (sp-bibtex-crossref--scan-buffer key))
+        (seq-some (lambda (file)
+                    (with-temp-buffer
+                      (insert-file-contents file)
+                      (delay-mode-hooks (bibtex-mode))
+                      (sp-bibtex-crossref--scan-buffer key)))
+                  (seq-filter #'file-readable-p
+                              (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))))))
+
+(defun sp-bibtex-crossref--plan (type fields)
+  "What the entry of TYPE with FIELDS (an alist of name and raw value) takes from its parent.
+Return nil when it has no `crossref' field; otherwise (ADDED PARENT-KEY PROBLEMS):
+ADDED lists (NAME RAW-VALUE SOURCE-NAME) and PROBLEMS are lines for the report."
+  (when-let* ((raw (sp-bibtex-crossref--field "crossref" fields))
+              (key (string-trim (or (car (sp-bibtex--unwrap raw)) raw))))
+    (if-let* ((parent (sp-bibtex-crossref--parent key)))
+        (list (sp-bibtex-crossref--additions type fields (car parent) (cdr parent))
+              key
+              (when (sp-bibtex-crossref--field "crossref" (cdr parent))
+                (list (format "crossref parent %s has a crossref of its own, not followed" key))))
+      (list nil key (list (format "crossref parent %s not found" key))))))
+
+(defun sp-bibtex-crossref--describe (added parent-key)
+  "Report lines for the fields ADDED from the entry PARENT-KEY."
+  (mapcar (lambda (a)
+            (format "%s = %s   (%s of %s)" (nth 0 a)
+                    (truncate-string-to-width (replace-regexp-in-string "[ \t\n]+" " " (nth 1 a)) 70 nil nil "…")
+                    (nth 2 a) parent-key))
+          added))
+
+(defun sp-bibtex-crossref--insert (old added)
+  "The entry text OLD with the fields ADDED after its last field.
+ADDED lists (NAME RAW-VALUE ...).  The indentation of the entry is kept; an entry
+that `bibtex-fill-entry' would leave as it is is filled again."
+  (let* ((close (or (string-match "[})][ \t\n]*\\'" old) (1- (length old))))
+         (body (string-trim-right (substring old 0 close)))
+         (indent (if (string-match "\n\\([ \t]+\\)[[:alnum:]_-]+[ \t]*=" old) (match-string 1 old) "  "))
+         (new (concat body (if (string-suffix-p "," body) "" ",")
+                      (mapconcat (lambda (a) (format "\n%s%s = %s," indent (nth 0 a) (nth 1 a)))
+                                 added "")
+                      "\n" (substring old close))))
+    (if (equal (sp-bibtex--fill-text old) old) (sp-bibtex--fill-text new) new)))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-crossref (file)
+  "Add to the entries of the .bib FILE the fields their `crossref' parent has and they lack.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Nothing is
+overwritten.  All entries are fixed at once, after one question and a backup.
+See `sp-bibtex-crossref-fields' and `sp-bibtex-crossref-renames'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix file 'crossref))
+
+(defun sp-bibtex-lint--render-crossref (file results)
+  "Show RESULTS of the crossref lint of FILE as a report."
+  (let* ((pairs (cl-mapcar #'cons results
+                           (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
+         (added (seq-filter (lambda (r) (alist-get 'crossref (nth 4 r))) results))
+         (others (seq-remove (lambda (r) (alist-get 'crossref (nth 4 r))) results)))
+    (sp-batch-report-open
+     sp-bibtex-lint--buffer
+     (concat
+      (format "#+title: Crossref fields of %s\n\n" (file-name-nondirectory file))
+      (format "- %d entr%s would get fields from the crossref parent in %s; nothing is written.\n"
+              (length added) (if (= 1 (length added)) "y" "ies") (sp-batch-report-file-link file))
+      (format "- %s\n" (sp-bibtex-lint--button "crossref" file "add them" (length added)))
+      (sp-bibtex-lint--section "Fields to add" 'crossref added pairs file)
+      (and others
+           (concat "\n* Problems\n"
+                   (mapconcat (lambda (r)
+                                (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
+                                        (mapconcat (lambda (p) (concat "- " p "\n")) (nth 3 r) "")))
+                              others ""))))
+     :refresh (lambda (_excluded) (sp-bibtex-lint-crossref-dryrun file)))))
+
+;;;###autoload
+(defun sp-bibtex-lint-crossref-dryrun (file)
+  "List what the entries of the .bib FILE would take from their `crossref' parents.
+Nothing is written; the report has a button for `sp-bibtex-lint-fix-crossref'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(crossref)
+                       (lambda (results) (sp-bibtex-lint--render-crossref file results))))
+
+;;;###autoload
+(defun sp-bibtex-lint-crossref-entry (&optional dry-run)
+  "Add to the entry at point the fields its `crossref' parent has and it lacks.
+It lists the fields and asks first.  With a prefix argument DRY-RUN it only
+says what it would add."
+  (interactive "P")
+  (unless (derived-mode-p 'bibtex-mode)
+    (user-error "Not in a BibTeX buffer"))
+  (save-excursion
+    (bibtex-beginning-of-entry)
+    (let* ((beg (point))
+           (entry (or (ignore-errors (bibtex-parse-entry)) (user-error "Cannot read the entry at point")))
+           (end (progn (bibtex-end-of-entry) (point)))
+           (type (cdr (assoc "=type=" entry)))
+           (key (cdr (assoc "=key=" entry)))
+           (plan (sp-bibtex-crossref--plan type (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry)))
+           (added (car plan)))
+      (cond
+       ((null plan) (user-error "%s has no crossref field" key))
+       ((null added)
+        (message "%s" (or (car (nth 2 plan)) (format "%s already has what %s offers" key (nth 1 plan)))))
+       (dry-run
+        (message "%s would get: %s" key (string-join (sp-bibtex-crossref--describe added (nth 1 plan)) "; ")))
+       ((y-or-n-p (format "Add %s from %s to %s? "
+                          (string-join (mapcar #'car added) ", ") (nth 1 plan) key))
+        (let ((new (sp-bibtex-crossref--insert (buffer-substring-no-properties beg end) added)))
+          (goto-char beg)
+          (delete-region beg end)
+          (insert new)
+          (message "%s: added %s" key (string-join (mapcar #'car added) ", "))))))))
+
 (defconst sp-bibtex-lint--buffer "*BibTeX lint*")
 (defconst sp-bibtex-lint--batch-buffer "*BibTeX lint batch*")
 
@@ -1470,7 +1735,8 @@ files are moved to the top of the library."
     (prefixes . "name prefixes")
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes")
-    (files . "attachment paths") (keys . "long citation keys"))
+    (files . "attachment paths") (keys . "long citation keys")
+    (crossref . "fields from the crossref parent"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -1505,9 +1771,14 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
         all)
     (setq sp-bibtex-lint--library
           (and (memq 'files kinds) (sp-bibtex-files--library)))
+    (setq sp-bibtex-lint--parents
+          (and (memq 'crossref kinds) (make-hash-table :test #'equal)))
     (sp-async-work-run
      name
-     (list (list "reading BibTeX" (lambda () files)
+     (append
+      (when sp-bibtex-lint--parents
+        (list (sp-bibtex-crossref--index-stage files)))
+      (list (list "reading BibTeX" (lambda () files)
                  (lambda (item job)
                    (let* ((file (if (consp item) (car item) item))
                           (buffer (if (consp item)
@@ -1524,9 +1795,10 @@ DONE gets the list of (FILE KEY POSITION PROBLEMS REWRITES)."
                          (setq all (append all (car result)))
                          (if (cdr result)
                              (sp-async-work-push job (cons file buffer))
-                           (kill-buffer buffer))))))))
+                           (kill-buffer buffer)))))))))
      :done (lambda (_job)
-             (setq sp-bibtex-lint--library nil)
+             (setq sp-bibtex-lint--library nil
+                   sp-bibtex-lint--parents nil)
              (funcall done all)))))
 
 (defun sp-bibtex-lint--backup (file stamp)
@@ -1571,6 +1843,7 @@ Each position is the start of a line."
       ("authors" (sp-bibtex-lint-fix-authors file))
       ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       ("files" (sp-bibtex-lint-fix-files file))
+      ("crossref" (sp-bibtex-lint-fix-crossref file))
       ("keys" (sp-bibtex-lint-fix-keys file))
       (other (user-error "Unknown lint button: %s" other)))))
 
@@ -1692,6 +1965,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count shown 'prefixes)))
       (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
                                                  (sp-bibtex-lint--count results 'files)))
+      (format "  - %s\n" (sp-bibtex-lint--button "crossref" file "fields from the crossref parent"
+                                                 (sp-bibtex-lint--count results 'crossref)))
       (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
                                                  (sp-bibtex-lint--count results 'keys)))
       (format "  - %s\n" (sp-bibtex-lint--button
@@ -1707,6 +1982,7 @@ back; the dropped ones are listed at the end."
                     'sp-batch-report-file file))
                  main "")
       (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
+      (sp-bibtex-lint--section "Fields from the crossref parent" 'crossref shown pairs file)
       (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
@@ -1733,7 +2009,7 @@ author note or of several), the order of the fields (`sp-bibtex-field-order'), t
 button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
 prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -2131,20 +2407,21 @@ Notes for authors are never made."
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
   "Ask which fix to run on the .bib FILE.
-The fixes are field order, indentation, name prefixes, author names, attachment paths
-and long citation keys.
+The fixes are field order, indentation, name prefixes, author names, attachment paths,
+fields from the crossref parent and long citation keys.
 See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
-`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files' and
-`sp-bibtex-lint-fix-keys'."
+`sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files',
+`sp-bibtex-lint-fix-crossref' and `sp-bibtex-lint-fix-keys'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths"
-                                         "long citation keys")
+                                         "fields from the crossref parent" "long citation keys")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
     ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
     ("author names" (sp-bibtex-lint-fix-authors file))
     ("attachment paths" (sp-bibtex-lint-fix-files file))
+    ("fields from the crossref parent" (sp-bibtex-lint-fix-crossref file))
     ("long citation keys" (sp-bibtex-lint-fix-keys file))))
 
 ;;;; Long citation keys, the fix
