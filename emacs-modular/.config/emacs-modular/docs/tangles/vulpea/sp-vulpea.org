@@ -3229,6 +3229,11 @@ What the module relies on in =vulpea-ui=, all of it internal, so a =vulpea-ui= u
    + The name is added to these, and cannot be overridden here.
 - =sp-vulpea-ui-view-return-focus=: after opening the frame, select the frame the command was run in, so typing continues in the note.
 - =sp-vulpea-ui-view-focus-on-visit=: after a click in the view opens a note, give the input focus to the frame that shows it.
+- =sp-vulpea-ui-view-switch-buffer-action=: what =C-x b= and other =switch-to-buffer= calls do while the view window is selected.
+   + The view window is dedicated, so Emacs would stop with "Cannot switch buffers in a dedicated window".
+   + =other-window= (the default): show the buffer in the window of the notes and give that frame the input focus; the view stays as it is.
+   + =prompt=: Emacs asks whether to undedicate the view window and then switches in place; the view is gone from that window afterwards.
+   + nil: Emacs's own error.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-vulpea-ui-view-buffer-name "*vulpea-ui-view*"
@@ -3263,6 +3268,18 @@ Emacs uses it as the window title, so a tiling window manager can match it."
 (defcustom sp-vulpea-ui-view-focus-on-visit t
   "Non-nil means opening a note from the view focuses the frame that shows it."
   :type 'boolean
+  :group 'sp-vulpea-ui-view)
+
+(defcustom sp-vulpea-ui-view-switch-buffer-action 'other-window
+  "What a buffer switch does when the selected window shows the view.
+The view window is dedicated, so `switch-to-buffer' would signal
+\"Cannot switch buffers in a dedicated window\".
+`other-window' shows the buffer in the window of the notes and focuses it.
+`prompt' asks whether to undedicate the view window, then switches in place.
+Nil leaves it to Emacs, which signals the error."
+  :type '(choice (const :tag "Show in the notes window" other-window)
+                 (const :tag "Ask to undedicate the window" prompt)
+                 (const :tag "Emacs default (error)" nil))
   :group 'sp-vulpea-ui-view)
 #+end_src
 
@@ -3530,6 +3547,12 @@ In the view frame the only main window is the view itself, so =vulpea-ui= would 
 - =sp-vulpea-ui-view--editing-window= picks the window to use instead: the newest window that shows a note, or the newest window of any other buffer.
 - An =:around= advice on =vulpea-ui--get-main-window= returns it when the selected window of the frame shows the view. The sidebar is not affected.
 - Another =:around= advice on the four functions that open a note or a position gives the input focus to the frame of that window afterwards (=sp-vulpea-ui-view-focus-on-visit=), because =select-window= does not move the input focus to another frame.
+- An =:around= advice on =switch-to-buffer= acts when the selected window is the dedicated view window (=sp-vulpea-ui-view-switch-buffer-action=).
+   + With =other-window= it selects the window from =sp-vulpea-ui-view--editing-window=, calls the original there, and focuses that frame.
+   + If the switch fails (quit, no such buffer), the view window is selected again.
+   + With no window for notes, or with =prompt=, it calls the original; =prompt= binds =switch-to-buffer-in-dedicated-window=.
+   + In every other window the original runs untouched.
+   + Packages that call =switch-to-buffer= (consult, tabspaces, =sp-tabs-switch-to-buffer=) are covered.
 
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-ui-view--editing-window ()
@@ -3568,6 +3591,35 @@ When the call comes from the view, focus the frame that shows the note."
                     vulpea-ui--jump-to-file-position
                     vulpea-ui--jump-to-file-line))
   (advice-add function :around #'sp-vulpea-ui-view--focus-visit))
+
+(defun sp-vulpea-ui-view--switch-to-buffer (orig &rest args)
+  "Advice for `switch-to-buffer' (ORIG, ARGS) in the dedicated view window.
+Act on `sp-vulpea-ui-view-switch-buffer-action'; elsewhere call ORIG."
+  (let ((window (selected-window)))
+    (if (not (and sp-vulpea-ui-view-switch-buffer-action
+                  (window-dedicated-p window)
+                  (sp-vulpea-ui-view--buffer-p (window-buffer window))))
+        (apply orig args)
+      (if-let* ((target (and (eq sp-vulpea-ui-view-switch-buffer-action
+                                 'other-window)
+                             (sp-vulpea-ui-view--editing-window))))
+          (let ((done nil))
+            (unwind-protect
+                (progn
+                  (select-window target)
+                  (prog1 (apply orig args)
+                    (setq done t)
+                    (when sp-vulpea-ui-view-focus-on-visit
+                      (select-frame-set-input-focus (selected-frame)))))
+              (unless (or done (not (window-live-p window)))
+                (select-window window))))
+        (let ((switch-to-buffer-in-dedicated-window
+               (if (eq sp-vulpea-ui-view-switch-buffer-action 'prompt)
+                   'prompt
+                 switch-to-buffer-in-dedicated-window)))
+          (apply orig args))))))
+
+(advice-add 'switch-to-buffer :around #'sp-vulpea-ui-view--switch-to-buffer)
 #+end_src
 
 ** Commands
@@ -3864,6 +3916,10 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
 - With the view window selected, the main window is the window of a note, not the view window.
 - With another window selected, the original function decides.
 - A visit from the view focuses the frame of the note window; a visit from elsewhere does not.
+- Buffer switch from the view window (=sp-vulpea-ui-view-switch-buffer-action=):
+   + =other-window=: the buffer goes to the newest note window, which is selected; the view window keeps the view and stays dedicated.
+   + nil: the Emacs =user-error= is kept.
+   + In an ordinary window nothing changes.
 
 #+begin_src emacs-lisp -i
 (ert-deftest sp-vulpea-ui-view-test-main-window-from-view ()
@@ -3890,6 +3946,36 @@ emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-e
         (let ((sp-vulpea-ui-view-focus-on-visit nil))
           (vulpea-ui-visit-note nil))
         (should (= test-focus-calls 1))))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-other-window ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (select-window wb)
+    (select-window wv)
+    (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+      (let ((sp-vulpea-ui-view-switch-buffer-action 'other-window))
+        (switch-to-buffer p)))
+    (should (eq (selected-window) wb))
+    (should (eq (window-buffer wb) p))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))
+    (should (window-dedicated-p wv))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-error-when-nil ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wv)
+    (let ((sp-vulpea-ui-view-switch-buffer-action nil))
+      (should-error (switch-to-buffer p) :type 'user-error))
+    (should (sp-vulpea-ui-view--buffer-p (window-buffer wv)))))
+
+(ert-deftest sp-vulpea-ui-view-test-switch-buffer-elsewhere-unchanged ()
+  (test-with-windows
+    (set-window-dedicated-p wv t)
+    (select-window wa)
+    (switch-to-buffer b)
+    (should (eq (window-buffer wa) b))
+    (should (eq (selected-window) wa))))
 #+end_src
 
 *** Frame, toggle and teardown

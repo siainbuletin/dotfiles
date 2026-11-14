@@ -364,8 +364,13 @@ a message, whether or not the notes exist."
         (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
                nil))))
 
+(defconst sp-litnotes-meta--none "(none)"
+  "The explicit choice that leaves a property empty.")
+
 (defun sp-litnotes-meta--read-project ()
-  "Pick a project in the minibuffer; return its link.  The default is the thesis."
+  "Pick a project in the minibuffer; return its link, or nil for \"(none)\".
+The default is the thesis.  \"(none)\" is the last candidate; it, or an
+empty answer, leaves bib-project out."
   (let* ((default (let ((id (car sp-litnotes-meta-default-project)))
                     (or (when-let* ((note (vulpea-db-get-by-id id)))
                           (cons id (vulpea-note-title note)))
@@ -373,12 +378,13 @@ a message, whether or not the notes exist."
          (alist (mapcar (lambda (n) (cons (vulpea-note-title n) (cons (vulpea-note-id n) (vulpea-note-title n))))
                         (vulpea-db-query-by-tags-some (list sp-litnotes-meta-project-tag))))
          (alist (if (assoc (cdr default) alist) alist (cons (cons (cdr default) default) alist)))
-         (choice (completing-read (format "bib-project (default %s): " (cdr default))
-                                  (mapcar #'car alist) nil t nil nil (cdr default))))
-    (sp-litnotes-meta--link (cdr (assoc choice alist)))))
-
-(defconst sp-litnotes-meta--none "(none)"
-  "The explicit choice that leaves a scale property empty.")
+         (choice (string-trim
+                  (completing-read (format "bib-project (default %s, (none) to skip): " (cdr default))
+                                   (append (mapcar #'car alist) (list sp-litnotes-meta--none))
+                                   nil t nil nil (cdr default)))))
+    (and (not (string-empty-p choice))
+         (not (equal choice sp-litnotes-meta--none))
+         (sp-litnotes-meta--link (cdr (assoc choice alist))))))
 
 (defun sp-litnotes-meta--read-scale (prompt scale)
   "Ask PROMPT for one of SCALE; return the answer, or nil to leave it empty.

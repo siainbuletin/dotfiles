@@ -19,6 +19,9 @@
 
 (declare-function sp-backup-open "sp-backup-lookup")
 (declare-function sp-backup-diff "sp-backup-lookup")
+(declare-function sp-echo-help-set "sp-interaction")
+(autoload 'sp-batch-cancel "sp-async-work" nil t)
+(defvar sp-async-work--jobs)
 
 (defgroup sp-batch-report nil
   "The report buffer of the batch conversions and lints."
@@ -322,7 +325,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
                '(("d" "Drop") ("u" "Restore")))
           (and sp-batch-report-apply-function '(("A" "Apply" t)))
           (and sp-batch-report-refresh-function '(("g" "Refresh")))
-          '(("b" "Backups") ("D" "Diff backup") ("q" "Quit" t))))
+          '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -336,6 +339,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (define-key map (kbd "g") #'sp-batch-report-refresh)
     (define-key map (kbd "b") #'sp-backup-open)
     (define-key map (kbd "D") #'sp-backup-diff)
+    (define-key map (kbd "k") #'sp-batch-cancel)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap of `sp-batch-report-mode'.")
@@ -477,6 +481,8 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
+      (when (fboundp 'sp-echo-help-set)
+        (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
       (sp-batch-report--set-hints)
       (when-let* ((window (get-buffer-window (current-buffer))))
