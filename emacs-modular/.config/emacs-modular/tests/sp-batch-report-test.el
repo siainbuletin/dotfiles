@@ -254,7 +254,8 @@
               (setq shown nil)
               (with-current-buffer buffer (sp-echo-help-show))
               (should-not shown)        ; the polite show leaves the message alone
-              (sp-echo-help--idle-show)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
               (should (string-match-p "Quit" (car shown))))
           (when (buffer-live-p buffer) (kill-buffer buffer)))))))
 
@@ -269,6 +270,29 @@
             (insert-file-contents path)
             (goto-char (point-min))
             (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
+
+(ert-deftest sp-batch-report-redraw-keeps-the-command-message ()
+  "Dropping an entry redraws the report; its message must not be replaced by the hints."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Dropped x")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (puthash "*sp-batch-report-hints-test*" 1 sp-batch-report--pending-lines)
+              (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n" :refresh #'ignore)
+              (should-not shown)
+              ;; younger than the hold time: idle show leaves it alone too
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 2.0)))
+                (sp-echo-help--idle-show))
+              (should-not shown)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here
