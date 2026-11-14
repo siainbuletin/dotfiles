@@ -58,6 +58,9 @@
         "writing"
         "test"
         "course"
+        "academia"
+        "academicjournal"
+        "ai"
         ;; sp-org-tag-add: new tags go above this line
         ))
 

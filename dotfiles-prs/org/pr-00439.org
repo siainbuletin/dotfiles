@@ -10,7 +10,7 @@
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 00:55
 - Branch :: =claude/citar-key-italic= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/910020f8a1404c9f7b1331341d98025c335bbeed][910020f8a1]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/b45d6a23322b389b0c9da82dfa46f3dbfcdd2be5][b45d6a2332]]
 
 ** Description
 /Requested by *Sia*/

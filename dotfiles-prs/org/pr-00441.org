@@ -10,7 +10,7 @@
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 01:11
 - Branch :: =441-devonthink-chapter-keywords= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/525726aded25cb3f9e227b3c67a3411c0ddf06bf][525726aded]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/add478665bf8af98d4b96f10d6fa3665dc733c08][add478665b]]
 - Labels :: new-feature, needs-further-testing
 
 ** Description
