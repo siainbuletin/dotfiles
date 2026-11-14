@@ -711,3 +711,36 @@ collection it sits in.  The buffer is left unsaved."
   - whether the chapter keywords in a record's comment are findable enough in DEVONthink (search, =comment:= operator, Smart Groups); if not, prefixed tags are the fallback;
   - whether =comment of= a record can be read and set with =get record with uuid= (the chapter keywords depend on it);
   - whether the citar Embark map is called =citar-embark-map= in the installed version.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/414][#414]]
+  - ✨ Added the module, built on =sp-reading= (citekey to UUID cache, item URLs, =osascript=)
+    - the =devonthink:UUID::PAGE= Org link: follow opens the record at the page, export writes the description (=key p. 6=)
+    - the =#+devonthink: UUID= litnote keyword: =sp-devonthink-set-keyword= and =sp-devonthink-open-from-note=
+    - =sp-devonthink-insert-link=, =sp-devonthink-store-link= and the citar Embark action =D=
+    - keys under =C-c k d=: =o= open from note, =l= insert link, =s= store link, =k= set keyword, =r= refresh cache
+- [[https://github.com/siainbuletin/dotfiles/pull/434][#434]]
+  - 🐛 Fixed =sp-devonthink-insert-link= never offering a page: it always asks =Page (empty = whole record):=
+    - a number from 1 gives a page link, an empty answer the whole record, anything else asks again
+    - =sp-devonthink-open-from-note= and =sp-devonthink-citar-open= keep the prefix-argument behaviour
+- [[https://github.com/siainbuletin/dotfiles/pull/435][#435]]
+  - 🐛 Fixed =sp-devonthink-store-link= reading only DEVONthink's main window
+    - the script visits every window front to back and reads =content record=, =current page= and =selected text=
+    - the first window with selected text wins, else the frontmost window with a record
+  - 🔧 Changed the error to "DEVONthink has no open window with a record"
+- [[https://github.com/siainbuletin/dotfiles/pull/436][#436]]
+  - ✨ Added following =crossref= (or =xref=) for the citar action =D= on an entry without a record of its own: the parent's record opens at the entry's first page
+    - =sp-devonthink-first-page=: =45--67=, =45-67=, =12,15= and =e123= give 45, 45, 12 and 123; roman numerals, =0= and empty give no page and the parent opens at the start
+    - the echo area says what happened, with the printed page and the offset
+- [[https://github.com/siainbuletin/dotfiles/pull/437][#437]]
+  - 🐛 Fixed the commands that looked up the entry's own key only (=insert-link=, =open-from-note=, =set-keyword=)
+    - one resolver in the core module, =sp-devonthink-record=, follows =crossref= in every command
+    - #436 had added the lookup to =sp-devonthink-citar-open= only
+- [[https://github.com/siainbuletin/dotfiles/pull/441][#441]]
+  - ✨ Added keeping a chapter's own keywords in its parent's record, scoped to the chapter, in a block of the record's =comment=
+    - =-- sp-chapter: KEY --= and =keywords: a, b= and =-- end sp-chapter --=; text outside the block is kept, an empty list removes it
+    - not inherited from the parent and not merged into its tags
+  - ✨ Added the keywords at the bottom of the chapter's litnote, under =* Keywords in the book "Title" (parent-key)=, with =:SP_CHAPTER_OF:=

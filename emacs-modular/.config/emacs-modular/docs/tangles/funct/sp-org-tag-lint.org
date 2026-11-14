@@ -896,3 +896,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =tools/check-conflict-markers.sh= and the =conflict-markers= CI workflow, which fail on leftover =<<<<<<<= / =>>>>>>>= lines.
   - Not run in Emacs (none in the container)
     - the =git-gutter:live-update= timer error is not confirmed to be a side effect.
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the tag lint report to echo-area hints

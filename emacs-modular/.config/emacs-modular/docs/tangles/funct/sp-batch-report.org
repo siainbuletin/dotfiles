@@ -1019,3 +1019,12 @@ What each pull request changed in this module, newest last; the one-line summary
   - Added =sp-batch-report-save-and-kill= (default =t=) and =sp-batch-report-flush-file=, =-close-file=, =-with-file=: the batch commands save, then kill, the buffers of the files they process, without asking.
   - Used by the author notes passes, the litnote references, titles and meta commands (status, parent lint, title lint, chapter tables).
   - Not run: the real vault.
+- [[https://github.com/siainbuletin/dotfiles/pull/468][#468]]
+  - ✨ Added stopping a batch job with =C-g=: a slice runs with =inhibit-quit= nil, so a =C-g= in a slice stops the job cleanly and no zombie job is left
+    - two =C-g= in a row outside the minibuffer stop all jobs (=sp-async-work-quit-cancels=)
+  - ✨ Added =M-x sp-batch-cancel= (alias of =sp-async-work-cancel=) and =k= in the report buffer
+  - ✨ Added jobs visible from outside Emacs: =var/batch-jobs/ID.job=, =M-x sp-batch-list-jobs= and =tools/sp-batch-jobs [list | cancel ID|--all]=
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🐛 Fixed the report buffers' keys not showing as echo-area hints (see the =sp-interaction= doc)
+    - =sp-batch-report-open= sets the hints once the functions are set and after the buffer is shown
+    - the hints follow what the report can do (=d=/=u=, =A=, =g= only with the function); =A= and =q= are bold

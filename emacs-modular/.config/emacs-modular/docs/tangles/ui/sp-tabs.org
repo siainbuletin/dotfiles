@@ -468,3 +468,20 @@ Provides the =sp-tabs= feature and closes the file.
 (provide 'sp-tabs)
 ;; sp-tabs.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/400][#400]]
+  - 🐛 Fixed =Fetch dir data failed with error: (end-of-file)= at start
+    - the message comes from Dirvish: =tabspaces= restored a dired buffer while Emacs was starting
+    - the =dired= buffer kind is registered with =#'ignore= for save and restore, and old dired records in the session file are skipped
+- [[https://github.com/siainbuletin/dotfiles/pull/465][#465]]
+  - 🔧 Changed =C-x b= to the regular =switch-to-buffer= by default, so =*Messages*= is offered
+    - =tabspaces-use-filtered-buffers-as-default= is nil; =sp-tabs-switch-to-buffer= is remapped in =tabspaces-mode-map=
+  - ✨ Added the filtered switcher (the tab's buffers, then =*Messages*= at the end) when
+    - =sp-tabs-filter-buffers= is non-nil (every tab)
+    - the tab name is in =sp-tabs-filtered-tab-names= (default ="Email"=)
+    - the major mode is derived from =sp-tabs-filtered-modes= (mu4e, =message-mode=)
+  - ✨ Added =sp-tabs-toggle-tab-filter= (=f= in =tabspaces-command-map=) for the current tab

@@ -2795,3 +2795,24 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/408][#408]]
   - ✨ =M-x sp-litnotes-meta-add-all-tables= puts the chapter table block in every litnote tagged =book=, =collection=, =reference= or =encyclopedia=, also before it has any chapter note (=C-u= is a dry run).
+- [[https://github.com/siainbuletin/dotfiles/pull/412][#412]]
+  - 🔧 Changed =sp-litnotes-meta-add-all-tables= to put a =* Sections= heading above the table block, with a blank line before and after
+    - it can be re-run and adds only what is missing
+    - a block under another heading is left alone
+  - 🔧 Changed =refresh-all-tables= and =backfill-children= to share the insert function; =C-u= still previews
+- [[https://github.com/siainbuletin/dotfiles/pull/424][#424]]
+  - 🔧 Changed an existing =* Sections= heading to be reused (any level, tags allowed) and a table block never to stay outside it
+  - 🔧 Changed every table block to the saved template format =#+BEGIN: collection-query-table :view "NAME"=
+    - =vulpea-table= is renamed, parameters equal to a view become =:view NAME=
+    - a block for the note itself gets the note's view; blocks with =:view= or for another note are kept
+  - ✨ Added a preview with =C-u= ("Would be fixed") and a backup of each note to =sp-litnotes-meta-backup-directory= before saving
+- [[https://github.com/siainbuletin/dotfiles/pull/425][#425]]
+  - 🔧 Changed the commands to save then kill the buffers they process, without asking (=sp-batch-report-save-and-kill=)
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - 🐛 Fixed the automatic fill (=sp-litnotes-meta-auto=) acting on a key that has no BibTeX entry: it also needs =sp-litnotes-meta--entry= to find one
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the fill reports to echo-area hints
+- [[https://github.com/siainbuletin/dotfiles/pull/473][#473]]
+  - ✨ Added =(none)= to the =bib-project= prompt of =sp-litnotes-meta--read-project=
+    - choosing it, or an empty answer, adds no =bib-project= line; the thesis stays the default
+    - a note that already has =bib-project= is not asked

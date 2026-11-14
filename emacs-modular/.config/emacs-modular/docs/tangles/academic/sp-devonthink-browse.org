@@ -265,3 +265,16 @@ Use Embark on a candidate for the other actions."
 - Unknown until tried:
   - whether =c.location()= (bulk read) and =path of= work as written;
   - the time of the first listing of 15,000 records.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]
+  - ✨ Added the module: =C-c k d b= completes over the records grouped by DEVONthink group (cached; =sp-devonthink-browse-refresh=)
+    - Embark: =o= open, =p= PDF, =n= litnote, =l= link, =t= tags (several marked records at once)
+    - =sp-devonthink-browse-query= (default =kind:pdf=)
+- [[https://github.com/siainbuletin/dotfiles/pull/453][#453]]
+  - 🔧 Changed the Embark action =p= (=sp-devonthink-record-pdf=) to open the PDF with =sp-pdf-open=
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added the Embark action =f= on a DEVONthink record: file it with =sp-fetch-inbox=

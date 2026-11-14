@@ -6389,3 +6389,28 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ The dry-run and convert reports of =sp-litnotes-refs= and =sp-litnotes-titles= list every note as an Org link (=[[file:...][name]]=), so =RET= visits it.
     - They open in the shared =sp-batch-report-mode= buffer (see [[file:sp-batch-report.org][sp-batch-report]]), with =g= to read the notes again.
   - Tests updated for the links; one test for the titles report buffer.
+- [[https://github.com/siainbuletin/dotfiles/pull/404][#404]]
+  - 🐛 Fixed =sp-litnotes-meta-fill-all= leaving notes in its report after =A=
+    - person names are compared without accents, case and extra spaces
+    - a crossref with no note and no BibTeX entry is no longer planned; it is listed under "Crossref without a note or a BibTeX entry"
+    - keys with a colon are found by the notes index
+- [[https://github.com/siainbuletin/dotfiles/pull/413][#413]]
+  - ✨ Added the fallback of =sp-litnotes-titles= to =pub-editor= when a note has no =pub-author=
+    - =pub-author= always wins; several editors are shortened like authors
+    - with BibTeX on, the entry's =editor= field is used when neither the note nor the entry has authors
+  - ✨ Added =sp-litnotes-titles-editor-suffix= to mark editor titles
+  - 🔧 Changed the reports: the "no author" reason names =pub-editor=, and BibTeX-derived editors are listed as "editors"
+- [[https://github.com/siainbuletin/dotfiles/pull/423][#423]]
+  - 🐛 Fixed the hand edit 87a4fbb, which changed only the =.el= (the =tangle= check was red) and put =(ed.)= on every title
+    - the =else= branch is =""= again
+    - =sp-litnotes-titles-editor-suffix= defaults to =" (ed.)"= and only editor titles get it; =nil= removes the marker
+- [[https://github.com/siainbuletin/dotfiles/pull/425][#425]]
+  - 🔧 Changed the titles, refs and meta commands to the helpers of =sp-batch-report= that save then kill the buffers of the files they process
+    - the backups keep the first copy of a run instead of failing on a second one
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the lint reports to echo-area hints
+- [[https://github.com/siainbuletin/dotfiles/pull/477][#477]]
+  - 🐛 Fixed =M-x sp-org-lint-footnotes= failing with =Cannot open load file: sp-interaction=
+    - the worker is a bare =emacs -Q --batch= with only =funct/= on its =-L= path; =sp-batch-report= now requires =sp-interaction= from =base/=
+    - =sp-org-lint-fn--worker-load-dirs= gives it the library folder, its parent and the parent's sub-folders; =sp-org-lint-fn--worker-command= builds the command line
+  - 🐛 Fixed two breakages behind it: =sp-globals= needs =early-init.el= (the worker sets =sp-org-lint-fn--worker= and skips it)
