@@ -1,0 +1,21 @@
+#+title: 0031 A small =reading= database syncs; =literature= stays on the Mac
+#+date: 2026-11-12
+#+status: accepted
+
+* Context
+- =literature= is about 65 GB: too big for the iPad and for the 20 GB of the NAS's WebDAV sync store.
+- It must stay searchable from DEVONthink and Emacs.
+
+* Decision
+- =literature= stays on the Mac and is always open.
+- A small =reading= database is the one that syncs; its content is chosen by a rule, not by hand.
+- The rule joins on the citekey: a PDF whose litnote has a selected =read-status= (default =to-be-read=) and whose key is in a selected =.bib= file goes to =reading=.
+- =tools/devonthink-reading.py= does it; every action is a dry run unless =--apply= is given, and =send= refuses to go over =budget_gb= (default 20).
+
+* Alternatives considered
+- *Sync the whole database*: does not fit.
+- *Choose the records by hand*: does not scale and drifts from the litnotes.
+
+* Consequences
+- Where each record came from is kept in =~/.local/state/devonthink-reading/origins.json=, so =--return= restores it.
+- Whether moving an /indexed/ record between databases leaves its file in place is untested; run =send --apply --limit 1= first.

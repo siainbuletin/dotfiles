@@ -1,0 +1,187 @@
+#+TITLE: sp-elpaca-melpa-fix.el: Temporary fix for Elpaca and MELPA's main branch
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-elpaca-melpa-fix.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-elpaca-melpa-fix.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* Overview
+
+** Why this module exists
+
+- MELPA renamed the default branch of its =melpa/melpa= repository from =master= to =main=.
+- Elpaca's MELPA menu (=elpaca-menu-melpa.el=) still hardcodes =master= when it clones and updates the recipes.
+- Result: =elpaca-update-menus= fails ("Unable to clone MELPA"), so MELPA packages cannot be fetched or updated.
+- Upstream: issue [[https://github.com/progfolio/elpaca/issues/585][elpaca #585]] and PR [[https://github.com/progfolio/elpaca/pull/586][elpaca #586]] (both open when this was written).
+- PR 586 adds a constant =elpaca-melpa-branch= (default ="main"=) and uses it in the clone and the update.
+- This module does the same from my config, by advising the two Elpaca functions, instead of editing Elpaca's sources.
+
+** Temporary by design
+
+- The whole module is a workaround and should be deleted once Elpaca is fixed.
+- =sp-elpaca-melpa-fix= (a =defcustom=) switches it off without deleting anything.
+- It also switches itself off when Elpaca defines =elpaca-melpa-branch=: the advice then calls the original functions.
+- To remove it for good:
+  - delete the =sp-load= line for this module in =init.el=,
+  - delete =libraries/modules/base/sp-elpaca-melpa-fix.el= and this file.
+
+** What differs from the upstream PR
+
+- The update does not run a bare =git pull=. It fetches the branch and runs =git checkout -B=, so a MELPA checkout that still sits on =master= (with its upstream gone) is repaired in place.
+- No need to delete =var/elpaca/cache/melpa/= by hand after pulling this change.
+- Nothing here has been run against a real Elpaca/MELPA yet, see the testing checklist in the pull request.
+
+** Where it is loaded
+
+- =init.el= loads it with =sp-load= right after the Elpaca bootstrap and before the first =elpaca= call.
+- That is earlier than the other modules: Elpaca may already refresh the MELPA menu while =elpaca-use-package= is being installed.
+- It cannot be in the =lem--default-modules= list for that reason.
+
+* Code
+
+** Header
+
+#+begin_src emacs-lisp -i
+;;; sp-elpaca-melpa-fix.el --- Temporary fix: Elpaca and MELPA's main branch -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; TEMPORARY.  MELPA renamed its default branch from `master' to `main'; Elpaca's
+;; MELPA menu still hardcodes `master', so cloning and updating the MELPA recipes
+;; fails.  See https://github.com/progfolio/elpaca/issues/585 and
+;; https://github.com/progfolio/elpaca/pull/586.
+;;
+;; This file advises `elpaca-menu-melpa--clone' and `elpaca-menu-melpa--update'
+;; to use `main'.  Delete this file (and its `sp-load' line in init.el) once
+;; Elpaca is fixed; until then `sp-elpaca-melpa-fix' switches it off, and it
+;; switches itself off when Elpaca defines `elpaca-melpa-branch'.
+
+;;; Code:
+
+(require 'cl-lib)
+#+end_src
+
+** Options
+
+- =sp-elpaca-melpa-fix=: non-nil (default) applies the fix.
+- =sp-elpaca-melpa-branch=: the branch to clone and update, ="main"=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-elpaca-melpa-fix t
+  "When non-nil, make Elpaca's MELPA menu use `sp-elpaca-melpa-branch'.
+Temporary workaround for MELPA renaming `master' to `main'.  Set to nil
+to use Elpaca's own behaviour, for example after Elpaca is fixed."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-elpaca-melpa-branch "main"
+  "Branch of the MELPA recipes repository that the fix clones and updates."
+  :type 'string
+  :group 'spcustom)
+
+(declare-function elpaca-process-call "elpaca")
+(defvar elpaca-cache-directory)
+#+end_src
+
+** When the fix is active
+
+- It is active when the option is on and Elpaca has no =elpaca-melpa-branch= of its own.
+- Upstream defining that variable means PR 586 (or an equivalent) has landed.
+
+#+begin_src emacs-lisp -i
+(defun sp-elpaca-melpa-fix--active-p ()
+  "Non-nil when the MELPA branch fix should replace Elpaca's code."
+  (and sp-elpaca-melpa-fix
+       (not (boundp 'elpaca-melpa-branch))))
+#+end_src
+
+** Running git
+
+- =sp-elpaca-melpa-fix--git= runs one git command in the current =default-directory= with =elpaca-process-call=.
+- It returns nil on success, or the failing result list (exit code first).
+
+#+begin_src emacs-lisp -i
+(defun sp-elpaca-melpa-fix--git (&rest args)
+  "Run git with ARGS via `elpaca-process-call'.
+Return nil on success, otherwise the failed process result."
+  (let ((result (apply #'elpaca-process-call "git" args)))
+    (unless (zerop (car result)) result)))
+#+end_src
+
+** Clone
+
+- Same steps as Elpaca's clone: sparse checkout of =recipes= only, shallow, from =origin=.
+- Only the branch name differs.
+- The system and global git configs are ignored, as upstream does.
+
+#+begin_src emacs-lisp -i
+(defun sp-elpaca-melpa-fix--clone (orig path)
+  "Clone the MELPA recipes to PATH using `sp-elpaca-melpa-branch'.
+Around advice for `elpaca-menu-melpa--clone'; ORIG is the original."
+  (if (not (sp-elpaca-melpa-fix--active-p))
+      (funcall orig path)
+    (let ((default-directory path)
+          (branch sp-elpaca-melpa-branch))
+      (make-directory path t)
+      (make-directory (expand-file-name ".git/info/" path) t)
+      (message "Downloading MELPA recipes (branch %s)..." branch)
+      (let* ((process-environment (append '("GIT_CONFIG_SYSTEM=/dev/null"
+                                            "GIT_CONFIG_GLOBAL=/dev/null")
+                                          process-environment))
+             (err (or (sp-elpaca-melpa-fix--git "init")
+                      (sp-elpaca-melpa-fix--git "config" "core.sparseCheckout" "true")
+                      (progn
+                        (with-temp-buffer
+                          (insert "recipes")
+                          (append-to-file (point-min) (point-max)
+                                          (expand-file-name ".git/info/sparse-checkout" path)))
+                        nil)
+                      (sp-elpaca-melpa-fix--git "remote" "add" "origin"
+                                                "https://github.com/melpa/melpa.git")
+                      (sp-elpaca-melpa-fix--git "pull" "--depth=1" "origin" branch)
+                      (sp-elpaca-melpa-fix--git "checkout" branch)
+                      (sp-elpaca-melpa-fix--git "branch" "--set-upstream-to"
+                                                (format "origin/%s" branch) branch))))
+        (when err (error "Unable to clone MELPA: %S" err))
+        (message "Downloading MELPA recipes...100%%")))))
+#+end_src
+
+** Update
+
+- Fetches the branch shallowly, then =git checkout -B= resets the local branch to what was fetched.
+- This also repairs an existing checkout that is still on =master= (its upstream no longer exists).
+- Upstream's version is a plain =git pull= (PR 586: =git pull origin main=); mine needs no manual cleanup of the cache.
+- On failure the error is shown with =message=, as Elpaca does.
+
+#+begin_src emacs-lisp -i
+(defun sp-elpaca-melpa-fix--update (orig)
+  "Update the MELPA recipes from `sp-elpaca-melpa-branch'.
+Around advice for `elpaca-menu-melpa--update'; ORIG is the original."
+  (if (not (sp-elpaca-melpa-fix--active-p))
+      (funcall orig)
+    (let ((default-directory (expand-file-name "melpa/" elpaca-cache-directory))
+          (branch sp-elpaca-melpa-branch))
+      (message "Downloading MELPA...")
+      (let ((err (or (sp-elpaca-melpa-fix--git "fetch" "--depth=1" "origin" branch)
+                     (sp-elpaca-melpa-fix--git "checkout" "-B" branch "FETCH_HEAD")
+                     (sp-elpaca-melpa-fix--git "branch" "--set-upstream-to"
+                                               (format "origin/%s" branch) branch))))
+        (message "%s" (if err (format "Updating MELPA failed: %S" err)
+                        "Downloading MELPA...100%"))))))
+#+end_src
+
+** Installing the advice
+
+- Advice on a function that is not defined yet is kept and applies once =elpaca-menu-melpa= loads, so load order does not matter.
+- =advice-add= with the same function twice is a no-op, so reloading the module is safe.
+
+#+begin_src emacs-lisp -i
+(advice-add 'elpaca-menu-melpa--clone  :around #'sp-elpaca-melpa-fix--clone)
+(advice-add 'elpaca-menu-melpa--update :around #'sp-elpaca-melpa-fix--update)
+
+(provide 'sp-elpaca-melpa-fix)
+;;; sp-elpaca-melpa-fix.el ends here
+#+end_src

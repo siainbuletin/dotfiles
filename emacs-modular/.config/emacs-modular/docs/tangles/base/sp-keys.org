@@ -1007,8 +1007,7 @@ This =use-package= block configures which-key again, on top of the =setq= settin
 ;; READING MORE ABOUT KEYBINDINGS AND GETTING TO USE THEM
 
 (use-package which-key
-    :ensure t
-    :demand t
+    :ensure nil
 
     :config
     (which-key-mode 1)

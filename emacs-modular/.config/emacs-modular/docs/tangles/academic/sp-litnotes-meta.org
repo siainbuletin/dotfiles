@@ -20,7 +20,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 | =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
 | =pub-pages=  | The =pages= field; =9--30= is written =9-30= (the page property of the book tables). A chapter's pages are not taken from the =crossref= |
 | =bib-parent= | A link to the literature note of the =crossref= entry; the note is made when it does not exist  |
-| =bib-project= | A link picked in the minibuffer; the default is the thesis project                            |
+| =bib-project= | A link picked in the minibuffer; the default is the thesis project; =(none)= skips it         |
 | =read-status= | Set without asking to =02-preparing= (=sp-litnotes-meta-initial-read-status=) |
 | =relevance-factor= | Asked; =01= to =05=, =01= is the most relevant (=sp-litnotes-meta-relevance-scale=) |
 | =read-priority= | Asked; =01= to =05=, =01= is read first (=sp-litnotes-meta-priority-scale=) |
@@ -54,6 +54,9 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
     - So a new parent never has a crossref of its own, and no recursion or depth limit is needed.
   - The line is also left out, with a message that names the key, when the parent key has no BibTeX entry.
 - *=bib-project= is asked only when the note has none.* The picker lists the notes tagged =project=, with the thesis as default (=sp-litnotes-meta-default-project=).
+  - =(none)= is the last candidate; choosing it, or an empty answer, adds no =bib-project= line.
+  - Nothing is remembered: a later run asks again for a note that still lacks the line, as it does for =relevance-factor= and =read-priority=.
+  - A value already in the note, or copied by the batch commands (=preset=), is used and the picker is not shown.
 - *=relevance-factor= and =read-priority= are asked only when the note lacks them.*
   - Both use the scale =01= to =05=, where =01= is the most relevant, or the first to read.
   - Only values of the scale are accepted; an empty answer skips the line.
@@ -109,6 +112,7 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 (require 'sp-author-notes-bibtex)
 (require 'sp-litnotes-titles)
 (require 'sp-batch-report)
+(require 'sp-interaction)
 (require 'sp-bibtex-types)
 (require 'sp-vulpea-meta-order)
 
@@ -488,8 +492,13 @@ a message, whether or not the notes exist."
         (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
                nil))))
 
+(defconst sp-litnotes-meta--none "(none)"
+  "The explicit choice that leaves a property empty.")
+
 (defun sp-litnotes-meta--read-project ()
-  "Pick a project in the minibuffer; return its link.  The default is the thesis."
+  "Pick a project in the minibuffer; return its link, or nil for \"(none)\".
+The default is the thesis.  \"(none)\" is the last candidate; it, or an
+empty answer, leaves bib-project out."
   (let* ((default (let ((id (car sp-litnotes-meta-default-project)))
                     (or (when-let* ((note (vulpea-db-get-by-id id)))
                           (cons id (vulpea-note-title note)))
@@ -497,17 +506,18 @@ a message, whether or not the notes exist."
          (alist (mapcar (lambda (n) (cons (vulpea-note-title n) (cons (vulpea-note-id n) (vulpea-note-title n))))
                         (vulpea-db-query-by-tags-some (list sp-litnotes-meta-project-tag))))
          (alist (if (assoc (cdr default) alist) alist (cons (cons (cdr default) default) alist)))
-         (choice (completing-read (format "bib-project (default %s): " (cdr default))
-                                  (mapcar #'car alist) nil t nil nil (cdr default))))
-    (sp-litnotes-meta--link (cdr (assoc choice alist)))))
+         (choice (string-trim
+                  (completing-read (format "bib-project (default %s, (none) to skip): " (cdr default))
+                                   (append (mapcar #'car alist) (list sp-litnotes-meta--none))
+                                   nil t nil nil (cdr default)))))
+    (and (not (string-empty-p choice))
+         (not (equal choice sp-litnotes-meta--none))
+         (sp-litnotes-meta--link (cdr (assoc choice alist))))))
 #+end_src
 
 ** Writing the meta lines
 
 #+begin_src emacs-lisp
-(defconst sp-litnotes-meta--none "(none)"
-  "The explicit choice that leaves a scale property empty.")
-
 (defun sp-litnotes-meta--read-scale (prompt scale)
   "Ask PROMPT for one of SCALE; return the answer, or nil to leave it empty.
 \"(none)\" is offered as the first candidate and the default, because a
@@ -898,7 +908,10 @@ Without marks, use the notes in the active region, else the note at point."
                                ("relevance" 9 t) ("title" 0 t)]
         tabulated-list-sort-key '("read-status")
         tabulated-list-padding 1)
-  (tabulated-list-init-header))
+  (tabulated-list-init-header)
+  (sp-echo-help-set '(("RET" "Visit") ("m/u" "Mark/unmark") ("M" "Mark a status")
+                      ("U" "Unmark all") ("s" "Set status" t) ("g" "Refresh")
+                      ("q" "Quit"))))
 
 ;;;###autoload
 (defun sp-litnotes-meta-status-report ()
@@ -929,7 +942,7 @@ act on all of them."
   - Citar's own sources are not used, so its file template ("Notes on ...", a bibliography block) cannot apply.
 - Then the note is filled from BibTeX with =sp-litnotes-meta-fill=, given the file explicitly (authors, title, year, =bib-parent=, =bib-project=, read-status, relevance, priority).
 - Questions are asked once for the batch, not per note:
-  - =bib-project= is copied from this note.
+  - =bib-project= is copied from this note; a note without one gets none.
   - =relevance-factor= and =read-priority= are asked once; an empty answer leaves them out.
 - A note that fails is reported and skipped; the others are still made.
 - Take all of them in one go:
@@ -2718,7 +2731,7 @@ file to `fixed' or the error text."
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--after-create (key &rest _)
   "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
-  (when (and sp-litnotes-meta-auto (stringp key))
+  (when (and sp-litnotes-meta-auto (stringp key) (sp-litnotes-meta--entry key))
     (condition-case err
         (sp-litnotes-meta-fill key)
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))

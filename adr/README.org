@@ -36,3 +36,8 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0024-remove-denote-file-notes-by-tag.org][0024]] | Remove Denote; file notes into folders by tag (=sp-notes=) | accepted |
 | [[file:0025-dryrun-and-convert-command-names.org][0025]] | Lint commands are named =-dryrun= (preview) and =-convert= (apply) | accepted |
 | [[file:0026-emoji-prefix-for-commits-and-prs.org][0026]] | Commit messages and PR titles start with an emoji for the change type | accepted |
+| [[file:0027-citekey-joins-bibtex-litnote-and-devonthink.org][0027]] | The citekey joins BibTeX, litnote and DEVONthink; the UUID is derived from it | accepted |
+| [[file:0028-devonthink-only-through-its-scripting-interface.org][0028]] | Emacs reaches DEVONthink only through its scripting interface | accepted |
+| [[file:0029-litdb-indexes-only-highlighted-pages.org][0029]] | litdb indexes only the highlighted pages; DEVONthink search is the default | accepted |
+| [[file:0030-litnote-and-record-link-both-ways.org][0030]] | Link a litnote and its DEVONthink record in both directions | proposed, Emacs side done |
+| [[file:0031-reading-database-for-sync.org][0031]] | A small =reading= database syncs; =literature= stays on the Mac | accepted |

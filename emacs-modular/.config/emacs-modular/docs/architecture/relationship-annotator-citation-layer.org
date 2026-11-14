@@ -2,7 +2,7 @@
 #+date: 2026-10-31
 #+status: proposed
 
-This is a design, not an implementation. Nothing here has been run. It reads =sp-graphs= (=relationship-annotator=) as on =main= on 2026-10-31, and builds on the DEVONthink design in [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =ROAM_REFS= change of litnotes (#210).
+This is a design, not an implementation. Nothing here has been run. It reads =sp-graphs= (=relationship-annotator=) as on =main= on 2026-10-31, and builds on the DEVONthink design in [[file:../tangles/devonthink/sp-devonthink.org][DEVONthink and Emacs (sp-devonthink.org)]] and the =ROAM_REFS= change of litnotes (#210).
 
 * Goal
 

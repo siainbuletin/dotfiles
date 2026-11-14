@@ -14,7 +14,7 @@ keywords that name the UUID keep working.  After every move the record is
 asked for its UUID and path; the run stops at the first one that does not
 match.  `check` lists the UUIDs in notes that DEVONthink no longer knows.
 
-Tangled from docs/tangles/academic/devonthink-move.org; edit that file.
+Tangled from docs/tangles/devonthink/devonthink-move.org; edit that file.
 """
 
 import argparse

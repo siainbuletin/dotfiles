@@ -1,0 +1,101 @@
+* PR #460: ✨ Sync BibTeX author, title and keywords to the DEVONthink record
+:PROPERTIES:
+:PR_NUMBER: 460
+:URL: https://github.com/siainbuletin/dotfiles/pull/460
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/460][https://github.com/siainbuletin/dotfiles/pull/460]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 11:21
+- Merged :: 2026-11-14 11:34
+- Branch :: =460-devonthink-bibtex-sync= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/39554e210be116ffb9d09e3df41560750b964fa8][39554e210b]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Wy2JC2BBwJb4YGxRNADZTp][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- *Base: =main=.* No dependency; =sp-fetch-inbox= (#454) is merged.
+- *#455* (DEVONthink tags to litnote and BibTeX keywords, the opposite direction, based on #443): independent. This PR does not call or need any of its functions. Merge in either order; see "Not fighting #455" below.
+- *#457 / #459* (echo-area hints) also edit =sp-fetch-inbox.el= / =.org=: possible textual conflict in that file only. My edits there are three small hunks (a =declare-function=, one =defcustom=, one new function plus one call line in =sp-fetch-inbox-confirm=); keep both sides.
+- Other possible conflict: =README.org= module table and =sp-academic.org=/=.el= =require= list (one added line each).
+- If merged out of order: nothing breaks; =sp-fetch-inbox= loads the new module lazily and only reports a message if it is missing.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* copy author, title and BibTeX keywords of an entry into the properties of its DEVONthink record, so they carry over when the record is moved or renamed, and do it from =sp-fetch-inbox=.
+- *New module =sp-devonthink-bibsync=* (doc =docs/tangles/academic/sp-devonthink-bibsync.org=, bullet lists):
+  - Keywords go to the record's tags (native field). They survive rename, move, re-index and export. Only added, never removed.
+  - Author and title go to custom metadata (=bibauthor=, =bibtitle=; options =sp-devonthink-bibsync-author-id= and =-title-id=). Stored in the database with the record, so they also survive those operations. BibTeX wins on each run. Authors joined with =; = instead of =and=.
+  - Not used: the record name (it is the citekey) and the comment (your notes); the author/title DEVONthink reads from the PDF are read-only for scripts.
+  - Record found by citekey with =sp-devonthink-record=; a crossref parent's record is skipped (a chapter must not tag the whole book).
+- *One record and batch:*
+  - =sp-devonthink-bibsync= (=C-c k d y=): litnote's citekey, else asked.
+  - =sp-devonthink-bibsync-many=: several chosen keys.
+  - =sp-devonthink-bibsync-all=: every record in the index that has an entry, after one question. The =.bib= files are read in one pass; the DEVONthink writes are two scripts (one metadata script with a =try= per record, one tag read and one tag write).
+  - Embark action =y= on a record of =sp-devonthink-browse=.
+  - Lisp: =sp-devonthink-bibsync-keys= and =sp-devonthink-bibsync-entry=.
+- *=sp-fetch-inbox=:* after the entry is appended, =sp-fetch-inbox--sync-metadata= calls =sp-devonthink-bibsync-entry= with the final entry text (option =sp-fetch-inbox-sync-metadata=, default t). A failure is a message only; the article is already filed.
+- *Not fighting #455:*
+  - #455 mirrors tags to BibTeX =keywords= only after the browser tag action. This PR writes tags through =sp-devonthink--set-tags-script= directly, never the browser action, so it never triggers that mirror: no loop.
+  - Both directions only add and ignore case, so repeating either changes nothing.
+  - The litnote =keywords= line (#443) is not touched here.
+- =when-let*= style only; no CHANGELOG edit. =sp-academic= requires the module; README row added.
+- *Tested* (Emacs 29.3 batch, DEVONthink faked): 8 new tests in =sp-devonthink-bibsync-test.el=, =sp-fetch-inbox-test.el= 15 pass (1 new), =sp-devonthink-tags= 11 and =sp-devonthink-browse= 9 still pass.
+- *Untested:* all AppleScript. In particular (also in the doc):
+  - whether =add custom meta data … for "bibauthor"= creates the field or needs it defined first in DEVONthink (Settings > Data > Custom Metadata), and which identifier a hand-defined field gets;
+  - whether the tag order is kept; real =.bib= files with unusual LaTeX in authors or titles (only =\&=, braces and line breaks are cleaned).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, DEVONthink open on =literature=; use a record named like a citekey with a BibTeX entry that has =author=, =title= and =keywords=. Back up the =.bib= first (not changed by this PR, only read).
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 460-devonthink-bibtex-sync; git checkout 460-devonthink-bibtex-sync=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L libraries/modules/vulpea -l ert -l tests/sp-devonthink-bibsync-test.el -f ert-run-tests-batch-and-exit= → 8 pass
+- [ ] =M-x sp-devonthink-bibsync= (or =C-c k d y=), choose the citekey → "1 record synced, tags changed on N"
+- [ ] If the message says it failed for the custom field: define =bibauthor= and =bibtitle= in DEVONthink (Settings > Data > Custom Metadata), or set the two options to the identifiers DEVONthink shows, then repeat
+- [ ] In DEVONthink, Info inspector of the record: Author and Title appear in the Metadata section, authors separated by =;=
+- [ ] The record's tags now include the BibTeX keywords; existing tags are still there, none removed
+- [ ] Run it again: "tags changed on 0", no duplicates
+- [ ] Rename the record in DEVONthink and move it to another group: tags and metadata are still there
+- [ ] Edit the title in the =.bib=, run again: the metadata title follows
+- [ ] =sp-devonthink-bibsync-record=: =C-c k d b=, =embark-act= on a record, =y=
+- [ ] =M-x sp-devonthink-bibsync-many= with two keys, one without a BibTeX entry: message names it
+- [ ] A chapter that cross-references a book without its own record: message "no own record", the book's tags are unchanged
+- [ ] =M-x sp-devonthink-bibsync-all= on a copy or small database first: question shows the count; afterwards spot-check three records
+- [ ] =sp-fetch-inbox=: file an inbox article (=C-c w b a=, =C-c C-c=); afterwards the new =KEY.pdf= record has author, title and tags
+- [ ] Same with =(setq sp-fetch-inbox-sync-metadata nil)=: nothing is written to the record
+- [ ] With #455 checked out as well: tag the record in the browser (=t=), answer =y= to the BibTeX question, then run =sp-devonthink-bibsync=: no duplicate keyword, no new question
+- [ ] Clean up: remove the test tags and metadata in DEVONthink; =git -C ~/dotfiles restore .=
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after checking =git clean -nd=).
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=; restart Emacs (or =M-x sp-reload-modules=).
+- DEVONthink: remove the tags you added, and the Author/Title custom metadata from the test record.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiDA975qzsw8QcXaRN6][Claude Code]]/
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/6fdb48d6ae3105577e094ce0820c8f346e12e511][6fdb48d6ae]] ✨ Sync BibTeX author, title and keywords to the DEVONthink record (Claude, 2026-11-14 11:21)
+- [[https://github.com/siainbuletin/dotfiles/commit/609986d28faa9cd95403a59c403026aec945942c][609986d28f]] Merge branch 'main' into 460-devonthink-bibtex-sync (Sia Piperea, 2026-11-14 11:33)

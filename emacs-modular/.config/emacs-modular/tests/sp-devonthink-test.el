@@ -125,6 +125,19 @@
       (should (equal (buffer-string)
                      (format "[[devonthink:%s::6][smith-2017-x p. 6]]" sp-devonthink-test--uuid))))))
 
+(ert-deftest sp-devonthink-front-script-visits-all-windows ()
+  (should (string-match-p "repeat with theWindow in (every window)" sp-devonthink--front-script))
+  (should-not (string-match-p "think window 1" sp-devonthink--front-script))
+  (should (string-match-p "content record of theWindow" sp-devonthink--front-script))
+  (should (string-match-p "exit repeat" sp-devonthink--front-script)))
+
+(ert-deftest sp-devonthink-store-link-multiline-selection ()
+  (let* ((org-stored-links nil) (kill-ring nil)
+         (out (format "%s\tsmith-2017-x.pdf\t3\tline one\nline two\n" sp-devonthink-test--uuid)))
+    (cl-letf (((symbol-function 'sp-reading--osascript) (lambda (_) out)))
+      (sp-devonthink-store-link)
+      (should (equal (car kill-ring) "line one\nline two")))))
+
 (ert-deftest sp-devonthink-first-page-parses-ranges-and-odd-values ()
   (should (= (sp-devonthink-first-page "45--67") 45))
   (should (= (sp-devonthink-first-page "45-67") 45))
@@ -315,6 +328,103 @@
          (should (string-match-p "Tag the record of parent-2000-b (the whole book)" said)))
        (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
          (should (equal (sp-devonthink-note-record-uuid "tag") sp-devonthink-test--uuid)))))))
+
+(ert-deftest sp-devonthink-keyword-list-trims-and-dedupes ()
+  (should (equal (sp-devonthink--keyword-list " value form, Money;value Form\nlabour ")
+                 '("value form" "Money" "labour")))
+  (should-not (sp-devonthink--keyword-list nil)))
+
+(ert-deftest sp-devonthink-chapter-block-roundtrip-keeps-other-text ()
+  (let* ((c0 "Read in 2024.\nSee also x.")
+         (c1 (sp-devonthink-chapter-comment-with c0 "a-2001-x" '("one" "two")))
+         (c2 (sp-devonthink-chapter-comment-with c1 "b-2002-y" '("three"))))
+    (should (string-prefix-p c0 c1))
+    (should (equal (sp-devonthink-chapter-keywords-in c2 "a-2001-x") '("one" "two")))
+    (should (equal (sp-devonthink-chapter-keywords-in c2 "b-2002-y") '("three")))
+    ;; Rewriting one chapter leaves the other and the free text alone
+    (let ((c3 (sp-devonthink-chapter-comment-with c2 "a-2001-x" '("uno"))))
+      (should (equal (sp-devonthink-chapter-keywords-in c3 "a-2001-x") '("uno")))
+      (should (equal (sp-devonthink-chapter-keywords-in c3 "b-2002-y") '("three")))
+      (should (string-prefix-p c0 c3))
+      ;; Removing a chapter drops only its block
+      (let ((c4 (sp-devonthink-chapter-comment-with c3 "a-2001-x" nil)))
+        (should-not (sp-devonthink-chapter-keywords-in c4 "a-2001-x"))
+        (should (equal (sp-devonthink-chapter-keywords-in c4 "b-2002-y") '("three")))))
+    ;; a key that is a prefix of another does not match it
+    (should-not (sp-devonthink-chapter-keywords-in c2 "a-2001"))))
+
+(ert-deftest sp-devonthink-chapter-comment-on-empty-comment ()
+  (should (equal (sp-devonthink-chapter-comment-with "" "k" nil) ""))
+  (should (equal (sp-devonthink-chapter-comment-with nil "k" '("a"))
+                 "-- sp-chapter: k --\nkeywords: a\n-- end sp-chapter --\n")))
+
+(defmacro sp-devonthink-test--with-chapter (comment-var &rest body)
+  "Run BODY with the crossref fixture and a fake record comment in COMMENT-VAR."
+  (declare (indent 1))
+  `(let ((,comment-var "Free text.") (writes 0))
+     (sp-devonthink-test--with-crossref
+      (cl-letf (((symbol-function 'sp-devonthink--record-comment) (lambda (_) ,comment-var))
+                ((symbol-function 'sp-devonthink--set-record-comment)
+                 (lambda (_ text) (cl-incf writes) (setq ,comment-var text)))
+                ((symbol-function 'citar-get-value)
+                 (lambda (field _key)
+                   (pcase field ('crossref "parent-2000-b") ('keywords "value form; Money")
+                          ('title "A Collection") ('=type= "collection")))))
+        ,@body))))
+
+(ert-deftest sp-devonthink-chapter-keywords-store-asks-first ()
+  (sp-devonthink-test--with-chapter comment
+    (with-temp-buffer
+      (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n")
+      (let (prompt)
+        (cl-letf (((symbol-function 'y-or-n-p) (lambda (p) (setq prompt p) nil)))
+          (should-error (sp-devonthink-chapter-keywords-store) :type 'user-error))
+        (should (equal comment "Free text."))
+        (should (string-match-p "record of parent-2000-b" prompt))
+        (should (string-match-p "tags stay as they are" prompt))
+        (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t))
+                  ((symbol-function 'message) #'ignore))
+          (sp-devonthink-chapter-keywords-store))
+        (should (equal (sp-devonthink-chapter-keywords-in comment "child-2001-x")
+                       '("value form" "Money")))
+        (should (string-prefix-p "Free text." comment))))))
+
+(ert-deftest sp-devonthink-chapter-keywords-store-refuses-a-record-of-its-own ()
+  (cl-letf (((symbol-function 'sp-reading-uuid) (lambda (_) sp-devonthink-test--uuid))
+            ((symbol-function 'citar-get-value) (lambda (&rest _) nil)))
+    (with-temp-buffer
+      (insert ":PROPERTIES:\n:ROAM_REFS: @own-2001-x\n:END:\n#+title: x\n")
+      (should-error (sp-devonthink-chapter-keywords-store) :type 'user-error)
+      (should-error (sp-devonthink-chapter-keywords-show) :type 'user-error))))
+
+(ert-deftest sp-devonthink-chapter-keywords-show-labels-the-parent-and-is-idempotent ()
+  (sp-devonthink-test--with-chapter comment
+    (setq comment (sp-devonthink-chapter-comment-with comment "child-2001-x" '("value form" "Money")))
+    (with-temp-buffer
+      (org-mode)
+      (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n\n* Notes\nbody\n")
+      (cl-letf (((symbol-function 'message) #'ignore))
+        (sp-devonthink-chapter-keywords-show)
+        (sp-devonthink-chapter-keywords-show))
+      (let ((s (buffer-string)))
+        (should (string-match-p "^\\* Keywords in the collection \"A Collection\" (parent-2000-b)$" s))
+        (should (string-match-p ":SP_CHAPTER_OF: parent-2000-b" s))
+        (should (string-suffix-p "value form, Money\n" s))
+        (should (= 1 (with-temp-buffer (insert s) (how-many "Keywords in the"
+                                                            (point-min))))))
+      (should (string-match-p "\\* Notes\nbody\n" (buffer-string)))
+      (should (= writes 0))
+      ;; changed in DEVONthink: the section body follows, the heading stays one
+      (setq comment (sp-devonthink-chapter-comment-with comment "child-2001-x" '("new")))
+      (cl-letf (((symbol-function 'message) #'ignore))
+        (sp-devonthink-chapter-keywords-show))
+      (should (string-suffix-p ":END:\nnew\n" (buffer-string))))))
+
+(ert-deftest sp-devonthink-chapter-keywords-show-without-stored-keywords ()
+  (sp-devonthink-test--with-chapter comment
+    (with-temp-buffer
+      (insert ":PROPERTIES:\n:ROAM_REFS: @child-2001-x\n:END:\n#+title: x\n")
+      (should-error (sp-devonthink-chapter-keywords-show) :type 'user-error))))
 
 (provide 'sp-devonthink-test)
 ;;; sp-devonthink-test.el ends here

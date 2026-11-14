@@ -105,9 +105,13 @@ What stays cheap: every report goes through sp-batch-report-show, so a later vui
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-interaction)
 
 (declare-function sp-backup-open "sp-backup-lookup")
 (declare-function sp-backup-diff "sp-backup-lookup")
+(declare-function sp-echo-help-set "sp-interaction")
+(autoload 'sp-batch-cancel "sp-async-work" nil t)
+(defvar sp-async-work--jobs)
 
 (defgroup sp-batch-report nil
   "The report buffer of the batch conversions and lints."
@@ -335,9 +339,15 @@ ARGS: :intro (text under the title), :excluded (the dropped keys),
   - =d=: drop the entry at point from the list; =u=: bring a dropped one back
   - =A= or =C-c C-c=: apply what is left (when the command gave a function for it)
   - =g=: make the report again
+  - =k=: stop the batch job that is running (=sp-batch-cancel=, see [[file:sp-async-work.org][sp-async-work]]); two =C-g= in a row do the same
   - =q=: close the window
   - =TAB=: fold a heading (from Org)
-- The header line lists the keys the report has.
+- The keys the report has are shown in the echo area by =sp-echo-help-set= (from [[file:../base/sp-interaction.org][sp-interaction]]), not in the header line.
+  - The header line did not wrap, so a long list ran off the window.
+  - =sp-batch-report--hints= builds the list as =(KEY DESCRIPTION [STRONG])=; it leaves out =d=, =u=, =A= and =g= when the report has no function for them.
+  - =sp-batch-report-open= sets the hints again after it has set the refresh, redraw and apply functions, so the list matches what the report can do.
+  - It does so after =pop-to-buffer=: only a buffer in the selected window shows its hints at once.
+  - A mode derived from this one that sets its own =header-line-format= keeps that header; only the keys moved.
 - Buffer-local state, set by =sp-batch-report-open=:
   - =sp-batch-report-refresh-function=: what =g= calls
   - =sp-batch-report-redraw-function=: what =d= and =u= call (default: the refresh function)
@@ -487,15 +497,14 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
-(defun sp-batch-report--header-line ()
-  "The keys of this report, for the header line."
-  (concat " RET visit  n/p link"
+(defun sp-batch-report--hints ()
+  "The keys of this report, as hints for the echo area."
+  (append '(("RET" "Visit") ("n/p" "Next/previous link"))
           (and (or sp-batch-report-redraw-function sp-batch-report-refresh-function)
-               "  d drop  u restore")
-          (and sp-batch-report-apply-function "  A apply")
-          (and sp-batch-report-refresh-function "  g refresh")
-          "  b backups  D diff backup"
-          "  q quit"))
+               '(("d" "Drop") ("u" "Restore")))
+          (and sp-batch-report-apply-function '(("A" "Apply" t)))
+          (and sp-batch-report-refresh-function '(("g" "Refresh")))
+          '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -509,6 +518,7 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (define-key map (kbd "g") #'sp-batch-report-refresh)
     (define-key map (kbd "b") #'sp-backup-open)
     (define-key map (kbd "D") #'sp-backup-diff)
+    (define-key map (kbd "k") #'sp-batch-cancel)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap of `sp-batch-report-mode'.")
@@ -521,7 +531,11 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
+  (sp-echo-help-set (sp-batch-report--hints)))
+
+(defun sp-batch-report--set-hints ()
+  "Show the keys of this report in the echo area, now that its functions are set."
+  (sp-echo-help-set (sp-batch-report--hints)))
 #+end_src
 
 * Buffers of the files a batch visits
@@ -682,7 +696,10 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
+      (when (fboundp 'sp-echo-help-set)
+        (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
+      (sp-batch-report--set-hints)
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))
@@ -912,6 +929,71 @@ derived from `sp-batch-report-mode'; the default is that mode."
             (should (equal (sp-batch-report-close-file file) "the buffer was not killed")))
           (kill-buffer buffer))
       (delete-file file))))
+
+(ert-deftest sp-batch-report-hints-follow-the-functions ()
+  (with-temp-buffer
+    (sp-batch-report-mode)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should-not (member "d" keys))
+      (should-not (member "A" keys)))
+    (setq sp-batch-report-refresh-function #'ignore
+          sp-batch-report-apply-function #'ignore)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should (member "d" keys))
+      (should (member "A" keys))
+      (should (member "g" keys)))
+    (sp-batch-report--set-hints)
+    (should (equal sp-echo-help--hints (sp-batch-report--hints)))
+    (should-not header-line-format)))
+
+(ert-deftest sp-batch-report-open-shows-hints-in-the-real-path ()
+  "The path every batch command takes: hints shown at once, keys not in the header."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown))))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*"
+                                                 "#+title: T\n* One\n"
+                                                 :refresh #'ignore :apply #'ignore))
+              (with-current-buffer buffer
+                (should-not header-line-format)
+                (should sp-echo-help-mode)
+                (should (member #'sp-echo-help-show post-command-hook))
+                (should (equal sp-echo-help--hints (sp-batch-report--hints))))
+              (should (string-match-p "Apply" (car shown)))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-hints-survive-a-lingering-message ()
+  "A job's last message does not hide the hints for good: the idle show wins."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Author notes: done")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (with-current-buffer buffer (sp-echo-help-show))
+              (should-not shown)        ; the polite show leaves the message alone
+              (sp-echo-help--idle-show)
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-no-key-lines-in-header-code ()
+  "No converted report puts its key list in the header line any more."
+  (let ((dir (file-name-directory (locate-library "sp-batch-report"))))
+    (dolist (file '("sp-author-notes.el" "sp-author-notes-bibtex.el" "sp-org-tag-lint.el"
+                    "sp-org-lint-footnotes.el"))
+      (let ((path (expand-file-name file dir)))
+        (when (file-exists-p path)
+          (with-temp-buffer
+            (insert-file-contents path)
+            (goto-char (point-min))
+            (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

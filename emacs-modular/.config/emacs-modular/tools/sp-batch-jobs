@@ -1,0 +1,63 @@
+#!/bin/sh
+# List the running batch jobs of the Emacs instances, or ask one to stop.
+#   sp-batch-jobs [list]
+#   sp-batch-jobs cancel ID|--all     (ID may be a part of the job name)
+# The jobs leave status files in var/batch-jobs, see
+# docs/tangles/funct/sp-async-work.org.
+dir=${SP_BATCH_JOBS_DIR:-${SP_VAR_DIR:-$HOME/.config/emacs-modular/var}/batch-jobs}
+
+get() { sed -n "s/^$2=//p" "$1" | head -n 1; }
+
+live_files() {
+  for f in "$dir"/*.job; do
+    [ -e "$f" ] || continue
+    pid=$(get "$f" pid)
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      echo "$f"
+    else
+      rm -f "$f" "${f%.job}.cancel"   # the Emacs is gone
+    fi
+  done
+}
+
+duration() {
+  s=$1; [ "$s" -lt 0 ] && s=0
+  if [ "$s" -lt 60 ]; then printf '%ds' "$s"
+  elif [ "$s" -lt 3600 ]; then printf '%dm%02ds' $((s / 60)) $((s % 60))
+  else printf '%dh%02dm' $((s / 3600)) $((s % 3600 / 60)); fi
+}
+
+list() {
+  now=$(date +%s); n=0
+  for f in $(live_files); do
+    [ "$n" -eq 0 ] && printf '%-28s %-24s %-14s %-10s %-8s %s\n' JOB COMMAND STAGE PROGRESS RUNNING PID
+    n=$((n + 1))
+    started=$(get "$f" started)
+    printf '%-28s %-24s %-14s %-10s %-8s %s\n' \
+      "$(get "$f" id)" "$(get "$f" command)" "$(get "$f" stage)" \
+      "$(get "$f" done)/$(get "$f" total)" "$(duration $((now - ${started:-$now})))" "$(get "$f" pid)"
+  done
+  [ "$n" -eq 0 ] && echo "No batch job is running"
+  return 0
+}
+
+cancel() {
+  [ $# -ge 1 ] || { echo "usage: sp-batch-jobs cancel ID|--all" >&2; return 2; }
+  hits=0
+  for f in $(live_files); do
+    id=$(get "$f" id)
+    case "$1" in
+      --all) ;;
+      *) case "$id" in *"$1"*) ;; *) continue ;; esac ;;
+    esac
+    : > "${f%.job}.cancel" && echo "Asked $id to stop"
+    hits=$((hits + 1))
+  done
+  [ "$hits" -gt 0 ] || { echo "No running job matches '$1'" >&2; return 1; }
+}
+
+case "${1:-list}" in
+  list) list ;;
+  cancel) shift; cancel "$@" ;;
+  *) echo "usage: sp-batch-jobs [list | cancel ID|--all]" >&2; exit 2 ;;
+esac

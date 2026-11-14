@@ -1,0 +1,51 @@
+* PR #410: ✨ Flag BibTeX citekeys over 45 characters in sp-bibtex-lint and update what uses a renamed key
+:PROPERTIES:
+:PR_NUMBER: 410
+:URL: https://github.com/siainbuletin/dotfiles/pull/410
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/410][https://github.com/siainbuletin/dotfiles/pull/410]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 20:14
+- Merged :: 2026-11-12 21:37
+- Branch :: =claude/long-citekey-check= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1c8c061c6787c374ceb5e044702285da2d34cfc8][1c8c061c67]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CYyGtgLvq5iRgHjYX2SJe6][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Part of =sp-bibtex-lint=:* a new fix kind =keys=. =sp-bibtex-lint-fix-keys= (=C-c w b k=, the =keys= button of the dry-run report, or =sp-bibtex-lint-convert=) works in batches of =sp-bibtex-lint-batch-size= like the other fixes. The dry run (=C-c w b l=) lists long keys in a section of their own.
+- *Prompt:* for each key over =sp-bibtex-key-max-length= (45) it shows the title and suggests a key from =bibtex-generate-autokey= (else the old key cut to the limit, a letter added if taken). The answer is checked (at most 45 characters, no forbidden characters, not another entry's key in any registered file, or one chosen in the run). An empty answer keeps the key.
+- *Updating what uses the key* (shown as a plan in =*BibTeX key renames*=, then =y= = everything, =b= = only the .bib file, =s= = skip), controlled by =sp-bibtex-key-update-targets= (=notes files bibrefs=):
+  - *Notes* (=sp-bibtex-key-notes-directory=, default =sp-notes-dir=, every =.org= file): the key on =#+reference:= and =:ROAM_REFS:= lines, and citations =@key= (=[cite:@key]=, =[cite/t:@a; @b]=, in text) and =cite:key=. Whole keys only (=@key-2= and =@keyx= are left alone). Each changed note is copied to =key-renames-STAMP/= in =sp-bibtex-lint-backup-directory= first; a note open with unsaved changes is left alone and listed; vulpea is told with =vulpea-db-update-file=.
+  - *Cross references:* =crossref=, =xref=, =xdata=, =related= in the file and the other registered files.
+  - *PDFs:* files in =sp-literature-dir= named =KEY.ext= or =KEY-anything.ext= (citar's additional files), and the =file= field of the entry. They move through the existing =sp-bibtex-files--move=, so with =sp-bibtex-files-devonthink-tool= set DEVONthink does the rename.
+- *DEVONthink tool:* =tools/devonthink-move.py= can now rename: a new name in the same folder is a =rename= in the plan, done with ~rec.name = …~ (tried without, then with the extension; the old name is restored if the file is not where asked), and the record is filed back in the group it was in. Previously such a move would have stopped the run, because DEVONthink's =move= keeps the file name. Changed in =docs/tangles/academic/devonthink-move.org= and tangled.
+- Order of changes, so a failure leaves things as they were: PDFs first, then notes and other .bib files, then the entries (written by the lint with its backup), then =citar-refresh=.
+- PDFs named after an old BibDesk key (not the citekey) are not touched.
+- Docs in =docs/tangles/academic/sp-academic.org= and =devonthink-move.org= (bullet lists). No CHANGELOG edit.
+
+**** Testing
+:PROPERTIES:
+:CUSTOM_ID: testing
+:END:
+- =tests/sp-bibtex-long-keys-test.el=: 11 ERT tests pass in batch Emacs 29, including the whole flow on a temp bib, notes folder and library (prompt, plan, PDF renamed, =file= field, notes, crossref).
+- =tests/sp-bibprocess-lint-test.el=: 61/61 still pass. =tests/test_devonthink_move.py=: 17 pass (new tests for rename planning and running, with DEVONthink faked).
+- *Not run:* against your real vault or vulpea, and *not against DEVONthink*: whether setting a record's name renames the file of an indexed record is an assumption; try one rename with =devonthink-move.py move --moves FILE --apply --limit 1= first.
+- Branch name has no PR number prefix (cannot rename from the cloud session).
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9m8fmtgNiBeMPZDGW]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/34c4e1450fe3dda7d8aec1ae172fb5bc53b96cbd][34c4e1450f]] ✨ Flag BibTeX citekeys over 45 characters and ask for a shorter one (Claude, 2026-11-12 20:14)
+- [[https://github.com/siainbuletin/dotfiles/commit/00d1c857d58655bb7c3ee91d83874ef7d1f70c60][00d1c857d5]] ✨ Make the long-key fix part of sp-bibtex-lint and update what uses a renamed key (Claude, 2026-11-12 21:36)

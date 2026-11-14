@@ -71,3 +71,16 @@
 
 (provide 'sp-devonthink-browse-test)
 ;;; sp-devonthink-browse-test.el ends here
+
+(ert-deftest sp-devonthink-browse-record-note-needs-a-bibtex-entry ()
+  (sp-devonthink-browse--make-candidates
+   (sp-devonthink-browse--parse sp-devonthink-browse-test--text))
+  (let (opened)
+    (cl-letf (((symbol-function 'citar-open-notes) (lambda (keys) (setq opened keys)))
+              ((symbol-function 'sp-litnotes-meta--entry) (lambda (_) nil)))
+      (should-error (sp-devonthink-record-note "smith-2017-x.pdf") :type 'user-error)
+      (should-not opened))
+    (cl-letf (((symbol-function 'citar-open-notes) (lambda (keys) (setq opened keys)))
+              ((symbol-function 'sp-litnotes-meta--entry) (lambda (_) '(("k" . "v")))))
+      (sp-devonthink-record-note "smith-2017-x.pdf")
+      (should (equal opened '("smith-2017-x"))))))
