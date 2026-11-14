@@ -488,11 +488,7 @@ The plan is a plist: :renames, :notes (FILE REFS CITES lists), :moves (see
   (sp-bibtex-register)
   :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
-  (("C-c w b r" . sp-bibtex-register)
-   ("C-c w b l" . sp-bibtex-lint-dryrun)
-   ("C-c w b L" . sp-bibtex-lint-convert)
-   ("C-c w b k" . sp-bibtex-lint-fix-keys)
-   :map bibtex-mode-map
+  (:map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
 

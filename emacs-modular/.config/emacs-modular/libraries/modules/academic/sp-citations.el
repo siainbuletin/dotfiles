@@ -404,7 +404,7 @@ again."
 ;; Do you really need to make use of citar?
 (use-package citar
   :ensure t
-  :commands (citar-open-notes
+  :commands (citar-open citar-open-notes
              citar-insert-citation)
   
   :custom
@@ -442,7 +442,7 @@ again."
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
-         (("C-c w b o" . citar-open))
+         ;; citar-open is C-; B o (sp-keys)
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
          
          :hook

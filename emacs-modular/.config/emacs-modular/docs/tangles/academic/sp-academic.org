@@ -71,7 +71,7 @@ The ones that change how the setup behaves most. All are set in the modules name
 - =bibtex-entry-format= [=sp-bibprocess=]: what cleaning does to an entry (page dashes, whitespace, alignment, trailing comma, braces). Required-field checks are left out so incomplete =biblio= entries are not rejected.
 - =bibtex-search-entry-globally= with =bibtex-files= [=sp-bibprocess=]: key look-ups and duplicate checks span all registered files, not just the open buffer.
 - =bibtex-dialect= [=sp-bibprocess=]: =biblatex=, so =date=, =journaltitle= and =file= are valid fields.
-- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
+- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-; B r=.
 - =org-cite-global-bibliography= and =citar-bibliography= [=sp-citations=]: both read the registered list, so Org and =citar= always see the same files.
 - =citar-library-paths=, =citar-library-file-extensions=, =citar-file-additional-files-separator= [=sp-citations=]: where =citar= looks for PDFs (=~/Documents/literature/=), which extensions count, and the separator for several files per key. The library path was commented out before, so =citar= found no PDFs.
 - =citar-notes-paths= and =citar-templates= [=sp-citations=]: where notes live and how candidates are displayed.
@@ -856,7 +856,7 @@ Also:
 
 - =bibtex-aux-opt-alist= carries the same two fields. It used to be saved by Customize in =init.el= and is now set here.
 - =:demand t= loads it at once, which registers the bibliography files (=sp-bibtex-register= in =:config=) before anything reads them; =sp-academic= used to do that with =(require 'bibtex)=.
-- =C-c w b r= runs =sp-bibtex-register= at any time; =C-c w b k= runs =sp-bibtex-lint-fix-keys=.
+- The keys of the BibTeX commands are in =sp-keys=, under the leader: =C-; B r= runs =sp-bibtex-register= at any time and the BibTeX lint is under =C-; L b=: =l= report, =a= apply, =r= restore, =f= one fix per kind (=sp-keys.org=, "Lint (L)"). The old =C-c w b= keys are unbound.
 - =H-b= in a BibTeX buffer opens the org-ref hydra (it needs a Hyper key). It was =define-key= in =sp-academic=.
 
 #+begin_src emacs-lisp -i
@@ -902,11 +902,7 @@ Also:
   (sp-bibtex-register)
   :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
-  (("C-c w b r" . sp-bibtex-register)
-   ("C-c w b l" . sp-bibtex-lint-dryrun)
-   ("C-c w b L" . sp-bibtex-lint-convert)
-   ("C-c w b k" . sp-bibtex-lint-fix-keys)
-   :map bibtex-mode-map
+  (:map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
 #+end_src
@@ -2322,7 +2318,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
 - Which file:
   - the file of the current buffer, when it is a =.bib= file
   - otherwise, or with a prefix argument, one read with completion from =sp-bibtex-files=
-- =M-x sp-bibtex-lint-dryrun= (=C-c w b l=):
+- =M-x sp-bibtex-lint-dryrun= (=C-; L b l=):
   - lists the entries to fix in the shared report buffer (=sp-batch-report=)
   - each entry is a link to its line: =RET= visits it, =n= and =p= move, =g= refreshes
   - the top of the report has one button for each fix, with the number of entries it would change
@@ -2367,7 +2363,7 @@ The lint works on one =.bib= file at a time, and it is read-only. The fixes are 
     - those with as many given names as the BibTeX name are preferred, so =TW Adorno= is =Theodor W. Adorno=, not =Tamara Adorno=
     - if more than one is left (=T Adorno=), the name is ambiguous
     - an ambiguous name is listed in its own section of the report (with the candidates) and is never changed or aliased
-- =M-x sp-bibtex-lint-fix-files= is a further fix, described under "Attachment paths" above; =M-x sp-bibtex-lint-convert= (=C-c w b L=) asks which of the five to run.
+- =M-x sp-bibtex-lint-fix-files= is a further fix, described under "Attachment paths" above; =M-x sp-bibtex-lint-convert= (=C-; L b a=) asks which of the five to run. Each fix has a key under =C-; L b f= (=n= names, =c= crossref, =f= files, =i= indent, =k= keys, =o= order, =p= prefixes).
 - Dropping entries for later (author fixes only), the mechanism of the other lint reports (=sp-batch-report=):
   - in the report: =d= drops the entry at point, =u= on a dropped one brings it back, =A= runs the author fixes with what is left
   - the dropped entries move to a section "Dropped from the list" at the end of the report, with their count
@@ -3099,7 +3095,7 @@ See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
 
 *** Long citation keys
 
-The lint kind =keys= and its fix =sp-bibtex-lint-fix-keys= (~C-c w b k~, or the =keys= button of the report, or =sp-bibtex-lint-convert=).
+The lint kind =keys= and its fix =sp-bibtex-lint-fix-keys= (~C-; L b f k~, or the =keys= button of the report, or =sp-bibtex-lint-convert=).
 
 - the entries whose key is over =sp-bibtex-key-max-length= get a rewrite of the kind =keys=; the dry run lists them in a section of their own.
 - the fix goes in batches of =sp-bibtex-lint-batch-size=, as the other fixes do, with a backup of the =.bib= file before the first write:
@@ -3547,7 +3543,7 @@ Candidate layout widths (=sp-citations--layout=, from the display):
 
 The notes path was written inside =:custom= once, which expects pairs of variable and value, so use-package tried to customise variables literally named when and setq and neither was ever applied.
 
-Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
+Keybindings: ~C-; B o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
 
 Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does not filter library files by extension and will offer any attached file. It used to be a =setq= after the =use-package=.
 
@@ -3918,7 +3914,7 @@ again."
 ;; Do you really need to make use of citar?
 (use-package citar
   :ensure t
-  :commands (citar-open-notes
+  :commands (citar-open citar-open-notes
              citar-insert-citation)
   
   :custom
@@ -3956,7 +3952,7 @@ again."
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
-         (("C-c w b o" . citar-open))
+         ;; citar-open is C-; B o (sp-keys)
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
          
          :hook
@@ -4520,7 +4516,7 @@ This academic module connects bibliography entries to notes. Literature notes ar
 - =citar-vulpea= makes Citar use Vulpea notes, tagged =litnote=, in =~/notes/litnotes=.
 - A note's citation key is the =@key= value of its =ROAM_REFS= property (the property Org-roam and Vulpea use for references), not a =#+reference:= keyword. =sp-litnotes-refs= converts the existing notes.
 
-It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
+It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-; B= group of the leader holds the literature-note keys.
 
 ** Literature notes as Vulpea nodes
 
@@ -4530,8 +4526,8 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulp
 
 - Notes use the =litnote= tag and the =ROAM_REFS= property, notes are titled "author (date) title" and live in =~/notes/litnotes=.
 - Citar always creates a note when you open notes for a reference that has none (=citar-open-always-create-notes=, which was set by the =citar-denote= block).
-- Global keys: =C-c w b c= creates a note, =C-c w b n= opens one.
-- In Org buffers: =C-c w b k= and =C-c w b K= add or remove a citekey of the current note, =C-c w b d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-c w b e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
+- Global keys: =C-; B c= creates a note, =C-; B n= opens one.
+- For the note in the current buffer (these keys used to be local to Org; they are global now and act on the note of the current buffer): =C-; B k= and =C-; B K= add or remove a citekey, =C-; B d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-; B e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
 - =C-c w b x= (=citar-denote-nocite=) is gone; =citar-vulpea= has no equivalent.
 - The title template still has to be matched to the titles of the existing notes (many are just the citekey).
 
@@ -4570,15 +4566,10 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulp
   :config
   (citar-vulpea-mode 1)
 
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-open-notes)
-
-   :map org-mode-map
-   ("C-c w b k" . citar-vulpea-add-reference)
-   ("C-c w b K" . citar-vulpea-remove-reference)
-   ("C-c w b d" . citar-vulpea-dwim)
-   ("C-c w b e" . citar-open-entry)))
+  ;; Keys: C-; B c, n, d, k, K, e (sp-keys).
+  :commands (citar-create-note citar-open-notes citar-open-entry
+             citar-vulpea-add-reference citar-vulpea-remove-reference
+             citar-vulpea-dwim))
 #+end_src
 
 ** Provide

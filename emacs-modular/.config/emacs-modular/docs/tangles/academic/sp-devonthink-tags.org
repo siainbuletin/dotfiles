@@ -255,7 +255,7 @@ end tell"
 
 * Keys
 
-- =C-c k d t= tags the record of the current litnote (=C-u= removes).
+- =C-; k d t= tags the record of the current litnote (=C-u= removes).
 
 #+begin_src emacs-lisp
 ;;;; Keys

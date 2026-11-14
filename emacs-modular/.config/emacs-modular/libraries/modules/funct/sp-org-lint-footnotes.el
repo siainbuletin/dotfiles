@@ -538,13 +538,13 @@ relative to it."
     (_ (append '(("RET" "Visit"))
                (and (derived-mode-p 'sp-org-lint-fn-batch-mode)
                     '(("d" "Drop") ("u" "Restore")))
-               '(("a" "Apply" t) ("g" "Rescan") ("q" "Quit" t))))))
+               '(("A" "Apply" t) ("g" "Rescan") ("q" "Quit" t))))))
 
 (defvar sp-org-lint-fn-report-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-org-lint-fn-visit)
-    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
+    (define-key map (kbd "A") #'sp-org-lint-footnotes-convert)
     (define-key map (kbd "g") #'sp-org-lint-footnotes-dryrun)
     map)
   "Keymap of `sp-org-lint-fn-report-mode'.")
@@ -559,14 +559,12 @@ relative to it."
 (make-obsolete-variable 'sp-org-lint-fn-report-mode-map 'sp-org-lint-fn-batch-mode-map "2026-11-09")
 
 (defvar sp-org-lint-fn-batch-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "a") #'sp-org-lint-footnotes-convert)
-    map)
+  (make-sparse-keymap)
   "Keymap of `sp-org-lint-fn-batch-mode'.")
 
 (define-derived-mode sp-org-lint-fn-batch-mode sp-batch-report-mode "FnLint"
   "Report of the footnote lint of the vault, in the shared report buffer.
-\\<sp-org-lint-fn-batch-mode-map>\\[sp-org-lint-footnotes-convert] applies the moves, d drops a file from them."
+\\<sp-batch-report-mode-map>\\[sp-batch-report-apply] applies the moves, \\[sp-batch-report-drop] drops a file from them."
   (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
               sp-batch-report-apply-function #'sp-org-lint-footnotes-convert
               sp-batch-report-redraw-function #'sp-org-lint-fn--render))
@@ -902,7 +900,7 @@ Footnote definitions in a trailing `Footnotes' heading are planned to
 move to the end of the text of the heading that contains their
 reference.  A second Emacs does the work, so this one stays usable; the
 report fills in as files are read, and nothing is changed until you
-press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-convert] in the report.  With a prefix argument, ask for a folder
+press \\<sp-org-lint-fn-report-mode-map>\\[sp-org-lint-footnotes-convert] in the report (C-; L f a does the same from any buffer).  With a prefix argument, ask for a folder
 instead of using the vulpea database."
   (interactive (list (when current-prefix-arg
                        (read-directory-name "Lint footnotes under: "

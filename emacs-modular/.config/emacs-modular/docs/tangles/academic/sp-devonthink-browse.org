@@ -236,7 +236,7 @@ Use Embark on a candidate for the other actions."
 
 * Keys and Embark
 
-- =C-c k d b= browses.
+- =C-; k d b= browses.
 - The Embark map is registered when Embark loads; =RET= on a record opens it.
 
 #+begin_src emacs-lisp

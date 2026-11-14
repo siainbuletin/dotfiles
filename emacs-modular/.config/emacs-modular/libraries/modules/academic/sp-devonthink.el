@@ -529,7 +529,7 @@ collection it sits in.  The buffer is left unsaved."
 ;;;; Keys
 
 (defvar-keymap sp-devonthink-map
-  :doc "Commands of `sp-devonthink' (prefix C-c k d)."
+  :doc "Commands of `sp-devonthink' (prefix C-; k d)."
   "o" #'sp-devonthink-open-from-note
   "l" #'sp-devonthink-insert-link
   "s" #'sp-devonthink-store-link
@@ -538,7 +538,9 @@ collection it sits in.  The buffer is left unsaved."
   "C" #'sp-devonthink-chapter-keywords-store
   "r" #'sp-reading-refresh)
 
-(keymap-global-set "C-c k d" sp-devonthink-map)
+(defvar lem+knowledge-keys)
+(with-eval-after-load 'sp-keys
+  (keymap-set lem+knowledge-keys "d" sp-devonthink-map))
 
 (with-eval-after-load 'citar-embark
   (when (boundp 'citar-embark-map)
