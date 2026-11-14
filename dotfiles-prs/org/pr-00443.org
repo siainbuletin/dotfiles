@@ -1,0 +1,90 @@
+* PR #443: ✨ Mirror DEVONthink tags in the litnote's keywords meta line
+:PROPERTIES:
+:PR_NUMBER: 443
+:URL: https://github.com/siainbuletin/dotfiles/pull/443
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/443][https://github.com/siainbuletin/dotfiles/pull/443]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 11:07
+- Branch :: =443-devonthink-tags-litnote-keywords= → =415-devonthink-browse-tags=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/edb85285024196ff266a11fbd93d31d0d92c6d5d][edb8528502]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23N1cZVA1k1j52YPJWeeLJF][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- *Base: =415-devonthink-browse-tags= (#415).* Merge #415 first; GitHub retargets this PR to =main= when #415 merges and its branch is deleted. Until then the diff shows only this PR's changes.
+- Stack: #414 → #415 → *this PR* (independent of #418, #419, #420, #421, which also build on #415).
+- If merged out of order (into =main= before #415): impossible, =sp-devonthink-tags= does not exist on =main= yet.
+- #441 (chapter keywords, based on =main=): no code overlap.
+  - #441 writes the chapter's BibTeX =keywords= into the /parent's DEVONthink record comment/ and a =* Keywords in the book …= section at the bottom of the chapter's note.
+  - This PR writes the /DEVONthink tags/ of a record into a =- keywords :: …= meta line in the first section. Different place, different source; neither reads the other's data.
+  - Same word "keywords", so the meta line is a mirror of tags only. Text conflicts expected only in the key map (=T= here; #441 uses =c=/=C=) and the Keys table.
+- #437 (crossref resolver, merged): used as is. A chapter with no record of its own tags its parent's record; this PR then leaves the chapter's note alone (see below).
+- After merging: nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* write the tags into the litnote =.org= too, as a meta key =keywords= with comma-separated values, searchable.
+- *What:* =sp-devonthink-tag-note= (=C-c k d t=) re-reads the record's tags after the change and writes =- keywords :: a, b, c= in the first section of the litnote (with =C-u= removal too). DEVONthink stays the source of truth; the line is a mirror, never read back.
+- *Format* (same on every write): =, = between tags, DEVONthink's order, no repeats, a legacy comma-joined tag written as its parts, no tags → empty value (line stays).
+- *Searchable:*
+  - =rg -i '^- keywords ::.*value form' ~/notes/litnotes=
+  - it is a vulpea meta line like =pub-author=, written with =sp-litnotes-meta--put=, so =sp-vulpea-meta-order= and meta search see it.
+  - =sp-see-also= keyword handling concerns Org TODO keywords, not meta lines, so there is no interaction.
+- *New:* =C-c k d T= =sp-devonthink-keywords-sync= refreshes the line without changing tags; option =sp-devonthink-keywords-key= (default ="keywords"=, nil turns the mirror off).
+- *Crossref (#437):* a chapter without its own record tags the parent's record (after asking). Those tags are the book's, so the chapter's litnote is *not* written ("Keywords line not written..."); =T= refuses there too. Run =T= in the parent's litnote.
+- *Not mirrored:* records tagged from the browser (=t= action on several marked records) do not touch their litnotes; run =T= in each note afterwards.
+- Buffer is left unsaved, like other =sp-litnotes-meta= edits.
+- Docs: new "Mirroring the tags in the litnote" section in =sp-devonthink-tags.org= (bullets), intro, keys and testing notes updated; =.el= re-tangled; README row updated.
+- Tests: 19 ERT tests in =sp-devonthink-tags-test.el= pass on Emacs 29.3 (8 new: value format, add/replace/empty line, option nil, mirror reads the record, chapter skip, own-record check, sync refusal, tag-note mirrors); =sp-litnotes-meta= tests (68) still pass; tangle check clean for this module. =when-let*= style only. No CHANGELOG edit.
+- *Not tested against DEVONthink or the real vault.* The AppleScript was run in no PR of this stack; tags read back after =set tags of= and their order are assumed.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, fish, =~/.config/emacs-modular=, DEVONthink open on =literature=, a litnote with its own record. Throw-away tag =test-tag-1=.
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 443-devonthink-tags-litnote-keywords; git checkout 443-devonthink-tags-litnote-keywords=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L libraries/modules/vulpea -l ert -l tests/sp-devonthink-tags-test.el -f ert-run-tests-batch-and-exit= → 19 pass (add =-L= for other module folders if Emacs asks)
+- [ ] In a litnote: =C-c k d t=, tag =test-tag-1= → "Added: 1 record changed"; the first section now has =- keywords :: …= after the other meta lines, listing the record's tags; buffer modified, not saved
+- [ ] Same tag again with =C-u C-c k d t= → "Removed"; the line no longer lists it
+- [ ] Order and format: a record with several tags → =a, b, c=; order matches DEVONthink's inspector; no duplicates
+- [ ] Edit the line by hand, then =C-c k d T= → line rewritten from DEVONthink; DEVONthink unchanged
+- [ ] Search: =rg -i '^- keywords ::.*test-tag-1' ~/notes/litnotes= finds the note after saving; a vulpea meta search on =keywords= lists it
+- [ ] Chapter litnote (no own record, =crossref= parent with a record): =C-c k d t= asks about the parent's record; on =y= the message says the keywords line was not written and the note has no =keywords= line; =C-c k d T= says to sync in the parent's note
+- [ ] Parent's litnote: =C-c k d T= writes the book's tags
+- [ ] =(setq sp-devonthink-keywords-key nil)= then =C-c k d t= → tags change in DEVONthink, no line written
+- [ ] Regression: browser =t= action on marked records still tags them; =sp-devonthink-split-comma-tags= unchanged
+- [ ] Clean up: remove =test-tag-1= in DEVONthink; =git -C ~/notes restore .= if the vault is under git
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after checking =git clean -nd=).
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=; restart Emacs (or =M-x sp-reload-modules=).
+- Litnotes: delete the =- keywords :: …= lines you generated, or =git -C ~/notes restore .=.
+- DEVONthink: remove =test-tag-1= from the tag list.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCEGsz9MCS2JAVY6BT][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/77f312f8213595edb6294f87d2b5e21c7d123da7][77f312f821]] ✨ Mirror DEVONthink tags in the litnote's keywords meta line (Claude, 2026-11-13 11:06)

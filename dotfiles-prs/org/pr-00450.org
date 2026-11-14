@@ -1,0 +1,84 @@
+* PR #450: ✨ Add sp-vulpea-backlink-check: is this heading backlinked?
+:PROPERTIES:
+:PR_NUMBER: 450
+:URL: https://github.com/siainbuletin/dotfiles/pull/450
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/450][https://github.com/siainbuletin/dotfiles/pull/450]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 13:57
+- Branch :: =450-backlink-check= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/6265c3722719f75d78b4254b37ccca13a733cd74][6265c37227]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW26soxvhU7ZUKxFfmfYC5BAR][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main= (e8e60bee); independent of every other open PR in code.
+- Text conflict possible with #447: both add a part to =docs/tangles/vulpea/sp-vulpea.org= before =sp-vulpea-org-ql.el= and edit the intro table and load-order bullets. Keep both sides if it happens.
+- Touches =sp-vulpea-ext.el= (one =require=); #447 touches =sp-vulpea-ui.el=, so no conflict there.
+- Merged in any order nothing breaks.
+- After merging: restart Emacs (or =M-x sp-reload-modules=); nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* a small command to eval on a heading with an ID, to see whether it is backlinked anywhere in the vault; =embark-act= on the result opens a temporary buffer with the backlink locations.
+- *New module* =sp-vulpea-backlink-check= (=libraries/modules/vulpea/=), documented as a bullet-point part in =sp-vulpea.org=; required from =sp-vulpea-ext=.
+- =M-x sp-vulpea-backlink-check= (or eval =(sp-vulpea-backlink-check)=) on a heading with an =ID=:
+  - Echo area: =3 backlinks from 2 notes= or =not backlinked=.
+  - Heading without =ID= or non-Org buffer: a =user-error=.
+  - One =vulpea-db-query-links-to= call, no file reads, so it is fast. Headings with an ID are notes in Vulpea, so heading-level links are found. Self-links are not counted.
+- *Embark:* the result is a propertized string; target type =sp-vulpea-backlinks=, target = the heading ID.
+  - The echo area is not a buffer, so the finder (put first in =embark-target-finders=) returns the result while =current-message= still shows it, for =sp-vulpea-backlink-check-timeout= seconds (default 10) after the check, or on the result line in =*Messages*=.
+  - =embark-act= then =RET= (or =s=): =*vulpea backlinks: TITLE*=, grouped by source note, each entry with its heading, line number and the line of context. =RET=/click jumps, =n=/=p= move, =g= refreshes, =q= quits. Open buffers are read instead of the file, so unsaved edits count.
+  - Embark is configured in =with-eval-after-load=, like =sp-litdb= and =sp-tab-psearch=.
+- Tests: =tests/sp-vulpea-backlink-check-test.el=, 18 ERT tests pass on Emacs 29.3 batch (counts, singular, none, self-links, command on a heading, no ID, target finder and timeout, locations, buffer, =n=/=p=, visit, open buffer wins). Vulpea is stubbed, sources are real temp files. =.el= and test are tangled from the doc; the existing grouped-backlinks tests still pass. =when-let*= only, no CHANGELOG edit.
+- *Not tested* with real Vulpea, Embark or the GUI: whether =:pos= of a heading-level source matches the file, and whether the echo-area message is still there when =C-.= runs. If it is not, the 10 second fallback covers it.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, =~/.config/emacs-modular=, a note with a heading that has an =ID= and is linked from another note.
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 450-backlink-check; git checkout 450-backlink-check=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -l tests/sp-vulpea-backlink-check-test.el -f ert-run-tests-batch-and-exit= → 18 pass
+- [ ] On a linked heading with an ID: =M-x sp-vulpea-backlink-check= shows =N backlinks from M notes=
+- [ ] Eval =(sp-vulpea-backlink-check)= with =C-x C-e= on the same heading: same message
+- [ ] =C-.= (=embark-act=) right after: the target is =sp-vulpea-backlinks=; =RET= opens =*vulpea backlinks: …*=
+- [ ] In that buffer: each entry shows the source note, heading, line and context; =RET= jumps to the link, =n=/=p= move, =g= refreshes, =q= quits
+- [ ] A link from a heading (not the file top) is counted and shown (heading-level link)
+- [ ] A heading nobody links to: =not backlinked=; =embark-act= then =RET= shows "Not backlinked."
+- [ ] A heading without an =ID=: error "This heading has no ID"
+- [ ] Wait more than 10 seconds and do something else: =C-.= no longer offers the target
+- [ ] Open =*Messages*=, put point on the result line, =C-.=: the target is offered
+- [ ] Time it on the real vault: the echo-area answer is instant
+- [ ] Regression: the grouped backlinks sidebar and the =vulpea-ui= widget still work
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .=.
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=; restart Emacs (or =M-x sp-reload-modules=).
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiAjRWkNrzYxSeHCHJC][Claude Code]]/
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/e665598442ffe982aa40d10ace04e5f292cb9c35][e665598442]] ✨ Add sp-vulpea-backlink-check: is this heading backlinked? (Claude, 2026-11-13 13:57)
+- [[https://github.com/siainbuletin/dotfiles/commit/310bf28df8c43fba0437d715213eaddcc0413abb][310bf28df8]] 📝 Add #450 to the Vulpea modules change list (Claude, 2026-11-13 13:58)

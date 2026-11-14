@@ -1,0 +1,115 @@
+* PR #441: ✨ Keep a chapter's own keywords in its parent's DEVONthink record
+:PROPERTIES:
+:PR_NUMBER: 441
+:URL: https://github.com/siainbuletin/dotfiles/pull/441
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/441][https://github.com/siainbuletin/dotfiles/pull/441]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 01:11
+- Branch :: =441-devonthink-chapter-keywords= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/525726aded25cb3f9e227b3c67a3411c0ddf06bf][525726aded]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25qKAJRXdPk6tMQusxFjbvu][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: independent; safe to merge anytime. Based on =main= (which has #437, the crossref resolver =sp-devonthink-record=; this PR uses it).
+- Stack #415, #418, #419, #420, #421 (still open, so none of their code is on =main=): checked, no overlap in behaviour.
+  - #415 (tags) writes only DEVONthink tags; this PR never touches tags and never merges chapter keywords into them.
+  - #421 (sync) uses the custom metadata field =litnote=; this PR uses the record's =comment=, so they cannot clash.
+  - Conflicts expected only in text: the =sp-devonthink.org= / =.el= key map (=C-c k d=) and the "Keys" table, since #415, #418, #420 and #421 also add keys (=t=, =b=, =f=, =a=, =h=, =y=). This PR takes =c= and =C=, which none of them use. Keep both sets of lines.
+- #438 (page labels): not touched; it rewrites the page logic, this PR adds a separate section.
+- After merging: nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Problem:* a chapter or section (=incollection=/=inbook= with =crossref=) has no DEVONthink record, so its keywords (what it is about) had no place in DEVONthink.
+- *My reading of the request* (say if wrong):
+  - The chapter's keywords are *not inherited from the parent and not merged into the parent's tags*.
+  - They are stored *on the parent's record, scoped to the chapter*, in a block of the record's =comment=:
+    #+begin_example
+    -- sp-chapter: child-2001-x --
+    keywords: value form, Money
+    -- end sp-chapter --
+    #+end_example
+
+  - Text outside the block is left as it was; writing again replaces only that chapter's block; an empty list removes it.
+  - The chapter's litnote shows them *at the bottom*, under =* Keywords in the book "Title" (parent-key)= (=collection= for a collection or proceedings, =book= for a book, =work= otherwise), with =:SP_CHAPTER_OF:= on the heading so re-running rewrites only its body.
+- *Scoping is by text convention only:* only the Emacs code knows a block belongs to one chapter; DEVONthink does not. They do not appear in the tag browser or =tags:= searches (intended).
+- *Open question (decided with Sia: comment only for now):* is a comment enough to find chapter keywords in DEVONthink? The "Discoverability" checklist below is there to answer that. Fallback if not: prefixed tags such as =ch:KEY/keyword= (noisier, and the book then carries every chapter's tags).
+- *Source of the keywords:* the =keywords= field of the chapter's BibTeX entry (comma or semicolon separated, duplicates dropped). =C-u= lets you edit them first.
+- *Commands* (=C-c k d=):
+  - =C= =sp-devonthink-chapter-keywords-store=: writes the block to the parent's record. *Asks first*, naming the parent and saying its tags stay as they are.
+  - =c= =sp-devonthink-chapter-keywords-show=: reads the block and puts the section at the bottom of the note. Never writes to DEVONthink; leaves the buffer unsaved.
+  - An entry with a record of its own is refused (its keywords belong on that record).
+- Why =comment=: it is a free text field that exists on every record, is visible in the inspector, and is not used by tags, the =litnote= field or the =#+devonthink:= keyword. A custom metadata field holds one value, so it could not be scoped per chapter without inventing a format inside it anyway.
+- Docs: new "Chapter keywords" section in =docs/tangles/academic/sp-devonthink.org= (bullet lists), keys table, testing notes and the open question; =.el= re-tangled. Page-label logic and the offset code untouched.
+- Tests: 40 ERT tests pass on Emacs 29.3 (10 new: block round trip keeping other text, key-prefix safety, asking first, refusing an entry with its own record, show is idempotent and writes nothing). Tangle check passes. =when-let*= style only. No CHANGELOG edit.
+- *Not tested against DEVONthink.* The AppleScript (=comment of (get record with uuid …)= read and set) was not run; the Org/Emacs logic was tested with the record comment faked.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, fish, =~/.config/emacs-modular=, DEVONthink open on =literature=. Use a throw-away chapter and a parent with a PDF record.
+
+- [ ] =cd ~/dotfiles; git fetch origin 441-devonthink-chapter-keywords; git checkout 441-devonthink-chapter-keywords=, restart Emacs (or =M-x sp-reload-modules=) (untested by Claude)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-test.el -f ert-run-tests-batch-and-exit= → 40 pass
+- [ ] In the litnote of a chapter whose BibTeX entry has =keywords= and a =crossref=: =C-c k d C= → prompt names the parent record and says tags stay as they are; answer =n= → "Cancelled", the record's comment is unchanged (untested by Claude)
+- [ ] Again, answer =y= → "stored N keyword(s)"; in DEVONthink's inspector the parent's Comment ends with the =-- sp-chapter: KEY --= block; the parent's tags are unchanged (untested by Claude)
+- [ ] Put a line of your own text at the top of the comment, run =C-c k d C= again → your text is untouched, still one block
+- [ ] =C-u C-c k d C=, change the keywords → the block shows the new ones
+- [ ] =C-c k d c= in the note → a =* Keywords in the book "Title" (parent-key)= section at the bottom with the keywords; buffer is modified, not saved; run it again → still one section
+- [ ] Do the same for a second chapter of the same parent: two blocks in the comment, each note shows only its own keywords
+- [ ] Edge: a chapter with no =keywords= field: =C-c k d C= says to use =C-u=; a note whose entry has its own record: both commands refuse
+- [ ] Regression: =C-c k d o= on a chapter note still opens the parent record; the parent's tags and the parent's own litnote are unchanged
+
+***** Discoverability in DEVONthink (comment only)
+:PROPERTIES:
+:CUSTOM_ID: discoverability-in-devonthink-comment-only
+:END:
+Use two chapters of one parent with different keywords, e.g. chapter A =value form=, chapter B =money=, both stored with =C-c k d C=. Pick one keyword that appears in no PDF text, so hits can only come from the comment. Write down for each step: found / not found, and whether you could tell which chapter it was.
+
+- [ ] Search box (toolbar), scope "All", type the unique keyword → does the parent record show up? (untested by Claude)
+- [ ] Same with the search scope set to Comments only (search options menu), if available in your version
+- [ ] Search operator: =comment:"value form"= in the search field → parent found?
+- [ ] Search for a keyword that is also in the PDF text: is the parent listed once, and is it clear that the keyword matched the comment, not only the text?
+- [ ] Does the result tell you which chapter the keyword belongs to without opening the Inspector? (expected: no, only the block in the comment says so)
+- [ ] Search for a phrase of two words in chapter A's keywords that are in different blocks (=value= from A and =money= from B): do you get a false match for the parent?
+- [ ] Smart Group with rule "Comment contains" =-- sp-chapter: KEY --= → lists the parent records that carry chapter blocks; useful as a to-do view?
+- [ ] Tag browser and =tags:value form=: confirm the keyword is not there (intended)
+- [ ] Search from Emacs, if #418 is merged (=C-c k d f= with the keyword): do the parent records appear? (skip if #418 is not on your branch)
+- [ ] Verdict for the PR thread: good enough with comments only, or do you want the prefixed-tag fallback (=ch:KEY/keyword=)?
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D 441-devonthink-chapter-keywords=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- DEVONthink: open the parent record's Comment in the inspector and delete the =-- sp-chapter: KEY --= ... =-- end sp-chapter --= block(s) you created (nothing else was written), and remove any Smart Group you made for the test. In a litnote, drop the =* Keywords in the …= section or =git -C ~/notes restore .= if the vault is under git.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/3b11903369bbc3cebd611b6f59875fe1cc10574a][3b11903369]] ✨ Keep a chapter's own keywords in its parent's DEVONthink record (Claude, 2026-11-13 01:10)
+- [[https://github.com/siainbuletin/dotfiles/commit/101952bf016e1b06f4471c1607af4ba769aaf79b][101952bf01]] 📝 Note the open question on finding chapter keywords in DEVONthink (Claude, 2026-11-13 01:19)

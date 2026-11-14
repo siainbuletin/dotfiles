@@ -1,0 +1,84 @@
+* PR #447: ✨ Show the vulpea-ui widgets in a buffer and frame of their own
+:PROPERTIES:
+:PR_NUMBER: 447
+:URL: https://github.com/siainbuletin/dotfiles/pull/447
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/447][https://github.com/siainbuletin/dotfiles/pull/447]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 13:23
+- Branch :: =447-vulpea-ui-view-frame= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/3a093643f8e4dfb1cc5847db7a4f0f51fd62dd11][3a093643f8]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2SVVBwzudQPmDfSxxJFg1z7][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main= (e8e60bee); independent of every other open PR.
+- No open PR registers a new =vulpea-ui= widget right now (checked the list). The view reads the =vulpea-ui= widget registry on every render, so widgets from the PR you are developing show up in it with no change here, whichever of the two merges first.
+- Touches =sp-vulpea.org= (new part before =sp-vulpea-org-ql.el=, plus the intro table) and =sp-vulpea-ui.el= (one =require= at the end). A text conflict is possible only with another PR editing those spots: keep both sides.
+- If merged out of order: nothing breaks.
+- After merging: restart Emacs (or =M-x sp-reload-modules=); nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* show the backlinks and the other =vulpea-ui= widgets in a buffer apart from the sidebar, so a tiling window manager (AeroSpace, i3, sway) can place it in a frame of its own.
+- *New module* =sp-vulpea-ui-view= (=libraries/modules/vulpea/=), documented in =sp-vulpea.org= as a bullet-point part.
+  - =M-o v= (=sp-vulpea-ui-view-toggle=) opens the view in a new frame named =vulpea-ui-view= and closes it again. =q= closes, =g= refreshes. No =C-z/C-c/C-x/C-v= root, no Cmd+Space or Ctrl+Space; GUI only.
+  - It mounts =vulpea-ui-sidebar-root=, the sidebar's own root component, in its own buffer. So the view shows the same widgets in the same order: backlinks, grouped backlinks, see-also, concept usage, Link inbox, book position, and whatever is registered later.
+  - It follows the most recently used window that shows a vulpea note, in any frame. It keeps the last note while a non-note buffer is selected.
+  - It refreshes while idle and drops the caches when the note database changes, like the sidebar.
+  - A click in the view opens the note in the note window, not in the view (an =:around= advice on =vulpea-ui--get-main-window=), and focuses that frame.
+  - Settings (group =sp-vulpea-ui-view=): =use-frame= (nil shows it in a window of the current frame), =frame-name=, =frame-parameters=, =return-focus=, =focus-on-visit=.
+- *AeroSpace:* a suggested =[[on-window-detected]]= rule for the frame title is in =aerospace.org= as a doc note (=:tangle no=; =aerospace.toml= is unchanged). It is only needed if the frame floats.
+- *Relies on =vulpea-ui= internals* (=vulpea-ui-sidebar-root=, =vulpea-ui--get-note-from-buffer=, =vulpea-ui--get-main-window=, four jump functions); the doc lists them.
+- Tests: =tests/sp-vulpea-ui-view-test.el=, 10 ERT tests pass on Emacs 29.3 batch (followed note, sync and render kinds, main-window advice, focus advice, frame name, toggle and teardown). =.el= and test re-tangled from the doc; =when-let*= only, no CHANGELOG edit.
+- *Not tested with real =vulpea-ui=/=vui=, or a real second frame:* both are stubbed, and headless Emacs cannot make a frame. Please try it on the Mac.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, =~/.config/emacs-modular=, with an Org note that has backlinks.
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 447-vulpea-ui-view-frame; git checkout 447-vulpea-ui-view-frame=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-exit= → 10 pass
+- [ ] In a note, =M-o v=: a new frame named =vulpea-ui-view= opens with the backlinks and the other widgets; typing continues in the note frame
+- [ ] AeroSpace tiles the new frame (if it floats, add the rule from =aerospace.org=, =aerospace reload-config=)
+- [ ] Switch to another note (another window or frame): the view follows within a moment
+- [ ] Select a non-note buffer: the view keeps the last note
+- [ ] Open the sidebar too (=C-x t s=): both show the same widgets; the sidebar is unaffected
+- [ ] Click a backlink in the view: the note opens in the note frame (not in the view) and that frame gets the focus
+- [ ] =TAB=/widget toggling works in the view; =g= refreshes; edit a note, save, and the view updates
+- [ ] Widgets of the other in-development PR appear in the view without a change here
+- [ ] =q= (or =M-o v= again) closes the view and its frame
+- [ ] Set =sp-vulpea-ui-view-use-frame= to nil, =M-o v=: the view opens in a window of the current frame
+- [ ] Regression: sidebar open/close and the Link inbox widget still work
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Close the view: =M-o v= (or =q= in it).
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .=.
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=; restart Emacs (or =M-x sp-reload-modules=).
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCkP7qPMHnctiyKTgJ][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/264e610f6df26c1ec8f2c8eabcad767372fa8dd0][264e610f6d]] ✨ Show the vulpea-ui widgets in a buffer and frame of their own (Claude, 2026-11-13 13:22)
