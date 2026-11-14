@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Installs emureader (GNU ELPA) and gives one function, `sp-pdf-open', that
+;; Installs emureader and gives one function, `sp-pdf-open', that
 ;; opens a PDF in it at a page.  Annotations stay in DEVONthink.
 ;; Literate source: docs/tangles/academic/sp-pdf-reader.org.
 
@@ -28,9 +28,12 @@
   :type 'symbol)
 
 ;; Only under Elpaca: a plain batch Emacs (the tests) must not try to install.
+;; The recipe is explicit: Elpaca's cached GNU ELPA menu can predate the
+;; rename to emureader, and a package missing from the menu gets a recipe
+;; with no repository (error in `elpaca-git--fetch').
 (when (fboundp 'elpaca)
   (use-package emureader
-    :ensure t
+    :ensure (:repo "https://codeberg.org/MonadicSheep/emureader.git")
     :defer t))
 
 ;;;; Opening
