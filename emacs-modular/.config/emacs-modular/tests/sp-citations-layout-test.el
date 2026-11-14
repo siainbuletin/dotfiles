@@ -16,7 +16,7 @@
         (while t
           (let ((form (read (current-buffer))))
             (when (and (memq (car-safe form) '(defcustom defconst defun defvar))
-                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\)\\)"
+                       (string-match-p "\\`sp-citations\\(-layout-\\|--\\(frame-columns\\|layout\\|pixel-cells-p\\|build-cell\\|emoji-cell\\|blank-cell\\|cell-cache\\|apply-layout\\|repreformat\\|applied-state\\|completion-template\\)\\)"
                                        (symbol-name (cadr form))))
               (eval form t))))
       (end-of-file nil))))
@@ -115,5 +115,45 @@
       (sp-citations--apply-layout)
       (should (= reformatted 1))             ; cached candidates are formatted again
       (should (assq 'preview citar-templates)))))
+
+;; The citekey keeps its face.
+(defun sp-citations-test--key-face (template)
+  "Return the face `citar' reads for the citekey field of TEMPLATE.
+`citar-format--parse' takes the text properties at the start of the field."
+  (let ((begin (string-match "\\${=key=" template)))
+    (should begin)
+    (get-text-property begin 'face template)))
+
+(ert-deftest sp-citations-citekey-keeps-its-face ()
+  "The completion template, which `citar' reads, has the citekey in `sp-citar-key' first."
+  (let* ((templates (sp-citations--layout-templates 120))
+         (completion (cdr (assq 'completion templates)))
+         (face (sp-citations-test--key-face completion)))
+    (should (eq (car (ensure-list face)) 'sp-citar-key))
+    (should (memq 'citar (ensure-list face)))
+    ;; the main part is in the `citar-highlight' face, as citar makes it
+    (should (eq (get-text-property 0 'face completion) 'citar-highlight))
+    ;; the text is main then suffix, unchanged
+    (should (equal (substring-no-properties completion)
+                   (concat (cdr (assq 'main templates)) (cdr (assq 'suffix templates)))))))
+
+(ert-deftest sp-citations-citar-default-template-loses-the-face ()
+  "What citar does without a `completion' template: its `propertize' replaces the face."
+  (let* ((templates (sp-citations--layout-templates 120))
+         (default (concat (propertize (cdr (assq 'main templates)) 'face 'citar-highlight)
+                          (propertize (cdr (assq 'suffix templates)) 'face 'citar))))
+    (should (eq (sp-citations-test--key-face default) 'citar))))
+
+(ert-deftest sp-citations-apply-layout-keeps-the-completion-template ()
+  (let ((sp-citations--applied-state nil) (vertico-posframe-mode nil)
+        (citar-templates '((preview . "p") (completion . "old"))))
+    (cl-letf (((symbol-function 'frame-parameter) (lambda (&rest _) nil))
+              ((symbol-function 'frame-text-width) (lambda (&rest _) 1080))
+              ((symbol-function 'frame-char-width) (lambda (&rest _) 9))
+              ((symbol-function 'display-graphic-p) (lambda (&rest _) nil)))
+      (sp-citations--apply-layout)
+      (should (= (length (cl-remove-if-not (lambda (e) (eq (car e) 'completion)) citar-templates)) 1))
+      (should (eq (car (ensure-list (sp-citations-test--key-face (cdr (assq 'completion citar-templates)))))
+                  'sp-citar-key)))))
 
 (provide 'sp-citations-layout-test)
