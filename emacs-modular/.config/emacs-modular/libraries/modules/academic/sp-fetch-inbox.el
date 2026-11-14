@@ -14,6 +14,7 @@
 (require 'seq)
 (require 'bibtex)
 (require 'sp-reading)
+(require 'sp-interaction)
 
 (defvar sp-literature-dir)
 (defvar sp-bibtex-files)
@@ -225,12 +226,16 @@ out.join(\"\\n\");"
   (unless (and (derived-mode-p 'sp-fetch-inbox-edit-mode) sp-fetch-inbox--item)
     (user-error "Not an inbox BibTeX buffer")))
 
-(defun sp-fetch-inbox--set-header (note)
-  "Show NOTE and the keys in the header line."
-  (setq header-line-format
-        (replace-regexp-in-string
-         "%" "%%"
-         (format " %s  |  C-c C-c file it  C-c C-k abort  C-c C-r new key  C-c C-d DOI" note))))
+(defconst sp-fetch-inbox--hints
+  '(("C-c C-c" "File it" t)
+    ("C-c C-k" "Abort" t)
+    ("C-c C-r" "New key")
+    ("C-c C-d" "Fetch DOI"))
+  "The key hints of the BibTeX buffer, see `sp-echo-help-set'.")
+
+(defun sp-fetch-inbox--set-hints (note)
+  "Show NOTE and the keys as hints in the echo area."
+  (sp-echo-help-set sp-fetch-inbox--hints note))
 
 (defun sp-fetch-inbox--insert-entry (string)
   "Replace the buffer with the entry STRING, cleaned and keyed."
@@ -249,7 +254,7 @@ out.join(\"\\n\");"
   (let ((bib (sp-fetch-inbox--doi-bibtex (string-trim doi))))
     (unless bib (user-error "No entry found for %s" doi))
     (sp-fetch-inbox--insert-entry bib)
-    (sp-fetch-inbox--set-header (format "DOI %s" doi))))
+    (sp-fetch-inbox--set-hints (format "DOI %s" doi))))
 
 (defun sp-fetch-inbox-regenerate-key ()
   "Make the key again from the author, year and title in the buffer."
@@ -321,7 +326,7 @@ r.name();"
             sp-fetch-inbox--pdf-buffer pdf
             sp-fetch-inbox--config config)
       (sp-fetch-inbox--insert-entry (or bib (sp-fetch-inbox--skeleton file)))
-      (sp-fetch-inbox--set-header
+      (sp-fetch-inbox--set-hints
        (cond (bib (format "DOI %s" doi))
              (doi (format "DOI %s found, no entry" doi))
              (t "no DOI found: fill the entry from the PDF"))))
