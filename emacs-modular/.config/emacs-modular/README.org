@@ -145,6 +145,7 @@ Where the modules live:
 | sp-base-libraries | Base libraries and general defaults | [[file:docs/tangles/base/sp-base-libraries.org][sp-base-libraries.org]] | [[file:libraries/modules/base/sp-base-libraries.el][sp-base-libraries.el]] | — |
 | sp-encoding | UTF-8 everywhere | [[file:docs/tangles/base/sp-encoding.org][sp-encoding.org]] | [[file:libraries/modules/base/sp-encoding.el][sp-encoding.el]] | — |
 | sp-env | Shell environment and shell helpers | [[file:docs/tangles/base/sp-env.org][sp-env.org]] | [[file:libraries/modules/base/sp-env.el][sp-env.el]] | — |
+| sp-elpaca-melpa-fix | Temporary fix: Elpaca and MELPA's `main` branch | [[file:docs/tangles/base/sp-elpaca-melpa-fix.org][sp-elpaca-melpa-fix.org]] | [[file:libraries/modules/base/sp-elpaca-melpa-fix.el][sp-elpaca-melpa-fix.el]] | [[file:tests/sp-elpaca-melpa-fix-test.el][test]] |
 | sp-exwm | EXWM window manager (opt-in) | [[file:docs/tangles/base/sp-exwm.org][sp-exwm.org]] | [[file:libraries/modules/base/sp-exwm.el][sp-exwm.el]] | — |
 | sp-globals | My most important settings in one place, including where my files live (the former sp-paths) | [[file:docs/tangles/base/sp-globals.org][sp-globals.org]] | [[file:libraries/modules/base/sp-globals.el][sp-globals.el]] | — |
 | sp-interaction | Mouse and scrolling | [[file:docs/tangles/base/sp-interaction.org][sp-interaction.org]] | [[file:libraries/modules/base/sp-interaction.el][sp-interaction.el]] | — |
