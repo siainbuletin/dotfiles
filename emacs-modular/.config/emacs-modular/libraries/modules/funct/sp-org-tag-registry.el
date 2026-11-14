@@ -56,6 +56,8 @@
         "networking"
         "chapter"
         "writing"
+        "test"
+        "course"
         ;; sp-org-tag-add: new tags go above this line
         ))
 
