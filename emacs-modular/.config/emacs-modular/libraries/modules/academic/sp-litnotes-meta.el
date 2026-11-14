@@ -19,6 +19,7 @@
 (require 'sp-author-notes-bibtex)
 (require 'sp-litnotes-titles)
 (require 'sp-batch-report)
+(require 'sp-echo-hints)
 (require 'sp-bibtex-types)
 (require 'sp-vulpea-meta-order)
 
@@ -729,8 +730,12 @@ Without marks, use the notes in the active region, else the note at point."
   (setq tabulated-list-format [("" 1 nil) ("read-status" 12 t) ("priority" 8 t)
                                ("relevance" 9 t) ("title" 0 t)]
         tabulated-list-sort-key '("read-status")
-        tabulated-list-padding 1)
-  (tabulated-list-init-header))
+        tabulated-list-padding 1
+        sp-echo-hints-list '(("RET" . "visit") ("m/u" . "mark/unmark") ("M" . "mark a status")
+                             ("U" . "unmark all") ("s" . "set status") ("g" . "refresh")
+                             ("q" . "quit")))
+  (tabulated-list-init-header)
+  (sp-echo-hints-mode 1))
 
 ;;;###autoload
 (defun sp-litnotes-meta-status-report ()

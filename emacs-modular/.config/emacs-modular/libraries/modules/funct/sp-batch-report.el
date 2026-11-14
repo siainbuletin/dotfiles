@@ -15,6 +15,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-echo-hints)
 
 (declare-function sp-backup-open "sp-backup-lookup")
 (declare-function sp-backup-diff "sp-backup-lookup")
@@ -314,15 +315,14 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
-(defun sp-batch-report--header-line ()
-  "The keys of this report, for the header line."
-  (concat " RET visit  n/p link"
+(defun sp-batch-report--hints ()
+  "The keys of this report, as hints for the echo area."
+  (append '(("RET" . "visit") ("n/p" . "link"))
           (and (or sp-batch-report-redraw-function sp-batch-report-refresh-function)
-               "  d drop  u restore")
-          (and sp-batch-report-apply-function "  A apply")
-          (and sp-batch-report-refresh-function "  g refresh")
-          "  b backups  D diff backup"
-          "  q quit"))
+               '(("d" . "drop") ("u" . "restore")))
+          (and sp-batch-report-apply-function '(("A" . "apply")))
+          (and sp-batch-report-refresh-function '(("g" . "refresh")))
+          '(("b" . "backups") ("D" . "diff backup") ("q" . "quit"))))
 
 (defvar sp-batch-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -348,7 +348,8 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
+  (setq sp-echo-hints-function #'sp-batch-report--hints)
+  (sp-echo-hints-mode 1))
 
 (defvar use-short-answers)
 (defvar save-silently)

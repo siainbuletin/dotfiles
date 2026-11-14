@@ -519,11 +519,18 @@ relative to it."
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
-                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
-                " Footnote lint: RET visit, a apply, g rescan, q quit"))
-      ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
+      ('applied " Footnote lint: applied")
       (_ " Footnote lint"))))
+
+(defun sp-org-lint-fn--hints ()
+  "The keys of the report buffer, as hints for the echo area."
+  (pcase (sp-org-lint-fn--get :phase)
+    ((or 'scan 'apply) '(("q" . "quit")))
+    ('applied '(("RET" . "visit") ("g" . "rescan") ("q" . "quit")))
+    (_ (append '(("RET" . "visit"))
+               (and (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                    '(("d" . "drop") ("u" . "restore")))
+               '(("a" . "apply") ("g" . "rescan") ("q" . "quit"))))))
 
 (defvar sp-org-lint-fn-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -536,7 +543,9 @@ relative to it."
 
 (define-derived-mode sp-org-lint-fn-report-mode special-mode "FnLint"
   "Report of the footnote lint of the vault."
-  (setq-local header-line-format '(:eval (sp-org-lint-fn--header))))
+  (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
+              sp-echo-hints-function #'sp-org-lint-fn--hints)
+  (sp-echo-hints-mode 1))
 
 ;; The shared `sp-batch-report-mode' view replaces this one; the old one stays
 ;; for now, `sp-batch-report-interface' set to `old' brings it back.
@@ -554,7 +563,8 @@ relative to it."
 \\<sp-org-lint-fn-batch-mode-map>\\[sp-org-lint-footnotes-convert] applies the moves, d drops a file from them."
   (setq-local header-line-format '(:eval (sp-org-lint-fn--header))
               sp-batch-report-apply-function #'sp-org-lint-footnotes-convert
-              sp-batch-report-redraw-function #'sp-org-lint-fn--render))
+              sp-batch-report-redraw-function #'sp-org-lint-fn--render
+              sp-echo-hints-function #'sp-org-lint-fn--hints))
 
 (defun sp-org-lint-fn--report-mode ()
   "The report mode `sp-batch-report-interface' picks."

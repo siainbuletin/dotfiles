@@ -416,6 +416,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-echo-hints ;; key hints in the echo area, as nano-help does (report and lint buffers)
                     'sp-batch-report ;; report buffer of the batch commands (files as Org links)
                     'sp-backup-lookup ;; open or diff the backups the batch commands made of the visited file
                     'sp-async-work ;; long jobs in slices, with mode-line progress (author and litnote commands)
