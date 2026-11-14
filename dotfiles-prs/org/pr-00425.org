@@ -1,0 +1,81 @@
+* PR #425: ✨ Save then kill the buffers of the files the batch commands process, without asking
+:PROPERTIES:
+:PR_NUMBER: 425
+:URL: https://github.com/siainbuletin/dotfiles/pull/425
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/425][https://github.com/siainbuletin/dotfiles/pull/425]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 22:42
+- Merged :: 2026-11-12 22:46
+- Branch :: =425-quiet-batch-buffers= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5ba42ba924685d506c2186e0259183391e93a652][5ba42ba924]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2PuuZ57ZHgtnWZ2CokA3sJZ][project thread]]/
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- New option =sp-batch-report-save-and-kill= (default =t=) in =sp-batch-report=; set it to =nil= to get each command's old rule back.
+- Three helpers, with no prompts and no messages (=inhibit-message=, =save-silently=, short answers, no kill query, no "changed on disk" question):
+  - =sp-batch-report-flush-file FILE [BACKUP]=: saves an open buffer with unsaved changes (after =BACKUP= copied the disk text), reverts a stale unchanged one.
+  - =sp-batch-report-close-file FILE=: saves, then kills the buffer.
+  - =sp-batch-report-with-file FILE FN [BACKUP]=: flush, run in the buffer, close.
+- Edge cases:
+  - Unsaved changes are saved; the backup keeps the disk text first (the titles and meta backups now keep the first copy of a run instead of failing on a second one).
+  - File changed on disk and edited in the buffer: the buffer wins.
+  - The buffer you are in (current, or in the selected window, or bound in =sp-batch-report-keep-buffers=) is saved but not killed. The Works command of an author note binds it, since it runs from the note.
+  - A buffer that cannot be saved is not killed; a failed kill is only written to =*Messages*=.
+  - Files locked by another Emacs are still skipped by the titles command.
+- Used by: author notes passes (=sp-author-notes--process-file=, =--populate=), =sp-litnotes-refs=, =sp-litnotes-titles=, and =sp-litnotes-meta= (status, parent lint, title lint, chapter tables).
+- Not changed: =sp-bibprocess= (BibTeX files), =sp-see-also=, =sp-notes=, and the interactive single-note commands of =sp-litnotes-meta=.
+- Note: =sp-batch-process= does not exist; the helpers live in =sp-batch-report=.
+- Docs: =docs/tangles/funct/sp-batch-report.org= has a bullet section and a changes entry; the tangle check passes.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- 9 new ERT tests in =sp-batch-report-test.el= (17 pass), 2 in =sp-litnotes-meta-test.el= (68 pass), 1 new and 1 renamed in =sp-litnotes-titles-test.el=. Author notes (36) and refs (7) pass.
+- =sp-litnotes-titles-bib-authors-surname= fails here with or without this change (=sp-author-notes-latex-to-unicode= is not loaded in that test).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =cd ~/dotfiles; git fetch origin 425-quiet-batch-buffers; git checkout 425-quiet-batch-buffers=, restart Emacs.
+- [ ] Unit tests: =cd ~/.config/emacs-modular; for t in batch-report author-notes litnotes-refs litnotes-meta; do emacs -Q --batch -L libraries/modules/funct -L libraries/modules/academic -L libraries/modules/vulpea -l ert -l tests/sp-$t-test.el -f ert-run-tests-batch-and-exit; done= → 17, 36, 7, 68 pass.
+- [ ] Unsaved edit: open a litnote, type a character without saving, run =M-x sp-litnotes-titles-dryrun= then the convert on it (pick one note) → no question, the note is saved and its buffer gone (=C-x b= no longer lists it); the backup folder has the text from before. (untested by Claude on the real vault)
+- [ ] Run =M-x sp-author-notes-works-convert= (or the author notes convert) in a note: the note you are in stays open and saved; other notes it touched are closed, with no prompts. (untested by Claude)
+- [ ] File changed on disk while its buffer has edits (edit the file in a shell, then type in the buffer), run a batch command on it → saved without the "changed on disk" question; the disk text is in the backup.
+- [ ] Edge: =(setq sp-batch-report-save-and-kill nil)=, repeat the unsaved-edit step → the note is skipped or refused as before.
+- [ ] Regression: =M-x sp-litnotes-meta-refresh-all-tables= and the status report (=sp-litnotes-meta-set-status=) still work; =C-u= previews write nothing.
+- [ ] Not changed: BibTeX lint (=sp-bibprocess=) still asks as before.
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D 425-quiet-batch-buffers=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- If a command changed the vault (litnotes), restore from the backup folder the command reported, or =git -C ~/notes restore .= if the vault is under git.
+- Fish shell works for all of the above; Sia uses GNU Stow, so no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNi9yt8Zs5BRFNz7Hfuz][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/9326363bf7e6353e698177cf90b8579ea3916228][9326363bf7]] ✨ Save then kill the buffers of the files the batch commands process, without asking (Claude, 2026-11-12 22:42)

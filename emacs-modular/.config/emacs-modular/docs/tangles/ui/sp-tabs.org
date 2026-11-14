@@ -211,7 +211,7 @@ Installs =tabspaces= and makes its main commands autoload.
              tabspaces-open-or-create-project-and-workspace)
   
   :custom
-  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-use-filtered-buffers-as-default nil) ; C-x b is `sp-tabs-switch-to-buffer', see below
   (tabspaces-default-tab "Home")
   (tabspaces-remove-to-default t)
   (tabspaces-include-buffers '("*scratch*"))
@@ -294,6 +294,107 @@ It is defined before tabspaces loads, so this map is the one tabspaces uses. It 
     (define-key map (kbd "T") 'tabspaces-toggle-echo-area-display)
     map)
   "Keymap for tabspace/workspace commands after `tabspaces-keymap-prefix'.")
+#+end_src
+
+* Buffer filtering per tab: =C-x b=
+
+Why =*Messages*= was missing from =C-x b=:
+
+- =tabspaces-use-filtered-buffers-as-default= remapped =switch-to-buffer= to =tabspaces-switch-to-buffer=, which offers only the current tab's buffers.
+- =tabspaces-exclude-buffers= removes =*Messages*= from that list at startup, so it was missing until something re-added it.
+
+New behavior:
+
+- =tabspaces-use-filtered-buffers-as-default= is now nil, so tabspaces no longer filters everywhere.
+- =C-x b= runs =sp-tabs-switch-to-buffer=, remapped in =tabspaces-mode-map=.
+- By default it is the regular =switch-to-buffer=: every buffer, =*Messages*= included.
+- When filtering applies, it runs =sp-tabs-filtered-switch-to-buffer= instead.
+- =sp-tabs--filtering-p= decides, and filtering applies when any of these holds:
+  - =sp-tabs-filter-buffers= is non-nil: filter in every tab.
+  - The current tab's name is in =sp-tabs-filtered-tab-names=, default ="Email"=.
+  - The current buffer's major mode is derived from one of =sp-tabs-filtered-modes=: mu4e main, headers, view and =message-mode=.
+- =sp-tabs-toggle-tab-filter= adds or removes the current tab's name in =sp-tabs-filtered-tab-names=; it is =f= in =tabspaces-command-map=.
+- Use the toggle in a project (Projectile) tab to see only that project's buffers; the setting lasts for the Emacs session.
+- Make it permanent with =(setopt sp-tabs-filtered-tab-names '("Email" "my-project"))=.
+- The filtered switcher lists the tab's buffers by recency, then =sp-tabs-always-listed-buffers= (=*Messages*=) at the end.
+- Its completion table sets =display-sort-function= to =identity= and keeps category =buffer=, so Marginalia still annotates.
+- =tabspaces-exclude-buffers= is unchanged, so closing a workspace never touches =*Messages*=.
+
+#+begin_src emacs-lisp -i
+;;;;; Buffer filtering per tab: C-x b
+;; `C-x b' is the regular `switch-to-buffer' (all buffers, *Messages* included)
+;; unless filtering is on for the current tab.
+(defcustom sp-tabs-filter-buffers nil
+  "Non-nil filters `C-x b' to the current tab's buffers in every tab."
+  :type 'boolean
+  :group 'tabspaces)
+
+(defcustom sp-tabs-filtered-tab-names '("Email")
+  "Names of tabs where `C-x b' offers only that tab's buffers."
+  :type '(repeat string)
+  :group 'tabspaces)
+
+(defcustom sp-tabs-filtered-modes '(mu4e-main-mode mu4e-headers-mode
+                                    mu4e-view-mode message-mode)
+  "Major modes in which `C-x b' offers only the current tab's buffers."
+  :type '(repeat symbol)
+  :group 'tabspaces)
+
+(defcustom sp-tabs-always-listed-buffers '("*Messages*")
+  "Buffer names that the filtered `C-x b' still offers, at the end."
+  :type '(repeat string)
+  :group 'tabspaces)
+
+(defun sp-tabs--filtering-p ()
+  "Return non-nil when `C-x b' should be filtered to this tab's buffers."
+  (or sp-tabs-filter-buffers
+      (member (alist-get 'name (tab-bar--current-tab)) sp-tabs-filtered-tab-names)
+      (apply #'derived-mode-p sp-tabs-filtered-modes)))
+
+(defun sp-tabs-toggle-tab-filter ()
+  "Toggle filtering of `C-x b' for the current tab by its name.
+Use it in a project tab, for example, to see only that project's buffers."
+  (interactive)
+  (let ((name (alist-get 'name (tab-bar--current-tab))))
+    (if (member name sp-tabs-filtered-tab-names)
+        (setq sp-tabs-filtered-tab-names (delete name sp-tabs-filtered-tab-names))
+      (push name sp-tabs-filtered-tab-names))
+    (message "Buffer filter for tab %s: %s" name
+             (if (member name sp-tabs-filtered-tab-names) "on" "off"))))
+
+(defun sp-tabs-filtered-switch-to-buffer ()
+  "Switch to a buffer of this tab, plus `sp-tabs-always-listed-buffers'.
+Like `tabspaces-switch-to-buffer', but the always-listed buffers that
+exist are added after the tab's own buffers."
+  (interactive)
+  (let* ((current (buffer-name))
+         (local (cl-remove current (mapcar #'buffer-name (tabspaces--buffer-list))
+                           :test #'equal))
+         (extra (cl-remove-if (lambda (name)
+                                (or (member name local) (equal name current)
+                                    (not (get-buffer name))))
+                              sp-tabs-always-listed-buffers))
+         (names (append local extra))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      '(metadata (category . buffer)
+                                 (display-sort-function . identity))
+                    (complete-with-action action names string pred)))))
+    (switch-to-buffer
+     (completing-read "Switch to local buffer: " table nil nil nil
+                      'buffer-name-history (car names)))))
+
+(defun sp-tabs-switch-to-buffer ()
+  "Run the tab-filtered or the regular buffer switcher, see `sp-tabs--filtering-p'."
+  (interactive)
+  (call-interactively (if (sp-tabs--filtering-p)
+                          #'sp-tabs-filtered-switch-to-buffer
+                        #'switch-to-buffer)))
+
+;; A minor-mode remap works even though `tabspaces-use-filtered-buffers-as-default' is nil.
+(with-eval-after-load 'tabspaces
+  (define-key tabspaces-mode-map [remap switch-to-buffer] #'sp-tabs-switch-to-buffer)
+  (define-key tabspaces-command-map (kbd "f") #'sp-tabs-toggle-tab-filter))
 #+end_src
 
 * Workspace buffers in consult

@@ -148,6 +148,7 @@
 (require 'vulpea-select)
 (require 'sp-org-tag-groups)
 (require 'vui)
+(require 'sp-interaction)
 
 (defgroup relationship-annotator nil
   "Typed relationships between vulpea notes, as graphs and outlines."
@@ -1109,12 +1110,13 @@ PATH holds the ancestors, so a cycle stops the recursion."
   (let ((inhibit-read-only t)
         (line (line-number-at-pos)))
     (erase-buffer)
-    (insert (propertize (format "%s  ·  depth %d  ·  TAB expand  RET visit  c re-scope  g rebuild\n\n"
+    (insert (propertize (format "%s  ·  depth %d\n\n"
                                 (relationship-annotator--title
                                  relationship-annotator--start
                                  (plist-get relationship-annotator--tree :notes))
                                 relationship-annotator--depth)
                         'face 'shadow))
+    (sp-echo-help-set '(("TAB" "Expand") ("RET" "Visit") ("c" "Re-scope") ("g" "Rebuild")))
     (relationship-annotator-view--insert relationship-annotator--start 0 nil)
     (goto-char (point-min))
     (forward-line (max 0 (1- line)))))

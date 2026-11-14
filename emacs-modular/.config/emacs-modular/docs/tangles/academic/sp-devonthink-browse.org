@@ -20,7 +20,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 | Embark key | Action |
 |------------+--------|
 | =o= | open in DEVONthink |
-| =p= | open the PDF file in Emacs |
+| =p= | open the PDF file in Emacs, in emureader (=sp-pdf-open=) |
 | =n= | go to the litnote of the record (=citar-open-notes=; it offers to create it) |
 | =l= | insert a =devonthink:= link |
 | =t= | add tags (works on several marked records at once) |
@@ -50,6 +50,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 (require 'sp-reading)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
+(require 'sp-pdf-reader)
 
 (declare-function citar-open-notes "citar")
 
@@ -165,6 +166,7 @@ out.join(\"\\n\");"
 - Each action takes a candidate string, so it works from the prompt (through Embark) and from Lisp.
 - =sp-devonthink-record-pdf= asks DEVONthink for the file path of the record, so it also works for records not named after a citekey.
 - =sp-devonthink-record-note= needs the citekey, which is the record name without =.pdf=.
+- When that name has no BibTeX entry (a fresh download in the inbox), it stops with a message instead of letting the litnote code fail; file the article first with =sp-fetch-inbox=.
 - =sp-devonthink-record-tag= takes several candidates at once (it is an Embark multitarget action) and applies the tags you type to all of them.
 
 #+begin_src emacs-lisp
@@ -188,20 +190,23 @@ end tell"
           (sp-reading--quote uuid)))
 
 (defun sp-devonthink-record-pdf (candidate)
-  "Open the file of the record CANDIDATE in Emacs."
+  "Open the file of the record CANDIDATE in Emacs, in emureader (see `sp-pdf-open')."
   (interactive (list (sp-devonthink-browse--read)))
   (let ((path (sp-reading--osascript
                (sp-devonthink-browse--path-script
                 (plist-get (sp-devonthink-browse--record candidate) :uuid)))))
     (if (and (not (string-empty-p path)) (file-exists-p path))
-        (find-file path)
+        (sp-pdf-open path)
       (user-error "No file on disk for %s" candidate))))
 
 (defun sp-devonthink-record-note (candidate)
   "Go to the litnote of the record CANDIDATE, or create it."
   (interactive (list (sp-devonthink-browse--read)))
   (unless (fboundp 'citar-open-notes) (user-error "citar is not loaded"))
-  (citar-open-notes (list (sp-devonthink-browse--key (sp-devonthink-browse--record candidate)))))
+  (let ((key (sp-devonthink-browse--key (sp-devonthink-browse--record candidate))))
+    (when (and (fboundp 'sp-litnotes-meta--entry) (not (sp-litnotes-meta--entry key)))
+      (user-error "%s is not a citekey with a BibTeX entry; file it first (M-x sp-fetch-inbox)" key))
+    (citar-open-notes (list key))))
 
 (defun sp-devonthink-record-link (candidate)
   "Insert a `devonthink:' link to the record CANDIDATE."
