@@ -66,5 +66,20 @@
           (should-not sp-echo-help--timer))
       (when (timerp sp-echo-help--timer) (cancel-timer sp-echo-help--timer)))))
 
+(ert-deftest sp-echo-help-idle-show-replaces-a-message ()
+  (let (shown)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "other")))
+      (let ((sp-echo-help-idle-delay nil) (sp-echo-help--timer nil))
+        (switch-to-buffer (get-buffer-create "*sp-echo-help-idle-test*"))
+        (unwind-protect
+            (progn
+              (sp-echo-help-set '(("q" "Quit")))
+              (setq shown nil)
+              (sp-echo-help--idle-show)
+              (should (equal (car shown) " [q] Quit")))
+          (kill-buffer "*sp-echo-help-idle-test*"))))))
+
 (provide 'sp-echo-help-test)
 ;;; sp-echo-help-test.el ends here

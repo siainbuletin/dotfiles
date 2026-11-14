@@ -238,7 +238,7 @@ unless FORCE is non-nil."
 - A message in the echo area can be replaced or cleared by other things (a prompt, eldoc, a command's own message).
 - Instead of nano's blocking =sit-for= loop, which would freeze Emacs, two things bring the hints back:
   - After every command in the buffer, when the echo area is empty (see above).
-  - After =sp-echo-help-idle-delay= seconds of idle time, when the echo area is empty; nil turns this off.
+  - After =sp-echo-help-idle-delay= seconds of idle time, replacing any message still there (a job's last message must not hide the hints for good); nil turns this off.
 - =sp-echo-help-show-now= (=C-c ?= in a buffer with the mode) shows them on demand, replacing whatever message is there.
 - The idle timer is shared by all buffers with the mode, starts with the first one and stops when the last one turns it off.
 
@@ -259,13 +259,15 @@ Nil never shows them again on idle."
   (seq-some (lambda (b) (buffer-local-value 'sp-echo-help-mode b)) (buffer-list)))
 
 (defun sp-echo-help--idle-show ()
-  "Show the hints of the selected window's buffer; stop the timer when unused."
+  "Show the hints of the selected window's buffer; stop the timer when unused.
+The hints replace a message that has been there for the whole idle delay,
+so the last message of a job does not hide them for good."
   (if (not (sp-echo-help--any-buffer-p))
       (when (timerp sp-echo-help--timer)
         (cancel-timer sp-echo-help--timer)
         (setq sp-echo-help--timer nil))
     (with-current-buffer (window-buffer (selected-window))
-      (when sp-echo-help-mode (sp-echo-help-show)))))
+      (when sp-echo-help-mode (sp-echo-help-show t)))))
 
 (defun sp-echo-help-show-now ()
   "Show the key hints of this buffer in the echo area now."

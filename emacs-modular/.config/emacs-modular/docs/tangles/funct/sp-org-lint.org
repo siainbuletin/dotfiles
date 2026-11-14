@@ -1180,11 +1180,18 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
                (if (eq phase 'scan) "scanning" "applying")
                (or (sp-org-lint-fn--get :done) 0)
                (or (sp-org-lint-fn--get :total) 0)))
-      ('ready (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
-                  " Footnote lint: RET visit, d drop, u restore, a apply, g rescan, q quit"
-                " Footnote lint: RET visit, a apply, g rescan, q quit"))
-      ('applied " Footnote lint: applied; RET visit, g rescan, q quit")
+      ('applied " Footnote lint: applied")
       (_ " Footnote lint"))))
+
+(defun sp-org-lint-fn--hints ()
+  "The keys of the report buffer, as hints for the echo area."
+  (pcase (sp-org-lint-fn--get :phase)
+    ((or 'scan 'apply) '(("q" "Quit")))
+    ('applied '(("RET" "Visit") ("g" "Rescan") ("q" "Quit" t)))
+    (_ (append '(("RET" "Visit"))
+               (and (derived-mode-p 'sp-org-lint-fn-batch-mode)
+                    '(("d" "Drop") ("u" "Restore")))
+               '(("a" "Apply" t) ("g" "Rescan") ("q" "Quit" t))))))
 
 (defvar sp-org-lint-fn-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1360,7 +1367,9 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
             (seq-count (lambda (p) (plist-get p :error)) plans))))
 
 (defun sp-org-lint-fn--render ()
-  "Draw the whole report, from the state of the run, in the view of this buffer."
+  "Draw the whole report, from the state of the run, in the view of this buffer.
+The hints in the echo area follow the phase of the run."
+  (sp-echo-help-set (sp-org-lint-fn--hints))
   (if (derived-mode-p 'sp-org-lint-fn-batch-mode)
       (sp-org-lint-fn--render-batch)
     (sp-org-lint-fn--render-old)))
@@ -3212,9 +3221,11 @@ a dropped one, A writes what is left, g shows the preview again.")
                            (format "author %s" (substring key 5))
                          (sp-author-notes--short key)))
          nil nil key)))
-    (insert (if apply
-                "\nRET visit   g preview again\n"
-              "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
+    (sp-echo-help-set
+     (if apply
+         '(("RET" "Visit") ("g" "Preview again"))
+       '(("RET" "Visit") ("d" "Drop candidate") ("u" "Restore")
+         ("A" "Write what is left" t) ("g" "Refresh"))))))
 
 (defun sp-author-notes--show-old (run)
   "Show the report of RUN in the old `sp-author-notes-report-mode'."
@@ -4418,7 +4429,8 @@ note.  The all-authors report is `sp-author-notes-bibtex'."
   "Insert the report of GROUPS, as `sp-author-notes-bibtex--compute' returns them."
   (insert (format "Works in BibTeX files without a literature note: %d author note%s\n"
                   (length groups) (if (= 1 (length groups)) "" "s")))
-  (insert "RET visit entry   o visit author note   c create litnote   C create for all exact   g refresh\n")
+  (sp-echo-help-set '(("RET" "Visit entry") ("o" "Visit author note") ("c" "Create litnote" t)
+                      ("C" "Create for all exact") ("g" "Refresh")))
   (if (null groups)
       (insert "\n  none\n")
     (dolist (group groups)

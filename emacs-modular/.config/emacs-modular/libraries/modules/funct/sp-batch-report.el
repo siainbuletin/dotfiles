@@ -15,6 +15,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-interaction)
 
 (declare-function sp-backup-open "sp-backup-lookup")
 (declare-function sp-backup-diff "sp-backup-lookup")
@@ -317,25 +318,14 @@ When nil, `sp-batch-report-refresh-function' is used.")
     (user-error "This report has nothing to apply"))
   (sp-batch-report--call sp-batch-report-apply-function sp-batch-report-excluded))
 
-(defun sp-batch-report--header-line ()
-  "The keys of this report, for the header line."
-  (concat " RET visit  n/p link"
-          (and (or sp-batch-report-redraw-function sp-batch-report-refresh-function)
-               "  d drop  u restore")
-          (and sp-batch-report-apply-function "  A apply")
-          (and sp-batch-report-refresh-function "  g refresh")
-          "  b backups  D diff backup"
-          (and (bound-and-true-p sp-async-work--jobs) "  k stop job")
-          "  q quit"))
-
 (defun sp-batch-report--hints ()
-  "The key hints of this report, for `sp-echo-help-set'."
-  (append '(("RET" "Visit") ("n/p" "Link"))
+  "The keys of this report, as hints for the echo area."
+  (append '(("RET" "Visit") ("n/p" "Next/previous link"))
           (and (or sp-batch-report-redraw-function sp-batch-report-refresh-function)
                '(("d" "Drop") ("u" "Restore")))
           (and sp-batch-report-apply-function '(("A" "Apply" t)))
           (and sp-batch-report-refresh-function '(("g" "Refresh")))
-          '(("k" "Stop running job") ("q" "Quit"))))
+          '(("b" "Backups") ("D" "Diff backup") ("k" "Stop running job") ("q" "Quit" t))))
 
 (defvar sp-batch-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -362,7 +352,11 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (setq-local header-line-format '(:eval (sp-batch-report--header-line))))
+  (sp-echo-help-set (sp-batch-report--hints)))
+
+(defun sp-batch-report--set-hints ()
+  "Show the keys of this report in the echo area, now that its functions are set."
+  (sp-echo-help-set (sp-batch-report--hints)))
 
 (defvar use-short-answers)
 (defvar save-silently)
@@ -490,6 +484,7 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when (fboundp 'sp-echo-help-set)
         (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
+      (sp-batch-report--set-hints)
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))
