@@ -543,9 +543,8 @@ an inline branching lambda from the prior implementation."
 ;; READING MORE ABOUT KEYBINDINGS AND GETTING TO USE THEM
 
 (use-package which-key
-    :ensure t
-    :demand t
-
+    :ensure nil
+    
     :config
     (which-key-mode 1)
 
