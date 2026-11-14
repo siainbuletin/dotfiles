@@ -34,7 +34,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-search.el=. Design
 
 ;; One search command over DEVONthink's own search and litdb, hits that
 ;; Embark can act on, "see also" for a record, and a text preview.  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-search.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-search.org.
 
 ;;; Code:
 

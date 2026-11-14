@@ -5,7 +5,7 @@
 ;; A completion over the records of a DEVONthink database, grouped by their
 ;; DEVONthink group, with Embark actions: open, PDF, note, link and tags.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-browse.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-browse.org.
 
 ;;; Code:
 

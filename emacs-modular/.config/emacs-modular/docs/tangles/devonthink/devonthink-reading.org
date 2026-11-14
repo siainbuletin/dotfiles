@@ -7,7 +7,7 @@ Literate source for =tools/devonthink-reading.py= and its tests, =tests/test_dev
 To tangle: =C-c C-v t= in this buffer, or from =.config/emacs-modular=:
 
 #+begin_example
-emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/devonthink-reading.org")'
+emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/devonthink/devonthink-reading.org")'
 #+end_example
 
 This doc is not picked up by =tools/tangle-all.el= or the =tangle= CI check, which only cover =sp-*.org= docs that write into =libraries/modules/=. Tangle it yourself after editing, and run the tests.
@@ -144,7 +144,7 @@ The shebang, the usage text that =--help= prints, the imports and the defaults. 
 Both actions are dry runs unless --apply is given.  Settings: options, then
 ~/.config/devonthink-reading/config.json, then the defaults below.
 
-Tangled from docs/tangles/academic/devonthink-reading.org; edit that file.
+Tangled from docs/tangles/devonthink/devonthink-reading.org; edit that file.
 """
 
 import argparse

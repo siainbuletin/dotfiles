@@ -81,7 +81,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 ;; Writes the author and title of a BibTeX entry to the custom metadata of the
 ;; DEVONthink record with the same citekey, and its keywords to the record's
 ;; tags (added, never removed).  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-bibsync.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-bibsync.org.
 
 ;;; Code:
 

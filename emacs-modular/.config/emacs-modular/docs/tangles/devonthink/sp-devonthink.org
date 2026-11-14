@@ -12,6 +12,9 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=. It also holds
 * Design
 
 - This section replaces the old design document =docs/architecture/devonthink-emacs-integration.org= (proposed in #209, 2026-10-31).
+  - Last version of the old document: [[https://github.com/siainbuletin/dotfiles/blob/c0188a9f0b7c1840034707d3866582a5000eeea3/emacs-modular/.config/emacs-modular/docs/architecture/devonthink-emacs-integration.org][devonthink-emacs-integration.org]] at its last commit, [[https://github.com/siainbuletin/dotfiles/commit/c0188a9f0b7c1840034707d3866582a5000eeea3][=c0188a9f=]] (2026-11-08, "Make devonthink-reading.py literate").
+  - It was removed when this section took over its content (commit =b22a07d9=, PR #419); =git show c0188a9f:emacs-modular/.config/emacs-modular/docs/architecture/devonthink-emacs-integration.org= prints it.
+- The DEVONthink docs live in =docs/tangles/devonthink/= (moved there from =docs/tangles/academic/= so that folder is less crowded); the modules they tangle to are still in =libraries/modules/academic/=.
 - The decisions that matter most are in the ADRs; this section keeps the reasoning, the probes and the open questions next to the code.
   - [[file:../../../../../../adr/0027-citekey-joins-bibtex-litnote-and-devonthink.org][ADR 0027]]: the citekey joins BibTeX, litnote and DEVONthink.
   - [[file:../../../../../../adr/0028-devonthink-only-through-its-scripting-interface.org][ADR 0028]]: DEVONthink only through its scripting interface.
@@ -230,7 +233,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 
 ;; A `devonthink:UUID::PAGE' Org link, the `#+devonthink:' keyword of a litnote
 ;; and the commands that open a record from them.  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink.org.
 
 ;;; Code:
 
