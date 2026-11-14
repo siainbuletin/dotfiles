@@ -359,7 +359,11 @@ read or when the format string changes, and the emoji cells of the type column a
 it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
   (when (and (boundp 'citar-cache--bibliographies)
              (fboundp 'citar-cache--preformat-bibliography))
-    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+    ;; A bibliography the preload took from the disk has no format string yet
+    ;; (`citar-cache--get-bibliography' sets it); `citar-format--parse' on nil fails.
+    (maphash (lambda (_file bib)
+               (when (cl-struct-slot-value 'citar-cache--bibliography 'format-string bib)
+                 (citar-cache--preformat-bibliography bib)))
              citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)

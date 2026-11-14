@@ -18,6 +18,12 @@
             (when (memq (car-safe form) '(defvar defcustom defconst defun))
               (push form forms))))
       (end-of-file nil)))
+  ;; the function of the layout part that walks over the cache
+  (with-temp-buffer
+    (insert-file-contents file)
+    (search-forward "(defun sp-citations--repreformat")
+    (goto-char (match-beginning 0))
+    (push (read (current-buffer)) forms))
   ;; `load' expands macros eagerly, as it did for the real file: a `setf' on an
   ;; accessor of the not yet defined struct would break here.
   (with-temp-file copy
@@ -27,9 +33,15 @@
 ;; Stand-ins for the parts of citar-cache that the preload uses.
 (cl-defstruct (citar-cache--bibliography
                (:constructor citar-cache--make-bibliography (filename)))
-  filename buffers props
+  filename buffers props format-string
   (entries (make-hash-table :test 'equal)))
 (defvar citar-cache--bibliographies (make-hash-table :test 'equal))
+(defvar sp-citations-test--preformatted nil)
+(defun citar-cache--preformat-bibliography (bib)
+  "Like citar: a nil format string fails in `citar-format--parse'."
+  (let ((fmt (citar-cache--bibliography-format-string bib)))
+    (unless (stringp fmt) (signal 'wrong-type-argument (list 'stringp fmt)))
+    (push (citar-cache--bibliography-filename bib) sp-citations-test--preformatted)))
 (provide 'citar)
 (defvar sp-citations-test--parses nil "Files the fake parser read.")
 (defvar sp-citations-test--files nil)
@@ -231,4 +243,16 @@
        (should (member a sp-citations-test--parses))
        (should (gethash a citar-cache--bibliographies))
        (should-not (member a sp-citations-preload--primed))))))
+(ert-deftest sp-citations-repreformat-skips-bibliographies-from-the-disk ()
+  "Regression: apply-layout in a new session pre-formatted bibliographies without a format string."
+  (sp-citations-test--with-bibs
+   (sp-citations-test--run)
+   (clrhash citar-cache--bibliographies)
+   (sp-citations-preload--prime (list a b))     ; no format string yet
+   (let ((formatted (citar-cache--make-bibliography "/formatted.bib")))
+     (setf (citar-cache--bibliography-format-string formatted) "${title}")
+     (puthash "/formatted.bib" formatted citar-cache--bibliographies))
+   (setq sp-citations-test--preformatted nil)
+   (sp-citations--repreformat)                  ; must not signal
+   (should (equal sp-citations-test--preformatted '("/formatted.bib")))))
 ;;; sp-citations-preload-test.el ends here

@@ -3873,7 +3873,11 @@ read or when the format string changes, and the emoji cells of the type column a
 it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
   (when (and (boundp 'citar-cache--bibliographies)
              (fboundp 'citar-cache--preformat-bibliography))
-    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+    ;; A bibliography the preload took from the disk has no format string yet
+    ;; (`citar-cache--get-bibliography' sets it); `citar-format--parse' on nil fails.
+    (maphash (lambda (_file bib)
+               (when (cl-struct-slot-value 'citar-cache--bibliography 'format-string bib)
+                 (citar-cache--preformat-bibliography bib)))
              citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)
@@ -4132,7 +4136,9 @@ Why =citar= could still read a file again (found from a report of =Updating bibl
 
 When a file fails (=Wrong type argument: stringp, nil= after the cache on disk was used):
 
-- the cause is not known yet: nothing ran against the real =citar=, so the preload now keeps the evidence.
+- cause (found by running the preload against the real =citar= 1.4.0 on the Mac): a bibliography taken from the disk cache has no =format-string= and no pre-formatted candidates yet; =sp-citations--apply-layout= runs first in a new session, sees the layout as changed and calls =sp-citations--repreformat=, which pre-formatted every bibliography in the cache, and =citar-format--parse= fails on a nil format string.
+- the fix: =sp-citations--repreformat= skips a bibliography without a format string; =citar-cache--get-bibliography= sets it and pre-formats the file itself.
+- the preload used to take this for "the saved entries did not work" and read the file again; that fallback stays, with the backtrace, for other errors.
 - the error handler runs the debugger function =sp-citations-preload--capture= (through =debug= in =condition-case=), which keeps the backtrace; =M-x sp-citations-preload-show-error= shows it, and =sp-citations-preload-explain= says that there is one.
 - an error on a file whose entries came from the disk cache removes those entries and reads the file again, once; the stale entries are then not written back.
 - an error on another file no longer stops the pass: the next file is read.
