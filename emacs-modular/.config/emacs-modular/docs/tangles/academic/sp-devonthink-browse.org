@@ -163,6 +163,11 @@ out.join(\"\\n\");"
 - =sp-devonthink-record-pdf= asks DEVONthink for the file path of the record, so it also works for records not named after a citekey.
 - =sp-devonthink-record-note= needs the citekey, which is the record name without =.pdf=.
 - =sp-devonthink-record-tag= takes several candidates at once (it is an Embark multitarget action) and applies the tags you type to all of them.
+- After tagging, =sp-devonthink-record-tag= also mirrors the tags (see "Mirroring browser tags in litnote and BibTeX" in [[file:sp-devonthink-tags.org][sp-devonthink-tags.org]]):
+  - the litnote of each record's citekey gets its =keywords= line refreshed and saved;
+  - the BibTeX entry gets the added tags in =keywords=, after one question;
+  - records whose name is not a citekey (inbox) are skipped with a count, never an error;
+  - a failure of the mirror is reported in the echo area; the tags stay in DEVONthink.
 
 #+begin_src emacs-lisp
 ;;;; Actions
@@ -216,7 +221,21 @@ end tell"
                 (format "Tags for %d record%s: " (length records) (if (cdr records) "s" "")))))
     (message "Added tags to %d of %d records"
              (sp-devonthink-apply-tags (mapcar (lambda (r) (plist-get r :uuid)) records) tags 'add)
-             (length records))))
+             (length records))
+    (sp-devonthink-browse--mirror records tags)))
+
+(defun sp-devonthink-browse--mirror (records tags)
+  "Mirror the TAGS just added to RECORDS in their litnotes and BibTeX entries.
+A failure is reported, not signalled: the tags are already in DEVONthink."
+  (condition-case err
+      (let ((skipped (sp-devonthink-mirror-record-tags
+                      (mapcar (lambda (r) (cons (plist-get r :uuid) (sp-devonthink-browse--key r)))
+                              records)
+                      tags)))
+        (when (> skipped 0)
+          (message "%d record%s without a litnote or BibTeX entry skipped" skipped
+                   (if (= skipped 1) "" "s"))))
+    (error (message "Tags added, but not mirrored in litnote/BibTeX: %s" (error-message-string err)))))
 
 ;;;###autoload
 (defun sp-devonthink-browse ()
