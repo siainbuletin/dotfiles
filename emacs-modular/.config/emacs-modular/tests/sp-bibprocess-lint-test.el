@@ -350,7 +350,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-normalise ()
   (sp-bibprocess-lint-test--with-notes
-   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
      (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should-not (string-match-p "Smyth" text))
@@ -372,7 +372,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-each-case ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((answers '(?n ?l)))
+   (let ((answers '(?f ?l)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) (pop answers))))
        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
@@ -450,7 +450,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (concat "@article{a,\n  author = {TW Adorno and John Smith},\n  title = {T}\n}\n\n"
               "@article{b,\n  author = {Theodor Adorno},\n  title = {U}\n}\n")
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a))
-              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
     (let ((text (sp-bibprocess-lint-test--text file)))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W. and Smith, John}" text))
@@ -474,7 +474,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           (cons (float-time)
                 (sp-bibtex--make-people (list "Theodor W. Adorno" "Tamara Adorno" "John Smith"))))
     (let ((before (sp-bibprocess-lint-test--text file)))
-      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not added))))
@@ -496,7 +496,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 
 (defun sp-bibprocess-lint-test--keys (&rest answers)
-  "Make `read-char-choice' give ANSWERS in turn; return the list of the answers given."
+  "Make `sp-batch-report-ask' give ANSWERS in turn; return the list of the answers given."
   (let (given)
     (cons (lambda (&rest _) (let ((a (pop answers))) (push a given) a))
           (lambda () (nreverse given)))))
@@ -506,7 +506,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (let* ((keys (sp-bibprocess-lint-test--keys ?d ?a))
            (shown nil))
       ;; Drop k2 for later, then apply the batch: k1 and k3 change, k2 does not.
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (_prompt candidates)
                                                                (setq shown candidates) '("k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
@@ -524,7 +524,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?s) #'sp-bibtex-lint-fix-authors)))
     ;; Bring k2 back with `u' while a batch is asked, then skip that batch.
     (let ((keys (sp-bibprocess-lint-test--keys ?u ?s)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
     (should-not sp-bibtex-lint--excluded)
@@ -536,7 +536,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
     (let ((before (sp-bibprocess-lint-test--text file))
           (keys (sp-bibprocess-lint-test--keys ?d ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k1" "k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
@@ -550,9 +550,9 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-drop-in-notes-batch ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((keys (sp-bibprocess-lint-test--keys ?d ?n)))
+   (let ((keys (sp-bibprocess-lint-test--keys ?d ?f)))
      ;; Drop entry a; the typo of entry b is normalised.
-     (cl-letf (((symbol-function 'read-char-choice) (car keys))
+     (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("a"))))
        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
@@ -1270,21 +1270,92 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (defun sp-bibtex-merge--ask-for-test (groups)
   "Accept every proposed name of GROUPS, as RET does in `sp-bibtex-merge--ask'."
-  (cl-letf (((symbol-function 'completing-read)
-             (lambda (_p _c _a _r _i _h def) def)))
-    (sp-bibtex-merge--ask groups)))
+  (let ((keys (make-list (length groups) ?\r)))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (sp-bibtex-merge--ask groups))))
 
 (ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
-  (let* ((counts (make-hash-table :test #'equal)) answers)
+  (let* ((counts (make-hash-table :test #'equal)) keys)
     (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
     (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
-    (setq answers (list "-" "Hegel, Georg Q."))
-    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (pop answers))))
+    ;; Doe comes first (sorted by target): `n' leaves it; Hegel is typed.
+    (setq keys (list ?n ?e))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore)
+              ((symbol-function 'read-string) (lambda (&rest _) "Hegel, Georg Q.")))
       (let ((mapping (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts))))
-        ;; Doe comes first (sorted by target), skipped; Hegel is edited.
         (should (equal "Hegel, Georg Q." (alist-get "Hegel, Georg" mapping nil nil #'equal)))
         (should (equal "Hegel, Georg Q." (alist-get "Hegel, G." mapping nil nil #'equal)))
         (should-not (assoc "Doe, J." mapping))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-pick-a-variant-and-step-back ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    ;; Doe: `n'; Hegel: `p' goes back to Doe, whose variant 1 is taken; then
+    ;; Hegel is left with `n', which ends the run.
+    (setq keys (list ?n ?p ?1 ?n))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (let* ((groups (sp-bibtex-merge--groups counts))
+             (first (car (car (plist-get (car groups) :forms))))
+             (mapping (sp-bibtex-merge--ask groups)))
+        (should-not keys)
+        ;; Variant 1 of the first group is its proposed name, so only the other form changes.
+        (should (= 1 (length mapping)))
+        (should (equal first (cdr (car mapping))))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-finish-and-clear ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    (setq keys (list ?\r ?p ?c ?n ?f))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (should-not (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts)))
+      (should-not keys))))
+
+(ert-deftest sp-bibtex-lint-test-pick-some-names-of-a-batch ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?o ?a)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k1" "k3"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      ;; k1 and k3 are fixed, k2 waits for the next run and is not dropped.
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{Smith1, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{Smith3, John}" text)))
+      (should-not sp-bibtex-lint--excluded)
+      (should-not sp-bibtex-lint--picked))))
+
+(ert-deftest sp-bibtex-lint-test-pick-first-option ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?a))
+          (sp-bibtex-lint-pick-first t))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k2"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{John Smith1}" text))
+        (should (string-match-p "author =[ \t]+{Smith2, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith3}" text))))))
+
+(ert-deftest sp-batch-report-test-ask-runs-moves-while-waiting ()
+  (let ((keys (list ?n ?x ?a)) moved shown)
+    (cl-letf (((symbol-function 'read-key) (lambda (prompt) (push prompt shown) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) (lambda () (selected-window)))
+              ((symbol-function 'ding) #'ignore)
+              ((symbol-function 'key-binding)
+               (lambda (key &rest _) (and (equal key [?n]) 'sp-batch-report-next)))
+              ((symbol-function 'sp-batch-report-next) (lambda () (interactive) (setq moved t))))
+      (should (eq ?a (sp-batch-report-ask '(("a" "Apply") ("q" "Quit")) "Batch 1 of 1")))
+      ;; `n' moved in the report, `x' was refused, and the help line was the prompt each time.
+      (should moved)
+      (should (= 3 (length shown)))
+      (should (string-match-p "\\[a\\] Apply" (car shown)))
+      (should (string-match-p "Batch 1 of 1" (car shown))))))
 
 (ert-deftest sp-bibtex-merge-test-report-section ()
   (sp-bibprocess-lint-test--with-bib
@@ -1577,7 +1648,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-identical-only ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?i)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'pop-to-buffer) #'ignore))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
     (let ((text (sp-bibprocess-lint-test--text file)))
@@ -1589,7 +1660,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-choose-value ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'completing-read)
                  (lambda (_prompt candidates &rest _)
                    (should (equal '("1. 2019" "2. 2020") (seq-take candidates 2)))
@@ -1603,7 +1674,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-leave-keeps-every-value ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'completing-read)
                  (lambda (_prompt candidates &rest _) (car (last candidates))))
                 ((symbol-function 'pop-to-buffer) #'ignore))
@@ -1614,7 +1685,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((before (sp-bibprocess-lint-test--text file))
           (keys (sp-bibprocess-lint-test--keys ?s)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'pop-to-buffer) #'ignore))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
