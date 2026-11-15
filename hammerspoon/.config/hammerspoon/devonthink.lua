@@ -5,12 +5,9 @@
 --   x   Tools > Annotate > Highlight Text (persistent highlight mode)
 --   c   next colour (menu order below), then highlight again
 --
--- Keys active only while DEVONthink is in front:
+-- Key active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
---   Cmd+Shift+D    hide the inspector, else the sidebar; if neither is
---                  shown, an alert says so and the normal Cmd+Shift+D goes
---                  to DEVONthink
 --
 -- Why:
 --   * The layer never reaches Emacs or any other app, and uses no Option,
@@ -23,15 +20,12 @@
 --   * So they are found by the start of the name (the patterns below),
 --     searched in the Format menu, not by a fixed full title.
 --
--- Undo, inspector and sidebar:
---   * Menu items are found by title pattern, because the titles change with the
---     action ("Undo Add Highlight") or the state ("Hide Inspector").
+-- Undo:
+--   * The menu item is found by title pattern, because its title changes with
+--     the action ("Undo Add Highlight").
 --   * Only enabled items count. The Edit menu always shows the next undo step,
 --     so a highlight that is gone or older than another action is never touched.
---   * The sidebar has no Hide item: View > Sidebar lists Navigate, Reading List,
---     Extras, ...; the one with a check mark is open, and choosing it again
---     hides the sidebar.
---   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("View").
+--   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
 
 local M = {}
 
@@ -59,19 +53,6 @@ local undoHighlightPatterns = {
   "^Undo.*[Hh]ighlight",
   "^Undo.*[Aa]nnotat",
   "^Undo.*[Mm]arkup",
-}
-
--- Menus and title patterns of the inspector when it is shown (Tools > Inspectors
--- in DEVONthink 3; View in case DEVONthink 4 moved it).
-local hideInspectorMenus = { "Tools", "View" }
-local hideInspectorPatterns = {
-  "^Hide.*Inspector",
-}
-
--- The sidebar submenu in the View menu, and a fallback title pattern.
-local sidebarMenu = { "View", "Sidebar" }
-local hideSidebarPatterns = {
-  "^Hide.*Sidebar",
 }
 
 local function isDevonthink(app)
@@ -130,33 +111,6 @@ local function selectFirst(app, menu, patterns)
   return false
 end
 
--- The items (from getMenuItems) of the submenu at PATH, e.g. { "View", "Sidebar" }.
-local function submenuItems(app, path)
-  local items = app:getMenuItems() or {}
-  for _, title in ipairs(path) do
-    local found
-    for _, item in ipairs(items) do
-      if item.AXTitle == title then found = item break end
-    end
-    if not found then return nil end
-    items = found.AXChildren and found.AXChildren[1] or {}
-  end
-  return items
-end
-
--- Select the checked item of the submenu at PATH (the open sidebar section).
-local function selectChecked(app, path)
-  for _, item in ipairs(submenuItems(app, path) or {}) do
-    local mark = item.AXMenuItemMarkChar
-    if mark and mark ~= "" and item.AXEnabled ~= false and item.AXTitle then
-      local full = { table.unpack(path) }
-      full[#full + 1] = item.AXTitle
-      return app:selectMenuItem(full)
-    end
-  end
-  return false
-end
-
 -- Print the titles of a top-level menu (check mark, enabled) to the Hammerspoon console.
 function M.dumpMenu(menu)
   local app = hs.application.get(APP) or hs.application.frontmostApplication()
@@ -202,20 +156,6 @@ function M.undoHighlight()
   return app ~= nil and selectFirst(app, "Edit", undoHighlightPatterns)
 end
 
--- Hide the inspector, else the sidebar. False (with an alert) when none is shown.
-function M.hidePanel()
-  local app = hs.application.frontmostApplication()
-  if not app then return false end
-  for _, menu in ipairs(hideInspectorMenus) do
-    if selectFirst(app, menu, hideInspectorPatterns) then return true end
-  end
-  if selectChecked(app, sidebarMenu) or selectFirst(app, "View", hideSidebarPatterns) then
-    return true
-  end
-  hs.alert.show("No inspector or sidebar to hide (see DEVONthink.dumpMenu(\"View\"))")
-  return false
-end
-
 -- Run FN only when DEVONthink is in front; elsewhere the key does nothing.
 local function inDevonthink(fn)
   return function()
@@ -228,7 +168,7 @@ layer:bind({}, "x", inDevonthink(M.highlight))
 layer:bind({}, "c", inDevonthink(M.nextColor))
 
 --------------------------------------------------
--- Cmd+Z and Cmd+Shift+D, only while DEVONthink is in front
+-- Cmd+Z, only while DEVONthink is in front
 --------------------------------------------------
 
 -- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
@@ -248,7 +188,6 @@ end
 
 local scoped = {
   withPassThrough({ "cmd" }, "z", M.undoHighlight),
-  withPassThrough({ "cmd", "shift" }, "d", M.hidePanel),
 }
 
 local function setScoped(on)
