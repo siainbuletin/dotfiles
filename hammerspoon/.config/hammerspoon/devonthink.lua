@@ -2,7 +2,7 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x                 toggle between selecting and highlighting
+--   x                 toggle between selecting text and highlighting
 --   c                 next colour (cycling), then highlight again
 --   Option+1 ... 7    pick colour N (list below), then highlight again
 --   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
@@ -29,9 +29,11 @@
 --   * A PDF is shown when Tools > Annotate > Highlight Text exists and is
 --     enabled. Otherwise an alert says so and nothing else happens.
 --   * Highlighting is on when that menu item has a check mark. Then the key
---     selects the selection tool (an item of Tools > Annotate starting with
---     Select, Pointer or Text Selection) or, if there is none, chooses
---     Highlight Text again to switch it off.
+--     chooses the Text tool, the item of Tools > Annotate that selects text
+--     (the title is "Text"; the patterns below also accept Select..., Pointer
+--     and Text Selection).
+--   * If there is no such item, an alert says so and nothing changes. Choosing
+--     Highlight Text again does not turn highlighting off.
 --   * If the menu shows no check marks at all, the last state this file set is
 --     used instead; it is only a record of the last key press.
 --
@@ -96,10 +98,11 @@ local redoHighlightPatterns = {
 }
 
 -- The annotation tools submenu, the highlight tool in it, and the titles of
--- the selection tool (the first one found is used).
+-- the tool that selects text (the first pattern with a match is used; "^Text$"
+-- is the exact title, so it never matches "Text Note" or "Highlight Text").
 local annotateMenu = { "Tools", "Annotate" }
 local highlightToolPattern = "^Highlight"
-local selectToolPatterns = { "^Select", "^Pointer", "^Text Selection" }
+local selectToolPatterns = { "^Text$", "^Select", "^Pointer", "^Text Selection" }
 -- Whether highlighting is on, as far as the last key press knows; used only
 -- when the menu shows no check marks.
 local highlightOn = false
@@ -254,8 +257,8 @@ function M.highlight()
   return ok
 end
 
--- Toggle between selecting and highlighting. False (nothing done, no alert)
--- when no PDF is shown; the caller shows the alert.
+-- Toggle between selecting text and highlighting. False (nothing done, no
+-- alert) when no PDF is shown; the caller shows the alert.
 function M.toggleHighlight()
   local app = hs.application.frontmostApplication()
   if not app then return false end
@@ -273,15 +276,21 @@ function M.toggleHighlight()
   local on = highlightOn
   if anyChecked then on = isChecked(tool) end
 
-  local toolPath = { annotateMenu[1], annotateMenu[2], tool.AXTitle }
   if on then
-    local select = firstMatching(items, selectToolPatterns)
-    local path = select and { annotateMenu[1], annotateMenu[2], select.AXTitle } or toolPath
-    if not selectMenu(path) then return true end
+    local textTool = firstMatching(items, selectToolPatterns)
+    if not textTool then
+      hs.alert.show("No Text tool in Tools > Annotate (see DEVONthink.dumpMenu(\"Tools\"))")
+      return true
+    end
+    if not selectMenu({ annotateMenu[1], annotateMenu[2], textTool.AXTitle }) then
+      return true
+    end
     highlightOn = false
-    hs.alert.show("Select", 0.5)
+    hs.alert.show("Text", 0.5)
   else
-    if not selectMenu(toolPath) then return true end
+    if not selectMenu({ annotateMenu[1], annotateMenu[2], tool.AXTitle }) then
+      return true
+    end
     highlightOn = true
     hs.alert.show("Highlight", 0.5)
   end
