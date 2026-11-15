@@ -281,7 +281,7 @@ So `9--30' and `9–30' both give `9-30'.  Nil without a pages field."
 
 (defun sp-litnotes-meta--note-for-key (key)
   "The literature note of the citation KEY as (ID . TITLE), or nil."
-  (when-let* ((file (gethash key (sp-author-notes-bibtex--covered)))
+  (when-let* ((file (sp-litnotes-meta--note-of-key key))
               (head (sp-author-notes--file-head file))
               (id (plist-get head :id)))
     (cons id (or (plist-get head :title) key))))
@@ -574,7 +574,7 @@ a tag went missing, the buffer gets its old text back, nothing is saved and a
                      buffer-file-name current-prefix-arg))
   (let* ((entry (or (sp-litnotes-meta--entry key)
                     (user-error "No BibTeX entry %s in the registered files" key)))
-         (file (or file (gethash key (sp-author-notes-bibtex--covered))
+         (file (or file (sp-litnotes-meta--note-of-key key)
                    (user-error "No literature note found for %s" key)))
          (buf (find-buffer-visiting file)))
     (when (and buf (buffer-modified-p buf))
@@ -947,7 +947,7 @@ Citar's own note template writes \"#+title: Notes on ...\" and a
 \"#+print_bibliography:\" line (the Org-cite marker that prints the
 bibliography of the note, of no use in a litnote).  Return non-nil if the
 note changed."
-  (when-let* ((file (or file (gethash key (sp-author-notes-bibtex--covered))))
+  (when-let* ((file (or file (sp-litnotes-meta--note-of-key key)))
               (entry (sp-litnotes-meta--entry key))
               (title (sp-litnotes-meta--new-title entry)))
     (let* ((buf (find-buffer-visiting file))
@@ -2552,6 +2552,27 @@ template is then never used.  Nil leaves the note to citar (and its
   :type 'boolean
   :group 'sp-litnotes-meta)
 
+(defun sp-litnotes-meta--note-of-key (key)
+  "The litnote file of the citation KEY, or nil.
+Only the note itself counts: the file named KEY.org, or a litnote whose
+`ROAM_REFS' property holds KEY.  A note that merely cites KEY somewhere in its
+head (a `[cite:@KEY]' in a meta line) is another note."
+  (let ((dir (file-name-as-directory (expand-file-name sp-author-notes-litnotes-directory)))
+        (re (concat "\\(?:\\`\\|[ \t,;]\\)@?" (regexp-quote key) "\\(?:[ \t,;]\\|\\'\\)")))
+    (or (let ((file (expand-file-name (concat key ".org") dir)))
+          (and (file-readable-p file) file))
+        (seq-find
+         (lambda (file)
+           (with-temp-buffer
+             (sp-author-notes--insert-file file 4096)
+             (goto-char (point-min))
+             (let ((case-fold-search t) found)
+               (while (and (not found)
+                           (re-search-forward "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t))
+                 (setq found (string-match-p re (match-string 1))))
+               found)))
+         (sp-author-notes--org-files dir)))))
+
 (defun sp-litnotes-meta--around-create (orig-fun key &rest args)
   "Make the note of KEY with `sp-litnotes-meta-create-function', not citar.
 ORIG-FUN is `citar-create-note', called with KEY and ARGS only when
@@ -2563,7 +2584,7 @@ without a BibTeX entry, or a failing create function, signals an error."
         (sp-litnotes-meta--after-create key))
     (unless (sp-litnotes-meta--entry key)
       (user-error "No BibTeX entry %s in the registered files, so no note was made" key))
-    (let ((existing (gethash key (sp-author-notes-bibtex--covered))))
+    (let ((existing (sp-litnotes-meta--note-of-key key)))
       (if existing
           (progn (message "%s already has a note, visiting it" key)
                  (find-file existing))
