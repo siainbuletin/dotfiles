@@ -1465,9 +1465,12 @@ files are moved to the top of the library."
   (unless (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
                (file-directory-p sp-literature-dir))
     (user-error "`sp-literature-dir' is not a folder"))
-  (when (or (not sp-bibtex-files-flatten)
-            (sp-bibtex-files--confirm-flatten))
-    (sp-bibtex-lint--fix file 'files)))
+  (sp-bibtex-lint--fix-command
+   file 'files
+   (lambda ()
+     (when (or (not sp-bibtex-files-flatten)
+               (sp-bibtex-files--confirm-flatten))
+       (sp-bibtex-lint--fix file 'files)))))
 
 ;;;; Fields from the crossref parent
 
@@ -1660,7 +1663,7 @@ the buffer is not a .bib file, it is read with completion.  Nothing is
 overwritten.  All entries are fixed at once, after one question and a backup.
 See `sp-bibtex-crossref-fields' and `sp-bibtex-crossref-renames'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'crossref))
+  (sp-bibtex-lint--fix-command file 'crossref))
 
 (defun sp-bibtex-lint--render-crossref (file results)
   "Show RESULTS of the crossref lint of FILE as a report."
@@ -1868,18 +1871,29 @@ reports.  `u' in the report, or in the batch question, brings an entry back.")
   (let ((prefix (concat (expand-file-name file) "::")))
     (seq-filter (lambda (k) (string-prefix-p prefix k)) sp-bibtex-lint--excluded)))
 
-(defun sp-bibtex-lint--dropped-p (file result)
-  "Non-nil when the entry of the lint RESULT of FILE was dropped."
-  (member (sp-bibtex-lint--entry-key file (nth 1 result)) sp-bibtex-lint--excluded))
+(defun sp-bibtex-lint--drop-key (file key &optional kind)
+  "The key that drops the entry KEY of FILE from the fix KIND.
+The author fixes (and the lint report, which has no kind) share the key of the
+entry; every other fix has a key of its own, so dropping an entry from the field
+order does not drop it from the indentation."
+  (if (memq kind '(nil authors prefixes notes surnames ambiguous))
+      (sp-bibtex-lint--entry-key file key)
+    (format "%s#%s" (sp-bibtex-lint--entry-key file key) kind)))
 
-(defun sp-bibtex-lint--undropped (file batch)
-  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE."
-  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item))) batch))
+(defun sp-bibtex-lint--dropped-p (file result &optional kind)
+  "Non-nil when the entry of the lint RESULT of FILE was dropped from the fix KIND."
+  (member (sp-bibtex-lint--drop-key file (nth 1 result) kind) sp-bibtex-lint--excluded))
+
+(defun sp-bibtex-lint--undropped (file batch &optional kind)
+  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE.
+KIND is the fix."
+  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item) kind)) batch))
 
 (defun sp-bibtex-lint--key-label (key)
   "The text of the dropped KEY in the report."
-  (let ((file (substring key 0 (string-search "::" key))))
-    (format "%s in %s" (sp-bibtex-lint--key-entry key) (sp-batch-report-file-link file))))
+  (let ((file (substring key 0 (string-search "::" key)))
+        (entry (sp-bibtex-lint--key-entry key)))
+    (format "%s in %s" (car (split-string entry "#")) (sp-batch-report-file-link file))))
 
 (defun sp-bibtex-lint--choose (prompt candidates)
   "Read several of CANDIDATES, separated by commas, with PROMPT."
@@ -1994,6 +2008,54 @@ back; the dropped ones are listed at the end."
               (setq sp-bibtex-lint--excluded excluded)
               (sp-bibtex-lint-fix-authors file)))))
 
+;;;; The report of one fix
+
+(defun sp-bibtex-lint--fix-section (file kind results pairs)
+  "The report section of the fix KIND for FILE: the RESULTS that have a rewrite of it.
+PAIRS says the line of each result."
+  (sp-batch-report-section
+   (or (alist-get kind sp-bibtex-lint--kinds) (symbol-name kind))
+   (cl-loop for r in results
+            for rewrite = (alist-get kind (nth 4 r))
+            when rewrite
+            collect (sp-batch-report-item
+                     nil :file file :line (alist-get r pairs nil nil #'eq) :label (nth 1 r)
+                     :key (sp-bibtex-lint--drop-key file (nth 1 r) kind)
+                     :children (or (plist-get rewrite :desc) (nth 3 r))))
+   "nothing to fix"))
+
+(defun sp-bibtex-lint--fix-report (file kinds title apply)
+  "Lint FILE for the fix KINDS and show what they would change, as the report TITLE.
+`d' drops an entry from the fix and `u' brings it back, `g' lints again and `A'
+calls APPLY, which runs the fix on the entries that are left."
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job
+   "BibTeX lint" (list file) kinds
+   (lambda (results)
+     (sp-bibtex-lint--render-fix file kinds title apply results))))
+
+(defun sp-bibtex-lint--render-fix (file kinds title apply results)
+  "Show RESULTS of the lint of FILE for the fix KINDS, as the report TITLE.
+APPLY is called by `A'; see `sp-bibtex-lint--fix-report'."
+  (let ((pairs (cl-mapcar #'cons results
+                          (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results)))))
+    (sp-batch-report-open
+     sp-bibtex-lint--buffer
+     (sp-batch-report-text
+      (format "%s of %s" title (file-name-nondirectory file))
+      (mapcar (lambda (kind) (sp-bibtex-lint--fix-section file kind results pairs)) kinds)
+      :intro (format "Nothing is written until you press A; the file is copied first.  %s"
+                     (sp-batch-report-file-link file))
+      :excluded sp-bibtex-lint--excluded
+      :key-label #'sp-bibtex-lint--key-label)
+     :excluded sp-bibtex-lint--excluded
+     :refresh (lambda (excluded)
+                (setq sp-bibtex-lint--excluded excluded)
+                (sp-bibtex-lint--fix-report file kinds title apply))
+     :apply (lambda (excluded)
+              (setq sp-bibtex-lint--excluded excluded)
+              (funcall apply)))))
+
 ;;;###autoload
 (defun sp-bibtex-lint-dryrun (file)
   "List what the .bib FILE breaks, without changing it.
@@ -2015,7 +2077,7 @@ prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never 
 (defun sp-bibtex-lint--show-batch (file kind batch index total all)
   "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE.
 Entries dropped from the author fixes are left out."
-  (let* ((batch (if (memq kind '(authors prefixes notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
+  (let* ((batch (sp-bibtex-lint--undropped file batch kind))
          (lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
     (sp-batch-report-show
      sp-bibtex-lint--batch-buffer
@@ -2098,9 +2160,8 @@ every later batch, which are then not asked) or an answer for APPLY-FN, which is
 called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
 FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
 is written without an answer.  THEN is called when the run was not quit."
-  (let* ((authorial (memq kind '(authors prefixes notes surnames)))
-         (fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
-                                               (not (and authorial (sp-bibtex-lint--dropped-p file r)))))
+  (let* ((fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
+                                               (not (sp-bibtex-lint--dropped-p file r kind))))
                               results))
          (what (alist-get kind sp-bibtex-lint--kinds))
          (work (generate-new-buffer " *sp-bibtex-lint-work*"))
@@ -2130,8 +2191,8 @@ is written without an answer.  THEN is called when the run was not quit."
                                  (funcall ask batch index total (length items))))))
                 (when (eq answer 'apply-all) (setq global t answer 'apply))
                 ;; Entries dropped while the batch was asked are not touched.
-                (when authorial (setq batch (sp-bibtex-lint--undropped file batch)))
-                (pcase (if (and authorial (null batch)) 'skip answer)
+                (setq batch (sp-bibtex-lint--undropped file batch kind))
+                (pcase (if (null batch) 'skip answer)
                   ('quit (setq stop t) (cl-incf skipped (length batch)))
                   ('skip (cl-incf skipped (length batch)))
                   (_
@@ -2192,6 +2253,14 @@ Each batch is applied, skipped or quit; see `sp-bibtex-lint--run'."
    (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
    nil t))
 
+(defun sp-bibtex-lint--fix-command (file kind &optional apply)
+  "Show the report of the fix KIND for FILE; `A' in it applies the fix.
+APPLY is what `A' calls; the default is `sp-bibtex-lint--fix'."
+  (sp-bibtex-lint--fix-report
+   file (list kind)
+   (capitalize (alist-get kind sp-bibtex-lint--kinds))
+   (or apply (lambda () (sp-bibtex-lint--fix file kind)))))
+
 (defun sp-bibtex-lint--fix (file kind)
   "Lint FILE and apply the fix KIND to all of it after one question."
   (sp-bibtex-lint--unsaved-check file)
@@ -2207,14 +2276,14 @@ fixed at once, after one yes-or-no question; FILE is copied to
 `sp-bibtex-lint-backup-directory' before it is written.  An entry with a
 comment inside is left alone."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'order))
+  (sp-bibtex-lint--fix-command file 'order))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-indent (file)
   "Indent every entry of the .bib FILE the way `bibtex-mode' does (`bibtex-fill-entry').
 All entries at once, after one question and a backup, as `sp-bibtex-lint-fix-order' does."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'indent))
+  (sp-bibtex-lint--fix-command file 'indent))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-prefixes (file)
@@ -2229,9 +2298,12 @@ Names that cannot be read are reported and left alone.  Batches of
 ones (`g'), skipped, dropped for later or quit; FILE is copied to
 `sp-bibtex-lint-backup-directory' before the first write."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
-                       (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))
+  (sp-bibtex-lint--fix-command
+   file 'prefixes
+   (lambda ()
+     (sp-bibtex-lint--unsaved-check file)
+     (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
+                          (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))))
 
 ;;;; Author names
 
@@ -2637,31 +2709,34 @@ batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
    `sp-bibtex-lint-fix-merge' does it.
 Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job
-   "BibTeX lint" (list file) '(prefixes)
-   (lambda (results)
-     (sp-bibtex-lint--review
-      file 'prefixes results
-      (lambda ()
-        (sp-bibtex-lint--job
-         "BibTeX lint" (list file) '(authors)
-         (lambda (results)
-           (sp-bibtex-lint--review
-            file 'authors results
-            (lambda ()
-              (sp-bibtex-lint--job
-               "BibTeX lint" (list file) '(notes)
-               (lambda (results)
-                 (sp-bibtex-lint--review-notes
-                  file 'notes results
-                  (lambda ()
-                    (sp-bibtex-lint--job
-                     "BibTeX lint" (list file) '(surnames)
-                     (lambda (results)
-                       (sp-bibtex-lint--review-notes
-                        file 'surnames results
-                        (lambda () (sp-bibtex-lint-fix-merge file))))))))))))))))))
+  (sp-bibtex-lint--fix-report
+   file '(prefixes authors notes surnames ambiguous) "Author names"
+   (lambda ()
+    (sp-bibtex-lint--unsaved-check file)
+    (sp-bibtex-lint--job
+     "BibTeX lint" (list file) '(prefixes)
+     (lambda (results)
+       (sp-bibtex-lint--review
+        file 'prefixes results
+        (lambda ()
+          (sp-bibtex-lint--job
+           "BibTeX lint" (list file) '(authors)
+           (lambda (results)
+             (sp-bibtex-lint--review
+              file 'authors results
+              (lambda ()
+                (sp-bibtex-lint--job
+                 "BibTeX lint" (list file) '(notes)
+                 (lambda (results)
+                   (sp-bibtex-lint--review-notes
+                    file 'notes results
+                    (lambda ()
+                      (sp-bibtex-lint--job
+                       "BibTeX lint" (list file) '(surnames)
+                       (lambda (results)
+                         (sp-bibtex-lint--review-notes
+                          file 'surnames results
+                          (lambda () (sp-bibtex-lint-fix-merge file))))))))))))))))))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
@@ -2810,9 +2885,12 @@ the cross references of the registered files, and the PDFs of
 renamed through DEVONthink when `sp-bibtex-files-devonthink-tool' is set.  The files
 that are changed are copied to `sp-bibtex-lint-backup-directory' first."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
-                       (lambda (results) (sp-bibtex-lint--review-keys file results))))
+  (sp-bibtex-lint--fix-command
+   file 'keys
+   (lambda ()
+     (sp-bibtex-lint--unsaved-check file)
+     (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
+                          (lambda (results) (sp-bibtex-lint--review-keys file results))))))
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.

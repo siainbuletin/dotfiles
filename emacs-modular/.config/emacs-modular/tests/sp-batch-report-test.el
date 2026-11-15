@@ -274,7 +274,8 @@
             (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
 
 (ert-deftest sp-batch-report-table-section ()
-  (let ((text (sp-batch-report-text
+  (let* ((sp-batch-report-display 'org)
+         (text (sp-batch-report-text
                "T"
                (list (sp-batch-report-table-section
                       "S" '("H1" "H2")
@@ -293,6 +294,7 @@
     (unwind-protect
         (progn
           (with-current-buffer (sp-batch-report-open name "#+title: T\n\n* A\n| a |\n")
+            (should (derived-mode-p 'sp-batch-report-org-mode))
             (should-not org-table-widget-mode))
           (kill-buffer name)
           (let ((sp-batch-report-table-widgets t))
