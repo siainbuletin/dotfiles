@@ -1877,8 +1877,7 @@
            (sp-litnotes-meta-auto nil)
            (sp-litnotes-meta-create-function (lambda (key) (push key made) file)))
       (unwind-protect
-          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered)
-                     (lambda () (make-hash-table :test 'equal)))
+          (cl-letf (((symbol-function 'sp-litnotes-meta--note-of-key) #'ignore)
                     ((symbol-function 'find-file) #'identity))
             (dolist (key '("wb2020" "doe2019" "vid2021"))
               (sp-litnotes-meta--around-create (lambda (&rest _) (setq orig t)) key))
@@ -1886,15 +1885,33 @@
             (should (equal (sort made #'string<) '("doe2019" "vid2021" "wb2020"))))
         (delete-file file)))))
 
+(ert-deftest sp-litnotes-meta-note-of-key-is-not-a-citing-note ()
+  "A note that cites a key in its head is not the note of that key."
+  (let* ((dir (make-temp-file "sp-meta-notes" t))
+         (sp-author-notes-litnotes-directory dir))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "citing-2022.org" dir)
+            (insert ":PROPERTIES:\n:ID: a\n:ROAM_REFS: @citing-2022\n:END:\n#+title: C\n\n- see :: [cite:@wb2020]\n"))
+          (should-not (sp-litnotes-meta--note-of-key "wb2020"))
+          (with-temp-file (expand-file-name "other.org" dir)
+            (insert ":PROPERTIES:\n:ID: b\n:ROAM_REFS: @x @wb2020\n:END:\n#+title: W\n"))
+          (should (equal (sp-litnotes-meta--note-of-key "wb2020")
+                         (expand-file-name "other.org" dir)))
+          (with-temp-file (expand-file-name "wb2021.org" dir) (insert "#+title: x\n"))
+          (should (equal (sp-litnotes-meta--note-of-key "wb2021")
+                         (expand-file-name "wb2021.org" dir)))
+          (should-not (sp-litnotes-meta--note-of-key "wb")))
+      (delete-directory dir t))))
+
 (ert-deftest sp-litnotes-meta-citar-create-visits-existing-note ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
     (let* ((file (make-temp-file "sp-meta-note" nil ".org"))
            (made nil) (orig nil)
-           (covered (make-hash-table :test 'equal))
            (sp-litnotes-meta-create-function (lambda (key) (push key made) file)))
-      (puthash "wb2020" file covered)
       (unwind-protect
-          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered) (lambda () covered))
+          (cl-letf (((symbol-function 'sp-litnotes-meta--note-of-key)
+                     (lambda (key) (and (equal key "wb2020") file)))
                     ((symbol-function 'find-file) #'identity))
             (should (equal (sp-litnotes-meta--around-create
                             (lambda (&rest _) (setq orig t)) "wb2020")
@@ -1907,8 +1924,7 @@
   "A missing entry or a failing create function is an error, not citar's note."
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
     (let ((orig nil))
-      (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered)
-                 (lambda () (make-hash-table :test 'equal))))
+      (cl-letf (((symbol-function 'sp-litnotes-meta--note-of-key) #'ignore))
         (should-error (sp-litnotes-meta--around-create
                        (lambda (&rest _) (setq orig t)) "nokey")
                       :type 'user-error)
