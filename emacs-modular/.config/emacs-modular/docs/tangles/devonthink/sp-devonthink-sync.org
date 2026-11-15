@@ -415,7 +415,7 @@ Shows the plan and asks first; a prefix argument LIMIT limits how many."
 
 * Keys
 
-- =C-c k d y= shows the report.
+- =C-; k d y= shows the report.
 - The two writers are commands without keys on purpose: they are run rarely and deliberately.
 
 #+begin_src emacs-lisp
