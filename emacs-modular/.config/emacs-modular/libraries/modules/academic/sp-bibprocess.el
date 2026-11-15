@@ -1088,7 +1088,8 @@ misplaced particles), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
 compatible initials), `ambiguous' (the same for several notes; reported only)
 `files' (attachment paths, see `sp-bibtex-files--rewrite') and `crossref'
-(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan')
+and `duplicates' (fields that stand twice, see `sp-bibtex-dup--groups').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
@@ -1103,6 +1104,7 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (filed (and (memq 'files kinds) sp-bibtex-lint--library
                      (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
          (crossed (and (memq 'crossref kinds) (sp-bibtex-crossref--plan type fields)))
+         (dups (and (memq 'duplicates kinds) (sp-bibtex-dup--groups old)))
          (base (list :start start :end end :old old))
          rewrites)
     (when (and filled (not (equal filled old)))
@@ -1136,6 +1138,9 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
     (when-let* ((added (car crossed)))
       (push (cons 'crossref (append base (list :new (sp-bibtex-crossref--insert old added)
                                                :desc (sp-bibtex-crossref--describe added (nth 1 crossed)))))
+            rewrites))
+    (when dups
+      (push (cons 'duplicates (append base (list :groups dups :desc (sp-bibtex-dup--describe dups))))
             rewrites))
     (when-let* (((memq 'keys kinds))
                 (max (bound-and-true-p sp-bibtex-key-max-length))
@@ -1735,7 +1740,8 @@ says what it would add."
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes")
     (files . "attachment paths") (keys . "long citation keys")
-    (crossref . "fields from the crossref parent"))
+    (crossref . "fields from the crossref parent")
+    (duplicates . "duplicate fields"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -1845,6 +1851,7 @@ Each position is the start of a line."
       ("files" (sp-bibtex-lint-fix-files file))
       ("crossref" (sp-bibtex-lint-fix-crossref file))
       ("keys" (sp-bibtex-lint-fix-keys file))
+      ("duplicates" (sp-bibtex-lint-fix-duplicates file))
       (other (user-error "Unknown lint button: %s" other)))))
 
 (org-link-set-parameters "sp-bibtex-lint" :follow #'sp-bibtex-lint--follow)
@@ -1980,6 +1987,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count results 'crossref)))
       (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
                                                  (sp-bibtex-lint--count results 'keys)))
+      (format "  - %s\n" (sp-bibtex-lint--button "duplicates" file "duplicate fields"
+                                                 (sp-bibtex-lint--count results 'duplicates)))
       (format "  - %s\n" (sp-bibtex-lint--button
                           "authors" file "author names"
                           (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
@@ -1995,6 +2004,7 @@ back; the dropped ones are listed at the end."
       (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
       (sp-bibtex-lint--section "Fields from the crossref parent" 'crossref shown pairs file)
       (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
+      (sp-bibtex-lint--section "Duplicate fields" 'duplicates shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
       (sp-bibtex-merge--section file)
@@ -2069,7 +2079,7 @@ author note or of several), the order of the fields (`sp-bibtex-field-order'), t
 button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
 prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref duplicates)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -2742,13 +2752,13 @@ Notes for authors are never made."
 (defun sp-bibtex-lint-convert (file)
   "Ask which fix to run on the .bib FILE.
 The fixes are field order, indentation, name prefixes, author names, attachment paths,
-fields from the crossref parent and long citation keys.
+fields from the crossref parent, long citation keys and duplicate fields.
 See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
 `sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files',
-`sp-bibtex-lint-fix-crossref' and `sp-bibtex-lint-fix-keys'."
+`sp-bibtex-lint-fix-crossref', `sp-bibtex-lint-fix-keys' and `sp-bibtex-lint-fix-duplicates'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "merge author names" "attachment paths"
-                                         "fields from the crossref parent" "long citation keys")
+                                         "fields from the crossref parent" "long citation keys" "duplicate fields")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
@@ -2757,7 +2767,8 @@ See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
     ("merge author names" (sp-bibtex-lint-fix-merge file))
     ("attachment paths" (sp-bibtex-lint-fix-files file))
     ("fields from the crossref parent" (sp-bibtex-lint-fix-crossref file))
-    ("long citation keys" (sp-bibtex-lint-fix-keys file))))
+    ("long citation keys" (sp-bibtex-lint-fix-keys file))
+    ("duplicate fields" (sp-bibtex-lint-fix-duplicates file))))
 
 ;;;; Long citation keys, the fix
 (defvar sp-bibtex-lint--key-table nil
@@ -2891,6 +2902,197 @@ that are changed are copied to `sp-bibtex-lint-backup-directory' first."
      (sp-bibtex-lint--unsaved-check file)
      (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
                           (lambda (results) (sp-bibtex-lint--review-keys file results))))))
+
+(defun sp-bibtex-dup--scan (text)
+  "The fields of the entry TEXT, as a list of (NAME RAW BEG END) in their order.
+BEG and END are positions in TEXT (from 0) around the field and its trailing
+comma; when the field has a line of its own, around the line.  Nil when the
+entry cannot be read."
+  (with-temp-buffer
+    (delay-mode-hooks (bibtex-mode))
+    (insert text)
+    (goto-char (point-min))
+    (let ((case-fold-search t) fields (ok t))
+      (when (re-search-forward "\\`[ \t\n]*@[[:alpha:]]+[ \t\n]*[{(][^, \t\n]*[ \t\n]*," nil t)
+        (let ((header-end (point)))
+          (while (and ok
+                      (progn (skip-chars-forward " \t\n")
+                             (looking-at "\\([[:alnum:]_:.+-]+\\)[ \t\n]*=[ \t\n]*")))
+            (let* ((name (match-string-no-properties 1))
+                   (start (match-beginning 0))
+                   (value-start (match-end 0))
+                   (bol (save-excursion (goto-char start) (line-beginning-position)))
+                   (own-line (and (>= bol header-end)
+                                  (string-match-p "\\`[ \t]*\\'" (buffer-substring-no-properties bol start))))
+                   (value-end (progn (goto-char value-start)
+                                     (and (ignore-errors (bibtex-parse-field-text)) (point)))))
+              (if (not value-end)
+                  (setq ok nil)
+                (goto-char value-end)
+                (skip-chars-forward " \t")
+                (when (eq (char-after) ?,) (forward-char))
+                (let ((end (point)))
+                  (if own-line
+                      (when (looking-at "[ \t]*\n")
+                        (setq end (match-end 0))
+                        (goto-char end))
+                    (skip-chars-forward " \t")
+                    (setq end (point)))
+                  (push (list name
+                              (buffer-substring-no-properties value-start value-end)
+                              (1- (if own-line bol start))
+                              (1- end))
+                        fields)))))))
+      (and ok (nreverse fields)))))
+
+(defun sp-bibtex-dup--normal (raw)
+  "The value RAW of a field without its outer braces or quotes, in one line."
+  (string-trim (replace-regexp-in-string "[ \t\n\r]+" " " (or (car (sp-bibtex--unwrap raw)) raw))))
+
+(defun sp-bibtex-dup--groups (text)
+  "The fields of the entry TEXT that stand more than once, as a list of plists.
+Each plist has :name (the first spelling), :occ, a list of (RAW BEG END NORM) in
+the order of the entry, and :values, the distinct NORMs with the index in :occ of
+the first copy of each: ((NORM . INDEX) ...).  A group with one value is identical."
+  (let (names groups)
+    (dolist (f (sp-bibtex-dup--scan text))
+      (let ((down (downcase (car f))))
+        (if-let* ((cell (assoc down names)))
+            (setcdr cell (append (cdr cell) (list f)))
+          (push (list down f) names))))
+    (dolist (cell (nreverse names))
+      (when (> (length (cdr cell)) 1)
+        (let* ((occ (mapcar (lambda (f) (list (nth 1 f) (nth 2 f) (nth 3 f) (sp-bibtex-dup--normal (nth 1 f))))
+                            (cdr cell)))
+               (values nil))
+          (cl-loop for o in occ for i from 0
+                   unless (assoc (nth 3 o) values) do (push (cons (nth 3 o) i) values))
+          (push (list :name (car (cadr cell)) :occ occ :values (nreverse values)) groups))))
+    (nreverse groups)))
+
+(defun sp-bibtex-dup--identical-p (group)
+  "Non-nil when every copy of the field of GROUP has the same value."
+  (= 1 (length (plist-get group :values))))
+
+(defun sp-bibtex-dup--shorten (value)
+  "VALUE in one line, at most 100 characters."
+  (truncate-string-to-width (replace-regexp-in-string "[ \t\n]+" " " value) 100 nil nil "…"))
+
+(defun sp-bibtex-dup--describe (groups)
+  "The report lines for GROUPS, see `sp-bibtex-dup--groups'."
+  (mapcar (lambda (g)
+            (if (sp-bibtex-dup--identical-p g)
+                (format "%s: %d identical copies, %d would be removed (%s)"
+                        (plist-get g :name) (length (plist-get g :occ))
+                        (1- (length (plist-get g :occ)))
+                        (sp-bibtex-dup--shorten (caar (plist-get g :values))))
+              (format "%s: %d different values, you choose: %s"
+                      (plist-get g :name) (length (plist-get g :values))
+                      (string-join (cl-loop for v in (plist-get g :values) for n from 1
+                                            collect (format "%d. %s" n (sp-bibtex-dup--shorten (car v))))
+                                   "  "))))
+          groups))
+
+(defun sp-bibtex-dup--resolve (text groups picks)
+  "The entry TEXT with the duplicate fields of GROUPS removed.
+PICKS is an alist from the name of a group to the index of the copy to keep.
+An identical group keeps its first copy; a group with different values and no
+pick is left as it is, so no value is dropped without a choice."
+  (let (spans)
+    (dolist (g groups)
+      (let ((keep (or (cdr (assoc (plist-get g :name) picks))
+                      (and (sp-bibtex-dup--identical-p g) 0))))
+        (when keep
+          (cl-loop for o in (plist-get g :occ) for i from 0
+                   unless (= i keep) do (push (cons (nth 1 o) (nth 2 o)) spans)))))
+    (dolist (s (sort spans (lambda (a b) (> (car a) (car b)))))
+      (setq text (concat (substring text 0 (car s)) (substring text (cdr s)))))
+    text))
+
+(defun sp-bibtex-lint--apply-duplicates (work batch answer)
+  "Remove the duplicate fields of the entries of BATCH in the buffer WORK.
+ANSWER is the plist `sp-bibtex-lint--ask-duplicates' made; its :picks says which
+copy to keep for each differing field, by the position of the entry.  An entry
+that is not the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
+  (let ((changed 0) (stale 0))
+    (with-current-buffer work
+      (dolist (item batch)
+        (pcase-let* ((`(,r ,beg ,end) item)
+                     (rewrite (alist-get 'duplicates (nth 4 r)))
+                     (old (plist-get rewrite :old)))
+          (if (not (equal old (buffer-substring-no-properties beg end)))
+              (cl-incf stale)
+            (let ((new (sp-bibtex-dup--resolve
+                        old (plist-get rewrite :groups)
+                        (cdr (assq (nth 2 r) (plist-get answer :picks))))))
+              (unless (equal new old)
+                (sp-bibtex-lint--replace beg end new)
+                (cl-incf changed)))))))
+    (list changed stale (> changed 0))))
+
+(defun sp-bibtex-lint--pick-duplicate (key group)
+  "Ask which value of the GROUP of the entry KEY to keep; return an index or nil to leave it."
+  (let* ((leave "leave as it is (keep every copy)")
+         (candidates (cl-loop for v in (plist-get group :values) for n from 1
+                              collect (format "%d. %s" n (sp-bibtex-dup--shorten (car v)))))
+         (answer (completing-read (format "%s, %s: keep which value? " key (plist-get group :name))
+                                  (append candidates (list leave)) nil t nil nil leave)))
+    (unless (equal answer leave)
+      (cdr (nth (1- (string-to-number answer)) (plist-get group :values))))))
+
+(defun sp-bibtex-lint--ask-duplicates (file batch index total all)
+  "Show BATCH of the entries of FILE with duplicate fields and ask what to do.
+Return `skip', `quit' or a plist with :picks, a list of (POSITION . ((NAME . INDEX)
+...)) for the differing fields you chose.  See `sp-bibtex-lint--run'."
+  (sp-bibtex-lint--show-batch file 'duplicates batch index total all)
+  (let* ((groups (mapcar (lambda (item) (plist-get (alist-get 'duplicates (nth 4 (car item))) :groups))
+                         batch))
+         (differing (apply #'+ (mapcar (lambda (gs) (if (seq-some (lambda (g) (not (sp-bibtex-dup--identical-p g))) gs) 1 0))
+                                       groups))))
+    (pcase (read-char-choice
+            (format "Batch %d of %d (%d entries, %d with differing values): [a]pply, choosing for each differing field, [i]dentical copies only, [s]kip, [q]uit "
+                    index total (length batch) differing)
+            '(?a ?i ?s ?q))
+      (?s 'skip)
+      (?q 'quit)
+      (?i (list :picks nil))
+      (_
+       (let (picks)
+         (cl-loop for item in batch for gs in groups
+                  do (let ((entry-picks nil))
+                       (dolist (g gs)
+                         (unless (sp-bibtex-dup--identical-p g)
+                           (when-let* ((index (sp-bibtex-lint--pick-duplicate (nth 1 (car item)) g)))
+                             (push (cons (plist-get g :name) index) entry-picks))))
+                       (when entry-picks
+                         (push (cons (nth 2 (car item)) entry-picks) picks))))
+         (list :picks picks))))))
+
+(defun sp-bibtex-lint--review-duplicates (file results &optional then)
+  "Go through the duplicate fields in RESULTS for FILE, a batch at a time.
+See `sp-bibtex-lint--ask-duplicates' and `sp-bibtex-lint--apply-duplicates'."
+  (sp-bibtex-lint--run
+   file 'duplicates results
+   (lambda (batch index total all) (sp-bibtex-lint--ask-duplicates file batch index total all))
+   #'sp-bibtex-lint--apply-duplicates
+   then))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-duplicates (file)
+  "Remove the duplicate fields of the entries of the .bib FILE, after you review them.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  The report comes
+first and writes nothing; `A' in it starts the batches.  Identical copies of a
+field are removed; for copies with different values you choose the one to keep,
+or leave the field alone.  FILE is copied to `sp-bibtex-lint-backup-directory'
+before the first write."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix-command
+   file 'duplicates
+   (lambda ()
+     (sp-bibtex-lint--unsaved-check file)
+     (sp-bibtex-lint--job "BibTeX lint" (list file) '(duplicates)
+                          (lambda (results) (sp-bibtex-lint--review-duplicates file results))))))
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.
