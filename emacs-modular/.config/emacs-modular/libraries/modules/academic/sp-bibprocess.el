@@ -1088,7 +1088,9 @@ misplaced particles), `notes' (names one typo away from
 an author note), `surnames' (names with the surname of one author note and
 compatible initials), `ambiguous' (the same for several notes; reported only)
 `files' (attachment paths, see `sp-bibtex-files--rewrite') and `crossref'
-(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan').  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
+(fields the crossref parent has and the entry lacks, see `sp-bibtex-crossref--plan'),
+`date' (a date field split into year and month, see `sp-bibtex-date--plan') and
+`date-skipped' (date fields that are left as they are, reported only).  Return (REWRITES . PROBLEMS).  REWRITES is an alist from a kind to a
 plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
 `notes'); PROBLEMS are the lines for the report."
   (let* ((names (sp-bibtex--lint-names fields people))
@@ -1103,6 +1105,8 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
          (filed (and (memq 'files kinds) sp-bibtex-lint--library
                      (sp-bibtex-files--rewrite old key sp-bibtex-lint--library)))
          (crossed (and (memq 'crossref kinds) (sp-bibtex-crossref--plan type fields)))
+         (dated (and (or (memq 'date kinds) (memq 'date-skipped kinds))
+                     (sp-bibtex-date--plan type fields)))
          (base (list :start start :end end :old old))
          rewrites)
     (when (and filled (not (equal filled old)))
@@ -1137,6 +1141,14 @@ plist of :start, :end, :old, :desc and :new (the new text) or :cases (for
       (push (cons 'crossref (append base (list :new (sp-bibtex-crossref--insert old added)
                                                :desc (sp-bibtex-crossref--describe added (nth 1 crossed)))))
             rewrites))
+    (when-let* (((memq 'date kinds))
+                (new (car dated)))
+      (push (cons 'date (append base (list :new (sp-bibtex--fill-text (sp-bibtex--entry-text type key new))
+                                           :desc (nth 1 dated))))
+            rewrites))
+    (when-let* (((memq 'date-skipped kinds))
+                (why (nth 2 dated)))
+      (push (cons 'date-skipped (append base (list :desc why))) rewrites))
     (when-let* (((memq 'keys kinds))
                 (max (bound-and-true-p sp-bibtex-key-max-length))
                 ((> (length key) max)))
@@ -1726,6 +1738,137 @@ says what it would add."
           (insert new)
           (message "%s: added %s" key (string-join (mapcar #'car added) ", "))))))))
 
+;;;; Date fields to year and month
+
+(defcustom sp-bibtex-date-keep-day-types '("misc")
+  "Entry types that keep the day of a date, in a `day' field, when `date' is split.
+The date fix drops the day for every other type.  Types are compared in lower case."
+  :type '(repeat string)
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-date-month-format "%d"
+  "The `format' string for the number of the month the date fix writes."
+  :type 'string
+  :group 'sp-bibtex)
+
+(defun sp-bibtex-date--text (name fields)
+  "The text of the field NAME in FIELDS without its braces; nil when absent or empty."
+  (when-let* ((raw (cdr (assoc-string name fields t)))
+              (text (string-trim (or (car (sp-bibtex--unwrap raw)) raw)))
+              ((not (string-empty-p text))))
+    text))
+
+(defun sp-bibtex-date--month-number (text)
+  "The number 1 to 12 that the month TEXT (5, 05, May, may) means, or nil."
+  (let ((text (downcase text)))
+    (cond
+     ((string-match "\\`0*\\([0-9]+\\)\\'" text)
+      (let ((n (string-to-number (match-string 1 text))))
+        (and (<= 1 n 12) n)))
+     ((string-match "\\`\\(jan\\|feb\\|mar\\|apr\\|may\\|jun\\|jul\\|aug\\|sep\\|oct\\|nov\\|dec\\)[a-z]*\\.?\\'" text)
+      (1+ (seq-position '("jan" "feb" "mar" "apr" "may" "jun" "jul" "aug" "sep" "oct" "nov" "dec")
+                        (match-string 1 text)))))))
+
+(defun sp-bibtex-date--days-in-month (year month)
+  "The number of days of MONTH in YEAR."
+  (if (= month 2)
+      (if (and (zerop (% year 4)) (or (not (zerop (% year 100))) (zerop (% year 400)))) 29 28)
+    (if (memq month '(4 6 9 11)) 30 31)))
+
+(defun sp-bibtex-date--parse (text)
+  "Read the date TEXT: (YEAR MONTH DAY) as numbers, MONTH and DAY nil when absent.
+A string that says why it cannot be read when it is not YYYY, YYYY-MM or YYYY-MM-DD."
+  (cond
+   ((string-match-p "/" text)
+    (format "date %s is a range, left as it is" text))
+   ((string-match "\\`\\([0-9]\\{4\\}\\)\\(?:-\\([0-9]\\{2\\}\\)\\(?:-\\([0-9]\\{2\\}\\)\\)?\\)?\\'" text)
+    (let* ((year (string-to-number (match-string 1 text)))
+           (month (and (match-string 2 text) (string-to-number (match-string 2 text))))
+           (day (and (match-string 3 text) (string-to-number (match-string 3 text)))))
+      (cond
+       ((and month (not (<= 1 month 12)))
+        (format "date %s has no month %d, left as it is" text month))
+       ((and day (not (<= 1 day (sp-bibtex-date--days-in-month year month))))
+        (format "date %s has no day %d, left as it is" text day))
+       (t (list year month day)))))
+   (t (format "date %s is not YYYY, YYYY-MM or YYYY-MM-DD, left as it is" text))))
+
+(defun sp-bibtex-date--conflicts (type fields year month day)
+  "The lines that say how FIELDS of TYPE disagree with the YEAR, MONTH and DAY of its date."
+  (let ((old-year (sp-bibtex-date--text "year" fields))
+        (old-month (sp-bibtex-date--text "month" fields))
+        (old-day (sp-bibtex-date--text "day" fields))
+        (keep (member-ignore-case type sp-bibtex-date-keep-day-types))
+        conflicts)
+    (when (and old-year (not (equal old-year (number-to-string year))))
+      (push (format "year = %s differs from the date (%d)" old-year year) conflicts))
+    (when (and month old-month (not (eql month (sp-bibtex-date--month-number old-month))))
+      (push (format "month = %s differs from the date (%d)" old-month month) conflicts))
+    (when (and day keep old-day (not (eql day (and (string-match-p "\\`[0-9]+\\'" old-day)
+                                                   (string-to-number old-day)))))
+      (push (format "day = %s differs from the date (%d)" old-day day) conflicts))
+    (nreverse conflicts)))
+
+(defun sp-bibtex-date--plan (type fields)
+  "What the date fix does to the entry of TYPE with FIELDS (an alist of name and raw value).
+Return nil when the entry has no date.  Otherwise (NEW-FIELDS DESC PROBLEMS):
+NEW-FIELDS is the list of fields to write, nil when the entry is left as it is;
+DESC lists what changes; PROBLEMS say why the entry is left as it is."
+  (when-let* ((date (assoc-string "date" fields t))
+              (text (sp-bibtex-date--text "date" fields)))
+    (let ((parsed (if (sp-bibtex--unwrap (cdr date))
+                      (sp-bibtex-date--parse text)
+                    (format "date %s is a macro or a concatenation, left as it is" (cdr date)))))
+      (if (stringp parsed)
+          (list nil nil (list parsed))
+        (pcase-let* ((`(,year ,month ,day) parsed)
+                     (conflicts (sp-bibtex-date--conflicts type fields year month day)))
+          (if conflicts
+              (list nil nil (mapcar (lambda (c) (format "date %s not split: %s" text c)) conflicts))
+            (let* ((open (or (cdr (sp-bibtex--unwrap (cdr date))) ?{))
+                   (wrap (lambda (s) (if (eq open ?\") (format "\"%s\"" s) (format "{%s}" s))))
+                   (keep-type (member-ignore-case type sp-bibtex-date-keep-day-types))
+                   (keep (and day keep-type))
+                   (wanted (delq nil
+                                 (list (cons "year" (number-to-string year))
+                                       (and month (cons "month" (format sp-bibtex-date-month-format month)))
+                                       (and keep (cons "day" (number-to-string day))))))
+                   (added (seq-remove (lambda (w) (sp-bibtex-date--text (car w) fields)) wanted))
+                   new)
+              (dolist (field fields)
+                (let ((name (downcase (car field))))
+                  (cond
+                   ((equal name "date")
+                    (dolist (a added) (push (cons (car a) (funcall wrap (cdr a))) new)))
+                   ((and (member name '("year" "month" "day"))
+                         (or (null (sp-bibtex-date--text name fields))
+                             (and (equal name "day") (not keep-type)))))
+                   (t (push field new)))))
+              (list (nreverse new)
+                    (list (format "date = %s → %s%s" (cdr date)
+                                  (if added
+                                      (mapconcat (lambda (a) (format "%s = %s" (car a) (funcall wrap (cdr a))))
+                                                 added ", ")
+                                    "the year and month are already there")
+                                  (cond
+                                   ((and day keep) "")
+                                   (day (format " (day %d dropped)" day))
+                                   (t ""))))
+                    nil))))))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-date (file)
+  "Split the date fields of the .bib FILE into year and month.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  A report shows
+every change and every date that is left as it is (a range, an unreadable
+date, a year or month that differs); `A' writes all entries after one question
+and a backup.  The day is dropped except for the types of
+`sp-bibtex-date-keep-day-types'.  See `sp-bibtex-date--plan'."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--fix-report file '(date date-skipped) "Date fields to year and month"
+                              (lambda () (sp-bibtex-lint--fix file 'date))))
+
 (defconst sp-bibtex-lint--buffer "*BibTeX lint*")
 (defconst sp-bibtex-lint--batch-buffer "*BibTeX lint batch*")
 
@@ -1735,7 +1878,8 @@ says what it would add."
     (notes . "names near an author note") (surnames . "names with the surname of an author note")
     (ambiguous . "names that fit several author notes")
     (files . "attachment paths") (keys . "long citation keys")
-    (crossref . "fields from the crossref parent"))
+    (crossref . "fields from the crossref parent")
+    (date . "date fields to year and month") (date-skipped . "date fields left as they are"))
   "The kinds of fix, with what the batch pages call them.")
 
 (defun sp-bibtex-lint--files ()
@@ -1844,6 +1988,7 @@ Each position is the start of a line."
       ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       ("files" (sp-bibtex-lint-fix-files file))
       ("crossref" (sp-bibtex-lint-fix-crossref file))
+      ("date" (sp-bibtex-lint-fix-date file))
       ("keys" (sp-bibtex-lint-fix-keys file))
       (other (user-error "Unknown lint button: %s" other)))))
 
@@ -1978,6 +2123,8 @@ back; the dropped ones are listed at the end."
                                                  (sp-bibtex-lint--count results 'files)))
       (format "  - %s\n" (sp-bibtex-lint--button "crossref" file "fields from the crossref parent"
                                                  (sp-bibtex-lint--count results 'crossref)))
+      (format "  - %s\n" (sp-bibtex-lint--button "date" file "date fields to year and month"
+                                                 (sp-bibtex-lint--count results 'date)))
       (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
                                                  (sp-bibtex-lint--count results 'keys)))
       (format "  - %s\n" (sp-bibtex-lint--button
@@ -1994,6 +2141,8 @@ back; the dropped ones are listed at the end."
                  main "")
       (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
       (sp-bibtex-lint--section "Fields from the crossref parent" 'crossref shown pairs file)
+      (sp-bibtex-lint--section "Date fields to year and month" 'date shown pairs file)
+      (sp-bibtex-lint--section "Date fields left as they are" 'date-skipped shown pairs file)
       (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
@@ -2069,7 +2218,7 @@ author note or of several), the order of the fields (`sp-bibtex-field-order'), t
 button for each fix.  Key=value names (family=, given=, prefix=) and misplaced
 prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref)
+  (sp-bibtex-lint--job "BibTeX lint" (list file) '(order indent authors prefixes notes surnames ambiguous files keys crossref date date-skipped)
                        (lambda (results) (sp-bibtex-lint--render file results))))
 
 ;;;; Batches
@@ -2742,13 +2891,13 @@ Notes for authors are never made."
 (defun sp-bibtex-lint-convert (file)
   "Ask which fix to run on the .bib FILE.
 The fixes are field order, indentation, name prefixes, author names, attachment paths,
-fields from the crossref parent and long citation keys.
+fields from the crossref parent, date fields and long citation keys.
 See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
 `sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files',
-`sp-bibtex-lint-fix-crossref' and `sp-bibtex-lint-fix-keys'."
+`sp-bibtex-lint-fix-crossref', `sp-bibtex-lint-fix-date' and `sp-bibtex-lint-fix-keys'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "merge author names" "attachment paths"
-                                         "fields from the crossref parent" "long citation keys")
+                                         "fields from the crossref parent" "date fields to year and month" "long citation keys")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
@@ -2757,6 +2906,7 @@ See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
     ("merge author names" (sp-bibtex-lint-fix-merge file))
     ("attachment paths" (sp-bibtex-lint-fix-files file))
     ("fields from the crossref parent" (sp-bibtex-lint-fix-crossref file))
+    ("date fields to year and month" (sp-bibtex-lint-fix-date file))
     ("long citation keys" (sp-bibtex-lint-fix-keys file))))
 
 ;;;; Long citation keys, the fix

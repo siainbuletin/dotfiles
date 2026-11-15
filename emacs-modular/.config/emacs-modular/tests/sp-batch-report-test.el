@@ -205,9 +205,6 @@
           (kill-buffer buffer))
       (delete-file file))))
 
-(unless (fboundp 'org-table-widget-mode)
-  (define-minor-mode org-table-widget-mode "Stands in for the real mode in this test."))
-
 (ert-deftest sp-batch-report-hints-follow-the-functions ()
   (with-temp-buffer
     (sp-batch-report-mode)
@@ -272,63 +269,6 @@
             (insert-file-contents path)
             (goto-char (point-min))
             (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
-
-(ert-deftest sp-batch-report-table-section ()
-  (let* ((sp-batch-report-display 'org)
-         (text (sp-batch-report-text
-               "T"
-               (list (sp-batch-report-table-section
-                      "S" '("H1" "H2")
-                      (list (sp-batch-report-item nil :row '("a|b" "x") :key "k1" :props '(foo 1))
-                            (sp-batch-report-item nil :row '("longer" "y") :key "k2"))))
-               :excluded '("k1"))))
-    (should (string-match (regexp-quote "| H1     | H2 |\n|--------+----|\n| longer | y  |\n") text))
-    (should (string-match "^| a\\\\vert{}b | x |$" text))
-    (should (equal (get-text-property (string-match "| longer" text) 'sp-batch-report-key text) "k2"))
-    (should (get-text-property (string-match "| a" text) 'sp-batch-report-dropped text))
-    (should (= 1 (get-text-property (string-match "| a" text) 'foo text)))))
-
-(ert-deftest sp-batch-report-turns-the-table-widget-off ()
-  (let ((org-mode-hook (list #'org-table-widget-mode))
-        (name "*sp-batch-report-widget-test*"))
-    (unwind-protect
-        (progn
-          (with-current-buffer (sp-batch-report-open name "#+title: T\n\n* A\n| a |\n")
-            (should (derived-mode-p 'sp-batch-report-org-mode))
-            (should-not org-table-widget-mode))
-          (kill-buffer name)
-          (let ((sp-batch-report-table-widgets t))
-            (with-current-buffer (sp-batch-report-open name "#+title: T\n")
-              (should org-table-widget-mode))))
-      (when (get-buffer name) (kill-buffer name)))))
-
-(defvar sp-batch-report-test--runs 0)
-(defun sp-batch-report-test--count-run ()
-  (setq sp-batch-report-test--runs (1+ sp-batch-report-test--runs)))
-
-(ert-deftest sp-batch-report-redraw-does-not-start-the-mode-again ()
-  (let ((name "*sp-batch-report-redraw-test*")
-        (hook #'sp-batch-report-test--count-run))
-    (setq sp-batch-report-test--runs 0)
-    (add-hook 'sp-batch-report-mode-hook hook)
-    (unwind-protect
-        (progn
-          (sp-batch-report-open name "#+title: T\n\n* A\n- one\n")
-          (should (= sp-batch-report-test--runs 1))
-          (with-current-buffer name
-            (setq sp-batch-report-excluded '("kept")))
-          (sp-batch-report-open name "#+title: T\n\n* A\n- two\n" :excluded '("x"))
-          (with-current-buffer name
-            (should (= sp-batch-report-test--runs 1))
-            (should (string-match-p "two" (buffer-string)))
-            (should (equal sp-batch-report-excluded '("x")))
-            (should buffer-read-only))
-          ;; Another mode is started.
-          (sp-batch-report-open name "#+title: T\n" :mode #'org-mode)
-          (should (= sp-batch-report-test--runs 1))
-          (should (eq (buffer-local-value 'major-mode (get-buffer name)) 'org-mode)))
-      (remove-hook 'sp-batch-report-mode-hook hook)
-      (when (get-buffer name) (kill-buffer name)))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

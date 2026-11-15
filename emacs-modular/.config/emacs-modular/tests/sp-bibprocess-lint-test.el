@@ -284,7 +284,7 @@ each question that was asked."
           (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
             (dolist (command '(sp-bibtex-lint-fix-order sp-bibtex-lint-fix-indent
                                sp-bibtex-lint-fix-prefixes sp-bibtex-lint-fix-authors
-                               sp-bibtex-lint-fix-files sp-bibtex-lint-fix-crossref
+                               sp-bibtex-lint-fix-files sp-bibtex-lint-fix-crossref sp-bibtex-lint-fix-date
                                sp-bibtex-lint-fix-keys))
               (funcall command file)
               (with-current-buffer sp-bibtex-lint--buffer
@@ -1284,3 +1284,139 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (should (string-match-p "- Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
       (kill-buffer sp-bibtex-lint--buffer)
       (should (equal before (sp-bibprocess-lint-test--text file))))))
+
+;;;; Date fields to year and month
+
+(defconst sp-bibprocess-lint-test--date-bib
+  (concat "@article{y,\n  title = {Year only},\n  date = {2021}}\n\n"
+          "@article{ym,\n  title = {Year and month},\n  date = {2021-05}}\n\n"
+          "@book{ymd,\n  title = {Full},\n  date = {2021-05-14}}\n\n"
+          "@misc{web,\n  title = {A page},\n  date = {2021-05-14}}\n\n"
+          "@article{range,\n  title = {Range},\n  date = {2020/2021}}\n\n"
+          "@article{words,\n  title = {Words},\n  date = {May 14, 2021}}\n\n"
+          "@article{bad,\n  title = {Impossible},\n  date = {2021-02-30}}\n\n"
+          "@article{clash,\n  title = {Year clash},\n  year = {2019},\n  date = {2021-05-14}}\n\n"
+          "@article{mclash,\n  title = {Month clash},\n  month = {jun},\n  date = {2021-05}}\n\n"
+          "@article{same,\n  title = {Same values},\n  year = {2021},\n  month = {May},\n  date = {2021-05-14}}\n\n"
+          "@article{nodate,\n  title = {Plain},\n  year = {2000}}\n\n"
+          "@book{extra,\n  title = {Extra},\n  day = {3},\n  date = {2021-05-14}}\n"))
+
+(defun sp-bibprocess-lint-test--date-results ()
+  "The lint results of the date kinds for the current file, as an alist from key to the result."
+  (let (results)
+    (sp-bibtex-lint--job "t" (list (car sp-bibtex-files)) '(date date-skipped)
+                         (lambda (r) (setq results r)))
+    results))
+
+(defun sp-bibprocess-lint-test--date-new (results key)
+  "The new text of the entry KEY in RESULTS, with the layout squeezed, or nil."
+  (when-let* ((r (sp-bibprocess-lint-test--result results key))
+              (new (plist-get (alist-get 'date (nth 4 r)) :new)))
+    (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+
+(defun sp-bibprocess-lint-test--date-skipped (results key)
+  (when-let* ((r (sp-bibprocess-lint-test--result results key)))
+    (plist-get (alist-get 'date-skipped (nth 4 r)) :desc)))
+
+(ert-deftest sp-bibtex-date-test-year-only ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "y")))
+      (should (string-match-p "year = {2021}" new))
+      (should-not (string-match-p "date\\|month" new)))))
+
+(ert-deftest sp-bibtex-date-test-month-moves-and-day-goes ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (dolist (key '("ym" "ymd"))
+        (let ((new (sp-bibprocess-lint-test--date-new results key)))
+          (should (string-match-p "year = {2021}" new))
+          (should (string-match-p "month = {5}" new))
+          (should-not (string-match-p "date\\|day" new)))))))
+
+(ert-deftest sp-bibtex-date-test-misc-keeps-the-day ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "web")))
+      (should (string-match-p "year = {2021}" new))
+      (should (string-match-p "month = {5}" new))
+      (should (string-match-p "day = {14}" new))
+      (should-not (string-match-p "date" new)))
+    (let* ((sp-bibtex-date-keep-day-types nil)
+           (new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "web")))
+      (should-not (string-match-p "day" new)))))
+
+(ert-deftest sp-bibtex-date-test-month-format ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((sp-bibtex-date-month-format "%02d"))
+      (should (string-match-p "month = {05}"
+                              (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "ym"))))))
+
+(ert-deftest sp-bibtex-date-test-unreadable-dates-are-reported ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (dolist (key '("range" "words" "bad"))
+        (should-not (sp-bibprocess-lint-test--date-new results key))
+        (should (= 1 (length (sp-bibprocess-lint-test--date-skipped results key)))))
+      (should (string-match-p "range" (car (sp-bibprocess-lint-test--date-skipped results "range"))))
+      (should (string-match-p "not YYYY" (car (sp-bibprocess-lint-test--date-skipped results "words"))))
+      (should (string-match-p "no day 30" (car (sp-bibprocess-lint-test--date-skipped results "bad")))))))
+
+(ert-deftest sp-bibtex-date-test-conflicts-are-reported-not-overwritten ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (should-not (sp-bibprocess-lint-test--date-new results "clash"))
+      (should (string-match-p "year = 2019 differs" (car (sp-bibprocess-lint-test--date-skipped results "clash"))))
+      (should-not (sp-bibprocess-lint-test--date-new results "mclash"))
+      (should (string-match-p "month = jun differs" (car (sp-bibprocess-lint-test--date-skipped results "mclash")))))))
+
+(ert-deftest sp-bibtex-date-test-same-values-only-drop-the-date ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "same")))
+      (should (string-match-p "year = {2021}" new))
+      (should (string-match-p "month = {May}" new))
+      (should-not (string-match-p "date" new))
+      (should (= 1 (with-temp-buffer (insert new) (goto-char (point-min))
+                                     (let ((n 0)) (while (re-search-forward "year =" nil t) (cl-incf n)) n)))))))
+
+(ert-deftest sp-bibtex-date-test-day-field-goes-with-the-date ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "extra")))
+      (should (string-match-p "month = {5}" new))
+      (should-not (string-match-p "day" new)))))
+
+(ert-deftest sp-bibtex-date-test-entries-without-date-are-untouched ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (should-not (sp-bibprocess-lint-test--result (sp-bibprocess-lint-test--date-results) "nodate"))))
+
+(ert-deftest sp-bibtex-date-test-fix-writes-once-and-is-idempotent ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      ;; y, ym, ymd, web, same and extra are rewritten; the others are reported only.
+      (should (equal '(6) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
+      (let ((after (sp-bibprocess-lint-test--text file)))
+        (should-not (equal before after))
+        (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
+        ;; The entries that are left as they are stay byte for byte.
+        (dolist (text '("@article{range,\n  title = {Range},\n  date = {2020/2021}}"
+                        "@article{words,\n  title = {Words},\n  date = {May 14, 2021}}"
+                        "@article{clash,\n  title = {Year clash},\n  year = {2019},\n  date = {2021-05-14}}"))
+          (should (string-search text after)))
+        (let ((results (sp-bibprocess-lint-test--date-results)))
+          (should-not (seq-some (lambda (r) (alist-get 'date (nth 4 r))) results)))
+        (should (equal after (sp-bibprocess-lint-test--text file)))))))
+
+(ert-deftest sp-bibtex-date-test-declined-writes-nothing ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (sp-bibprocess-lint-test--convert file '(?n) #'sp-bibtex-lint-fix-date)
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-date-test-report-lists-skipped-dates ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-fix-date file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (should (string-match-p "date fields to year and month" (buffer-string)))
+      (should (string-match-p "date fields left as they are" (buffer-string)))
+      (should (string-match-p "2020/2021 is a range" (buffer-string))))
+    (kill-buffer sp-bibtex-lint--buffer)))
