@@ -53,7 +53,7 @@ Needs #457 checked out first (this branch includes it).
 
 - [X] =cd ~/dotfiles; git fetch origin 459-echo-help-linting-uis; git checkout 459-echo-help-linting-uis=, restart Emacs (or =M-x sp-reload-modules=)
 - [X] =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -L libraries/modules/base -L libraries/modules/academic -L libraries/modules/ui -L libraries/modules/vulpea -l tests/sp-batch-report-test.el -f ert-run-tests-batch-and-exit= → 18 pass (more =-L= if Emacs asks)
-- [ ] =M-x sp-litnotes-titles-dryrun=: no keys in the header line; the echo area shows the grid of hints with =Apply= and =Quit= bold (untested by Claude)
+- [X] =M-x sp-litnotes-titles-dryrun=: no keys in the header line; the echo area shows the grid of hints with =Apply= and =Quit= bold (untested by Claude)
 - [ ] In that report press =d= on an entry: the "dropped" message is not overwritten; the hints return after the next command
 - [ ] A report with no apply function (for example a preview-only one): no =Apply= hint
 - [ ] =M-x sp-org-lint-footnotes-dryrun=: while scanning the header shows progress and the echo area only =[q] Quit=; when done the full hints appear (untested by Claude)

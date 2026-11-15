@@ -2,15 +2,16 @@
 :PROPERTIES:
 :PR_NUMBER: 442
 :URL: https://github.com/siainbuletin/dotfiles/pull/442
-:STATE: open
+:STATE: closed
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/442][https://github.com/siainbuletin/dotfiles/pull/442]]
-- State :: open
+- State :: closed
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 01:24
+- Closed :: 2026-11-14 20:57
 - Branch :: =442-changelog-devonthink-docs= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f84b5d0146b1313f17a45f88f40d7b5f9b06888f][f84b5d0146]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/218866fd02df32a0d272ebd19176511035935e71][218866fd02]]
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Uykw2tGtptiMTUvkEx9AzF][project thread]]/

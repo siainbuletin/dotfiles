@@ -2,15 +2,17 @@
 :PROPERTIES:
 :PR_NUMBER: 474
 :URL: https://github.com/siainbuletin/dotfiles/pull/474
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/474][https://github.com/siainbuletin/dotfiles/pull/474]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-14 13:50
+- Merged :: 2026-11-14 21:30
 - Branch :: =claude/project-thread-1oploz= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c48dc770a6cd0118ed209f207f3a35e549308853][c48dc770a6]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5f4f5ed719b1168058962689d538a7933fe06d72][5f4f5ed719]]
+- Labels :: bugfix, needs-further-testing, check-NOW
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NHHvYc3HmHawMRAQ8ZBRyF][project thread]]/

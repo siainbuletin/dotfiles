@@ -1,0 +1,109 @@
+* PR #490: ✨ Match Zotero attachment paths to zotero-backup PDFs and move them into literature
+:PROPERTIES:
+:PR_NUMBER: 490
+:URL: https://github.com/siainbuletin/dotfiles/pull/490
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/490][https://github.com/siainbuletin/dotfiles/pull/490]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 22:11
+- Merged :: 2026-11-14 23:11
+- Branch :: =490-zotero-paths-to-literature= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/668b1f8bd763a0d4ee1d417c3c539ee9f5b8414b][668b1f8bd7]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2FSQZoNBfQ8ZYkxVh7C8Wx5][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main= (includes #487 and #489). Depends on nothing open.
+- The branch is numbered =490-…= and needs no rename.
+- After merging: run the dry run on one =.bib= file and read it before applying (see "Not applied yet").
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* a function in the BibTeX lint that takes the Zotero paths in =file= fields, matches each PDF to the copy already in =literature/inbox/zotero-backup=, moves it to the top of =literature/=, rewrites the field, and moves the record in DEVONthink too. Modelled on the earlier =bdsk= fix.
+- *New module =sp-bibtex-zotero=* (own doc =docs/tangles/academic/sp-bibtex-zotero.org=, bullet lists; the module is separate because =sp-bibprocess.el= is already about 2,600 lines). Required from =sp-academic=.
+- *Keys* (=C-; L b z=, same verbs as every lint group): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
+- *What the real data looks like* (read-only look at =~/Documents/bibliography= and =~/Documents/literature=):
+  - The "6-digit encoding" is an *8-character Zotero key* (=A-Z0-9=, for example =Z6HVLKNU=). All 3,926 Zotero paths in the 80 =.bib= files use it (=sp-bibtex-zotero-key-regexp= if that ever changes).
+  - 3,879 of those paths have a folder in =zotero-backup=; the folder normally holds the PDF and Zotero cache files (=.zotero-ft-cache= and so on).
+  - Path forms handled: bare =/Users/…/Zotero/storage/KEY/name.pdf=, Zotero's =label:path:mime=, several parts joined with =;=, BibTeX escapes (=\;=), wrapped lines, another user's home (=/Users/clb3/…=).
+- *Matching* (names only, no guessing): =exact=, =normalised= (case, spacing, accents, TeX accents like ={\"i}=, curly quotes and dashes), then two *weak* levels shown for review only (=by-dir=: the only file of that type in the folder; =by-name=: no folder, but exactly one file of that name in the whole backup). Otherwise reported as =no-dir=, =no-file= (Zotero caches only), =ambiguous=, =collision= or =unsafe-name=.
+- *Dry-run numbers from a Python mirror of these rules on the real files* (nothing was written; the Elisp itself has not run on the real library):
+  - 1,824 sure matches, which are 1,426 distinct PDFs (several entries share one file);
+  - 11 weak matches for review; 34 paths with no folder and no file of that name; 50 whose folder has no PDF;
+  - 19 destination names clash between different backup folders (6 identical files, 13 different), so the 13 would be reported as =collision= and not moved; no clash with a file already at the top of =literature/=;
+  - 1,408 =.html= snapshots and 75 =.epub= and other files are left alone (=sp-bibtex-zotero-extensions=, default =("pdf")=).
+- *Safety*:
+  - dry run changes nothing; the plan is an Org table report built with =sp-batch-report-table-section= (rows link to the entry; =d= drops a row from the plan, =u= brings it back, =g= refreshes, =A= or =C-c C-c= applies);
+  - only adds or modifies: no file or record is deleted; a file is never moved over another; a clash is reported, or, for an identical file already at the top, only the field is rewritten (the backup copy stays);
+  - apply copies the =.bib= file first (same backup folder as the other lint fixes) and writes a manifest (=zotero-manifest.eld=) *before* moving, so a cut-short run can still be restored; if the move fails half way, the files that did move are still rewritten and the error is shown;
+  - =restore= moves the files back and puts the earlier =.bib= text back; it refuses if the =.bib= file changed after the run, and keeps the current text as =before-restore.bib=;
+  - *DEVONthink*: moves go through =tools/devonthink-move.py= (PR #410) with =--plain-rename=, so records keep UUID, tags and highlights. The dry run asks the tool for its own dry run (records to move, files not in DEVONthink, blocked). Apply and restore *refuse before touching anything* when =sp-bibtex-files-devonthink-tool= is unset or DEVONthink is not running (checked with =pgrep=, so DEVONthink is never launched by accident); =sp-bibtex-zotero-require-devonthink= turns that off.
+- No =CHANGELOG.org= edit (nightly tidy), =when-let*=/=if-let*= only, no =.el= edited by hand (tangled from the docs; =tools/tangle-all.el= gives no drift for the three docs touched).
+
+**** Not applied yet
+:PROPERTIES:
+:CUSTOM_ID: not-applied-yet
+:END:
+- *The real library was not touched.* Please read the dry-run output on your Mac first and approve it before anyone runs =a=.
+- Not run on the Mac: the Elisp against your real =.bib= files, and the AppleScript of =devonthink-move.py= on this plan (it is the existing, merged tool; this PR only calls it). The container has no DEVONthink.
+- Open on the Mac: DEVONthink needs a group for the top-level =literature= folder (the tool stops with =no group for …= otherwise).
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+- New =tests/sp-bibtex-zotero-test.el=, Emacs 29.3 batch: 22 pass. Covers parsing (labels, mime, escapes, wrapped lines, other users), name matching, every match level, plan classes, clashes, an existing file at the top, unsafe names, a dry run that changes nothing, drop, aligned Org tables, apply (moves, rewrites, snapshots and weak/unmatched paths untouched), weak apply, never overwriting, identical-file link, refusing without DEVONthink, partial failure, idempotence (including a move seen only in the manifest), and restore (round trip, refusal after an edit).
+- =tests/sp-keys-test.el=: 5 pass (one new for =C-; L b z=). =sp-batch-report-test=: 22 pass.
+- Not run: the GUI, which-key labels, =sp-bibprocess-lint-test= (it fails to load in the container on =main= as well: =void-variable sp-cache-dir=).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Pull this branch, restart Emacs (or =M-x sp-reload-modules=) (untested by Claude)
+- [ ] =C-; L b z= then =C-h=: which-key shows =l=, =a=, =r=; the label =zotero paths= is under =C-; L b= (untested by Claude)
+- [ ] Open =humanities.bib= and press =C-; L b z l=: the =*Zotero paths*= report opens, nothing is written (=git -C ~/Documents/bibliography status= is clean)
+- [ ] The summary says how many files would move; the DEVONthink line gives records to move, files not in DEVONthink and blocked
+- [ ] Spot-check 5 rows of "To move" against Finder: the Zotero path, the file in =zotero-backup/KEY/=, the new name
+- [ ] Check "Review", "Not matched" and the collisions: nothing there is applied by =A=
+- [ ] =RET= on a row visits the entry in the =.bib=; =d= on a row drops it, =u= brings it back, =g= makes the plan again
+- [ ] Quit DEVONthink, press =A= or =C-; L b z a=: it refuses with "DEVONthink is not running" and nothing changes
+- [ ] Safe trial: copy one =.bib= and 3 PDFs (with their =KEY= folders) to a scratch library, set =sp-literature-dir= to it, run =a= with DEVONthink open
+- [ ] After the trial: the PDFs are at the top of the scratch library, the fields say =name.pdf=, the backup folder has no PDFs left in those =KEY= folders, the =.bib= copy and =zotero-manifest.eld= are in =sp-bibtex-lint-backup-directory=
+- [ ] In DEVONthink the moved records keep their tags and highlights (same UUID, now in the =literature= group)
+- [ ] =C-; L b z r= puts the files and the =.bib= back; run it twice: the second time says there is nothing to restore
+- [ ] Edge: edit the =.bib= after an apply, then =r=: it refuses and tells you where the copy is
+- [ ] Edge: =C-u C-; L b z a= also applies the weak matches (check one in the dry run first)
+- [ ] Only after reading the real dry run: apply on the real library, one =.bib= file at a time
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Restore a run: =C-; L b z r= (moves back through DEVONthink, puts the earlier =.bib= back).
+- By hand: the =.bib= copy and =zotero-manifest.eld= are in =sp-bibtex-lint-backup-directory/<stamp>/=; the manifest lists every move as =(FROM . TO)=.
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .=.
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=; optionally =git -C ~/dotfiles branch -D 490-zotero-paths-to-literature=.
+- Restart Emacs (or =M-x sp-reload-modules=).
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCGfFMGGDntzUxNQTU][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/5a12d1e645f6d3dc62df648784adf8596c0d8e08][5a12d1e645]] ✨ Match Zotero attachment paths to the PDFs in zotero-backup and move them (Claude, 2026-11-14 22:10)
