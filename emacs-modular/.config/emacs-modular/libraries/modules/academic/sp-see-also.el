@@ -916,22 +916,42 @@ the whole-vault index is used."
                   (string< (plist-get a :title) (plist-get b :title))
                 (> na nb)))))))
 
-(defun sp-see-also--citekey (file)
-  "Return the citekey in the `#+reference:' line of FILE, or nil."
+(defun sp-see-also--citekeys (file)
+  "Return the citekeys of FILE, from its `#+reference:' and `ROAM_REFS' lines.
+`@key', `key', `cite:key' and `[cite:@a;@b]' are read; URLs and DOIs are not
+keys.  Nil when the note has none."
   (with-temp-buffer
-    (ignore-errors (insert-file-contents file nil 0 4096))
-    (let ((case-fold-search t))
-      (when (re-search-forward
-             "^#\\+reference:[ \t]*\\(?:cite:\\|@\\)?\\([^ \t\n]+\\)" nil t)
-        (match-string-no-properties 1)))))
+    (ignore-errors (insert-file-contents file nil 0 8192))
+    (let ((case-fold-search t) keys)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^[ \t]*\\(?:#\\+reference:\\|:ROAM_REFS:\\)[ \t]*\\(.*\\)$" nil t)
+        (dolist (token (split-string
+                        (replace-regexp-in-string
+                         "\\[cite[^:]*:\\|\\]" "" (match-string-no-properties 1))
+                        "[ \t;,]+" t))
+          (let ((bare (replace-regexp-in-string
+                       "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" token)))
+            (when (and (not (string-match-p "\\`https?:\\|\\`doi:\\|/" bare))
+                       (string-match-p "\\`[[:alnum:]_:-]+\\'" bare))
+              (push bare keys)))))
+      (delete-dups (nreverse keys)))))
+
+(defun sp-see-also--citekey (file)
+  "Return the first citekey of FILE (see `sp-see-also--citekeys'), or nil."
+  (car (sp-see-also--citekeys file)))
+
+(defun sp-see-also--keys-alternation (citekeys)
+  "Return CITEKEYS (a key or a list of keys) quoted and joined as alternatives."
+  (mapconcat #'regexp-quote (ensure-list citekeys) "\\|"))
 
 (defun sp-see-also--cite-regexp (citekey)
-  "Return the Emacs regexp of a citation of CITEKEY.
+  "Return the Emacs regexp of a citation of CITEKEY (a key or a list of keys).
 It reads `[cite:@key]', `[cite/t:@a;@b]', `[cite:see @key p. 3]', `cite:key' and
 `[[cite:&key]]'; the key must end there, so `key2' is another key.  Group 1 is
 the character after the key (empty at the end of the text)."
-  (format "\\(?:@\\|cite[[:alpha:]/]*:&?\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
-          (regexp-quote citekey)))
+  (format "\\(?:@\\|cite[[:alpha:]/]*:&?\\)\\(?:%s\\)\\([^[:alnum:]_:+-]\\|\\'\\)"
+          (sp-see-also--keys-alternation citekey)))
 
 (defun sp-see-also--cite-files (citekey id)
   "Return the Org files of `sp-see-also-cite-dirs' that cite CITEKEY or link to ID.
@@ -942,9 +962,9 @@ ripgrep is missing or fails, and then `sp-see-also-references' reads the litnote
                               (mapcar #'expand-file-name sp-see-also-cite-dirs))))
     (with-temp-buffer
       (let ((status (apply #'call-process rg nil t nil
-                           "-l" "-i" "--glob" "*.org"
-                           "-e" (format "(@|cite[a-z/]*:&?)%s([^A-Za-z0-9_:+-]|$)"
-                                        (regexp-quote citekey))
+                           "-l" "-i" "-L" "--glob" "*.org"
+                           "-e" (format "(@|cite[a-z/]*:&?)(%s)([^A-Za-z0-9_:+-]|$)"
+                                        (mapconcat #'regexp-quote (ensure-list citekey) "|"))
                            "-e" (format "id:%s" (regexp-quote id))
                            "--" dirs)))
         (if (memq status '(0 1))
@@ -1043,7 +1063,8 @@ A list of plists as `sp-see-also-concept-usage' returns them, most references
 first: :file, :id, :title and :mentions (in file order), where each mention has
 a :where of `prose', `quote', `section', `link', `parent' or `cite'.
 Only the kinds in `sp-see-also-reference-kinds' are returned.  CITEKEY is the
-`#+reference:' citekey of the note, when it has one, whose citations count too.
+citekey of the note, or a list of its keys, when it has any, whose citations count
+too.
 EXCLUDE-FILE is not read, so a note is not listed as referencing itself.  The
 Vulpea database narrows the files to read.  With a CITEKEY, the notes that cite
 it are found with ripgrep in `sp-see-also-cite-dirs', in any kind of note, and
@@ -1412,7 +1433,7 @@ A fold is lost."
 (defun sp-see-also--resolve (target)
   "Return the note that TARGET names, as a plist.
 TARGET is nil (the file of the current buffer), a file name or a note ID.  The
-plist has :file (or nil), :id (or nil), :title, :citekey and :own, which is
+plist has :file (or nil), :id (or nil), :title, :citekey (a list) and :own, which is
 non-nil when :id is the ID of the file itself, so the file's own footnotes are
 about this note."
   (let* ((id-p (and target (not (file-name-absolute-p target))))
@@ -1427,7 +1448,7 @@ about this note."
           :title (or (plist-get data :title)
                      (and file (not id-p) (file-name-base file))
                      (sp-see-also--concept-title id nil))
-          :citekey (and own file (sp-see-also--citekey file)))))
+          :citekey (and own file (sp-see-also--citekeys file)))))
 
 (defun sp-see-also--pick-note ()
   "Pick a note by its title and return it (a Vulpea note), or nil."
@@ -1519,7 +1540,9 @@ A click or RET on a heading or a context visits it."
            (sp-see-also-view--incoming
             (sp-see-also-references id (plist-get note :citekey)
                                     (and (plist-get note :own) file)))
-         (insert "\nThis note has no ID, so nothing can reference it.\n"))))))
+         (insert "\nThis note has no ID, so nothing can reference it.\n"))
+       (when (and file (plist-get note :own) (null (plist-get note :citekey)))
+         (insert "\nNo citekey in #+reference: or ROAM_REFS, so citations of this note were not searched.\n"))))))
 
 ;;;###autoload
 (defun sp-see-also-show-concept (id)

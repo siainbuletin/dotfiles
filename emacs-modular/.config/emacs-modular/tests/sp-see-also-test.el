@@ -723,6 +723,34 @@
       (cl-letf (((symbol-function 'executable-find) (lambda (&rest _) nil)))
         (should-not (sp-see-also-references "lit-id" "smith2020" lit))))))
 
+(ert-deftest sp-see-also-citekeys-are-read-from-roam-refs-too ()
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write
+                root "roam.org"
+                (sp-see-also-test--text
+                 ":PROPERTIES:" ":ID: roam-id"
+                 ":ROAM_REFS: [cite:@one2020;@two2021] https://x.org/a doi:10.1/x"
+                 ":END:" "#+title: Roam note"))))
+      (should (equal (sp-see-also--citekeys lit) '("one2020" "two2021")))
+      (should (equal (sp-see-also--citekey lit) "one2020")))))
+
+(ert-deftest sp-see-also-show-lists-citations-of-a-roam-refs-litnote ()
+  (skip-unless (executable-find "rg"))
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write
+                root "roam.org"
+                (sp-see-also-test--text
+                 ":PROPERTIES:" ":ID: roam-id" ":ROAM_REFS: @two2021" ":END:"
+                 "#+title: Roam note"))))
+      (with-temp-file (expand-file-name "citing.org" root)
+        (insert "#+title: Citing\nSee [cite:@one2020;@two2021].\n"))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-see-also-show lit))
+      (with-current-buffer "*see-also*"
+        (should (string-match-p "Citing" (buffer-string)))
+        (should (string-match-p "\\[cite\\]" (buffer-string))))
+      (kill-buffer "*see-also*"))))
+
 (ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
   (sp-see-also-test--with-vault
     (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
