@@ -229,7 +229,7 @@ Binds `bib', `notes', `library' and `backups'."
                                 results))
             (let ((sp-bibtex-lint--key-table (sp-bibtex--key-table bib))
                   answer)
-              (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) (pop answers)))
+              (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop answers)))
                         ((symbol-function 'read-string) (lambda (&rest _) "smithjones-2023-understanding"))
                         ((symbol-function 'sp-bibtex-lint--show-batch) #'ignore)
                         ((symbol-function 'display-buffer) #'ignore))

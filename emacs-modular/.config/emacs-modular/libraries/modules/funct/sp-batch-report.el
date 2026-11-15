@@ -279,15 +279,65 @@ nil or 0 means no batches: everything at once."
   :type '(choice (const :tag "All at once" nil) integer)
   :group 'sp-batch-report)
 
+;;;; Asking with the help line
+
+(defvar sp-batch-report-ask-moves
+  '(sp-batch-report-next sp-batch-report-previous org-next-link org-previous-link
+    sp-batch-report-toggle-section sp-batch-report-toggle-all
+    scroll-up-command scroll-down-command)
+  "Commands of the report that `sp-batch-report-ask' lets you run while it waits.")
+
+(defun sp-batch-report--window ()
+  "The window that shows a report, or nil."
+  (seq-find (lambda (w) (sp-batch-report-buffer-p (window-buffer w)))
+            (window-list nil 'no-minibuf)))
+
+(defun sp-batch-report--ask-hints (hints choices)
+  "HINTS, with the hint of the keys that move in the report when CHOICES leave them free."
+  (if (or (memq ?n choices) (memq ?p choices))
+      hints
+    (append hints '(("n/p" "Browse the report")))))
+
+(defun sp-batch-report-ask (hints &optional note choices)
+  "Read one key that answers a question about the report, with the help line.
+HINTS is a list of (KEY DESCRIPTION [STRONG]) for `sp-echo-help-format'; it is
+shown in the echo area as the keys of the report are, with the optional NOTE
+line above.  CHOICES is the list of the characters that answer; by default
+the hints whose key is one character.  Return the character.
+The other keys that move in the report (`sp-batch-report-ask-moves': `n', `p',
+`TAB', scrolling) still work while the question waits, so you can look through
+the report before you answer.  A key that answers is therefore never `n' or `p'
+unless CHOICES hold it on purpose.  \\[keyboard-quit] stops the command."
+  (let ((choices (or choices
+                     (delq nil (mapcar (lambda (h) (and (= 1 (length (car h))) (aref (car h) 0)))
+                                       hints)))))
+    (catch 'answer
+      (while t
+        (let ((key (let ((cursor-in-echo-area nil))
+                     (read-key (sp-echo-help-format
+                                (sp-batch-report--ask-hints hints choices) note)))))
+          (cond
+           ((memq key choices) (throw 'answer key))
+           ((eq key ?\C-g) (keyboard-quit))
+           ((and-let* ((window (sp-batch-report--window))
+                       (command (with-current-buffer (window-buffer window)
+                                  (key-binding (vector key))))
+                       ((memq command sp-batch-report-ask-moves)))
+              (with-selected-window window
+                (condition-case nil (call-interactively command) (error (ding))))
+              t))
+           (t (ding))))))))
+
 (defun sp-batch-report--ask-batch (label batch index total left)
   "Ask what to do with BATCH, number INDEX of TOTAL; LEFT entries come after it.
 LABEL names the command.  Return ?a (apply all), ?c (choose each), ?s (skip
 this batch), ?g (global: apply this batch and every later one without asking
 again) or ?q (quit: leave this and the later batches alone)."
-  (read-char-choice
-   (format "%s: batch %d/%d, %d entr%s (%d after it).  [a]pply all, [c]hoose each, [s]kip, [g]lobal (all the rest), [q]uit? "
-           label index total (length batch) (if (= 1 (length batch)) "y" "ies") left)
-   '(?a ?c ?s ?g ?q)))
+  (sp-batch-report-ask
+   '(("a" "Apply all" t) ("c" "Choose each") ("s" "Skip this batch") ("g" "Global (all the rest)")
+     ("q" "Quit"))
+   (format "%s: batch %d/%d, %d entr%s (%d after it)"
+           label index total (length batch) (if (= 1 (length batch)) "y" "ies") left)))
 
 (defun sp-batch-report-run-batches (items fn &rest args)
   "Call FN on each of ITEMS, a batch at a time, asking before every batch.
