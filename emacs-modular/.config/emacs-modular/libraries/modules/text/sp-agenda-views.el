@@ -26,6 +26,7 @@
 (keymap-global-set "C-c o a" #'org-agenda)
 (keymap-global-set "C-c a" #'org-agenda)
 (keymap-global-set "C-c o x" #'sp-agenda-views-inline)
+(keymap-global-set "C-c o X" #'sp-agenda-views-inline-menu)
 
 (with-eval-after-load 'org-agenda
   (keymap-set org-agenda-mode-map "C-c ." #'org-gtd-agenda-transient))
@@ -144,9 +145,12 @@
 
 (defvar sp-writing-projects)
 
-(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX")
+(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX" "SOURCEREFS")
   "Words that mark a problem inside the text of an Org entry.
 - The inline view lists every entry whose text or heading holds one of them.
+- SOURCEREFS marks a reference made in the PDF being read, for which a
+  literature note is being written.  It has its own keyword so CITE stays
+  for references in one's own text.
 - Words are matched whole, so \"TK\" does not hit \"Atkins\".
 - Org's search view decides whether the match ignores case."
   :type '(repeat string)
@@ -162,9 +166,22 @@ Drafts live there, and their headings are not always agenda entries."
   :type '(repeat directory)
   :group 'spcustom)
 
+(defvar sp-agenda-views-inline-filter nil
+  "The one keyword the inline view is narrowed to, or nil for all of them.
+Set it with `sp-agenda-views-inline-filter-set', clear it with
+`sp-agenda-views-inline-filter-clear'.")
+
+(defun sp-agenda-views-inline--words ()
+  "Return the words the inline view searches for now."
+  (if (member sp-agenda-views-inline-filter sp-agenda-views-inline-keywords)
+      (list sp-agenda-views-inline-filter)
+    sp-agenda-views-inline-keywords))
+
 (defun sp-agenda-views-inline-regexp ()
-  "Return the search-view term matching `sp-agenda-views-inline-keywords'."
-  (concat "{\\_<" (regexp-opt sp-agenda-views-inline-keywords) "\\_>}"))
+  "Return the search-view term matching the words of the inline view.
+These are `sp-agenda-views-inline-keywords', or only
+`sp-agenda-views-inline-filter' when it is set."
+  (concat "{\\_<" (regexp-opt (sp-agenda-views-inline--words)) "\\_>}"))
 
 (defun sp-agenda-views-inline-files ()
   "Return the agenda files plus the Org files of the extra folders."
@@ -184,7 +201,10 @@ Drafts live there, and their headings are not always agenda entries."
     ((org-agenda-files (sp-agenda-views-inline-files))
      (vulpea-para-agenda-inhibit-files-update t)
      (org-agenda-prefix-format '((search . " %(sp-agenda-views-file-title) ")))
-     (org-agenda-overriding-header "Inline keywords to fix")
+     (org-agenda-overriding-header
+      (if sp-agenda-views-inline-filter
+          (format "Inline keyword to fix: %s" sp-agenda-views-inline-filter)
+        "Inline keywords to fix"))
      (org-agenda-buffer-name "*Inline keywords*"))))
 
 (defun sp-agenda-views-inline ()
@@ -198,6 +218,37 @@ Drafts live there, and their headings are not always agenda entries."
         (append (seq-remove (lambda (cmd) (equal (car cmd) "x"))
                             org-agenda-custom-commands)
                 (list (sp-agenda-views--inline-entry)))))
+
+(defun sp-agenda-views-inline-filter-set (keyword)
+  "Narrow the inline view to KEYWORD and open it.
+Completion offers `sp-agenda-views-inline-keywords'."
+  (interactive
+   (list (completing-read "Inline keyword: " sp-agenda-views-inline-keywords
+                          nil t nil nil sp-agenda-views-inline-filter)))
+  (unless (member keyword sp-agenda-views-inline-keywords)
+    (user-error "\"%s\" is not in `sp-agenda-views-inline-keywords'" keyword))
+  (setq sp-agenda-views-inline-filter keyword)
+  (sp-agenda-views--inline-install)
+  (sp-agenda-views-inline))
+
+(defun sp-agenda-views-inline-filter-clear ()
+  "Show every inline keyword again and open the view."
+  (interactive)
+  (setq sp-agenda-views-inline-filter nil)
+  (sp-agenda-views--inline-install)
+  (sp-agenda-views-inline))
+
+(require 'transient)
+
+(transient-define-prefix sp-agenda-views-inline-menu ()
+  "Inline keyword view and its filter."
+  [:description
+   (lambda ()
+     (format "Inline keywords (filter: %s)"
+             (or sp-agenda-views-inline-filter "none")))
+   ("x" "Open the view" sp-agenda-views-inline)
+   ("f" "Filter to one keyword" sp-agenda-views-inline-filter-set)
+   ("c" "Clear the filter" sp-agenda-views-inline-filter-clear)])
 
 ;;;; Config files
 

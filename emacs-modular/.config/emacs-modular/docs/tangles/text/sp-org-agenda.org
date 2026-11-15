@@ -589,6 +589,7 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 | =C-c o a i i=, =C-c o a i b= | The issue board, issues with a branch      | here, in the views         |
 | =C-c o a c=               | The open TODOs of the config files            | here, in the views         |
 | =C-c o x=, =C-c o a x=    | Entries with an inline keyword (=FIXME=, ...) | here, in the views         |
+| =C-c o X=                 | Menu: open, filter to one keyword, clear      | here, in the views         |
 | =C-c d e n p s=           | org-gtd engage, next, process inbox, stuck    | =sp-org-taskman-extra=     |
 
 #+begin_src emacs-lisp -i
@@ -596,6 +597,7 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 (keymap-global-set "C-c o a" #'org-agenda)
 (keymap-global-set "C-c a" #'org-agenda)
 (keymap-global-set "C-c o x" #'sp-agenda-views-inline)
+(keymap-global-set "C-c o X" #'sp-agenda-views-inline-menu)
 
 (with-eval-after-load 'org-agenda
   (keymap-set org-agenda-mode-map "C-c ." #'org-gtd-agenda-transient))
@@ -757,7 +759,16 @@ The =i= prefix lists the open issues of the issue tracker.
 =x= lists the entries whose heading or text holds a word that marks a problem to fix, such as =FIXME= in a draft.
 
 - It is Org's search view with a regexp, so each hit is an agenda line that jumps to the place on =RET=.
-- =sp-agenda-views-inline-keywords= holds the words: =FIXME=, =CITE=, =TK=, =XXX=. They match as whole words.
+- =sp-agenda-views-inline-keywords= holds the words: =FIXME=, =CITE=, =TK=, =XXX=, =SOURCEREFS=. They match as whole words.
+- =SOURCEREFS= marks a reference made in the PDF being read, for which a literature note is being written.
+  - It is separate from =CITE=, which stays for references in one's own text.
+  - Litnotes live in =~/notes/litnotes=; =#+reference:= holds the citekey.
+- =sp-agenda-views-inline-filter= holds the one keyword the view is narrowed to; =nil= (the default) means all of them.
+- =sp-agenda-views-inline-filter-set= asks for a keyword with completion over =sp-agenda-views-inline-keywords=, narrows the view and opens it.
+- =sp-agenda-views-inline-filter-clear= shows every keyword again.
+- =sp-agenda-views-inline-menu= is a transient with =x= (open), =f= (filter) and =c= (clear); it is bound to =C-c o X=.
+- The header of the view names the keyword it is narrowed to.
+- The filter is not saved between sessions.
 - Changing the option installs the view again, with the new words.
 - =sp-agenda-views-inline-extra-dirs= lists folders scanned besides the agenda files. The default is =sp-writing-projects=, because draft headings are not always agenda entries.
 - Hidden folders of those folders are skipped.
@@ -771,9 +782,12 @@ The =i= prefix lists the open issues of the issue tracker.
 
 (defvar sp-writing-projects)
 
-(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX")
+(defcustom sp-agenda-views-inline-keywords '("FIXME" "CITE" "TK" "XXX" "SOURCEREFS")
   "Words that mark a problem inside the text of an Org entry.
 - The inline view lists every entry whose text or heading holds one of them.
+- SOURCEREFS marks a reference made in the PDF being read, for which a
+  literature note is being written.  It has its own keyword so CITE stays
+  for references in one's own text.
 - Words are matched whole, so \"TK\" does not hit \"Atkins\".
 - Org's search view decides whether the match ignores case."
   :type '(repeat string)
@@ -789,9 +803,22 @@ Drafts live there, and their headings are not always agenda entries."
   :type '(repeat directory)
   :group 'spcustom)
 
+(defvar sp-agenda-views-inline-filter nil
+  "The one keyword the inline view is narrowed to, or nil for all of them.
+Set it with `sp-agenda-views-inline-filter-set', clear it with
+`sp-agenda-views-inline-filter-clear'.")
+
+(defun sp-agenda-views-inline--words ()
+  "Return the words the inline view searches for now."
+  (if (member sp-agenda-views-inline-filter sp-agenda-views-inline-keywords)
+      (list sp-agenda-views-inline-filter)
+    sp-agenda-views-inline-keywords))
+
 (defun sp-agenda-views-inline-regexp ()
-  "Return the search-view term matching `sp-agenda-views-inline-keywords'."
-  (concat "{\\_<" (regexp-opt sp-agenda-views-inline-keywords) "\\_>}"))
+  "Return the search-view term matching the words of the inline view.
+These are `sp-agenda-views-inline-keywords', or only
+`sp-agenda-views-inline-filter' when it is set."
+  (concat "{\\_<" (regexp-opt (sp-agenda-views-inline--words)) "\\_>}"))
 
 (defun sp-agenda-views-inline-files ()
   "Return the agenda files plus the Org files of the extra folders."
@@ -811,7 +838,10 @@ Drafts live there, and their headings are not always agenda entries."
     ((org-agenda-files (sp-agenda-views-inline-files))
      (vulpea-para-agenda-inhibit-files-update t)
      (org-agenda-prefix-format '((search . " %(sp-agenda-views-file-title) ")))
-     (org-agenda-overriding-header "Inline keywords to fix")
+     (org-agenda-overriding-header
+      (if sp-agenda-views-inline-filter
+          (format "Inline keyword to fix: %s" sp-agenda-views-inline-filter)
+        "Inline keywords to fix"))
      (org-agenda-buffer-name "*Inline keywords*"))))
 
 (defun sp-agenda-views-inline ()
@@ -825,6 +855,37 @@ Drafts live there, and their headings are not always agenda entries."
         (append (seq-remove (lambda (cmd) (equal (car cmd) "x"))
                             org-agenda-custom-commands)
                 (list (sp-agenda-views--inline-entry)))))
+
+(defun sp-agenda-views-inline-filter-set (keyword)
+  "Narrow the inline view to KEYWORD and open it.
+Completion offers `sp-agenda-views-inline-keywords'."
+  (interactive
+   (list (completing-read "Inline keyword: " sp-agenda-views-inline-keywords
+                          nil t nil nil sp-agenda-views-inline-filter)))
+  (unless (member keyword sp-agenda-views-inline-keywords)
+    (user-error "\"%s\" is not in `sp-agenda-views-inline-keywords'" keyword))
+  (setq sp-agenda-views-inline-filter keyword)
+  (sp-agenda-views--inline-install)
+  (sp-agenda-views-inline))
+
+(defun sp-agenda-views-inline-filter-clear ()
+  "Show every inline keyword again and open the view."
+  (interactive)
+  (setq sp-agenda-views-inline-filter nil)
+  (sp-agenda-views--inline-install)
+  (sp-agenda-views-inline))
+
+(require 'transient)
+
+(transient-define-prefix sp-agenda-views-inline-menu ()
+  "Inline keyword view and its filter."
+  [:description
+   (lambda ()
+     (format "Inline keywords (filter: %s)"
+             (or sp-agenda-views-inline-filter "none")))
+   ("x" "Open the view" sp-agenda-views-inline)
+   ("f" "Filter to one keyword" sp-agenda-views-inline-filter-set)
+   ("c" "Clear the filter" sp-agenda-views-inline-filter-clear)])
 #+end_src
 
 ** Config file views
@@ -996,6 +1057,10 @@ Provides the =sp-agenda-views= feature and closes the file.
 
 What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
+- [[https://github.com/siainbuletin/dotfiles/pull/523][#523]]
+  - ✨ The inline keyword view can be narrowed to one keyword (=sp-agenda-views-inline-filter-set=, =-clear=, menu on =C-c o X=), see "Inline keyword view".
+  - ✨ New inline keyword =SOURCEREFS= for references made in the PDF being read.
+  - Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/395][#395]]
   - ✨ View =x= and =C-c o x= list entries with an inline keyword (=sp-agenda-views-inline-keywords=), see "Inline keyword view".
   - Not run in Emacs (none in the container).
