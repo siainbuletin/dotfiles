@@ -2850,6 +2850,20 @@ out, for the report), sorted by target."
      buckets)
     (sort groups (lambda (a b) (string< (plist-get a :target) (plist-get b :target))))))
 
+(defun sp-bibtex-merge--text (groups)
+  "The Org text that lists GROUPS of variants, with the proposed name of each.
+The `** NAME' headings are what `sp-bibtex-merge--show-group' searches for."
+  (mapconcat
+   (lambda (g)
+     (concat (format "** %s\n" (plist-get g :target))
+             (mapconcat (lambda (f) (format "- %s (%d)%s\n" (car f) (cdr f)
+                                            (if (equal (car f) (plist-get g :target)) " ← proposed" "")))
+                        (plist-get g :forms) "")
+             (and (plist-get g :ambiguous)
+                  (format "- not merged, it fits several names: %s\n"
+                          (string-join (plist-get g :ambiguous) "; ")))))
+   groups ""))
+
 (defun sp-bibtex-merge--section (file)
   "The report section for the variants of one author in FILE, or nil when there are none."
   (when-let* ((groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file)
