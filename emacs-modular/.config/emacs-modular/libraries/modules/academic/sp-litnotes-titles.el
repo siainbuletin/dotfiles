@@ -520,86 +520,128 @@ Return the job."
       (cl-incf (gethash (plist-get plan :title-status) counts 0))
       (when-let* ((s (plist-get plan :name-status)))
         (cl-incf (gethash s counts 0))))
-    (with-temp-buffer
-      (insert (format "#+title: Litnote titles: dry run\n\nFolder: =%s=\nNotes: %d\nRenaming files: %s\n\n"
-                      sp-litnotes-titles-directory (length plans)
-                      (if sp-litnotes-titles-rename-files "yes" "no")))
-      (insert "* Counts\n")
-      (dolist (item '((change . "title would change") (same . "title already right")
-                      (rename . "file would be renamed") (same-name . "file name already the citekey")))
-        (insert (format "- %s: %d\n" (cdr item) (gethash (car item) counts 0))))
-      (dolist (item sp-litnotes-titles--reasons)
-        (when (> (gethash (car item) counts 0) 0)
-          (insert (format "- %s: %d\n" (cdr item) (gethash (car item) counts 0)))))
-      (insert (format "- failed items (apply asks you for the values that are missing): %d\n"
-                      (cl-count-if (lambda (p) (memq (plist-get p :title-status)
-                                                     sp-litnotes-titles--promptable))
+    (let* ((note (lambda (text) (sp-batch-report-item text :key nil)))
+           (by-title (make-hash-table :test 'equal))
+           dups
+           (counts-section
+            (sp-batch-report-section
+             "Counts"
+             (append
+              (mapcar (lambda (item)
+                        (funcall note (format "%s: %d" (cdr item) (gethash (car item) counts 0))))
+                      '((change . "title would change") (same . "title already right")
+                        (rename . "file would be renamed")
+                        (same-name . "file name already the citekey")))
+              (delq nil
+                    (mapcar (lambda (item)
+                              (when (> (gethash (car item) counts 0) 0)
+                                (funcall note (format "%s: %d" (cdr item)
+                                                      (gethash (car item) counts 0)))))
+                            sp-litnotes-titles--reasons))
+              (list
+               (funcall note
+                        (format "failed items (apply asks you for the values that are missing): %d"
+                                (cl-count-if (lambda (p) (memq (plist-get p :title-status)
+                                                               sp-litnotes-titles--promptable))
+                                             plans))))
+              (when sp-litnotes-titles--bibtex-mode
+                (list (funcall note
+                               (format "BibTeX (%s): %d notes took a value from their entry; %d citekeys have no entry"
+                                       sp-litnotes-titles--bibtex-mode
+                                       (cl-count-if (lambda (p) (plist-get p :inferred)) plans)
+                                       (cl-count 'no-entry plans :key (lambda (p) (plist-get p :bib)))))))
+              (list (funcall note (format "notes written by apply: %d" (length changing)))))))
+           (change-section
+            (when changing
+              (sp-batch-report-section
+               "Would change"
+               (mapcar
+                (lambda (plan)
+                  (let ((old-name (file-name-nondirectory (plist-get plan :file)))
+                        (renamed (and sp-litnotes-titles-rename-files
+                                      (eq (plist-get plan :name-status) 'rename))))
+                    (sp-batch-report-item
+                     nil :file (plist-get plan :file)
+                     :children
+                     (delq nil
+                           (list
+                            (when (cdr (plist-get plan :keys))
+                              (format "several citekeys: %s (the first names the file)"
+                                      (string-join (plist-get plan :keys) " ")))
+                            (if (eq (plist-get plan :title-status) 'change)
+                                (format "title: %s -> %s" (or (plist-get plan :title) "(none)")
+                                        (plist-get plan :new-title))
+                              "title: unchanged")
+                            (when-let* ((inferred (plist-get plan :inferred)))
+                              (format "from BibTeX: %s"
+                                      (mapconcat (lambda (f) (pcase f (:author "authors")
+                                                               (:editor "editors") (:year "year")
+                                                               (:pub "title")))
+                                                 inferred ", ")))
+                            (if renamed
+                                (format "file: %s -> =%s=" old-name (plist-get plan :new-name))
+                              "file: unchanged")
+                            (when-let* ((files (cdr (assoc old-name links))))
+                              (format "file: links to the old name in: %s"
+                                      (sp-batch-report-file-links files))))))))
+                changing))))
+           (failed-sections
+            (delq nil
+                  (mapcar
+                   (lambda (item)
+                     (let ((group (cl-remove-if-not
+                                   (lambda (p) (or (eq (plist-get p :title-status) (car item))
+                                                   (eq (plist-get p :name-status) (car item))))
                                    plans)))
-      (when sp-litnotes-titles--bibtex-mode
-        (insert (format "- BibTeX (%s): %d notes took a value from their entry; %d citekeys have no entry\n"
-                        sp-litnotes-titles--bibtex-mode
-                        (cl-count-if (lambda (p) (plist-get p :inferred)) plans)
-                        (cl-count 'no-entry plans :key (lambda (p) (plist-get p :bib))))))
-      (insert (format "- notes written by apply: %d\n\n" (length changing)))
-      (when changing
-        (insert (format "* Would change (%d)\n" (length changing)))
-        (dolist (plan changing)
-          (let ((old-name (file-name-nondirectory (plist-get plan :file)))
-                (renamed (and sp-litnotes-titles-rename-files
-                              (eq (plist-get plan :name-status) 'rename))))
-            (insert (format "** %s\n" (sp-batch-report-file-link (plist-get plan :file))))
-            (when (cdr (plist-get plan :keys))
-              (insert (format "- several citekeys: %s (the first names the file)\n"
-                              (string-join (plist-get plan :keys) " "))))
-            (if (eq (plist-get plan :title-status) 'change)
-                (insert (format "- title: %s -> %s\n"
-                                (or (plist-get plan :title) "(none)") (plist-get plan :new-title)))
-              (insert "- title: unchanged\n"))
-            (when-let* ((inferred (plist-get plan :inferred)))
-              (insert (format "- from BibTeX: %s\n"
-                              (mapconcat (lambda (f) (pcase f (:author "authors") (:editor "editors") (:year "year")
-                                                       (:pub "title")))
-                                         inferred ", "))))
-            (if renamed
-                (insert (format "- file: %s -> =%s=\n" old-name (plist-get plan :new-name)))
-              (insert "- file: unchanged\n"))
-            (when-let* ((files (cdr (assoc old-name links))))
-              (insert (format "- file: links to the old name in: %s\n"
-                              (sp-batch-report-file-links files)))))))
-      (dolist (item sp-litnotes-titles--reasons)
-        (let ((group (cl-remove-if-not
-                      (lambda (p) (or (eq (plist-get p :title-status) (car item))
-                                      (eq (plist-get p :name-status) (car item))))
-                      plans)))
-          (when group
-            (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
-            (dolist (plan group)
-              (insert (format "- %s: title %s; pub-author %s; pub-editor %s; pub-title %s%s\n"
-                              (sp-batch-report-file-link (plist-get plan :file))
-                              (or (plist-get plan :title) "(none)")
-                              (or (plist-get plan :author) "(none)")
-                              (or (plist-get plan :editor) "(none)")
-                              (or (plist-get plan :pub) "(none)")
-                              (if (plist-get plan :new-name)
-                                  (format "; would be =%s=" (plist-get plan :new-name))
-                                "")))))))
-      (when-let* ((missing (cl-remove-if-not (lambda (p) (eq (plist-get p :bib) 'no-entry))
-                                             plans)))
-        (insert (format "\n* No BibTeX entry for the citekey (%d)\n" (length missing)))
-        (dolist (plan missing)
-          (insert (format "- %s: %s\n" (sp-batch-report-file-link (plist-get plan :file))
-                          (string-join (plist-get plan :keys) " ")))))
-      (let ((by-title (make-hash-table :test 'equal)) dups)
-        (dolist (plan plans)
-          (when-let* ((title (plist-get plan :new-title)))
-            (push plan (gethash (downcase title) by-title))))
-        (maphash (lambda (_ group) (when (cdr group) (push (reverse group) dups))) by-title)
-        (when dups
-          (insert (format "\n* Notes that would get the same title (%d titles)\n" (length dups)))
-          (dolist (group dups)
-            (insert (format "- %s: %s\n" (plist-get (car group) :new-title)
-                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) group)))))))
-      (buffer-string))))
+                       (when group
+                         (sp-batch-report-section
+                          (format "Failed: %s" (cdr item))
+                          (mapcar
+                           (lambda (plan)
+                             (sp-batch-report-item
+                              (format "title %s; pub-author %s; pub-editor %s; pub-title %s%s"
+                                      (or (plist-get plan :title) "(none)")
+                                      (or (plist-get plan :author) "(none)")
+                                      (or (plist-get plan :editor) "(none)")
+                                      (or (plist-get plan :pub) "(none)")
+                                      (if (plist-get plan :new-name)
+                                          (format "; would be =%s=" (plist-get plan :new-name))
+                                        ""))
+                              :file (plist-get plan :file)))
+                           group)))))
+                   sp-litnotes-titles--reasons)))
+           (missing-section
+            (when-let* ((missing (cl-remove-if-not (lambda (p) (eq (plist-get p :bib) 'no-entry))
+                                                   plans)))
+              (sp-batch-report-section
+               "No BibTeX entry for the citekey"
+               (mapcar (lambda (plan)
+                         (sp-batch-report-item (string-join (plist-get plan :keys) " ")
+                                               :file (plist-get plan :file) :key nil))
+                       missing)))))
+      (dolist (plan plans)
+        (when-let* ((title (plist-get plan :new-title)))
+          (push plan (gethash (downcase title) by-title))))
+      (maphash (lambda (_ group) (when (cdr group) (push (reverse group) dups))) by-title)
+      (sp-batch-report-text
+       "Litnote titles: dry run"
+       (delq nil
+             (append (list counts-section change-section) failed-sections
+                     (list missing-section
+                           (when dups
+                             (sp-batch-report-section
+                              "Notes that would get the same title"
+                              (mapcar (lambda (group)
+                                        (sp-batch-report-item
+                                         (format "%s: %s" (plist-get (car group) :new-title)
+                                                 (sp-batch-report-file-links
+                                                  (mapcar (lambda (p) (plist-get p :file)) group)))
+                                         :key nil))
+                                      dups))))))
+       :intro (format "Folder: =%s=\nNotes: %d\nRenaming files: %s"
+                      sp-litnotes-titles-directory (length plans)
+                      (if sp-litnotes-titles-rename-files "yes" "no"))
+       :excluded sp-litnotes-titles--excluded))))
 
 ;;;; Starting a run
 
@@ -644,8 +686,7 @@ Call CALLBACK with the plans that are left.  Return them."
                  plans (lambda (p) (plist-get p :file)) excluded)))
     (sp-batch-report-open
      "*litnote titles*"
-     (concat (sp-batch-report-key-entries (sp-litnotes-titles--report-text shown links))
-             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     (sp-litnotes-titles--report-text shown links)
      :refresh (unless callback (lambda () (sp-litnotes-titles--show-report)))
      :redraw (lambda (excl)
                (setq sp-litnotes-titles--excluded excl)

@@ -50,10 +50,14 @@ intro line
 
 * Which reports use it
 
-- Every report made with =sp-batch-report-text=: the author works report, Org normalise, the footnote and tag lint, the BibTeX Zotero dry run, and the report of every =sp-bibtex-lint-fix-*= command.
-- Not yet: reports that are still built as Org text (the BibTeX lint report itself, the litnote titles, references and meta reports, notes filing, property preview).
-  - They open in the Org view (=sp-batch-report-org-mode=) and keep working.
-  - They move to sections of items one by one.
+- Every report is made with =sp-batch-report-text= (sections of items), so it has this view:
+  - the BibTeX lint report, with its fix buttons as =:action= items (RET runs the fix) and the merge button;
+  - the report of every =sp-bibtex-lint-fix-*= command;
+  - the litnote titles, references and meta fill-all reports, the bib-parent and pub-title lint, and the meta order report;
+  - notes filing and the property conversion preview;
+  - the author works report, Org normalise, the footnote and tag lint, and the BibTeX Zotero dry run.
+- A line that only informs (a count, a flag) has =:key nil=, so =d= does not drop it.
+- A report built as plain Org text still opens in the Org view (=sp-batch-report-org-mode=) and keeps working.
 - =sp-batch-report-display= set to =org= shows every report in the Org view, to compare the two.
 
 * File header

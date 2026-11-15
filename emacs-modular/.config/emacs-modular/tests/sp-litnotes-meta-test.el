@@ -33,6 +33,11 @@
 }
 ")
 
+(defun sp-litnotes-meta-test--org-report (plans overwrite)
+  "The report of PLANS as Org text (the dashboard draws the same data as sections)."
+  (let ((sp-batch-report-display 'org))
+    (sp-litnotes-meta--batch-report-text plans overwrite)))
+
 (ert-deftest sp-litnotes-meta-entry-fields ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
     (let ((entry (sp-litnotes-meta--entry "reuten2014book")))
@@ -552,7 +557,7 @@
               ((symbol-function 'pop-to-buffer) #'ignore))
       (let* ((plans (sp-litnotes-meta--batch-plans nil))
              (plan (car plans))
-             (text (sp-litnotes-meta--batch-report-text plans nil)))
+             (text (sp-litnotes-meta-test--org-report plans nil)))
         (should (equal (plist-get plan :chain) '("b" "c")))
         (should-not (assoc "bib-parent" (plist-get plan :fill)))
         (should-not (plist-get plan :new-parents))
@@ -606,7 +611,7 @@
     (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
                (lambda () (directory-files dir t "\\.org\\'"))))
       (let* ((plans (sp-litnotes-meta--batch-plans nil))
-             (text (sp-litnotes-meta--batch-report-text plans nil)))
+             (text (sp-litnotes-meta-test--org-report plans nil)))
         (should (equal (plist-get (sp-litnotes-meta-test--plan-of plans "ch1.org") :new-parents) '("bk")))
         (should (equal (sp-litnotes-meta--planned-parents plans) '(("bk" "ch2" "ch1"))))
         (should (string-match-p "Parent notes to make: 1" text))
@@ -826,7 +831,7 @@
       ;; art has pub-title, pub-year and gets pub-author appended
       (should (plist-get art :order))
       (should (string-match-p "order the meta lines"
-                              (sp-litnotes-meta--batch-report-text plans nil)))
+                              (sp-litnotes-meta-test--org-report plans nil)))
       (let ((sp-litnotes-meta-order-meta nil))
         (should-not (plist-get (sp-litnotes-meta-test--plan-of
                                 (sp-litnotes-meta--batch-plans nil) "art.org")
@@ -847,11 +852,11 @@
 
 (ert-deftest sp-litnotes-meta-batch-report-text ()
   (sp-litnotes-meta-test--with-batch
-    (let ((text (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--batch-plans nil) nil)))
+    (let ((text (sp-litnotes-meta-test--org-report (sp-litnotes-meta--batch-plans nil) nil)))
       (should (string-match-p "To change: 2" text))
-      (should (string-match-p "Skipped: no citation key\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]" text))
-      (should (string-match-p "- \\[\\[file:[^]]*noentry\\.org\\]\\[noentry\\.org\\]\\] (missing)" text))
-      (should (string-match-p "\\[art\\.org\\]\\]: has text, the entry type says journalarticle" text)))))
+      (should (string-match-p "Skipped: no citation key[^\n]*\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]" text))
+      (should (string-match-p "- \\[\\[file:[^]]*noentry\\.org\\]\\[noentry\\.org\\]\\]  (missing)" text))
+      (should (string-match-p "\\[art\\.org\\]\\]  has text, the entry type says journalarticle" text)))))
 
 (ert-deftest sp-litnotes-meta-batch-dryrun-writes-nothing ()
   (sp-litnotes-meta-test--with-batch
@@ -1100,7 +1105,7 @@
       (should (equal (plist-get q :unquote) '("“Right Title”" . "Right Title")))
       (should (sp-litnotes-meta--actionable-p q))
       (should (sp-litnotes-meta--unquote-only-p q))
-      (let ((text (sp-litnotes-meta--batch-report-text plans nil)))
+      (let ((text (sp-litnotes-meta-test--org-report plans nil)))
         (should (string-match-p "Quoted pub-title: 1" text))
         (should (string-match-p "\\* Quoted pub-title (the enclosing quotes are removed)\n- \\[\\[file:[^]]*q\\.org\\]\\[q\\.org\\]\\]: “Right Title” -> Right Title" text))
         ;; listed under its own heading, not as a change
@@ -1333,7 +1338,7 @@
       (should (equal (plist-get plan :no-parent) "gone-"))
       (should-not (plist-get plan :order))
       (should-not (sp-litnotes-meta--actionable-p (append '(:status ok) plan)))
-      (should (string-match-p "gone-" (sp-litnotes-meta--batch-report-text
+      (should (string-match-p "gone-" (sp-litnotes-meta-test--org-report
                                        (list (append '(:file "/x/ch.org" :key "ch" :status ok) plan))
                                        nil))))))
 
@@ -1366,9 +1371,27 @@
         (should-not (string-match-p "bib-parent" text)))
       (should-not (buffer-modified-p (find-buffer-visiting (expand-file-name "ch1.org" dir)))))))
 
+(ert-deftest sp-litnotes-meta-batch-report-is-sections-of-items ()
+  "The dashboard gets sections; the notes to change are keyed by file and carry their lines."
+  (let* ((plan (list :file "/x/a.org" :key "a" :status 'ok
+                     :fill '(("pub-year" . "2020")) :replace nil))
+         (sp-litnotes-meta--errors nil)
+         (model (get-text-property 0 'sp-batch-report-model
+                                   (sp-litnotes-meta--batch-report-text (list plan) nil)))
+         (sections (plist-get model :sections))
+         (change (seq-find (lambda (s) (equal "To change" (plist-get s :title))) sections))
+         (item (car (plist-get change :items))))
+    (should (equal "Counts" (plist-get (car sections) :title)))
+    (should (equal "/x/a.org" (plist-get item :file)))
+    (should (equal '("fill pub-year :: 2020") (plist-get item :children)))
+    ;; a count line has no key, so it cannot be dropped
+    (let ((count (car (plist-get (car sections) :items))))
+      (should (plist-member count :key))
+      (should-not (plist-get count :key)))))
+
 (ert-deftest sp-litnotes-meta-convert-lists-failures ()
   (let ((sp-litnotes-meta--errors '("a.org: unsaved")))
-    (should (string-match-p "a\\.org: unsaved" (sp-litnotes-meta--batch-report-text nil nil)))))
+    (should (string-match-p "a\\.org: unsaved" (sp-litnotes-meta-test--org-report nil nil)))))
 
 (ert-deftest sp-litnotes-meta-add-all-tables-covers-parents-without-chapters ()
   (let* ((dir (make-temp-file "sp-meta-addtables" t))

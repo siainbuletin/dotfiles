@@ -2193,68 +2193,112 @@ The .bib files are read once for all of them."
          (parents (sp-litnotes-meta--planned-parents todo))
          (chains (seq-filter (lambda (p) (plist-get p :chain)) ok))
          (orphans (seq-filter (lambda (p) (plist-get p :no-parent)) ok)))
-    (with-temp-buffer
-      (insert (format "Litnote meta fill: %d notes tagged %s%s\n\n"
-                      (length plans) sp-litnotes-meta-batch-tag
-                      (if overwrite ", updating pub-* values that differ from the .bib" "")))
-      (insert (format "- To change: %d\n- Already complete: %d\n- Quoted pub-title: %d\n- No citation key: %d\n- Key not in the .bib files: %d\n- Parent notes to make: %d\n- Crossref chains deeper than two levels: %d\n- Crossref without a note or a BibTeX entry: %d\n- Problems in the last convert: %d\n\n"
-                      (length listed) (- (length ok) (length todo)) (length quoted)
-                      (length no-key) (length no-entry) (length parents) (length chains)
-                      (length orphans) (length sp-litnotes-meta--errors)))
-      (insert "* To change\n")
-      (dolist (plan listed)
-        (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)))
-        (dolist (item (plist-get plan :fill))
-          (insert (format "  - fill %s :: %s%s\n" (car item) (cdr item)
-                          (if (and (equal (car item) "bib-parent")
-                                   (member (cdr item) (plist-get plan :new-parents)))
-                              " (new note)" ""))))
-        (dolist (item (plist-get plan :replace))
-          (insert (format "  - update %s :: %s -> %s\n" (car item)
-                          (or (cdr (assoc (car item) (plist-get plan :old))) "") (cdr item))))
-        (when-let* ((q (plist-get plan :unquote)))
-          (insert (format "  - unquote pub-title :: %s -> %s\n" (car q) (cdr q))))
-        (when (eq (car (plist-get plan :tag)) 'add)
-          (insert (format "  - add the tag %s\n" (cdr (plist-get plan :tag)))))
-        (when (plist-get plan :order)
-          (insert "  - order the meta lines\n")))
-      (insert "\n* Quoted pub-title (the enclosing quotes are removed)\n")
-      (dolist (plan quoted)
-        (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan)
-                        (car (plist-get plan :unquote)) (cdr (plist-get plan :unquote)))))
-      (insert "\n* Parent notes to make (each once, from the crossref)\n")
-      (dolist (parent parents)
-        (insert (format "- %s: %s (linked from %s)\n" (car parent)
-                        (or (when-let* ((entry (sp-litnotes-meta--entry (car parent))))
-                              (sp-litnotes-meta--new-title entry))
-                            "")
-                        (string-join (reverse (cdr parent)) ", "))))
-      (insert "\n* Crossref chains deeper than two levels (flagged: left alone; convert one with M-x sp-litnotes-meta-fill-deep-chain)\n")
-      (dolist (plan chains)
-        (insert (format "- %s: %s -> %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :key)
-                        (string-join (plist-get plan :chain) " -> "))))
-      (insert "\n* Crossref without a note or a BibTeX entry (bib-parent left empty; fix the crossref key in the .bib file)\n")
-      (dolist (plan orphans)
-        (insert (format "- %s: crossref %s\n" (sp-litnotes-meta--file-link plan) (plist-get plan :no-parent))))
-      (insert "\n* Problems in the last convert\n")
-      (dolist (err (reverse sp-litnotes-meta--errors))
-        (insert (format "- %s\n" err)))
-      (insert "\n* Left empty (asked once by the convert command, or filled by hand)\n")
-      (dolist (key sp-litnotes-meta--default-keys)
-        (let ((lacking (seq-filter (lambda (p) (member key (plist-get p :missing))) ok)))
-          (insert (format "- %s: %d notes\n" key (length lacking)))))
-      (insert "\n* Skipped: no citation key\n")
-      (dolist (plan no-key) (insert (format "- %s\n" (sp-litnotes-meta--file-link plan))))
-      (insert "\n* Skipped: key not in the .bib files\n")
-      (dolist (plan no-entry)
-        (insert (format "- %s (%s)\n" (sp-litnotes-meta--file-link plan)
-                        (string-join (plist-get plan :keys) ", "))))
-      (insert "\n* Type tag differs from the BibTeX entry type (not changed)\n")
-      (dolist (plan mismatch)
-        (let ((tag (plist-get plan :tag)))
-          (insert (format "- %s: has %s, the entry type says %s\n" (sp-litnotes-meta--file-link plan)
-                          (string-join (cadr tag) ", ") (cddr tag)))))
-      (buffer-string))))
+    (let ((note (lambda (text) (sp-batch-report-item text :key nil))))
+      (sp-batch-report-text
+       "Litnote meta fill"
+       (list
+        (sp-batch-report-section
+         "Counts"
+         (mapcar (lambda (c) (funcall note (format "%s: %d" (car c) (cdr c))))
+                 (list (cons "To change" (length listed))
+                       (cons "Already complete" (- (length ok) (length todo)))
+                       (cons "Quoted pub-title" (length quoted))
+                       (cons "No citation key" (length no-key))
+                       (cons "Key not in the .bib files" (length no-entry))
+                       (cons "Parent notes to make" (length parents))
+                       (cons "Crossref chains deeper than two levels" (length chains))
+                       (cons "Crossref without a note or a BibTeX entry" (length orphans))
+                       (cons "Problems in the last convert" (length sp-litnotes-meta--errors)))))
+        (sp-batch-report-section
+         "To change"
+         (mapcar
+          (lambda (plan)
+            (sp-batch-report-item
+             (format "(%s)" (plist-get plan :key))
+             :file (plist-get plan :file)
+             :children
+             (append
+              (mapcar (lambda (item)
+                        (format "fill %s :: %s%s" (car item) (cdr item)
+                                (if (and (equal (car item) "bib-parent")
+                                         (member (cdr item) (plist-get plan :new-parents)))
+                                    " (new note)" "")))
+                      (plist-get plan :fill))
+              (mapcar (lambda (item)
+                        (format "update %s :: %s -> %s" (car item)
+                                (or (cdr (assoc (car item) (plist-get plan :old))) "") (cdr item)))
+                      (plist-get plan :replace))
+              (when-let* ((q (plist-get plan :unquote)))
+                (list (format "unquote pub-title :: %s -> %s" (car q) (cdr q))))
+              (when (eq (car (plist-get plan :tag)) 'add)
+                (list (format "add the tag %s" (cdr (plist-get plan :tag)))))
+              (when (plist-get plan :order)
+                (list "order the meta lines")))))
+          listed))
+        (sp-batch-report-section
+         "Quoted pub-title (the enclosing quotes are removed)"
+         (mapcar (lambda (plan)
+                   (sp-batch-report-item
+                    (format "%s -> %s" (car (plist-get plan :unquote)) (cdr (plist-get plan :unquote)))
+                    :file (plist-get plan :file) :key nil))
+                 quoted))
+        (sp-batch-report-section
+         "Parent notes to make (each once, from the crossref)"
+         (mapcar (lambda (parent)
+                   (funcall note
+                            (format "%s: %s (linked from %s)" (car parent)
+                                    (or (when-let* ((entry (sp-litnotes-meta--entry (car parent))))
+                                          (sp-litnotes-meta--new-title entry))
+                                        "")
+                                    (string-join (reverse (cdr parent)) ", "))))
+                 parents))
+        (sp-batch-report-section
+         "Crossref chains deeper than two levels (flagged: left alone; convert one with M-x sp-litnotes-meta-fill-deep-chain)"
+         (mapcar (lambda (plan)
+                   (sp-batch-report-item
+                    (format "%s -> %s" (plist-get plan :key)
+                            (string-join (plist-get plan :chain) " -> "))
+                    :file (plist-get plan :file) :key nil))
+                 chains))
+        (sp-batch-report-section
+         "Crossref without a note or a BibTeX entry (bib-parent left empty; fix the crossref key in the .bib file)"
+         (mapcar (lambda (plan)
+                   (sp-batch-report-item (format "crossref %s" (plist-get plan :no-parent))
+                                         :file (plist-get plan :file) :key nil))
+                 orphans))
+        (sp-batch-report-section
+         "Problems in the last convert"
+         (mapcar (lambda (err) (funcall note (format "%s" err)))
+                 (reverse sp-litnotes-meta--errors)))
+        (sp-batch-report-section
+         "Left empty (asked once by the convert command, or filled by hand)"
+         (mapcar (lambda (key)
+                   (funcall note
+                            (format "%s: %d notes" key
+                                    (length (seq-filter (lambda (p) (member key (plist-get p :missing)))
+                                                        ok)))))
+                 sp-litnotes-meta--default-keys))
+        (sp-batch-report-section
+         "Skipped: no citation key"
+         (mapcar (lambda (plan) (sp-batch-report-item nil :file (plist-get plan :file) :key nil))
+                 no-key))
+        (sp-batch-report-section
+         "Skipped: key not in the .bib files"
+         (mapcar (lambda (plan)
+                   (sp-batch-report-item (format "(%s)" (string-join (plist-get plan :keys) ", "))
+                                         :file (plist-get plan :file) :key nil))
+                 no-entry))
+        (sp-batch-report-section
+         "Type tag differs from the BibTeX entry type (not changed)"
+         (mapcar (lambda (plan)
+                   (let ((tag (plist-get plan :tag)))
+                     (sp-batch-report-item
+                      (format "has %s, the entry type says %s" (string-join (cadr tag) ", ") (cddr tag))
+                      :file (plist-get plan :file) :key nil)))
+                 mismatch)))
+       :intro (format "%d notes tagged %s%s" (length plans) sp-litnotes-meta-batch-tag
+                      (if overwrite ", updating pub-* values that differ from the .bib" ""))
+       :excluded sp-litnotes-meta--excluded))))
 
 (defvar sp-litnotes-meta--excluded nil
   "The notes (files) dropped from the report with `d'; the commands leave them out.")
@@ -2269,9 +2313,7 @@ The .bib files are read once for all of them."
   (let ((excluded sp-litnotes-meta--excluded))
     (sp-batch-report-open
      sp-litnotes-meta--batch-buffer
-     (concat (sp-batch-report-key-entries
-              (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--without-excluded plans) overwrite))
-             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--without-excluded plans) overwrite)
      :refresh (lambda () (sp-litnotes-meta-fill-all-dryrun overwrite sp-litnotes-meta--excluded))
      :redraw (lambda (excl)
                (setq sp-litnotes-meta--excluded excl)

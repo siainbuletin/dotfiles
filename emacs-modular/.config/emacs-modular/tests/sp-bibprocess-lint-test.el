@@ -210,6 +210,15 @@ each question that was asked."
       (cl-letf (((symbol-function 'completing-read) (lambda (_prompt coll &rest _) (car coll))))
         (should (equal file (sp-bibtex-lint--read-file t)))))))
 
+;; The reports are `special-mode' buffers: a link is a label with the property
+;; `sp-batch-report-link', a button an entry with `sp-batch-report-action'.
+(defun sp-bibprocess-lint-test--prop-at (regexp prop)
+  "The text property PROP on the last character of the first match of REGEXP."
+  (save-excursion
+    (goto-char (point-min))
+    (re-search-forward regexp)
+    (get-text-property (1- (match-end 0)) prop)))
+
 (ert-deftest sp-bibtex-lint-test-dryrun-report ()
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
     (let ((before (sp-bibprocess-lint-test--text file)))
@@ -220,8 +229,8 @@ each question that was asked."
         (should (derived-mode-p 'sp-batch-report-mode))
         (should (string-match-p "2 entries with problems" (buffer-string)))
         ;; Each entry links to its own line.
-        (should (string-match-p (format "\\[\\[file:%s::1\\]\\[k1\\]\\]" (regexp-quote file)) (buffer-string)))
-        (should (string-match-p (format "\\[\\[file:%s::6\\]\\[k2\\]\\]" (regexp-quote file)) (buffer-string))))
+        (should (equal (format "file:%s::1" file) (sp-bibprocess-lint-test--prop-at "• k1" 'sp-batch-report-link)))
+        (should (equal (format "file:%s::6" file) (sp-bibprocess-lint-test--prop-at "• k2" 'sp-batch-report-link))))
       (kill-buffer sp-bibtex-lint--buffer))))
 
 (ert-deftest sp-bibtex-lint-test-order-only-touches-order ()
@@ -479,9 +488,9 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (with-current-buffer sp-bibtex-lint--buffer
       (let ((text (buffer-string)))
         ;; The typo is in the main list; the surname match has its own section.
-        (should (string-match "\\* \\[\\[[^]]*\\]\\[b\\]\\]" text))
-        (should (string-match "^\\* Same surname as an author note (1)\n\\*\\* \\[\\[[^]]*\\]\\[a\\]\\]\n- author: Adorno, TW → Adorno, Theodor W. (same surname)" text))
-        (should (< (string-match "\\[b\\]" text) (string-match "Same surname as" text)))
+        (should (string-match "^▼ Entries with problems +2 entries$" text))
+        (should (string-match "^▼ Same surname as an author note +1 entry\n  • a\n      · author: Adorno, TW → Adorno, Theodor W. (same surname)" text))
+        (should (< (string-match "• b" text) (string-match "Same surname as" text)))
         (should-not (string-match-p "did you mean Adorno" text))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
@@ -556,25 +565,24 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (sp-bibtex-lint-dryrun file)
       (with-current-buffer sp-bibtex-lint--buffer
         (goto-char (point-min))
-        (re-search-forward "\\[k1\\]")
-        ;; `d' drops the entry at point; it moves to the dropped section.
+        (re-search-forward "• k1")
+        ;; `d' drops the entry at point, in place: it is struck through and counted.
         (sp-batch-report-drop)
-        (should (equal (list (sp-bibtex-lint--entry-key file "k1")) sp-bibtex-lint--excluded))
+        (should (equal (list (sp-bibtex-lint--entry-key file "k1")) sp-batch-report-excluded))
         (let ((text (buffer-string)))
-          (should (string-match "Dropped from the list (u brings one back) (1)" text))
-          (should (< (string-match "\\[k2\\]" text) (string-match "Dropped from the list" text)))
-          (should (string-match-p "k1 in " (substring text (string-match "Dropped from the list" text))))
-          (should (string-match-p "1 entry with problems" text))
-          ;; The order button still counts both.
+          (should (string-match "^▼ Entries with problems +1 of 2$" text))
+          (should (string-match-p "1 dropped" (sp-batch-report-view--header-line)))
+          ;; The buttons count both until a refresh (g).
           (should (string-match-p "field order (2)" text))
-          (should (string-match-p "author names (1)" text)))
-        ;; `u' on the dropped entry brings it back.
+          (should (string-match-p "author names (2)" text)))
         (goto-char (point-min))
-        (re-search-forward "k1 in ")
+        (re-search-forward "• k1")
+        (should (get-text-property (point) 'sp-batch-report-dropped))
+        ;; `u' on the dropped entry brings it back.
         (sp-batch-report-restore)
-        (should-not sp-bibtex-lint--excluded)
-        (should-not (string-match-p "Dropped from the list" (buffer-string)))
-        (should (string-match-p "2 entries with problems" (buffer-string)))))
+        (should-not sp-batch-report-excluded)
+        (should (string-match-p "^▼ Entries with problems +2 entries$" (buffer-string)))
+        (should-not (get-text-property (point) 'sp-batch-report-dropped))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-restore-command ()
@@ -617,10 +625,13 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
       (sp-bibtex-lint-dryrun file))
     (with-current-buffer sp-bibtex-lint--buffer
-      (let ((text (buffer-string)))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:order:%s\\]\\[field order (1)\\]\\]" (regexp-quote file)) text))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:indent:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:authors:%s\\]\\[author names (1)\\]\\]" (regexp-quote file)) text))))
+      (let ((text (buffer-string)) called)
+        (should (string-match-p "indentation, as in bibtex-mode (2)" text))
+        (should (string-match-p "author names (1)" text))
+        ;; RET on a fix runs it on the file.
+        (cl-letf (((symbol-function 'sp-bibtex-lint-fix-order) (lambda (f) (push f called))))
+          (funcall (sp-bibprocess-lint-test--prop-at "field order (1)" 'sp-batch-report-action)))
+        (should (equal (list file) called))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-button-runs-its-fix ()
@@ -762,9 +773,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
             (sp-bibtex-lint-dryrun file))
           (with-current-buffer sp-bibtex-lint--buffer
             (let ((text (buffer-string)))
-              (should (string-match-p (format "\\[\\[sp-bibtex-lint:files:%s\\]\\[attachment paths (2)\\]\\]"
-                                              (regexp-quote file))
-                                      text))
+              (should (string-match-p "attachment paths (2)" text))
+              (should (sp-bibprocess-lint-test--prop-at "attachment paths (2)" 'sp-batch-report-action))
               (should (string-match-p "bdsk-file-1 → file = {a1990x0.pdf}" text))
               (should (string-match-p "file: ~/Documents/literature/a1990x0.pdf → a1990x0.pdf" text))))
           (kill-buffer sp-bibtex-lint--buffer)
@@ -944,12 +954,14 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (sp-bibtex-lint-dryrun file))
     (with-current-buffer sp-bibtex-lint--buffer
       (let ((text (buffer-string)))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:prefixes:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
+        (should (string-match-p "name prefixes (key=value, misplaced) (2)" text))
         (should (string-match-p "von Hayek, Friedrich A\\." text))
         (should (string-match-p "given= parts that do not fit" text))
         ;; Each entry is a link to its line in the file.
-        (should (string-match-p (format "\\[\\[file:%s::[0-9]+\\]" (regexp-quote file)) text))
-        (should-not (string-match-p "\\* ok" text))))
+        (should (string-match-p (format "^file:%s::[0-9]+$" (regexp-quote file))
+                                (sp-bibprocess-lint-test--prop-at "• [hg]$" 'sp-batch-report-link)))
+        ;; The entry with a fine name is only listed for its other problems.
+        (should-not (string-match-p "• ok\n      · author" text))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-prefixes-convert ()
@@ -1281,8 +1293,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
         (sp-bibtex-lint-dryrun file))
       (with-current-buffer sp-bibtex-lint--buffer
-        (should (string-match-p "^\\* Variants of one author (1)" (buffer-string)))
-        (should (string-match-p "- Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
+        (should (string-match-p "^▼ Variants of one author (1)" (buffer-string)))
+        (should (string-match-p "· Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
       (kill-buffer sp-bibtex-lint--buffer)
       (should (equal before (sp-bibprocess-lint-test--text file))))))
 
@@ -1614,4 +1626,4 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (sp-bibtex-lint-dryrun file))
     (with-current-buffer sp-bibtex-lint--buffer
       (should (string-match-p "duplicate fields (2)" (buffer-string)))
-      (should (string-match-p "^\\* Duplicate fields" (buffer-string))))))
+      (should (string-match-p "^▼ Duplicate fields" (buffer-string))))))

@@ -124,7 +124,7 @@
           (should (string-match-p "file: 20240101T120000--a.org -> =reuten2014value.org="
                                   (buffer-string)))
           (should (string-match-p "title: a -> Reuten (2014) Value" (buffer-string)))
-          (should (string-match-p "links to the old name in: \\[\\[file:[^]]*ref\\.org\\]\\[ref\\.org\\]\\]" (buffer-string))))))))
+          (should (string-match-p "links to the old name in: ref\\.org" (buffer-string))))))))
 
 (ert-deftest sp-litnotes-titles-apply-writes-and-is-idempotent ()
   (sp-litnotes-titles-test--with-vault
@@ -265,7 +265,7 @@
         (should (equal (plist-get (nth 1 plans) :bib) 'no-entry)))
       (with-current-buffer "*litnote titles*"
         (should (string-match-p "from BibTeX: authors, year, title" (buffer-string)))
-        (should (string-match-p "No BibTeX entry for the citekey (1)" (buffer-string)))
+        (should (string-match-p "No BibTeX entry for the citekey +1 entry" (buffer-string)))
         (should (string-match-p "Reuten (2014) The Value Form" (buffer-string)))))))
 
 (ert-deftest sp-litnotes-titles-bibtex-always-wins-and-reads-names ()
@@ -320,10 +320,10 @@
         (sp-litnotes-titles-dryrun)
         (with-current-buffer "*litnote titles*"
           (goto-char (point-min))
-          (re-search-forward "^\\*\\* \\[\\[file:")
+          (re-search-forward "• 20240101T120000--a\\.org")
           (sp-batch-report-drop)
           (should (equal sp-batch-report-excluded (list file)))
-          (should (string-match-p "Dropped from the list" (buffer-string)))
+          (should (string-match-p "1 dropped" (sp-batch-report-view--header-line)))
           (cl-letf (((symbol-function 'sp-litnotes-titles-convert)
                      (lambda (&optional _b excl) (setq seen excl))))
             (sp-batch-report-apply))
@@ -378,13 +378,12 @@
         (should (derived-mode-p 'sp-batch-report-mode))
         (should buffer-read-only)
         (should (functionp sp-batch-report-refresh-function))
-        (should (string-match-p
-                 (format "^\\*\\* \\[\\[file:%s\\]\\[20240101T120000--a\\.org\\]\\]$"
-                         (regexp-quote file))
-                 (buffer-string)))
+        (goto-char (point-min))
+        (re-search-forward "• 20240101T120000--a\\.org")
+        (should (equal file (get-text-property (match-beginning 0) 'sp-batch-report-file)))
+        (should (get-text-property (1- (point)) 'sp-batch-report-link))
         ;; a failed note is listed with a link too
-        (should (string-match-p "Failed:.*\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]: "
-                                (buffer-string)))))))
+        (should (string-match-p "Failed:.*\n  • nokey\\.org  title " (buffer-string)))))))
 
 (ert-deftest sp-litnotes-titles-editor-fallback ()
   (sp-litnotes-titles-test--with-vault
