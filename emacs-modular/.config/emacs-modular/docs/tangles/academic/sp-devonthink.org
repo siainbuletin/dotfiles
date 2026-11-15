@@ -38,9 +38,8 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=.
 |-------+--------------+--------------+-----|
 | =sp-reading= | citekey to UUID cache, item URLs with a page, =osascript= runner, opening a cited work | earlier; #430 (records whose name lacks =.pdf=) | [[file:sp-reading.org][sp-reading.org]] |
 | =sp-devonthink= (this file) | =devonthink:UUID::PAGE= link, =#+devonthink:= keyword, open from note, insert link, store link, crossref resolver, chapter keywords | #414, #434 to #437, #441 | this file |
-| =sp-devonthink-browse= | the record list (grouped by DEVONthink group) and the Embark actions; no command of its own | #415 | [[file:sp-devonthink-browse.org][sp-devonthink-browse.org]] |
+| =sp-devonthink-browse= | one command to browse (empty query) and search DEVONthink and litdb; record list, Embark actions, similar records, text preview | #415, #418, #500 | [[file:sp-devonthink-browse.org][sp-devonthink-browse.org]] |
 | =sp-devonthink-tags= | read and set tags on one or many records; split the comma-joined tag | #415 | [[file:sp-devonthink-tags.org][sp-devonthink-tags.org]] |
-| =sp-devonthink-search= | one command to browse (empty query) and search DEVONthink and litdb; similar records; text preview | #418 | [[file:sp-devonthink-search.org][sp-devonthink-search.org]] |
 | =sp-devonthink-bibsync= | copy BibTeX author, title, keywords to the record | #460 | [[file:sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]] |
 | =sp-fetch-inbox= | file inbox articles: BibTeX entry beside the PDF, rename and move the record | #454, #472, #478, #479 | [[file:sp-fetch-inbox.org][sp-fetch-inbox.org]] |
 | =sp-pdf-reader= | open a record's PDF in Emacs (emureader); annotations stay in DEVONthink | merged | [[file:sp-pdf-reader.org][sp-pdf-reader.org]] |
@@ -58,19 +57,18 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=.
   - A command that changes the parent's record asks first.
   - A chapter's own keywords are stored in a block of the parent record's comment and can be shown at the bottom of the chapter's litnote.
   - =sp-devonthink-store-link= stores a link to the record and page now showing in DEVONthink (any window); the selected text goes to the kill ring.
-- Browse (=sp-devonthink-browse=, the record list of =sp-devonthink-search=):
-  - An empty query of =C-; k d f= opens it; there is no separate browse command or key.
+- Browse and search (=sp-devonthink-browse=, one module and one command, =C-; k d f=):
+  - An empty query opens the record list.
   - One completion over the records (PDFs by default), grouped by group, cached for the session.
-  - Embark actions on a record: open, PDF in Emacs, litnote, link, tags, plus those added by the modules below.
+  - Embark actions on a record: open, PDF in Emacs, litnote, link, tags.
+  - A query is a search:
+    - The query goes to DEVONthink as typed, so =name:=, =kind:=, =tags:=, quotes, =AND=, =OR=, =NOT= work.
+    - =C-u= chooses the engine: DEVONthink, or litdb (by meaning, highlighted pages only); an empty query with litdb is an error.
+  - Embark actions on a hit or a record: the ones above, plus =s= (similar records) and =v= (text preview).
 - Tags (=sp-devonthink-tags=):
   - Tags live in DEVONthink only; nothing mirrors them into the litnote on =main=.
   - New tags are marked =(new)= in the confirmation; =C-u= removes.
   - A one-off command splits the single comma-joined tag of the =literature= database after a preview.
-- Search (=sp-devonthink-search=):
-  - An empty query browses all the records (see Browse above).
-  - The query goes to DEVONthink as typed, so =name:=, =kind:=, =tags:=, quotes, =AND=, =OR=, =NOT= work.
-  - =C-u= chooses the engine: DEVONthink, or litdb (by meaning, highlighted pages only).
-  - Embark actions on a hit: all of the browser's, plus =s= (similar records) and =v= (text preview).
 - BibTeX to DEVONthink (=sp-devonthink-bibsync=):
   - Keywords become tags (added, never removed); author and title go to custom metadata (=bibauthor=, =bibtitle=); BibTeX wins on every run.
   - A chapter's record is skipped (it is the parent's).
@@ -117,8 +115,8 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=.
   - =sp-reading-preview-command=: the fallback reader for a PDF with no record, =open -a Preview=.
 - Browse and search:
   - =sp-devonthink-browse-path-regexp=: which records are listed, a JavaScript regexp on the file path, =\\.pdf$=.
-  - =sp-devonthink-search-limit=: hits listed, 50.
-  - =sp-devonthink-search-preview-chars=: characters in the preview, 3000.
+  - =sp-devonthink-browse-limit=: hits listed, 50.
+  - =sp-devonthink-browse-preview-chars=: characters in the preview, 3000.
 - Bibsync:
   - =sp-devonthink-bibsync-author-id=, =sp-devonthink-bibsync-title-id=: custom metadata identifiers, =bibauthor= and =bibtitle=.
   - =sp-devonthink-bibsync-keywords=: nil leaves the tags alone, t.
@@ -171,7 +169,7 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=.
 - One database only: =sp-reading-database=; the other packages in =~/Databases= are never searched.
 - DEVONthink's concordance is not in its scripting dictionary, so it is not offered from Emacs.
 - The browser list is cached for the session; run =M-x sp-devonthink-browse-refresh= after the database changes.
-- Search lists the first =sp-devonthink-search-limit= hits DEVONthink ranks; litdb finds only pages that were highlighted when it last indexed (=C-; k I=).
+- Search lists the first =sp-devonthink-browse-limit= hits DEVONthink ranks; litdb finds only pages that were highlighted when it last indexed (=C-; k I=).
 - Tags are not mirrored to the litnote or to BibTeX on =main=; bibsync copies BibTeX to DEVONthink only.
 - Bibsync overwrites author and title each run; no tag is ever removed.
 - Chapter keywords in a comment may be hard to find in DEVONthink; prefixed tags are the fallback.

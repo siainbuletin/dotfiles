@@ -47,7 +47,7 @@ Keys in the BibTeX buffer:
 - The keys are listed as hints in the echo area while the BibTeX buffer is current (no header line).
 - =C-M-v= in the BibTeX buffer scrolls the PDF on the left.
 - Global key: =C-; B a= runs =sp-fetch-inbox= (bound in =sp-keys=; it was =C-c w b a=, which is unbound now).
-- Embark: on a DEVONthink record (from =sp-devonthink-search=), =f= files that record.
+- Embark: on a DEVONthink record (from =sp-devonthink-browse=), =f= files that record.
 
 * What happens to DEVONthink
 
