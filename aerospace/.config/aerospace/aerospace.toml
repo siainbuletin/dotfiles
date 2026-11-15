@@ -74,6 +74,19 @@ run = 'layout tiling'
 if.app-id = 'com.devon-technologies.think'
 run = 'layout tiling'
 
+# Emacs frames are undecorated (`sp-frame.el`), so AeroSpace does not always see
+# them as standard windows and leaves them floating (small frame after relaunch).
+# Only the first matching rule runs, so the floating exception goes first.
+# The quick capture frame (`sp-quick-capture-frame-name`) stays a floating popup.
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^quick-capture$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+run = 'layout tiling'
+
 ####################################
 ######## MAIN BINDING MODE #########
 ####################################
