@@ -12,6 +12,7 @@
 - Merged :: 2026-11-14 11:50
 - Branch :: =463-emureader-recipe= → =main=
 - Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/d2ff1afda01ce068684d5d31e3ee664104c772ec][d2ff1afda0]]
+- Labels :: bugfix, does-what-it-should
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW27uhpWJtUHF98AG4RpLvEcX][project thread]]/
@@ -48,13 +49,13 @@
 :PROPERTIES:
 :CUSTOM_ID: manual-testing
 :END:
-- [ ] =cd ~/dotfiles; git fetch origin 463-emureader-recipe; git checkout 463-emureader-recipe=, restart Emacs.
-- [ ] =M-x elpaca-update-all= no longer reports an error for emureader, and =lsp-mode= builds.
-- [ ] =~/.config/emacs-modular/var/elpaca/sources/emureader= exists.
-- [ ] =brew install mupdf gcc make=, then =M-x emureader-build= works.
-- [ ] =M-: (progn (require 'emureader) (list (fboundp 'emureader-open-doc) (fboundp 'emureader-goto-page)))= → =(t t)=; if not, =M-x apropos RET emureader-.*\(open\|page\)= and set the =sp-pdf-reader-function-*= variables.
+- [X] =cd ~/dotfiles; git fetch origin 463-emureader-recipe; git checkout 463-emureader-recipe=, restart Emacs.
+- [X] =M-x elpaca-update-all= no longer reports an error for emureader, and =lsp-mode= builds.
+- [X] =~/.config/emacs-modular/var/elpaca/sources/emureader= exists.
+- [X] =brew install mupdf gcc make=, then =M-x emureader-build= works.
+- [X] =M-: (progn (require 'emureader) (list (fboundp 'emureader-open-doc) (fboundp 'emureader-goto-page)))= → =(t t)=; if not, =M-x apropos RET emureader-.*\(open\|page\)= and set the =sp-pdf-reader-function-*= variables.
 - [ ] =M-x sp-pdf-open= on a PDF opens it in emureader; =C-u= and page 5 opens at page 5.
-- [ ] Embark =p= on a DEVONthink record opens the PDF in emureader.
+- [X] Embark =p= on a DEVONthink record opens the PDF in emureader.
 - [ ] If Elpaca still fails: send the =*elpaca-log*= lines for emureader and litdb.
 
 --------------

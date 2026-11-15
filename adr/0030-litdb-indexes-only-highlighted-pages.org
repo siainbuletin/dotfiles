@@ -1,4 +1,4 @@
-#+title: 0029 litdb indexes only the highlighted pages; DEVONthink search is the default
+#+title: 0030 litdb indexes only the highlighted pages; DEVONthink search is the default
 #+date: 2026-11-12
 #+status: accepted
 

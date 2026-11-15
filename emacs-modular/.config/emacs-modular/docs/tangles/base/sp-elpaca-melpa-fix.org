@@ -185,3 +185,13 @@ Around advice for `elpaca-menu-melpa--update'; ORIG is the original."
 (provide 'sp-elpaca-melpa-fix)
 ;;; sp-elpaca-melpa-fix.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/462][#462]]
+  - 🐛 Fixed =elpaca-update-menus= failing with "Unable to clone MELPA" after MELPA renamed =master= to =main=
+    - Elpaca's =elpaca-menu-melpa= hardcodes =master= (elpaca issue 585, pull request 586, both open)
+    - =sp-elpaca-melpa-fix= advises =elpaca-menu-melpa--clone= and =--update= to use =main=, instead of editing Elpaca's sources; =init.el= loads it right after the Elpaca bootstrap
+  - 🔧 Added the switches =sp-elpaca-melpa-fix= (default =t=) and =sp-elpaca-melpa-branch= (default ="main"=); it disables itself when Elpaca defines the fix

@@ -46,8 +46,8 @@ Keys in the BibTeX buffer:
 
 - The keys are listed as hints in the echo area while the BibTeX buffer is current (no header line).
 - =C-M-v= in the BibTeX buffer scrolls the PDF on the left.
-- Global key: =C-c w b a= runs =sp-fetch-inbox=.
-- Embark: on a DEVONthink record (=sp-devonthink-browse=), =f= files that record.
+- Global key: =C-; B a= runs =sp-fetch-inbox= (bound in =sp-keys=; it was =C-c w b a=, which is unbound now).
+- Embark: on a DEVONthink record (from =sp-devonthink-browse=), =f= files that record.
 
 * What happens to DEVONthink
 
@@ -218,6 +218,7 @@ See `sp-devonthink-bibsync-entry'."
   - one Apple Event per record and field was the cause of the slowdown after PR #472 (about 8 events per record instead of 4)
   - the group list is only read once per sub-group; there is one =osascript= call in total
 - The files already known from DEVONthink are kept in a hash table, so merging is linear in the number of files.
+- Grouping puts the items in one hash-table bucket per folder in a single pass (profile on Sia's Mac: 11.5 s for 6296 files before, when it scanned the list once per folder; a synthetic tree with 1500 folders took 5.3 s before and is timed in the PR).
 - The items are built once per =M-x sp-fetch-inbox=; =C-c s= and =C-c d= only re-sort and re-filter them, with no new DEVONthink call.
 - =sp-fetch-inbox-profile=: when non-nil, messages the time of each step.
 
@@ -365,9 +366,12 @@ by name, the root first, for `alphabetical'."
                                   (t (string< a b)))))))
     (if (not group)
         sorted
-      (mapcan (lambda (f)
-                (seq-filter (lambda (i) (equal (sp-fetch-inbox--folder i) f)) sorted))
-              folders))))
+      ;; One pass into a bucket per folder; scanning the list once per folder
+      ;; is quadratic with thousands of articles in hundreds of folders.
+      (let ((buckets (make-hash-table :test 'equal)))
+        (dolist (i sorted)
+          (push i (gethash (sp-fetch-inbox--folder i) buckets)))
+        (mapcan (lambda (f) (nreverse (gethash f buckets))) folders)))))
 
 (defun sp-fetch-inbox--candidates (items)
   "An alist of (STRING . ITEM) for ITEMS, in order, with unique strings."
@@ -402,14 +406,11 @@ Consult and the default UI do not re-sort the candidates."
 
 (defun sp-fetch-inbox--read-folder (items)
   "Ask for one of the sub-directories of ITEMS; nil means all of them."
-  (let* ((folders (sort (delete-dups (mapcar #'sp-fetch-inbox--folder items)) #'string<))
+  (let* ((counts (make-hash-table :test 'equal))
+         (_ (dolist (i items) (cl-incf (gethash (sp-fetch-inbox--folder i) counts 0))))
+         (folders (sort (hash-table-keys counts) #'string<))
          (alist (cons (cons "All folders" nil)
-                      (mapcar (lambda (f)
-                                (cons (format "%s (%d)" f
-                                              (seq-count (lambda (i)
-                                                           (equal (sp-fetch-inbox--folder i) f))
-                                                         items))
-                                      f))
+                      (mapcar (lambda (f) (cons (format "%s (%d)" f (gethash f counts)) f))
                               folders))))
     (cdr (assoc (completing-read "Folder: " (sp-fetch-inbox--table alist) nil t nil nil
                                  "All folders")
@@ -732,7 +733,7 @@ With a prefix argument PICK-FOLDER, first choose one sub-directory to restrict t
 
 ;;;###autoload
 (defun sp-fetch-inbox-record (candidate)
-  "File the DEVONthink record CANDIDATE (an Embark action of `sp-devonthink-browse')."
+  "File the DEVONthink record CANDIDATE (an Embark action on a DEVONthink record)."
   (interactive (list (sp-devonthink-browse--read)))
   (let* ((record (sp-devonthink-browse--record candidate))
          (uuid (plist-get record :uuid))
@@ -880,7 +881,7 @@ A failure is reported, not signalled: the article is already filed."
 ** Keys
 
 #+begin_src emacs-lisp -i
-(global-set-key (kbd "C-c w b a") #'sp-fetch-inbox)
+;; C-; B a runs `sp-fetch-inbox' (bound in `sp-keys').
 
 (with-eval-after-load 'sp-devonthink-browse
   (keymap-set sp-devonthink-record-map "f" #'sp-fetch-inbox-record))
@@ -891,3 +892,29 @@ A failure is reported, not signalled: the article is already filed."
 (provide 'sp-fetch-inbox)
 ;;; sp-fetch-inbox.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added the module (=M-x sp-fetch-inbox=, =C-c w b a=)
+    - items: records of the =inbox= group in DEVONthink =literature= and PDFs in =~/Documents/literature/inbox/=
+    - reads the DOI from the first two PDF pages (=pdftotext=), fetches the entry with org-ref and makes the key with the =bibtex-autokey= scheme
+    - shows the PDF left and an editable BibTeX buffer right: =C-c C-c= files, =C-c C-k= aborts, =C-c C-r= new key, =C-c C-d= another DOI
+    - after one yes/no question: the PDF moves to =KEY.pdf=, the record is renamed and moved, the =file= field is added and the entry is appended to the =.bib=
+- [[https://github.com/siainbuletin/dotfiles/pull/457][#457]]
+  - 🔧 Changed the key help to echo-area hints (=sp-echo-help-set=) instead of a header line
+- [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
+  - ✨ Added the call of =sp-devonthink-bibsync= when an entry is filed
+- [[https://github.com/siainbuletin/dotfiles/pull/472][#472]]
+  - ✨ Added sorting of the picker: =added= (newest first, the default) or =alphabetical= (=sp-fetch-inbox-sort=, =C-c s=)
+    - typed input is kept when switching
+  - ✨ Added grouping by the sub-folders of =inbox/= (=sp-fetch-inbox-group=), and =C-c d= or =C-u= to restrict to one folder
+    - files directly in =inbox/= are in =(inbox)=; DEVONthink sub-groups are listed as folders of the same name
+- [[https://github.com/siainbuletin/dotfiles/pull/478][#478]]
+  - 🐛 Fixed the slow picker: the listing script reads each field once per group, not once per record
+    - about 8 Apple Events per record became about 4 per group; the cause was inferred from the code, not measured
+    - =sp-fetch-inbox--merge= uses a hash table
+  - 🐛 Fixed the =C-u= folder choice
+  - ✨ Added =sp-fetch-inbox-devonthink-depth= (default 8; 0 skips the sub-group walk) and =sp-fetch-inbox-profile=

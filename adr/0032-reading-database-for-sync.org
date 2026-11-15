@@ -1,4 +1,4 @@
-#+title: 0031 A small =reading= database syncs; =literature= stays on the Mac
+#+title: 0032 A small =reading= database syncs; =literature= stays on the Mac
 #+date: 2026-11-12
 #+status: accepted
 

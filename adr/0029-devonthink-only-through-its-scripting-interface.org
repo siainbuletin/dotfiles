@@ -1,4 +1,4 @@
-#+title: 0028 Emacs reaches DEVONthink only through its scripting interface
+#+title: 0029 Emacs reaches DEVONthink only through its scripting interface
 #+date: 2026-11-12
 #+status: accepted
 

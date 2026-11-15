@@ -45,15 +45,15 @@
 :END:
 Mac, =~/.config/emacs-modular=, a note with backlinks that have long lines.
 
-- [ ] Check out: =cd ~/dotfiles; git fetch origin 456-vulpea-ui-view-wrap-lines; git checkout 456-vulpea-ui-view-wrap-lines=, restart Emacs (or =M-x sp-reload-modules=)
-- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-exit= → 13 pass
-- [ ] =M-o v= (untested by Claude): long backlink and other widget lines wrap at the window edge, no horizontal cut-off
-- [ ] Narrow the view frame: lines re-wrap to the new width
-- [ ] Emacs 30+: a wrapped line is indented like its start (check =M-: emacs-version=); older Emacs: wraps without indent
-- [ ] =TAB= widget toggling, =g= refresh, click a backlink still work
+- [X] Check out: =cd ~/dotfiles; git fetch origin 456-vulpea-ui-view-wrap-lines; git checkout 456-vulpea-ui-view-wrap-lines=, restart Emacs (or =M-x sp-reload-modules=)
+- [X] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -l tests/sp-vulpea-ui-view-test.el -f ert-run-tests-batch-and-exit= → 13 pass
+- [X] =M-o v= (untested by Claude): long backlink and other widget lines wrap at the window edge, no horizontal cut-off
+- [X] Narrow the view frame: lines re-wrap to the new width
+- [X] Emacs 30+: a wrapped line is indented like its start (check =M-: emacs-version=); older Emacs: wraps without indent
+- [X] =TAB= widget toggling, =g= refresh, click a backlink still work
 - [ ] =(setq sp-vulpea-ui-view-wrap-indent nil)=, =g=: wraps without indent
-- [ ] =(setq sp-vulpea-ui-view-wrap-lines nil)=, =q=, =M-o v=: lines are cut off as before
-- [ ] Regression: the sidebar (=C-x t s=) and an Org buffer are unchanged (no new wrapping)
+- [X] =(setq sp-vulpea-ui-view-wrap-lines nil)=, =q=, =M-o v=: lines are cut off as before
+- [X] Regression: the sidebar (=C-x t s=) and an Org buffer are unchanged (no new wrapping)
 
 #+begin_export html
   <details><summary>Revert after testing</summary>
