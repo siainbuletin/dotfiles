@@ -2,7 +2,7 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x                 toggle between selecting and highlighting (same as Cmd+X)
+--   x                 toggle between selecting and highlighting
 --   c                 next colour (cycling), then highlight again
 --   Option+1 ... 7    pick colour N (list below), then highlight again
 --   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
@@ -13,8 +13,6 @@
 --                     the document, BibTeX, litdb)
 --
 -- Keys active only while DEVONthink is in front:
---   Cmd+X          toggle between selecting and highlighting, when a PDF is
---                  shown; otherwise the normal Cmd+X (Cut) goes to DEVONthink
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
 --   Cmd+Shift+Z    bring back the highlight just deleted, if it is the next
@@ -27,10 +25,9 @@
 --   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
 --     numbers use Caps+Option+number, which the layer does not use otherwise.
 --
--- Toggle (Cmd+X, Caps+x):
+-- Toggle (Caps+x):
 --   * A PDF is shown when Tools > Annotate > Highlight Text exists and is
---     enabled. Otherwise Cmd+X is Cut as usual, so text editors, the item list
---     and other windows keep Cut.
+--     enabled. Otherwise an alert says so and nothing else happens.
 --   * Highlighting is on when that menu item has a check mark. Then the key
 --     selects the selection tool (an item of Tools > Annotate starting with
 --     Select, Pointer or Text Selection) or, if there is none, chooses
@@ -258,7 +255,7 @@ function M.highlight()
 end
 
 -- Toggle between selecting and highlighting. False (nothing done, no alert)
--- when no PDF is shown, so the caller can pass the key through.
+-- when no PDF is shown; the caller shows the alert.
 function M.toggleHighlight()
   local app = hs.application.frontmostApplication()
   if not app then return false end
@@ -363,7 +360,7 @@ layer:bind({}, "r", inDevonthink(function()
 end))
 
 --------------------------------------------------
--- Cmd+X, Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
+-- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
 --------------------------------------------------
 
 -- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
@@ -382,7 +379,6 @@ local function withPassThrough(mods, key, action)
 end
 
 local scoped = {
-  withPassThrough({ "cmd" }, "x", M.toggleHighlight),
   withPassThrough({ "cmd" }, "z", M.undoHighlight),
   withPassThrough({ "cmd", "shift" }, "z", M.redoHighlight),
 }
