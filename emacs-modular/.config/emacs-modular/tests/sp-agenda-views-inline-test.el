@@ -22,7 +22,7 @@
     (goto-char (point-min))
     (let ((start (search-forward ";;;; Inline keywords" nil t))
           (end (search-forward ";;;; Config files" nil t)))
-      (eval-region start (- end (length ";;;; Config files")))))))
+      (eval-region start (- end (length ";;;; Config files"))))))
 
 (defmacro sp-agenda-views-inline-test--term (text)
   "Return non-nil when TEXT matches the regexp of the inline view."
@@ -38,7 +38,8 @@
   (should-not (sp-agenda-views-inline-test--term "Atkins wrote XXXL")))
 
 (ert-deftest sp-agenda-views-inline-test-entry-key ()
-  (should (equal (car (sp-agenda-views--inline-entry)) "x")))
+  (cl-letf (((symbol-function 'sp-agenda-views-inline-files) (lambda () nil)))
+    (should (equal (car (sp-agenda-views--inline-entry)) "x"))))
 
 (ert-deftest sp-agenda-views-inline-test-sourcerefs-keyword ()
   (should (member "SOURCEREFS" sp-agenda-views-inline-keywords))
