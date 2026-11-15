@@ -2367,7 +2367,7 @@ A further fix of the lint: =M-x sp-bibtex-lint-fix-date= (~C-; L b f d~). A =dat
   - ranges (=2020/2021=, =2021-05-01/2021-05-31=)
   - dates that are not ISO 8601 (=May 14, 2021=, =2021?=, =Spring 2021=)
   - impossible dates (=2021-13-01=, =2021-02-30=)
-  - a =date= that is a string macro or a concatenation
+  - a =date= that is a string macro or a concatenation (a bare number such as =date = 2002=, without braces, is read like =date = {2002}=)
   - an empty =date= is ignored
 - The text fix, =M-x sp-bibtex-lint-fix-date-text= (~C-; L b f D~), is a separate command to run /after/ the one above:
   - it reads the dates the ISO fix leaves as they are, and turns them into =year= and =month= the same way (report first, =A= to write, backup, conflicts reported, day dropped, =misc= untouched)
@@ -2554,7 +2554,8 @@ DESC lists what changes; PROBLEMS say why the entry is left as it is."
   (when-let* (((not (member-ignore-case type sp-bibtex-date-keep-types)))
               (date (assoc-string "date" fields t))
               (text (sp-bibtex-date--text "date" fields)))
-    (let ((parsed (if (sp-bibtex--unwrap (cdr date))
+    (let ((parsed (if (or (sp-bibtex--unwrap (cdr date))
+                          (string-match-p "\\`[0-9]+\\'" (string-trim (cdr date))))
                       (let ((iso (sp-bibtex-date--parse text)))
                         (if (and loose (stringp iso))
                             (let ((other (sp-bibtex-date--parse-loose text)))
