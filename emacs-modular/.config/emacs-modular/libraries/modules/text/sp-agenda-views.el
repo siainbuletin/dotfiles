@@ -160,10 +160,23 @@
          (when (fboundp 'sp-agenda-views--inline-install)
            (sp-agenda-views--inline-install))))
 
-(defcustom sp-agenda-views-inline-extra-dirs (list sp-writing-projects)
-  "Folders whose Org files the inline view scans besides the agenda files.
-Drafts live there, and their headings are not always agenda entries."
-  :type '(repeat directory)
+(defvar sp-notes-dir)
+
+(defcustom sp-agenda-views-inline-extra-dirs
+  (list sp-writing-projects
+        (expand-file-name "litnotes/" (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")))
+  "Folders (or single files) the inline view scans besides the agenda files.
+Drafts and the literature notes live there, and they are not always agenda files."
+  :type '(repeat file)
+  :group 'spcustom)
+
+(defcustom sp-agenda-views-inline-exclude-regexp
+  "/\\(?:\\.\\|#\\|archives?/\\|backups?/\\|[^/]*~\\'\\|[^/]*\\.org_archive\\'\\)"
+  "Paths below the extra folders that the inline view skips.
+It is matched against the path relative to the folder, with a leading slash:
+hidden files and folders, Emacs lock and backup files, archive and backup
+folders and `.org_archive' files."
+  :type 'regexp
   :group 'spcustom)
 
 (defvar sp-agenda-views-inline-filter nil
@@ -183,17 +196,58 @@ These are `sp-agenda-views-inline-keywords', or only
 `sp-agenda-views-inline-filter' when it is set."
   (concat "{\\_<" (regexp-opt (sp-agenda-views-inline--words)) "\\_>}"))
 
+(defun sp-agenda-views-inline--org-files (place)
+  "The Org files of PLACE, a file or a folder, minus the excluded paths."
+  (cond
+   ((and place (file-regular-p place)) (list (expand-file-name place)))
+   ((and place (file-directory-p place))
+    (let* ((root (file-name-as-directory (expand-file-name place)))
+           (skip (lambda (path)
+                   (string-match-p sp-agenda-views-inline-exclude-regexp
+                                   (concat "/" (file-relative-name path root))))))
+      (seq-remove skip
+                  (directory-files-recursively
+                   root "\\.org\\'" nil
+                   (lambda (dir) (not (funcall skip (file-name-as-directory dir))))))))))
+
+(defun sp-agenda-views-inline--rg-pattern ()
+  "The ripgrep pattern for the words of the inline view."
+  (concat "(?:"
+          (mapconcat (lambda (word)
+                       (replace-regexp-in-string "[][(){}.*+?^$|\\\\]" "\\\\\\&" word))
+                     (sp-agenda-views-inline--words) "|")
+          ")"))
+
+(defun sp-agenda-views-inline--prefilter (files)
+  "The FILES that hold one of the words of the inline view.
+Ripgrep tells which; without it, or when it fails, all FILES are returned.
+This keeps the search view from opening every litnote."
+  (let ((rg (executable-find "rg"))
+        (pattern (sp-agenda-views-inline--rg-pattern))
+        (kept nil))
+    (if (or (null rg) (null files))
+        files
+      (catch 'failed
+        (while files
+          (let ((chunk (seq-take files 400)))
+            (setq files (nthcdr 400 files))
+            (with-temp-buffer
+              (let ((status (apply #'call-process rg nil t nil
+                                   "-l" "-i" "-w" "-e" pattern "--" chunk)))
+                (cond ((eq status 0)
+                       (setq kept (append kept (split-string (buffer-string) "\n" t))))
+                      ((eq status 1))
+                      (t (throw 'failed (append kept chunk files))))))))
+        kept))))
+
 (defun sp-agenda-views-inline-files ()
-  "Return the agenda files plus the Org files of the extra folders."
-  (delete-dups
-   (append (org-agenda-files)
-           (seq-mapcat
-            (lambda (dir)
-              (when (and dir (file-directory-p dir))
-                (seq-remove (lambda (file) (string-match-p "/\\." file))
-                            (directory-files-recursively
-                             (expand-file-name dir) "\\.org\\'"))))
-            sp-agenda-views-inline-extra-dirs))))
+  "Return the agenda files plus the Org files of the extra folders.
+Of the extra folders only the files that hold an inline word are returned."
+  (let ((agenda (mapcar #'expand-file-name (org-agenda-files)))
+        (extra (sp-agenda-views-inline--prefilter
+                (seq-mapcat #'sp-agenda-views-inline--org-files
+                            sp-agenda-views-inline-extra-dirs))))
+    (seq-uniq (append agenda extra) (lambda (a b) (file-equal-p a b)))))
 
 (defun sp-agenda-views--inline-entry ()
   "Return the inline view, as an `org-agenda-custom-commands' entry."
@@ -211,6 +265,22 @@ These are `sp-agenda-views-inline-keywords', or only
   "Show the entries that hold an inline keyword, in the agenda."
   (interactive)
   (org-agenda nil "x"))
+
+(defun sp-agenda-views-inline-grep ()
+  "List every line with an inline word, also before the first heading of a file.
+The search view skips that part of a file, so this complements it.  It needs
+ripgrep; the hits are a grep buffer, so `RET' jumps to the line."
+  (interactive)
+  (let ((rg (or (executable-find "rg") (user-error "Ripgrep (rg) is not installed")))
+        (files (sp-agenda-views-inline-files)))
+    (unless files (user-error "No file to search"))
+    (compilation-start
+     (mapconcat #'shell-quote-argument
+                (append (list rg "-n" "--no-heading" "--with-filename" "-i" "-w"
+                              "-e" (sp-agenda-views-inline--rg-pattern) "--")
+                        files)
+                " ")
+     'grep-mode)))
 
 (defun sp-agenda-views--inline-install ()
   "Put the inline view into `org-agenda-custom-commands', replacing any old one."
@@ -248,7 +318,8 @@ Completion offers `sp-agenda-views-inline-keywords'."
              (or sp-agenda-views-inline-filter "none")))
    ("x" "Open the view" sp-agenda-views-inline)
    ("f" "Filter to one keyword" sp-agenda-views-inline-filter-set)
-   ("c" "Clear the filter" sp-agenda-views-inline-filter-clear)])
+   ("c" "Clear the filter" sp-agenda-views-inline-filter-clear)
+   ("g" "Grep the lines (also before the first heading)" sp-agenda-views-inline-grep)])
 
 ;;;; Config files
 
