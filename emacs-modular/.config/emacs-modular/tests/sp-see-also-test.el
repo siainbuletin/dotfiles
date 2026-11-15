@@ -646,9 +646,10 @@
   (sp-see-also-test--text
    ":PROPERTIES:"
    ":ID: lit-id"
+   ":ROAM_REFS: @smith2020"
    ":END:"
    "#+title: Litnote on X"
-   "#+reference: smith2020"
+   "#+reference: ignored2020"
    "Own text, [[id:lit-id][itself]] and a thought[fn::[[id:c-one][Concept one]]]."))
 
 (ert-deftest sp-see-also-references-lists-every-way ()
@@ -751,7 +752,7 @@
         (should (string-match-p "\\[cite\\]" (buffer-string))))
       (kill-buffer "*see-also*"))))
 
-(ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
+(ert-deftest sp-see-also-citekey-is-read-from-roam-refs-only ()
   (sp-see-also-test--with-vault
     (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
       (should (equal (sp-see-also--citekey lit) "smith2020"))

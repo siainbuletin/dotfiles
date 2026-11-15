@@ -125,7 +125,7 @@ Endnotes never count."
   "The ways a note is referenced that the \"Referenced by\" view shows.
 `footnote' is a see-also footnote, `section' a \"See also\" section or a
 `seealso ::' line, `link' any other `id:' link, `parent' a `parent ::' line and
-`cite' a citation of the note's `#+reference:' citekey."
+`cite' a citation of the note's `ROAM_REFS' citekey."
   :type '(set (const footnote) (const section) (const link) (const parent) (const cite)))
 
 (defconst sp-see-also--fallback-states
@@ -917,7 +917,7 @@ the whole-vault index is used."
                 (> na nb)))))))
 
 (defun sp-see-also--citekeys (file)
-  "Return the citekeys of FILE, from its `#+reference:' and `ROAM_REFS' lines.
+  "Return the citekeys of FILE, from its `ROAM_REFS' property.
 `@key', `key', `cite:key' and `[cite:@a;@b]' are read; URLs and DOIs are not
 keys.  Nil when the note has none."
   (with-temp-buffer
@@ -925,7 +925,7 @@ keys.  Nil when the note has none."
     (let ((case-fold-search t) keys)
       (goto-char (point-min))
       (while (re-search-forward
-              "^[ \t]*\\(?:#\\+reference:\\|:ROAM_REFS:\\)[ \t]*\\(.*\\)$" nil t)
+              "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t)
         (dolist (token (split-string
                         (replace-regexp-in-string
                          "\\[cite[^:]*:\\|\\]" "" (match-string-no-properties 1))
@@ -1542,7 +1542,7 @@ A click or RET on a heading or a context visits it."
                                     (and (plist-get note :own) file)))
          (insert "\nThis note has no ID, so nothing can reference it.\n"))
        (when (and file (plist-get note :own) (null (plist-get note :citekey)))
-         (insert "\nNo citekey in #+reference: or ROAM_REFS, so citations of this note were not searched.\n"))))))
+         (insert "\nNo citekey in ROAM_REFS, so citations of this note were not searched.\n"))))))
 
 ;;;###autoload
 (defun sp-see-also-show-concept (id)
