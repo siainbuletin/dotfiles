@@ -90,10 +90,12 @@ They are removed from the title of the new note and listed in a
   "What happens to the notes (footnotes, see-also notes, endnotes) of a split.
 The notes that the split heading cites are written in the notes section
 of the new note, renumbered in its order (`sp-note-kinds').
-`move': they are also taken out of the source when nothing left there
-cites them, and the source is renumbered; the copy in the new note keeps the
-context.  `copy': the source keeps every note.  nil: the older way, a copy
-of a definition under each citing heading, with no notes section.
+`move': a note is also taken out of the source only when the part left
+there no longer cites it, and the source is renumbered.  A note that the
+rest of the parent still cites stays in the source, and is copied to the
+new note as well, as `copy' does for every note.  `copy': the source keeps
+every note.  nil: the older way, a copy of a definition under each citing
+heading, with no notes section.
 It only acts when `sp-split-check-footnotes' is non-nil."
   :type '(choice (const :tag "Move them to the new note" move)
                  (const :tag "Copy them to the new note" copy)

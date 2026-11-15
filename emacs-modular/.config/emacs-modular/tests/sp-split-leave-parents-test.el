@@ -87,5 +87,27 @@
                      (concat "* Keep\nStays[fn:see-1] and[fn:end-1].\n\n"
                              "* Notes / Appendix\n\n[fn:end-1] shared\n\n[fn:see-1] stays\n"))))))
 
+(ert-deftest sp-split-test-notes-shared-note-is-copied-and-stays ()
+  ;; end-1 is cited by the heading that moves and by the part that stays.
+  (let ((moved "Goes[fn:see-1] and[fn:end-1].")
+        (defs '(("end-1" . "[fn:end-1] shared") ("see-1" . "[fn:see-1] only moved"))))
+    ;; The new note gets both definitions, whatever the option.
+    (should (equal (car (sp-split--notes-fix-body moved defs))
+                   (concat "Goes[fn:see-1] and[fn:end-1].\n\n* Notes / Appendix\n\n"
+                           "[fn:end-1] shared\n\n[fn:see-1] only moved")))
+    ;; The source drops only the one nothing left there cites.
+    (with-temp-buffer
+      (insert (concat "* Keep\nStays[fn:end-1].\n\n* Move\n" moved "\n\n"
+                      "* Notes / Appendix\n\n[fn:end-1] shared\n\n[fn:see-1] only moved\n"))
+      (delay-mode-hooks (org-mode))
+      (let* ((beg (save-excursion (goto-char (point-min)) (search-forward "* Move") (line-beginning-position)))
+             (end (save-excursion (goto-char beg) (search-forward "* Notes / Appendix") (line-beginning-position)))
+             (labels (sp-split--notes-cited-only-inside beg end)))
+        (should (equal labels '("see-1")))
+        (delete-region beg end)
+        (sp-split--notes-drop-definitions labels)
+        (should (string-match-p "\\[fn:end-1\\] shared" (buffer-string)))
+        (should-not (string-match-p "see-1" (buffer-string)))))))
+
 (provide 'sp-split-leave-parents-test)
 ;;; sp-split-leave-parents-test.el ends here

@@ -19,8 +19,11 @@ Literate source for =libraries/modules/funct/sp-refile.el=. To tangle, see the T
 
 - When a heading is split into its own note (=sp-split-leave-parents=), the notes it cites go with it: footnotes, see-also notes (=[fn:see-N]=) and endnotes (=[fn:end-N]=), see [[file:../text/sp-note-kinds.org][sp-note-kinds]].
 - =sp-split-notes= chooses how:
-  + =move= (default): the definitions are written in the =Notes / Appendix= section of the new note, renumbered in its order (end notes first, then see-also notes, then footnotes); the source loses the ones nothing left there cites, and is renumbered
-  + =copy=: the same for the new note, the source keeps everything
+  + =move= (default): the definitions are written in the =Notes / Appendix= section of the new note, renumbered in its order (end notes first, then see-also notes, then footnotes)
+    - a note cited only by the split heading is taken out of the source
+    - a note that the rest of the parent still cites stays in the source and is copied to the new note too (the behaviour of =copy=, per note)
+    - the source is renumbered afterwards
+  + =copy=: the same for the new note, the source keeps every note
   + nil: the older way, a copy of a definition under each citing heading
 - A note that the part left in the source still cites stays in the source in every case.
 - A note cited by the heading but defined nowhere is reported ("no definition found for ...") and left as it is.
@@ -268,10 +271,12 @@ They are removed from the title of the new note and listed in a
   "What happens to the notes (footnotes, see-also notes, endnotes) of a split.
 The notes that the split heading cites are written in the notes section
 of the new note, renumbered in its order (`sp-note-kinds').
-`move': they are also taken out of the source when nothing left there
-cites them, and the source is renumbered; the copy in the new note keeps the
-context.  `copy': the source keeps every note.  nil: the older way, a copy
-of a definition under each citing heading, with no notes section.
+`move': a note is also taken out of the source only when the part left
+there no longer cites it, and the source is renumbered.  A note that the
+rest of the parent still cites stays in the source, and is copied to the
+new note as well, as `copy' does for every note.  `copy': the source keeps
+every note.  nil: the older way, a copy of a definition under each citing
+heading, with no notes section.
 It only acts when `sp-split-check-footnotes' is non-nil."
   :type '(choice (const :tag "Move them to the new note" move)
                  (const :tag "Copy them to the new note" copy)
@@ -1484,6 +1489,28 @@ emacs -Q --batch -L libraries/modules/funct -l tests/sp-split-leave-parents-test
       (should (equal (buffer-string)
                      (concat "* Keep\nStays[fn:see-1] and[fn:end-1].\n\n"
                              "* Notes / Appendix\n\n[fn:end-1] shared\n\n[fn:see-1] stays\n"))))))
+
+(ert-deftest sp-split-test-notes-shared-note-is-copied-and-stays ()
+  ;; end-1 is cited by the heading that moves and by the part that stays.
+  (let ((moved "Goes[fn:see-1] and[fn:end-1].")
+        (defs '(("end-1" . "[fn:end-1] shared") ("see-1" . "[fn:see-1] only moved"))))
+    ;; The new note gets both definitions, whatever the option.
+    (should (equal (car (sp-split--notes-fix-body moved defs))
+                   (concat "Goes[fn:see-1] and[fn:end-1].\n\n* Notes / Appendix\n\n"
+                           "[fn:end-1] shared\n\n[fn:see-1] only moved")))
+    ;; The source drops only the one nothing left there cites.
+    (with-temp-buffer
+      (insert (concat "* Keep\nStays[fn:end-1].\n\n* Move\n" moved "\n\n"
+                      "* Notes / Appendix\n\n[fn:end-1] shared\n\n[fn:see-1] only moved\n"))
+      (delay-mode-hooks (org-mode))
+      (let* ((beg (save-excursion (goto-char (point-min)) (search-forward "* Move") (line-beginning-position)))
+             (end (save-excursion (goto-char beg) (search-forward "* Notes / Appendix") (line-beginning-position)))
+             (labels (sp-split--notes-cited-only-inside beg end)))
+        (should (equal labels '("see-1")))
+        (delete-region beg end)
+        (sp-split--notes-drop-definitions labels)
+        (should (string-match-p "\\[fn:end-1\\] shared" (buffer-string)))
+        (should-not (string-match-p "see-1" (buffer-string)))))))
 
 (provide 'sp-split-leave-parents-test)
 ;;; sp-split-leave-parents-test.el ends here
