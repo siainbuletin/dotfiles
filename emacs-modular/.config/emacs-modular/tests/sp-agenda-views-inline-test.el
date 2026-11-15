@@ -3,12 +3,14 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
 
 (defvar sp-writing-projects "/nonexistent/")
 (defvar org-agenda-custom-commands nil)
 (defvar sp-agenda-views-inline-keywords)
+(defvar sp-agenda-views-inline-filter nil)
 (defvar sp-agenda-views-inline-extra-dirs)
 
 ;; Load only the inline section, so the test needs neither Org nor vulpea.
@@ -37,6 +39,36 @@
 
 (ert-deftest sp-agenda-views-inline-test-entry-key ()
   (should (equal (car (sp-agenda-views--inline-entry)) "x")))
+
+(ert-deftest sp-agenda-views-inline-test-sourcerefs-keyword ()
+  (should (member "SOURCEREFS" sp-agenda-views-inline-keywords))
+  (should (sp-agenda-views-inline-test--term "SOURCEREFS p. 12 Smith 1999"))
+  (should-not (sp-agenda-views-inline-test--term "MYSOURCEREFS")))
+
+(ert-deftest sp-agenda-views-inline-test-filter-narrows ()
+  (let ((sp-agenda-views-inline-filter "SOURCEREFS"))
+    (should (sp-agenda-views-inline-test--term "SOURCEREFS Smith"))
+    (should-not (sp-agenda-views-inline-test--term "FIXME this"))
+    (should-not (sp-agenda-views-inline-test--term "CITE this"))))
+
+(ert-deftest sp-agenda-views-inline-test-filter-nil-means-all ()
+  (let ((sp-agenda-views-inline-filter nil))
+    (should (sp-agenda-views-inline-test--term "FIXME this"))
+    (should (sp-agenda-views-inline-test--term "SOURCEREFS Smith"))))
+
+(ert-deftest sp-agenda-views-inline-test-unknown-filter-is-ignored ()
+  (let ((sp-agenda-views-inline-filter "NOPE"))
+    (should (sp-agenda-views-inline-test--term "FIXME this"))))
+
+(ert-deftest sp-agenda-views-inline-test-filter-set-rejects-unknown ()
+  (should-error (sp-agenda-views-inline-filter-set "NOPE") :type 'user-error)
+  (should-not sp-agenda-views-inline-filter))
+
+(ert-deftest sp-agenda-views-inline-test-filter-clear ()
+  (cl-letf (((symbol-function 'sp-agenda-views-inline) #'ignore))
+    (let ((sp-agenda-views-inline-filter "CITE"))
+      (sp-agenda-views-inline-filter-clear)
+      (should-not sp-agenda-views-inline-filter))))
 
 (provide 'sp-agenda-views-inline-test)
 ;;; sp-agenda-views-inline-test.el ends here
