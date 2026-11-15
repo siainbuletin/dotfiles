@@ -3,7 +3,8 @@
 ;;; Commentary:
 
 ;; One command to browse and search: an empty query browses all records,
-;; otherwise it searches DEVONthink or litdb, hits that Embark can act on, "see also" for a record, and a text preview.  macOS only.
+;; otherwise it searches DEVONthink or litdb.  Hits can be acted on with
+;; Embark; "see also" for a record, and a text preview.  macOS only.
 ;; Literate source: docs/tangles/academic/sp-devonthink-search.org.
 
 ;;; Code:
