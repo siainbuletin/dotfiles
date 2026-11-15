@@ -417,5 +417,21 @@
     (sp-batch-report-view--schedule)
     (should-not sp-batch-report-view--timer)))
 
+(ert-deftest sp-batch-report-view-cells-form-a-checkerboard ()
+  (let ((sp-batch-report-row-padding nil))
+    (dotimes (row 3)
+      (let ((line (sp-batch-report-view--table-line '("a" "b" "c") '(1 1 1) nil nil row)))
+        (dotimes (col 3)
+          (let ((face (get-text-property (+ 2 (* col 3)) 'face line)))
+            (should (equal (if (cl-evenp (+ row col)) '(sp-batch-report-cell-even)
+                             '(sp-batch-report-cell-odd))
+                           (ensure-list face)))))))))
+
+(ert-deftest sp-batch-report-view-padding-follows-the-option ()
+  (let ((sp-batch-report-row-padding nil))
+    (should (equal "" (sp-batch-report-view--padding))))
+  (let ((sp-batch-report-row-padding 0.5))
+    (should (equal "\n" (sp-batch-report-view--padding)))))
+
 (provide 'sp-batch-report-view-test)
 ;;; sp-batch-report-view-test.el ends here
