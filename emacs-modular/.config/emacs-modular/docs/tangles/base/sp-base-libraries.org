@@ -290,7 +290,8 @@ Uses a bar cursor by default, like most other editors.
 
 ** undo-tree
 
-Installs =undo-tree= and enables it globally, excluding =nxml-mode=. Undo history is persisted to =~/.emacs.d/undo=, a hard-coded path that does not follow =sp-cache-dir=.
+- Installs =undo-tree= and enables it globally, excluding =nxml-mode=.
+- Undo history is persisted to =~/.emacs.d/undo=, a hard-coded path that does not follow =sp-cache-dir=.
 
 #+begin_src emacs-lisp -i
 (use-package undo-tree
@@ -301,7 +302,25 @@ Installs =undo-tree= and enables it globally, excluding =nxml-mode=. Undo histor
 
   :custom
   (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
+
+(defun sp-undo-tree-skip-history-for-bib ()
+  "Stop `undo-tree' from saving its history for this buffer when it visits a `.bib' file."
+  (when (or (derived-mode-p 'bibtex-mode)
+            (and buffer-file-name (string-match-p "\\.bib\\'" buffer-file-name)))
+    (setq-local undo-tree-auto-save-history nil)))
+
+(add-hook 'bibtex-mode-hook #'sp-undo-tree-skip-history-for-bib)
+(add-hook 'find-file-hook #'sp-undo-tree-skip-history-for-bib)
 #+end_src
+
+*** No saved history for =.bib= files
+
+- Why: =lem-full-auto-save= (=sp-backups=) saves every modified file buffer after 5 idle seconds, and =undo-tree= writes a history file on every save.
+- With many =.bib= files in =~/Documents/bibliography= that were touched by =citar-open-entry=, each one printed =Wrote ...~undo-tree~= and Emacs slowed down.
+- =sp-undo-tree-skip-history-for-bib= sets =undo-tree-auto-save-history= to =nil= buffer-locally.
+- It applies when the buffer is in =bibtex-mode= (or a mode derived from it, such as =biblatex-mode=) or the file name ends in =.bib=.
+- It runs from =bibtex-mode-hook= and from =find-file-hook=, so buffers whose mode is set late are covered.
+- History for every other file is unchanged; undo within a session still works for =.bib= buffers.
 
 ** vundo
 

@@ -137,6 +137,15 @@
   :custom
   (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
 
+(defun sp-undo-tree-skip-history-for-bib ()
+  "Stop `undo-tree' from saving its history for this buffer when it visits a `.bib' file."
+  (when (or (derived-mode-p 'bibtex-mode)
+            (and buffer-file-name (string-match-p "\\.bib\\'" buffer-file-name)))
+    (setq-local undo-tree-auto-save-history nil)))
+
+(add-hook 'bibtex-mode-hook #'sp-undo-tree-skip-history-for-bib)
+(add-hook 'find-file-hook #'sp-undo-tree-skip-history-for-bib)
+
 (use-package vundo
   :ensure (:wait t))
 
