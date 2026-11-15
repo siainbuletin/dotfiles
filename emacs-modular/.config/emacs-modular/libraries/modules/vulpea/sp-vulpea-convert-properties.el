@@ -347,8 +347,7 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "- %s: %s" (sp-batch-report-file-link file)
-                     (string-join (seq-uniq found) ", "))))))
+             (cons file (seq-uniq found))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
@@ -356,12 +355,16 @@ progress count and ETA in the echo area -- see
              (message "Nothing would be converted -- every property found is blocklisted.")
              (sp-batch-report-show
               "*vulpea property conversion preview*"
-              (concat "#+title: Property conversion: dry run\n\n"
-                      "A applies the conversion to the files that are left (it asks first).\n\n"
-                      (sp-batch-report-key-entries
-                       (concat (string-join report "\n") "\n"))
-                      (and excluded
-                           (concat "\n" (sp-batch-report-dropped-section excluded))))
+              (sp-batch-report-text
+               "Property conversion: dry run"
+               (list (sp-batch-report-section
+                      "Properties to convert"
+                      (mapcar (lambda (entry)
+                                (sp-batch-report-item (string-join (cdr entry) ", ")
+                                                      :file (car entry)))
+                              report)))
+               :intro "A applies the conversion to the files that are left (it asks first)."
+               :excluded excluded)
               #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
              (with-current-buffer "*vulpea property conversion preview*"
                (setq sp-batch-report-excluded excluded

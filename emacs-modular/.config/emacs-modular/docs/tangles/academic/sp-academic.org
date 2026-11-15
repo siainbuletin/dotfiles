@@ -2280,18 +2280,26 @@ See `sp-bibtex-crossref-fields' and `sp-bibtex-crossref-renames'."
          (others (seq-remove (lambda (r) (alist-get 'crossref (nth 4 r))) results)))
     (sp-batch-report-open
      sp-bibtex-lint--buffer
-     (concat
-      (format "#+title: Crossref fields of %s\n\n" (file-name-nondirectory file))
-      (format "- %d entr%s would get fields from the crossref parent in %s; nothing is written.\n"
-              (length added) (if (= 1 (length added)) "y" "ies") (sp-batch-report-file-link file))
-      (format "- %s\n" (sp-bibtex-lint--button "crossref" file "add them" (length added)))
-      (sp-bibtex-lint--section "Fields to add" 'crossref added pairs file)
-      (and others
-           (concat "\n* Problems\n"
-                   (mapconcat (lambda (r)
-                                (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
-                                        (mapconcat (lambda (p) (concat "- " p "\n")) (nth 3 r) "")))
-                              others ""))))
+     (sp-batch-report-text
+      (format "Crossref fields of %s" (file-name-nondirectory file))
+      (delq nil
+            (list
+             (sp-batch-report-section
+              "Fix"
+              (list (sp-bibtex-lint--action-item "add them" file 'crossref (length added)))
+              "nothing to fix")
+             (sp-bibtex-lint--fix-section file 'crossref results pairs "Fields to add")
+             (and others
+                  (sp-batch-report-section
+                   "Problems"
+                   (mapcar (lambda (r)
+                             (sp-batch-report-item
+                              nil :file file :line (alist-get r pairs nil nil #'eq) :label (nth 1 r)
+                              :children (nth 3 r)))
+                           others)))))
+      :intro (format "%d entr%s would get fields from the crossref parent in %s; nothing is written."
+                     (length added) (if (= 1 (length added)) "y" "ies")
+                     (sp-batch-report-file-link file)))
      :refresh (lambda (_excluded) (sp-bibtex-lint-crossref-dryrun file)))))
 
 ;;;###autoload
@@ -2918,87 +2926,76 @@ KIND is the fix."
       (message "Nothing is dropped in %s" (file-name-nondirectory file))
     (message "%d brought back" (sp-bibtex-lint--restore-dialog file))))
 
-(defun sp-bibtex-lint--section (title kind results pairs file)
-  "The Org section TITLE with the RESULTS that have a rewrite of KIND.
-PAIRS says the line of each result in FILE.  Nothing when there are none."
-  (when-let* ((mine (seq-filter (lambda (r) (alist-get kind (nth 4 r))) results)))
-    (concat
-     (format "\n* %s (%d)\n" title
-             (apply #'+ (mapcar (lambda (r) (length (plist-get (alist-get kind (nth 4 r)) :desc)))
-                                mine)))
-     (mapconcat
-      (lambda (r)
-        (propertize
-         (concat "** " (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq)) "\n"
-                 (mapconcat (lambda (d) (concat "- " d "\n"))
-                            (plist-get (alist-get kind (nth 4 r)) :desc) ""))
-         'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
-         'sp-batch-report-file file))
-      mine ""))))
+(defun sp-bibtex-lint--action-item (label file kind count)
+  "The item that runs the fix KIND on FILE when you press RET, with the COUNT of entries.
+LABEL says what it fixes."
+  (sp-batch-report-item (format "%s (%d)" label count)
+                        :action (lambda () (sp-bibtex-lint--follow (format "%s:%s" kind file)))))
 
 (defun sp-bibtex-lint--render (file results)
   "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS REWRITES) of FILE, as a report.
 Names with the surname of an author note have sections of their own, so they do
 not bury the typos.  `d' drops an entry from the author fixes and `u' brings it
-back; the dropped ones are listed at the end."
+back; the dropped ones stay in the list, struck through.  RET on a fix runs it."
   (let* ((pairs (cl-mapcar #'cons results
                            (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results))))
          (shown (seq-remove (lambda (r) (sp-bibtex-lint--dropped-p file r)) results))
-         (dropped (sp-bibtex-lint--dropped-keys file))
-         (main (seq-filter (lambda (r) (nth 3 r)) shown)))
+         (main (seq-filter (lambda (r) (nth 3 r)) shown))
+         (all (seq-filter (lambda (r) (nth 3 r)) results)))
     (sp-batch-report-open
      sp-bibtex-lint--buffer
-     (concat
-      (format "#+title: BibTeX lint of %s\n\n" (file-name-nondirectory file))
-      (format "- %d entr%s with problems in %s.\n"
-              (length main) (if (= 1 (length main)) "y" "ies")
-              (sp-batch-report-file-link file))
-      (format "- %d entr%s with a name that has the surname of an author note (own section below); %d with a name that fits several.\n"
-              (sp-bibtex-lint--count shown 'surnames)
-              (if (= 1 (sp-bibtex-lint--count shown 'surnames)) "y" "ies")
-              (sp-bibtex-lint--count shown 'ambiguous))
-      "- =d= drops an entry from the author fixes for later, =u= brings it back, =A= runs the author fixes.\n"
-      (format "- Fix, in batches of %d (a button runs the fix; the file is copied first):\n"
-              sp-bibtex-lint-batch-size)
-      (format "  - %s\n" (sp-bibtex-lint--button "order" file "field order"
-                                                 (sp-bibtex-lint--count results 'order)))
-      (format "  - %s\n" (sp-bibtex-lint--button "indent" file "indentation, as in bibtex-mode"
-                                                 (sp-bibtex-lint--count results 'indent)))
-      (format "  - %s\n" (sp-bibtex-lint--button "prefixes" file "name prefixes (key=value, misplaced)"
-                                                 (sp-bibtex-lint--count shown 'prefixes)))
-      (format "  - %s\n" (sp-bibtex-lint--button "files" file "attachment paths"
-                                                 (sp-bibtex-lint--count results 'files)))
-      (format "  - %s\n" (sp-bibtex-lint--button "crossref" file "fields from the crossref parent"
-                                                 (sp-bibtex-lint--count results 'crossref)))
-      (format "  - %s\n" (sp-bibtex-lint--button "date" file "date fields to year and month"
-                                                 (sp-bibtex-lint--count results 'date)))
-      (format "  - %s\n" (sp-bibtex-lint--button "keys" file "long citation keys"
-                                                 (sp-bibtex-lint--count results 'keys)))
-      (format "  - %s\n" (sp-bibtex-lint--button "duplicates" file "duplicate fields"
-                                                 (sp-bibtex-lint--count results 'duplicates)))
-      (format "  - %s\n" (sp-bibtex-lint--button
-                          "authors" file "author names"
-                          (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
-                                                                    '(authors notes surnames)))
-                                              shown))))
-      (mapconcat (lambda (r)
-                   (propertize
-                    (concat "\n" (sp-bibtex-lint--entry-text
-                                  r (sp-batch-report-file-link file (nth 1 r) (alist-get r pairs nil nil #'eq))))
-                    'sp-batch-report-key (sp-bibtex-lint--entry-key file (nth 1 r))
-                    'sp-batch-report-file file))
-                 main "")
-      (sp-bibtex-lint--section "Attachment paths" 'files shown pairs file)
-      (sp-bibtex-lint--section "Fields from the crossref parent" 'crossref shown pairs file)
-      (sp-bibtex-lint--section "Date fields to year and month" 'date shown pairs file)
-      (sp-bibtex-lint--section "Date fields left as they are" 'date-skipped shown pairs file)
-      (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
-      (sp-bibtex-lint--section "Duplicate fields" 'duplicates shown pairs file)
-      (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
-      (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
-      (sp-bibtex-merge--section file)
-      (and dropped
-           (concat "\n" (sp-batch-report-dropped-section dropped nil #'sp-bibtex-lint--key-label))))
+     (sp-batch-report-text
+      (format "BibTeX lint of %s" (file-name-nondirectory file))
+      (seq-filter
+       (lambda (section) (plist-get section :items))
+       (list
+        (sp-batch-report-section
+         (format "Fix, in batches of %d (RET runs the fix; the file is copied first)"
+                 sp-bibtex-lint-batch-size)
+         (list (sp-bibtex-lint--action-item "field order" file 'order
+                                            (sp-bibtex-lint--count results 'order))
+               (sp-bibtex-lint--action-item "indentation, as in bibtex-mode" file 'indent
+                                            (sp-bibtex-lint--count results 'indent))
+               (sp-bibtex-lint--action-item "name prefixes (key=value, misplaced)" file 'prefixes
+                                            (sp-bibtex-lint--count shown 'prefixes))
+               (sp-bibtex-lint--action-item "attachment paths" file 'files
+                                            (sp-bibtex-lint--count results 'files))
+               (sp-bibtex-lint--action-item "fields from the crossref parent" file 'crossref
+                                            (sp-bibtex-lint--count results 'crossref))
+               (sp-bibtex-lint--action-item "date fields to year and month" file 'date
+                                            (sp-bibtex-lint--count results 'date))
+               (sp-bibtex-lint--action-item "long citation keys" file 'keys
+                                            (sp-bibtex-lint--count results 'keys))
+               (sp-bibtex-lint--action-item "duplicate fields" file 'duplicates
+                                            (sp-bibtex-lint--count results 'duplicates))
+               (sp-bibtex-lint--action-item
+                "author names" file 'authors
+                (length (seq-filter (lambda (r) (seq-some (lambda (k) (alist-get k (nth 4 r)))
+                                                          '(authors notes surnames)))
+                                    shown)))))
+        (sp-batch-report-section
+         "Entries with problems"
+         (mapcar (lambda (r)
+                   (sp-batch-report-item
+                    nil :file file :line (alist-get r pairs nil nil #'eq) :label (nth 1 r)
+                    :key (sp-bibtex-lint--entry-key file (nth 1 r)) :children (nth 3 r)))
+                 all))
+        (sp-bibtex-lint--fix-section file 'files results pairs "Attachment paths")
+        (sp-bibtex-lint--fix-section file 'crossref results pairs "Fields from the crossref parent")
+        (sp-bibtex-lint--fix-section file 'date results pairs "Date fields to year and month")
+        (sp-bibtex-lint--fix-section file 'date-skipped results pairs "Date fields left as they are")
+        (sp-bibtex-lint--fix-section file 'keys results pairs "Long citation keys")
+        (sp-bibtex-lint--fix-section file 'duplicates results pairs "Duplicate fields")
+        (sp-bibtex-lint--fix-section file 'surnames results pairs "Same surname as an author note")
+        (sp-bibtex-lint--fix-section file 'ambiguous results pairs "Same surname, several author notes")
+        (sp-bibtex-merge--section file)))
+      :intro (format "%d entr%s with problems in %s.  %d with a name that has the surname of an author note (own section below), %d with a name that fits several.  d drops an entry from the author fixes for later, u brings it back, A runs the author fixes."
+                     (length main) (if (= 1 (length main)) "y" "ies")
+                     (sp-batch-report-file-link file)
+                     (sp-bibtex-lint--count shown 'surnames)
+                     (sp-bibtex-lint--count shown 'ambiguous))
+      :excluded sp-bibtex-lint--excluded
+      :key-label #'sp-bibtex-lint--key-label)
      :refresh (lambda (excluded)
                 (setq sp-bibtex-lint--excluded excluded)
                 (sp-bibtex-lint-dryrun file))
@@ -3009,11 +3006,11 @@ back; the dropped ones are listed at the end."
 
 ;;;; The report of one fix
 
-(defun sp-bibtex-lint--fix-section (file kind results pairs)
+(defun sp-bibtex-lint--fix-section (file kind results pairs &optional title)
   "The report section of the fix KIND for FILE: the RESULTS that have a rewrite of it.
-PAIRS says the line of each result."
+PAIRS says the line of each result; TITLE is the name of the section."
   (sp-batch-report-section
-   (or (alist-get kind sp-bibtex-lint--kinds) (symbol-name kind))
+   (or title (alist-get kind sp-bibtex-lint--kinds) (symbol-name kind))
    (cl-loop for r in results
             for rewrite = (alist-get kind (nth 4 r))
             when rewrite
@@ -3560,25 +3557,28 @@ out, for the report), sorted by target."
      buckets)
     (sort groups (lambda (a b) (string< (plist-get a :target) (plist-get b :target))))))
 
-(defun sp-bibtex-merge--text (groups)
-  "The Org text that lists GROUPS of variants, with the proposed name of each."
-  (mapconcat
-   (lambda (g)
-     (concat (format "** %s\n" (plist-get g :target))
-             (mapconcat (lambda (f) (format "- %s (%d)%s\n" (car f) (cdr f)
-                                            (if (equal (car f) (plist-get g :target)) " ← proposed" "")))
-                        (plist-get g :forms) "")
-             (and (plist-get g :ambiguous)
-                  (format "- not merged, it fits several names: %s\n"
-                          (string-join (plist-get g :ambiguous) "; ")))))
-   groups ""))
-
 (defun sp-bibtex-merge--section (file)
   "The report section for the variants of one author in FILE, or nil when there are none."
   (when-let* ((groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file)
                                                (condition-case nil (sp-bibtex-people) (error nil)))))
-    (format "\n* Variants of one author (%d)\n- =M-x sp-bibtex-lint-fix-merge= (step 4 of =sp-bibtex-lint-fix-authors=) lets you choose the name of each group.\n%s"
-            (length groups) (sp-bibtex-merge--text groups))))
+    (sp-batch-report-section
+     (format "Variants of one author (%d)" (length groups))
+     (cons (sp-batch-report-item
+            "M-x sp-bibtex-lint-fix-merge (step 4 of sp-bibtex-lint-fix-authors) lets you choose the name of each group; RET runs it."
+            :action (lambda () (sp-bibtex-lint-fix-merge file)))
+           (mapcar
+            (lambda (g)
+              (sp-batch-report-item
+               (plist-get g :target)
+               :children
+               (append (mapcar (lambda (f)
+                                 (format "%s (%d)%s" (car f) (cdr f)
+                                         (if (equal (car f) (plist-get g :target)) " ← proposed" "")))
+                               (plist-get g :forms))
+                       (and (plist-get g :ambiguous)
+                            (list (format "not merged, it fits several names: %s"
+                                          (string-join (plist-get g :ambiguous) "; ")))))))
+            groups)))))
 
 (defun sp-bibtex-merge--ask (groups)
   "Ask for the name of each of GROUPS; return an alist from variant to chosen name.

@@ -14,7 +14,7 @@
                (lambda () (list a b)))
               ((symbol-function 'sia-vulpea--process-files-async)
                (lambda (files fn _label done)
-                 (funcall done (mapcar (lambda (f) (format "- %s: x" (sp-batch-report-file-link f))) files))))
+                 (funcall done (mapcar (lambda (f) (list f "x")) files))))
               ((symbol-function 'pop-to-buffer) #'ignore))
       (unwind-protect
           (progn
@@ -22,11 +22,11 @@
             (with-current-buffer "*vulpea property conversion preview*"
               (should (derived-mode-p 'sp-batch-report-mode))
               (goto-char (point-min))
-              (re-search-forward "^- \\[\\[file:/tmp/vault/b\\.org")
+              (re-search-forward "• b\\.org")
               (sp-batch-report-drop)
               (should (equal sp-batch-report-excluded (list b)))
-              (should-not (string-match-p "b\\.org\\]\\]: x" (buffer-string)))
-              (should (string-match-p "Dropped from the list" (buffer-string)))
+              (should (get-text-property (point) 'sp-batch-report-dropped))
+              (should (string-match-p "1 dropped" (sp-batch-report-view--header-line)))
               (cl-letf (((symbol-function 'sia-vulpea-convert-all-notes-properties-to-meta)
                          (lambda (&rest args) (setq applied args))))
                 (sp-batch-report-apply))

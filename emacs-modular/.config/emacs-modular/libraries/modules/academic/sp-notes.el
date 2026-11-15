@@ -631,25 +631,35 @@ Return the tags that are still unregistered."
   "Dry-run report of `sp-notes-filing-dryrun'.
 The keys are those of `sp-batch-report-mode'; \\[sp-batch-report-apply] applies the plan.")
 
-(defun sp-notes-filing--render (plan)
-  "Insert PLAN into the current buffer."
+(defun sp-notes-filing--report-text (plan excluded)
+  "The report of PLAN, for `sp-batch-report-open'; EXCLUDED are the dropped files."
   (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root)))
-        (counts (make-hash-table :test #'equal)))
-    (dolist (e plan) (cl-incf (gethash (plist-get e :folder) counts 0)))
-    (insert (format "#+title: Notes filing under %s: %d planned moves (dry run, nothing moved)\n"
-                    sp-notes-filing-root (length plan))
-            "Apply with C-c C-c (makes a backup first); g refreshes; q quits.\n\n"
-            "* Per folder\n")
-    (maphash (lambda (k v) (insert (format "- %s: %d\n" k v))) counts)
-    (insert "\n* Moves\n")
+        (counts nil))
     (dolist (e plan)
-      (insert (format "- %s -> %s%s%s%s\n"
-                      (sp-batch-report-file-link (plist-get e :from)
-                                                 (file-relative-name (plist-get e :from) root))
-                      (file-relative-name (plist-get e :to) root)
-                      (if (plist-get e :fallback) "  [no matching tag]" "")
-                      (if (plist-get e :strip-identifier) "  [drops #+identifier:]" "")
-                      (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))))))
+      (let ((cell (assoc (plist-get e :folder) counts)))
+        (if cell (cl-incf (cdr cell)) (push (cons (plist-get e :folder) 1) counts))))
+    (sp-batch-report-text
+     (format "Notes filing under %s: %d planned moves (dry run, nothing moved)"
+             sp-notes-filing-root (length plan))
+     (list
+      (sp-batch-report-section
+       "Per folder"
+       (mapcar (lambda (c) (sp-batch-report-item (format "%s: %d" (car c) (cdr c)) :key nil))
+               (nreverse counts)))
+      (sp-batch-report-section
+       "Moves"
+       (mapcar (lambda (e)
+                 (sp-batch-report-item
+                  (format "-> %s%s%s%s"
+                          (file-relative-name (plist-get e :to) root)
+                          (if (plist-get e :fallback) "  [no matching tag]" "")
+                          (if (plist-get e :strip-identifier) "  [drops #+identifier:]" "")
+                          (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))
+                  :file (plist-get e :from)
+                  :label (file-relative-name (plist-get e :from) root)))
+               plan)))
+     :intro "Apply with C-c C-c (makes a backup first); g refreshes; q quits."
+     :excluded excluded)))
 
 ;;;###autoload
 (defun sp-notes-filing-dryrun (&optional excluded)
@@ -667,9 +677,7 @@ EXCLUDED lists the files (their full names) to leave out of the plan."
                 plan (lambda (e) (plist-get e :from)) excluded)))
     (sp-batch-report-open
      "*Notes filing*"
-     (concat (sp-batch-report-key-entries
-              (with-temp-buffer (sp-notes-filing--render shown) (buffer-string)))
-             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     (sp-notes-filing--report-text shown excluded)
      :mode #'sp-notes-filing-report-mode
      :refresh (lambda () (sp-notes-filing-dryrun sp-notes-filing--excluded))
      :redraw (lambda (excl)
@@ -681,10 +689,16 @@ EXCLUDED lists the files (their full names) to leave out of the plan."
       (setq sp-notes-filing--current-plan shown))))
 
 
+(defun sp-notes-filing--plan-to-apply ()
+  "The plan of this report without the files dropped from it.
+The dashboard drops in place, so the plan is cut down when it is applied."
+  (sp-batch-report-without-excluded
+   sp-notes-filing--current-plan (lambda (e) (plist-get e :from)) sp-batch-report-excluded))
+
 (defun sp-notes-filing-convert ()
   "Apply the plan shown in this report, after confirmation."
   (interactive)
-  (let ((plan sp-notes-filing--current-plan))
+  (let ((plan (sp-notes-filing--plan-to-apply)))
     (unless plan (user-error "Nothing to apply"))
     (when (yes-or-no-p (format "Move %d notes (a backup is taken first)? " (length plan)))
       (let ((res (sp-notes-filing-apply plan)))
