@@ -774,7 +774,7 @@
               ((symbol-function 'vulpea-note-title) (lambda (_) "Kant")))
       (sp-see-also-note-new))
     (should (string-prefix-p "Text[fn:see-1]\n" (buffer-string)))
-    (should (string-match-p "\\* Footnotes\n\n\\[fn:see-1\\] \\[\\[id:ID-1\\]\\[Kant\\]\\] \\'"
+    (should (string-match-p "\\* Notes / Appendix\n\n\\[fn:see-1\\] \\[\\[id:ID-1\\]\\[Kant\\]\\] \n\\'"
                             (buffer-string)))
     ;; The new note is read as a see-also note, with the link as its mention.
     (should (equal (mapcar (lambda (f) (plist-get f :links))
@@ -791,7 +791,7 @@
                (lambda () (error "Must not ask"))))
       (sp-see-also-note-new-bare))
     (should (string-prefix-p "Text[fn:see-1]\n" (buffer-string)))
-    (should (string-match-p "\\[fn:see-1\\] \\'" (buffer-string)))))
+    (should (string-match-p "\\[fn:see-1\\] \n\\'" (buffer-string)))))
 
 (ert-deftest sp-see-also-convert-footnotes-inline-and-numbered ()
   (with-temp-buffer

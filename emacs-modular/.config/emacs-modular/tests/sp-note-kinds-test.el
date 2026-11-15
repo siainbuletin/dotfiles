@@ -55,18 +55,26 @@
     (let ((label (sp-note-new 'see-also "[[id:x][X]]")))
       (should (equal label "see-1"))
       (should (equal (buffer-string)
-                     "Some text[fn:see-1]\n\n* Footnotes\n\n[fn:see-1] [[id:x][X]]")))))
+                     "Some text[fn:see-1]\n\n* Notes / Appendix\n\n[fn:see-1] [[id:x][X]] \n")))))
 
-(ert-deftest sp-note-kinds-test-new-appends-to-the-section ()
+(ert-deftest sp-note-kinds-test-new-goes-to-the-older-section-in-order ()
   (sp-note-kinds-test--in-org "Some text\n\n* Next\ntext\n\n* Footnotes\n\n[fn:1] plain\n"
     (goto-char (point-min))
     (end-of-line)
     (sp-note-new 'endnote "later")
-    (should (string-match-p
-             "\\[fn:1\\] plain\n\n\\[fn:end-1\\] later\n?\\'" (buffer-string)))
+    ;; The older section is used and the endnote comes before the plain footnote.
+    (should (string-match-p "\\* Footnotes\n\n\\[fn:end-1\\] later\n\n\\[fn:1\\] plain\n\\'"
+                            (buffer-string)))
     (should (string-prefix-p "Some text[fn:end-1]" (buffer-string)))
-    ;; The mark was left at the reference, and point is in the definition.
+    ;; Point is in the definition.
     (should (looking-back "\\[fn:end-1\\] later" (line-beginning-position)))))
+
+(ert-deftest sp-note-kinds-test-sort-puts-endnotes-first ()
+  (sp-note-kinds-test--in-org
+      "A[fn:see-1] b[fn:end-1] c[fn:1]\n\n* Notes / Appendix\n\n[fn:1] plain\n\n[fn:see-1] one\n\n[fn:end-1] two\n"
+    (sp-note-sort-definitions)
+    (should (equal (buffer-string)
+                   "A[fn:see-1] b[fn:end-1] c[fn:1]\n\n* Notes / Appendix\n\n[fn:end-1] two\n\n[fn:see-1] one\n\n[fn:1] plain\n"))))
 
 (ert-deftest sp-note-kinds-test-new-numbers-count-up ()
   (sp-note-kinds-test--in-org "One\n"
@@ -115,29 +123,31 @@
 (ert-deftest sp-note-kinds-test-normalize-leaves-the-notes ()
   (sp-note-kinds-test--in-org
       "A[fn:see-2] b[fn:x] c[fn::inline] d[fn:see-1] e[fn:end-3]\n\n* Footnotes\n\n[fn:see-1] one\n\n[fn:see-2] two\n\n[fn:x] ex\n\n[fn:end-3] end\n"
-    (let ((org-footnote-section nil))
-      (org-footnote-normalize))
+    (org-footnote-normalize)
     (let ((text (buffer-string)))
       ;; The plain ones are numbered by Org; the notes keep their kind and are
       ;; renumbered in the order of the text.
-      (should (string-match-p "\\`A\\[fn:see-1\\] b\\[fn:1\\] c\\[fn:2\\] d\\[fn:see-2\\] e\\[fn:end-1\\]" text))
-      (should (string-match-p "^\\[fn:see-2\\] one$" text))
-      (should (string-match-p "^\\[fn:see-1\\] two$" text))
-      (should (string-match-p "^\\[fn:end-1\\] end$" text))
-      (should (string-match-p "^\\[fn:1\\] ex$" text))
-      (should (string-match-p "^\\[fn:2\\] inline$" text))
+      (should (string-prefix-p "A[fn:see-1] b[fn:1] c[fn:2] d[fn:see-2] e[fn:end-1]" text))
+      ;; One section, at the end: endnotes, see-also notes, then the footnotes.
+      (should (string-match-p "\n\\* Notes / Appendix\n\n\\[fn:end-1\\] end\n\n\\[fn:see-1\\] two\n\n\\[fn:see-2\\] one\n\n\\[fn:1\\] ex\n\n\\[fn:2\\] inline\n?\\'" text))
+      (should-not (string-match-p "\\* Footnotes" text))
       ;; No mask is left behind.
-      (should-not (string-match-p "​" text)))))
+      (should-not (string-match-p "\u200b" text)))))
+
+(ert-deftest sp-note-kinds-test-normalize-makes-no-empty-section ()
+  (sp-note-kinds-test--in-org "Nothing to note\n"
+    (org-footnote-normalize)
+    (should (equal (buffer-string) "Nothing to note\n"))))
 
 (ert-deftest sp-note-kinds-test-guard-unmasks-after-an-error ()
   (sp-note-kinds-test--in-org "A[fn:see-1]\n\n[fn:see-1] one\n"
     (should-error (sp-note--guarded (lambda () (error "boom"))))
     (should (equal (buffer-string) "A[fn:see-1]\n\n[fn:see-1] one\n"))))
 
-(ert-deftest sp-note-kinds-test-guard-refuses-with-a-footnote-section ()
+(ert-deftest sp-note-kinds-test-sort-refuses-with-a-footnote-section ()
   (sp-note-kinds-test--in-org "A[fn:see-1]\n\n[fn:see-1] one\n"
     (let ((org-footnote-section "Footnotes"))
-      (should-error (org-footnote-normalize) :type 'user-error))
+      (should-error (org-footnote-sort) :type 'user-error))
     (should (equal (buffer-string) "A[fn:see-1]\n\n[fn:see-1] one\n"))))
 
 (ert-deftest sp-note-kinds-test-auto-adjust-keeps-and-renumbers ()

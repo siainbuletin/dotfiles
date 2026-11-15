@@ -32,11 +32,25 @@
   :type 'string
   :group 'sp-note-kinds)
 
-(defcustom sp-note-definitions-title "Footnotes"
-  "Title of the heading that holds the definitions of new notes.
-Do not use \"See also\": `sp-see-also' reads such a section as a list of
-mentions."
+(defcustom sp-note-definitions-title "Notes / Appendix"
+  "Title of the heading that holds the definitions of the notes.
+All footnote definitions, those of see-also notes and endnotes too, go here
+when `org-footnote-normalize' is used.  Do not use \"See also\": `sp-see-also'
+reads such a section as a list of mentions."
   :type 'string
+  :group 'sp-note-kinds)
+
+(defcustom sp-note-legacy-definition-titles '("Footnotes")
+  "Titles of older definition sections, which are still found and used.
+A new note goes to the section with `sp-note-definitions-title' when there
+is one, else to the first of these that exists."
+  :type '(repeat string)
+  :group 'sp-note-kinds)
+
+(defcustom sp-note-definition-order '(endnote see-also)
+  "The order of the kinds in the definitions section.
+The kinds not named, the plain footnotes, come after them."
+  :type '(repeat (choice (const endnote) (const see-also)))
   :group 'sp-note-kinds)
 
 (defcustom sp-note-auto-renumber t
@@ -95,20 +109,35 @@ LABEL nil (an anonymous footnote) is a `footnote'."
                                (string-to-number (match-string 1))))))))
     (format "%s%d" prefix (1+ highest))))
 
+(defun sp-note--heading-regexp (title)
+  "Regexp of a heading titled TITLE, with or without tags."
+  (format "^\\*+ %s[ \t]*\\(?::[[:alnum:]_@#%%:]+:\\)?[ \t]*$" (regexp-quote title)))
+
+(defun sp-note--find-section ()
+  "Move to the start of the definitions section heading; nil when there is none.
+The section with `sp-note-definitions-title' comes first, then the older ones.
+The buffer must be widened."
+  (let ((case-fold-search nil))
+    (seq-some (lambda (title)
+                (goto-char (point-min))
+                (and (re-search-forward (sp-note--heading-regexp title) nil t)
+                     (progn (beginning-of-line) t)))
+              (cons sp-note-definitions-title sp-note-legacy-definition-titles))))
+
+(defun sp-note--ensure-section ()
+  "Move to the heading of the definitions section, making the section if needed."
+  (widen)
+  (unless (sp-note--find-section)
+    (goto-char (point-max))
+    (unless (bolp) (insert "\n"))
+    (insert "\n* " sp-note-definitions-title "\n")
+    (forward-line -1)))
+
 (defun sp-note--goto-definitions ()
   "Move point to the end of the definitions section, making it when missing."
-  (widen)
-  (goto-char (point-min))
-  (let ((case-fold-search nil))
-    (if (re-search-forward
-         (format "^\\*+ %s[ \t]*\\(?::[[:alnum:]_@#%%:]+:\\)?[ \t]*$"
-                 (regexp-quote sp-note-definitions-title))
-         nil t)
-        (progn (org-end-of-subtree t t)
-               (skip-chars-backward " \t\n"))
-      (goto-char (point-max))
-      (unless (bolp) (insert "\n"))
-      (insert "\n* " sp-note-definitions-title))))
+  (sp-note--ensure-section)
+  (org-end-of-subtree t t)
+  (skip-chars-backward " \t\n"))
 
 ;;;###autoload
 (defun sp-note-new (kind &optional text)
@@ -127,9 +156,12 @@ inserted."
     (insert (format "\n\n[fn:%s] %s" label (or text "")))
     (when sp-note-auto-renumber
       (setq label (or (cdr (assoc label (sp-note-renumber))) label)))
+    (sp-note-sort-definitions)
     (goto-char (point-min))
     (when (re-search-forward (format "^\\[fn:%s\\]" (regexp-quote label)) nil t)
-      (end-of-line))
+      (end-of-line)
+      ;; Sorting trims the blank at the end of the text; put it back.
+      (when (eq (char-before) ?\]) (insert " ")))
     (message "Note %s: C-u C-SPC returns to the text" label)
     label))
 
@@ -235,7 +267,7 @@ With MASKED, the ones hidden by `sp-note--mask'."
 
 (defun sp-note--guarded (function &rest arguments)
   "Call FUNCTION with ARGUMENTS while Org cannot see the see-also notes and endnotes.
-An `:around' advice for `org-footnote-normalize' and `org-footnote-sort'."
+An `:around' advice for `org-footnote-sort'."
   (if (not (and sp-note-guard-org-footnotes (derived-mode-p 'org-mode)))
       (apply function arguments)
     (when (and org-footnote-section
@@ -250,16 +282,155 @@ An `:around' advice for `org-footnote-normalize' and `org-footnote-sort'."
     (unwind-protect (apply function arguments)
       (sp-note--mask-notes nil))))
 
+(defun sp-note--definition-end (text-beg)
+  "Where the definition whose text starts at TEXT-BEG ends (trailing blanks left out)."
+  (save-excursion
+    (goto-char text-beg)
+    (let ((end (point-max)))
+      (when (re-search-forward
+             "\\(?:\n\\[fn:[-_[:word:]]+\\]\\|\n\\*+[ \t]\\|\n[ \t]*\n[ \t]*\n\\)" nil t)
+        (setq end (match-beginning 0)))
+      (goto-char end)
+      (skip-chars-backward " \t\n" text-beg)
+      (point))))
+
+(defun sp-note--extract-definitions ()
+  "Cut the definitions of see-also notes and endnotes out of the buffer.
+Return them as a list of (LABEL KIND TEXT) in buffer order.  Definitions in
+blocks that Org does not read and on comment lines are left where they are.
+The buffer must be widened."
+  (let ((case-fold-search nil)
+        found)
+    (goto-char (point-min))
+    (while (re-search-forward "^\\[fn:\\([-_[:word:]]+\\)\\]" nil t)
+      (let* ((label (match-string-no-properties 1))
+             (kind (sp-note-kind label))
+             (beg (match-beginning 0)))
+        (unless (or (eq kind 'footnote)
+                    (org-in-block-p '("src" "example" "export" "comment"))
+                    (org-at-comment-p))
+          (let ((end (sp-note--definition-end (match-end 0))))
+            (push (list label kind (buffer-substring-no-properties beg end)) found)
+            (delete-region beg end)
+            (skip-chars-forward " \t\n")
+            (delete-region beg (point))))))
+    (nreverse found)))
+
+(defun sp-note--ordered (notes)
+  "NOTES (from `sp-note--extract-definitions') in the order of `sp-note-definition-order'.
+Within a kind they are in the order of their numbers; a name has no number and
+goes after the numbers."
+  (let ((number (lambda (note)
+                  (let ((rest (substring (car note)
+                                         (length (sp-note-prefix (nth 1 note))))))
+                    (if (string-match-p "\\`[0-9]+\\'" rest)
+                        (string-to-number rest)
+                      most-positive-fixnum)))))
+    (apply #'append
+           (mapcar (lambda (kind)
+                     (sort (seq-filter (lambda (note) (eq (nth 1 note) kind)) notes)
+                           (lambda (a b) (< (funcall number a) (funcall number b)))))
+                   sp-note-definition-order))))
+
+(defun sp-note--insert-definitions (notes)
+  "Write NOTES at the start of the definitions section, making the section if needed."
+  (when notes
+    (sp-note--ensure-section)
+    (end-of-line)
+    (insert "\n\n"
+            (mapconcat (lambda (note) (nth 2 note)) (sp-note--ordered notes) "\n\n")
+            "\n")))
+
+(defun sp-note--remove-empty-sections ()
+  "Remove the definitions sections that have nothing in them."
+  (let ((case-fold-search nil))
+    (dolist (title (cons sp-note-definitions-title sp-note-legacy-definition-titles))
+      (goto-char (point-min))
+      (while (re-search-forward (sp-note--heading-regexp title) nil t)
+        (beginning-of-line)
+        (let ((beg (point)))
+          (end-of-line)
+          (let ((body (point)))
+            (org-end-of-subtree t t)
+            (if (string-blank-p (buffer-substring-no-properties body (point)))
+                (progn (delete-region beg (point))
+                       (goto-char beg))
+              (goto-char (min (point-max) (1+ body))))))))
+    ;; Blank lines that the removed heading left at the end of the buffer.
+    (goto-char (point-max))
+    (skip-chars-backward " \t\n")
+    (when (and (> (point) (point-min)) (< (point) (point-max)))
+      (delete-region (point) (point-max))
+      (insert "\n"))))
+
+(defun sp-note--tidy-section ()
+  "Leave one blank line between the definitions of the section, and one newline at its end."
+  (let ((case-fold-search nil))
+    (when (sp-note--find-section)
+      (let ((beg (point))
+            (end (progn (org-end-of-subtree t t) (point-marker))))
+        (goto-char beg)
+        (while (re-search-forward "\n\n\n+" end t)
+          (replace-match "\n\n"))
+        (when (>= (marker-position end) (point-max))
+          (goto-char (point-max))
+          (skip-chars-backward " \t\n")
+          (delete-region (point) (point-max))
+          (insert "\n"))
+        (set-marker end nil)))))
+
+;;;###autoload
+(defun sp-note-sort-definitions ()
+  "Put the definitions of the see-also notes and endnotes in order.
+They go to the start of the definitions section, first the endnotes and then
+the see-also notes (`sp-note-definition-order'); the plain footnotes stay
+after them in the same section."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Notes need an Org buffer"))
+  (save-excursion
+    (save-restriction
+      (widen)
+      (atomic-change-group
+        (goto-char (point-min))
+        (sp-note--insert-definitions (sp-note--extract-definitions))
+        (sp-note--remove-empty-sections)
+        (sp-note--tidy-section)))))
+
+(defun sp-note--normalize (function &rest arguments)
+  "Call FUNCTION, `org-footnote-normalize', with ARGUMENTS, and keep the notes.
+An `:around' advice.  The definitions of the see-also notes and endnotes are cut
+out and their references hidden from Org, which numbers the plain footnotes and
+writes them in the section `sp-note-definitions-title'; then the notes are put
+back at the start of that section, renumbered and in order."
+  (if (not (and sp-note-guard-org-footnotes (derived-mode-p 'org-mode)))
+      (apply function arguments)
+    (let ((notes (save-restriction (widen) (save-excursion (sp-note--extract-definitions)))))
+      (sp-note--mask-notes t)
+      (unwind-protect
+          (let ((org-footnote-section sp-note-definitions-title))
+            (apply function arguments))
+        (sp-note--mask-notes nil)
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (point-min))
+            (sp-note--insert-definitions notes)
+            (sp-note--remove-empty-sections)
+            (sp-note--tidy-section))))
+      (when sp-note-auto-renumber (sp-note-renumber))
+      (sp-note-sort-definitions))))
+
 (defun sp-note--after-org (&rest _)
-  "Renumber the notes after Org changed the footnotes (an `:after' advice)."
+  "Renumber and order the notes after Org adjusted the footnotes (an `:after' advice)."
   (when (and sp-note-auto-renumber sp-note-guard-org-footnotes
              (derived-mode-p 'org-mode))
-    (sp-note-renumber)))
+    (sp-note-renumber)
+    (sp-note-sort-definitions)))
 
 (with-eval-after-load 'org-footnote
-  (advice-add 'org-footnote-normalize :around #'sp-note--guarded)
+  (advice-add 'org-footnote-normalize :around #'sp-note--normalize)
   (advice-add 'org-footnote-sort :around #'sp-note--guarded)
-  (advice-add 'org-footnote-normalize :after #'sp-note--after-org)
   (advice-add 'org-footnote-auto-adjust-maybe :after #'sp-note--after-org))
 
 (defconst sp-note--endnotes-block

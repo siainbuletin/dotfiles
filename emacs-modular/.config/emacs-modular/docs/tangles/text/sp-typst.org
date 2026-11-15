@@ -64,7 +64,7 @@ The convention is in [[file:sp-note-kinds.org][sp-note-kinds]]; this module rend
 - *Endnote* (=[fn:end-1]=): =#endnote[...]= leaves a bracketed number, such as =[1]=, in the text; =#endnotes()= prints the list and starts again from 1.
   + The endnotes template of =sp-note-kinds= puts =#endnotes()= in a Notes section where the author wants it.
   + A doc with endnotes and no =#endnotes()= gets a Notes section at its end.
-- The definitions of these two kinds print nothing where they stand (the =Footnotes= section).
+- The definitions of these two kinds print nothing where they stand (the =Notes / Appendix= section).
 - How: while the export runs, the ox-typst functions for a footnote reference and a footnote definition are replaced (=cl-letf=, in =sp-typst--with-notes=) by ones that look at the label; plain footnotes go to the original function.
 - Labels are made unique for the book (=sp-typst--prefix-footnotes=) with the prefix kept at the front: =see-1= becomes =see-doc-x-1=.
 - =sidenotes.typ= is imported only by a doc that has see-also notes outside source blocks, so a doc that only quotes the syntax does not need the package.
