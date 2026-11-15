@@ -73,6 +73,16 @@ It stays when the mode is called again, so a refresh finds which sections were f
 (defvar-local sp-batch-report-view--by-key nil
   "Hash table from a key to the indexes of the rows that have it.")
 
+;; The model and width a report was drawn with, to draw it again when the window changes.
+(defvar-local sp-batch-report-view--model nil
+  "The data the report was drawn from.")
+(defvar-local sp-batch-report-view--width nil
+  "The window width the tables were laid out for.")
+(defvar-local sp-batch-report-view--has-tables nil
+  "Non-nil when the report has a table section.")
+(defvar-local sp-batch-report-view--timer nil
+  "The timer that draws the tables again after the window changed.")
+
 (defvar-local sp-batch-report-view--dropped 0
   "The number of rows that are dropped now.")
 
@@ -134,20 +144,106 @@ It stays when the mode is called again, so a refresh finds which sections were f
   (sp-batch-report-view--linkify
    (replace-regexp-in-string "[\n\r]+" " " (format "%s" (or cell "")))))
 
+(defcustom sp-batch-report-column-max-width 40
+  "The widest a column of a table in a report gets, in characters.
+The rest of a longer cell is wrapped under it, inside the column."
+  :type 'integer
+  :group 'sp-batch-report)
+
+(defcustom sp-batch-report-column-min-width 8
+  "The narrowest a column is made to fit the window, in characters."
+  :type 'integer
+  :group 'sp-batch-report)
+
+(defun sp-batch-report-view--window-width ()
+  "The width of the window of this buffer, in characters of its own text size.
+The characters are those of the default face of the buffer, so zooming the text
+(`text-scale-adjust') changes the width as well.  Without a window it is
+`fill-column'."
+  (if-let* ((window (get-buffer-window (current-buffer) t)))
+      (let ((char (window-font-width window)))
+        (if (> char 0)
+            (floor (window-body-width window t) char)
+          (window-body-width window)))
+    fill-column))
+
+(defun sp-batch-report-view--column-widths (header cells)
+  "The widths of the columns named HEADER, with the rows CELLS, for this window.
+Each column is as wide as its widest cell, at most `sp-batch-report-column-max-width'.
+When the columns do not fit the window, the widest are made narrower, one
+character at a time, down to `sp-batch-report-column-min-width' (or the name of
+the column when that is shorter)."
+  (let* ((n (length header))
+         (widths (apply #'cl-mapcar
+                        (lambda (&rest column)
+                          (min sp-batch-report-column-max-width
+                               (apply #'max (mapcar #'string-width column))))
+                        header cells))
+         (minimum (mapcar (lambda (name)
+                            (min (string-width name) sp-batch-report-column-min-width))
+                          header))
+         (room (- (sp-batch-report-view--window-width) 2 (* 2 (1- n)) 1))
+         (excess (- (apply #'+ widths) room)))
+    (while (and (> excess 0)
+                (let ((best nil) (i 0))
+                  (dolist (width widths)
+                    (when (and (> width (nth i minimum))
+                               (or (null best) (> width (nth best widths))))
+                      (setq best i))
+                    (setq i (1+ i)))
+                  (when best
+                    (setcar (nthcdr best widths) (1- (nth best widths)))
+                    (setq excess (1- excess))
+                    t))))
+    widths))
+
+(defun sp-batch-report-view--wrap (cell width)
+  "The lines of CELL wrapped to WIDTH characters, at spaces when it can.
+A word longer than WIDTH is cut.  The text properties of CELL are kept."
+  (let ((rest (string-trim cell)) lines)
+    (while (> (string-width rest) width)
+      (let* ((head (truncate-string-to-width rest width))
+             (limit (length head))
+             (space (and (< limit (length rest))
+                         (= (aref rest limit) ?\s)
+                         limit))
+             (space (or space
+                        (let ((found nil) (k (1- limit)))
+                          (while (and (> k 0) (not found))
+                            (when (= (aref head k) ?\s) (setq found k))
+                            (setq k (1- k)))
+                          found)))
+             (cut (or space (max limit 1))))
+        (push (string-trim-right (substring rest 0 cut)) lines)
+        (setq rest (string-trim-left (substring rest cut)))))
+    (nreverse (cons rest lines))))
+
 (defun sp-batch-report-view--table-line (cells widths face)
-  "The line of CELLS padded to WIDTHS; FACE, when given, is the face of the line."
-  (let ((i -1) (n (length cells)))
-    (concat "  "
-            (mapconcat
-             (lambda (cell)
-               (setq i (1+ i))
-               (let ((cell (if face (propertize (substring-no-properties cell) 'face face) cell)))
-                 (if (= i (1- n))
-                     cell
-                   (concat cell (make-string (max 0 (- (or (nth i widths) 0) (string-width cell)))
-                                             ?\s)))))
-             cells "  ")
-            "\n")))
+  "The lines of the row CELLS, each wrapped to its column in WIDTHS.
+FACE, when given, is the face of the row.  The row ends with a newline."
+  (let* ((columns (cl-mapcar
+                   (lambda (cell width)
+                     (sp-batch-report-view--wrap
+                      (if face (propertize (substring-no-properties cell) 'face face) cell)
+                      width))
+                   cells widths))
+         (height (apply #'max (mapcar #'length columns)))
+         (n (length columns)))
+    (mapconcat
+     (lambda (line)
+       (let ((i -1))
+         (concat "  "
+                 (mapconcat
+                  (lambda (column)
+                    (setq i (1+ i))
+                    (let ((text (or (nth line column) "")))
+                      (if (= i (1- n))
+                          text
+                        (concat text (make-string (max 0 (- (nth i widths) (string-width text)))
+                                                  ?\s)))))
+                  columns "  ")
+                 "\n")))
+     (number-sequence 0 (1- height)) "")))
 
 (defun sp-batch-report-view--count-string (kept total)
   "The count of a section, KEPT of TOTAL, padded to the fixed width."
@@ -213,9 +309,7 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
         (when header
           (setq cells (mapcar (lambda (item) (mapcar #'sp-batch-report-view--cell (plist-get item :row)))
                               items))
-          (setq widths (apply #'cl-mapcar
-                              (lambda (&rest column) (apply #'max (mapcar #'string-width column)))
-                              header cells))
+          (setq widths (sp-batch-report-view--column-widths header cells))
           (let ((line-start (point)))
             (insert (sp-batch-report-view--table-line header widths 'sp-batch-report-column))
             (put-text-property line-start (point) 'sp-batch-report-section sec)))
@@ -256,7 +350,10 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
           sp-batch-report-view--sections (vconcat (nreverse sections))
           sp-batch-report-view--by-key by-key
           sp-batch-report-view--dropped ndropped
-          sp-batch-report-view--folded nil)
+          sp-batch-report-view--folded nil
+          sp-batch-report-view--model model
+          sp-batch-report-view--width (sp-batch-report-view--window-width)
+          sp-batch-report-view--has-tables (and (seq-some (lambda (s) (plist-get s :header)) all) t))
     (dotimes (i nsections)
       (when (member (aref (aref sp-batch-report-view--sections i) 8) folded)
         (sp-batch-report-view--fold i t)))
@@ -408,6 +505,56 @@ the cost does not depend on the size of the report."
   (mouse-set-point event)
   (sp-batch-report-visit))
 
+(defun sp-batch-report-view--relayout ()
+  "Draw the report again for the width of its window; keep the folds, drops and point."
+  (when (and sp-batch-report-view--model (derived-mode-p 'sp-batch-report-mode))
+    (let* ((rows sp-batch-report-view--rows)
+           (row-of (lambda (pos)
+                     (when-let* ((index (get-text-property (min pos (point-max)) 'sp-batch-report-row)))
+                       (cons index (- pos (car (aref rows index)))))))
+           (point-row (funcall row-of (point)))
+           (windows (mapcar (lambda (w) (cons w (funcall row-of (window-start w))))
+                            (get-buffer-window-list (current-buffer) nil t)))
+           (model (copy-sequence sp-batch-report-view--model)))
+      (setq model (plist-put model :excluded sp-batch-report-excluded))
+      (sp-batch-report-view--render model)
+      (let ((place (lambda (row)
+                     (when row
+                       (let* ((range (aref sp-batch-report-view--rows (car row))))
+                         (min (+ (car range) (cdr row)) (1- (nth 1 range))))))))
+        (when-let* ((pos (funcall place point-row)))
+          (goto-char pos))
+        (dolist (entry windows)
+          (when (window-live-p (car entry))
+            (when-let* ((start (funcall place (cdr entry))))
+              (set-window-start (car entry) start t))
+            (set-window-point (car entry) (point))))))))
+
+(defun sp-batch-report-view--schedule (&rest _)
+  "Draw the tables of this report again, when the window width changed, once idle."
+  (when (and sp-batch-report-view--has-tables
+             (not sp-batch-report-view--timer)
+             (not (eql sp-batch-report-view--width (sp-batch-report-view--window-width))))
+    (let ((buffer (current-buffer)))
+      (setq sp-batch-report-view--timer
+            (run-with-idle-timer
+             0.2 nil
+             (lambda ()
+               (when (buffer-live-p buffer)
+                 (with-current-buffer buffer
+                   (setq sp-batch-report-view--timer nil)
+                   (unless (eql sp-batch-report-view--width (sp-batch-report-view--window-width))
+                     (sp-batch-report-view--relayout))))))))))
+
+(defun sp-batch-report-view--frame-resized (frame)
+  "Schedule a new layout of the reports shown in FRAME."
+  (dolist (window (window-list frame))
+    (with-current-buffer (window-buffer window)
+      (when (derived-mode-p 'sp-batch-report-mode)
+        (sp-batch-report-view--schedule)))))
+
+(add-hook 'window-size-change-functions #'sp-batch-report-view--frame-resized)
+
 (defun sp-batch-report-view--header-line ()
   "The summary line of the report."
   (let ((sections (length sp-batch-report-view--sections))
@@ -428,6 +575,8 @@ Sections fold with \\<sp-batch-report-mode-map>\\[sp-batch-report-toggle-section
 \\{sp-batch-report-mode-map}"
   (setq buffer-undo-list t)
   (setq-local truncate-lines nil)
+  (add-hook 'window-configuration-change-hook #'sp-batch-report-view--schedule nil t)
+  (add-hook 'text-scale-mode-hook #'sp-batch-report-view--schedule nil t)
   (setq header-line-format '(:eval (sp-batch-report-view--header-line)))
   (sp-echo-help-set (sp-batch-report--hints)))
 

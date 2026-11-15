@@ -77,7 +77,11 @@
             (progn
               (sp-echo-help-set '(("q" "Quit")))
               (setq shown nil)
-              (sp-echo-help--idle-show)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 2.0)))
+                (sp-echo-help--idle-show))
+              (should-not shown)        ; younger than the hold time
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
               (should (equal (car shown) " [q] Quit")))
           (kill-buffer "*sp-echo-help-idle-test*"))))))
 
