@@ -1057,6 +1057,9 @@ Provides the =sp-agenda-views= feature and closes the file.
 
 What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
+- [[https://github.com/siainbuletin/dotfiles/pull/525][#525]]
+  - 🐛 =tests/sp-agenda-views-inline-test.el= loads again (one extra closing paren) and the entry-key test stubs the file list.
+  - Run in Emacs 29.3 batch: 9 of 9 tests pass.
 - [[https://github.com/siainbuletin/dotfiles/pull/523][#523]]
   - ✨ The inline keyword view can be narrowed to one keyword (=sp-agenda-views-inline-filter-set=, =-clear=, menu on =C-c o X=), see "Inline keyword view".
   - ✨ New inline keyword =SOURCEREFS= for references made in the PDF being read.
