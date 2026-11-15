@@ -8,8 +8,9 @@
 -- Keys active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
---   Cmd+Shift+D    hide the inspector / sidebar; if none is shown, the
---                  normal Cmd+Shift+D goes to DEVONthink
+--   Cmd+Shift+D    hide the inspector, else the sidebar; if neither is
+--                  shown, an alert says so and the normal Cmd+Shift+D goes
+--                  to DEVONthink
 --
 -- Why:
 --   * The layer never reaches Emacs or any other app, and uses no Option,
@@ -22,12 +23,15 @@
 --   * So they are found by the start of the name (the patterns below),
 --     searched in the Format menu, not by a fixed full title.
 --
--- Undo and sidebar:
+-- Undo, inspector and sidebar:
 --   * Menu items are found by title pattern, because the titles change with the
 --     action ("Undo Add Highlight") or the state ("Hide Inspector").
 --   * Only enabled items count. The Edit menu always shows the next undo step,
 --     so a highlight that is gone or older than another action is never touched.
---   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
+--   * The sidebar has no Hide item: View > Sidebar lists Navigate, Reading List,
+--     Extras, ...; the one with a check mark is open, and choosing it again
+--     hides the sidebar.
+--   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("View").
 
 local M = {}
 
@@ -57,9 +61,16 @@ local undoHighlightPatterns = {
   "^Undo.*[Mm]arkup",
 }
 
--- View menu titles of the inspector / sidebar when they are shown.
-local hidePanelPatterns = {
+-- Menus and title patterns of the inspector when it is shown (Tools > Inspectors
+-- in DEVONthink 3; View in case DEVONthink 4 moved it).
+local hideInspectorMenus = { "Tools", "View" }
+local hideInspectorPatterns = {
   "^Hide.*Inspector",
+}
+
+-- The sidebar submenu in the View menu, and a fallback title pattern.
+local sidebarMenu = { "View", "Sidebar" }
+local hideSidebarPatterns = {
   "^Hide.*Sidebar",
 }
 
@@ -119,13 +130,42 @@ local function selectFirst(app, menu, patterns)
   return false
 end
 
--- Print the titles of a top-level menu (id, enabled) to the Hammerspoon console.
+-- The items (from getMenuItems) of the submenu at PATH, e.g. { "View", "Sidebar" }.
+local function submenuItems(app, path)
+  local items = app:getMenuItems() or {}
+  for _, title in ipairs(path) do
+    local found
+    for _, item in ipairs(items) do
+      if item.AXTitle == title then found = item break end
+    end
+    if not found then return nil end
+    items = found.AXChildren and found.AXChildren[1] or {}
+  end
+  return items
+end
+
+-- Select the checked item of the submenu at PATH (the open sidebar section).
+local function selectChecked(app, path)
+  for _, item in ipairs(submenuItems(app, path) or {}) do
+    local mark = item.AXMenuItemMarkChar
+    if mark and mark ~= "" and item.AXEnabled ~= false and item.AXTitle then
+      local full = { table.unpack(path) }
+      full[#full + 1] = item.AXTitle
+      return app:selectMenuItem(full)
+    end
+  end
+  return false
+end
+
+-- Print the titles of a top-level menu (check mark, enabled) to the Hammerspoon console.
 function M.dumpMenu(menu)
   local app = hs.application.get(APP) or hs.application.frontmostApplication()
   local function dump(items, depth)
     for _, item in ipairs(items or {}) do
       if item.AXTitle and item.AXTitle ~= "" then
-        hs.printf("%s%s%s", string.rep("  ", depth), item.AXTitle,
+        local mark = item.AXMenuItemMarkChar
+        hs.printf("%s%s%s%s", string.rep("  ", depth), item.AXTitle,
+          (mark and mark ~= "") and " (checked)" or "",
           item.AXEnabled == false and " (disabled)" or "")
         dump(item.AXChildren and item.AXChildren[1], depth + 1)
       end
@@ -162,10 +202,18 @@ function M.undoHighlight()
   return app ~= nil and selectFirst(app, "Edit", undoHighlightPatterns)
 end
 
--- Hide the inspector / sidebar. False when none is shown.
+-- Hide the inspector, else the sidebar. False (with an alert) when none is shown.
 function M.hidePanel()
   local app = hs.application.frontmostApplication()
-  return app ~= nil and selectFirst(app, "View", hidePanelPatterns)
+  if not app then return false end
+  for _, menu in ipairs(hideInspectorMenus) do
+    if selectFirst(app, menu, hideInspectorPatterns) then return true end
+  end
+  if selectChecked(app, sidebarMenu) or selectFirst(app, "View", hideSidebarPatterns) then
+    return true
+  end
+  hs.alert.show("No inspector or sidebar to hide (see DEVONthink.dumpMenu(\"View\"))")
+  return false
 end
 
 -- Run FN only when DEVONthink is in front; elsewhere the key does nothing.
