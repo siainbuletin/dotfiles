@@ -22,6 +22,7 @@
 (require 'sp-interaction)
 (require 'sp-bibtex-types)
 (require 'sp-vulpea-meta-order)
+(require 'sp-bibtex-biblatex)
 
 (declare-function citar-create-note "citar")
 (declare-function vulpea-db-query "vulpea-db")
@@ -107,12 +108,21 @@ The batch binds it: its table of existing notes is read once, so it does not see
   "Hash table of BibTeX key to entry, or nil to read the files for each key.
 Made by `sp-litnotes-meta-build-index'.")
 
+(defun sp-litnotes-meta--bibtex-mode ()
+  "Turn the current buffer into a `bibtex-mode' buffer that reads every entry type.
+`bibtex-parse-entry' returns nil for a type that the dialect of the buffer
+lacks (`@online' and `@thesis' in the BibTeX dialect, `@video' or `@news' in
+BibLaTeX), so such an entry would look as if it did not exist.  The dialect
+is BibLaTeX, extended by the types of the buffer (`sp-bibtex-biblatex--set-dialect')."
+  (delay-mode-hooks (bibtex-mode))
+  (sp-bibtex-biblatex--set-dialect))
+
 (defun sp-litnotes-meta--index-file (file table)
   "Add the entries of the .bib FILE to the hash TABLE (key to entry).
 A key that is already in TABLE keeps its first entry."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
-    (delay-mode-hooks (bibtex-mode))
+    (sp-litnotes-meta--bibtex-mode)
     (goto-char (point-min))
     (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
       (let ((beg (match-beginning 0)))
@@ -142,7 +152,7 @@ Signal a `user-error' when there is no .bib file."
     (dolist (file (sp-author-notes-bibtex--files))
       (with-temp-buffer
         (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
-        (delay-mode-hooks (bibtex-mode))
+        (sp-litnotes-meta--bibtex-mode)
         (goto-char (point-min))
         (when (re-search-forward
                (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)
@@ -435,28 +445,28 @@ Return `added' or `filled', or nil when the line already has a value.  An
 empty or nil VALUE is never written: nothing is added and nothing is filled.  A
 new line goes after the last item and its continuation lines."
   (unless (sp-litnotes-meta--blank-p value)
-  (save-excursion
-    (save-restriction
-      (widen)
-      (let ((limit (sp-author-notes--first-heading))
-            (case-fold-search t))
-        (goto-char (point-min))
-        (cond
-         ((re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key)) limit t)
-          (when (string-empty-p (string-trim (match-string 1)))
-            (replace-match (concat " " value) t t nil 1)
-            'filled))
-         (t
+    (save-excursion
+      (save-restriction
+        (widen)
+        (let ((limit (sp-author-notes--first-heading))
+              (case-fold-search t))
           (goto-char (point-min))
-          (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
-              (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
+          (cond
+           ((re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key)) limit t)
+            (when (string-empty-p (string-trim (match-string 1)))
+              (replace-match (concat " " value) t t nil 1)
+              'filled))
+           (t
+            (goto-char (point-min))
+            (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
+                (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
                        (sp-litnotes-meta--end-of-item)
-                     (insert "\n"))
-            (goto-char limit)
-            (unless (bolp) (insert "\n"))
-            (insert "\n"))
-          (insert (format "- %s :: %s" key value))
-          (unless (eq (char-after) ?\n) (insert "\n"))
+                       (insert "\n"))
+              (goto-char limit)
+              (unless (bolp) (insert "\n"))
+              (insert "\n"))
+            (insert (format "- %s :: %s" key value))
+            (unless (eq (char-after) ?\n) (insert "\n"))
             'added)))))))
 
 (define-error 'sp-litnotes-meta-lost-data
@@ -682,13 +692,13 @@ answer), unless `sp-litnotes-meta--allow-clear' is non-nil, which then empties
 the value and keeps the line.  Return non-nil when the buffer was written."
   (if (and (sp-litnotes-meta--blank-p value) (not sp-litnotes-meta--allow-clear))
       nil
-  (save-excursion
-    (save-restriction
-      (widen)
-      (goto-char (point-min))
-      (let ((case-fold-search t))
-        (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
-                               (sp-author-notes--first-heading) t)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char (point-min))
+        (let ((case-fold-search t))
+          (if (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                                 (sp-author-notes--first-heading) t)
               (progn (replace-match (concat " " (or value "")) t t nil 1) t)
             (sp-litnotes-meta--set key value)))))))
 
@@ -920,11 +930,13 @@ Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."
   "The title for a new note of the BibTeX ENTRY, per `sp-litnotes-meta-new-title'."
   (let ((title (sp-litnotes-meta--field entry "title")))
     (if (and title (eq sp-litnotes-meta-new-title 'standard))
-        (let ((names (mapcar #'sp-litnotes-titles--split-name
-                             (sp-litnotes-meta--author-names entry)))
-              (year (sp-litnotes-meta--year entry)))
+        (let* ((authors (sp-litnotes-titles--bib-authors entry))
+               (editors (and (null authors) (sp-litnotes-titles--bib-authors entry "editor")))
+               (names (or authors editors))
+               (sp-litnotes-titles--editors-p (and editors t))
+               (year (sp-litnotes-meta--year entry)))
           (if (and names year)
-              (sp-litnotes-titles-format names year title)
+              (funcall sp-litnotes-titles-format-function names year title)
             title))
       title)))
 
@@ -2523,42 +2535,44 @@ file to `fixed' or the error text."
           results)))))
 
 (defun sp-litnotes-meta--after-create (key &rest _)
-  "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
+  "Fill and tidy the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
   (when (and sp-litnotes-meta-auto (stringp key) (sp-litnotes-meta--entry key))
     (condition-case err
-        (sp-litnotes-meta-fill key)
+        (progn (sp-litnotes-meta-fill key)
+               (sp-litnotes-meta--tidy-new-note key))
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
 
 (defcustom sp-litnotes-meta-citar-create t
   "Non-nil to make the notes that `citar-create-note' is asked for ourselves.
 The note is made by `sp-litnotes-meta-create-function' (an ID, :CREATED:, the
 litnote and BibTeX type tags, ROAM_REFS, the title of
-`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Nil leaves
-the note to citar (and its `citar-vulpea-note-title-template')."
+`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Citar's own
+template is then never used.  Nil leaves the note to citar (and its
+`citar-vulpea-note-title-template')."
   :type 'boolean
   :group 'sp-litnotes-meta)
 
 (defun sp-litnotes-meta--around-create (orig-fun key &rest args)
   "Make the note of KEY with `sp-litnotes-meta-create-function', not citar.
-ORIG-FUN is `citar-create-note', called with KEY and ARGS when
-`sp-litnotes-meta-citar-create' is nil, KEY has no BibTeX entry or already has
-a note, or the note could not be made; the note is then filled afterwards."
-  (let ((file (when (and sp-litnotes-meta-citar-create (stringp key)
-                         (sp-litnotes-meta--entry key)
-                         (not (gethash key (sp-author-notes-bibtex--covered))))
-                (condition-case err
-                    (funcall sp-litnotes-meta-create-function key)
-                  (error (message "sp-litnotes-meta: %s: %s, using citar"
-                                  key (error-message-string err))
-                         nil)))))
-    (if (not file)
-        (prog1 (apply orig-fun key args)
-          (sp-litnotes-meta--after-create key))
-      (when sp-litnotes-meta-auto
-        (condition-case err
-            (sp-litnotes-meta-fill key file)
-          (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
-      (find-file file))))
+ORIG-FUN is `citar-create-note', called with KEY and ARGS only when
+`sp-litnotes-meta-citar-create' is nil; the note is then filled and tidied
+afterwards.  A key that already has a note gets that note visited.  A key
+without a BibTeX entry, or a failing create function, signals an error."
+  (if (not (and sp-litnotes-meta-citar-create (stringp key)))
+      (prog1 (apply orig-fun key args)
+        (sp-litnotes-meta--after-create key))
+    (unless (sp-litnotes-meta--entry key)
+      (user-error "No BibTeX entry %s in the registered files, so no note was made" key))
+    (let ((existing (gethash key (sp-author-notes-bibtex--covered))))
+      (if existing
+          (progn (message "%s already has a note, visiting it" key)
+                 (find-file existing))
+        (let ((file (funcall sp-litnotes-meta-create-function key)))
+          (when sp-litnotes-meta-auto
+            (condition-case err
+                (sp-litnotes-meta-fill key file)
+              (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
+          (find-file file))))))
 
 (advice-remove 'citar-create-note #'sp-litnotes-meta--after-create)
 (advice-add 'citar-create-note :around #'sp-litnotes-meta--around-create)

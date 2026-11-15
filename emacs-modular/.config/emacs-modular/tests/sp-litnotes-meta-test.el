@@ -1825,3 +1825,106 @@
       (with-temp-buffer
         (insert "#+title: T\n\n- pub-author :: [[id:a1][Jane Doe]]\n")
         (should-not (sp-litnotes-meta--differs-p "pub-author" entry))))))
+
+(defconst sp-litnotes-meta-test--bib-types
+  "@online{wb2020,
+  author = {{World Bank}},
+  title = {Report},
+  date = {2020-03-01},
+}
+@thesis{doe2019,
+  author = {Doe, Jane and R\"ontgen, Ä},
+  title = {A Thesis},
+  date = {2019},
+}
+@video{vid2021,
+  author = {Roe, Rick},
+  title = {A Video},
+  date = {2021},
+}
+@book{ed2001,
+  editor = {Lee, Ann},
+  title = {Ed},
+  date = {2001},
+}
+")
+
+(ert-deftest sp-litnotes-meta-reads-every-entry-type ()
+  "An entry of a type the dialect lacks is found, not taken for missing."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (dolist (key '("wb2020" "doe2019" "vid2021" "ed2001"))
+      (should (sp-litnotes-meta--entry key)))
+    (sp-litnotes-meta-build-index)
+    (unwind-protect
+        (dolist (key '("wb2020" "doe2019" "vid2021" "ed2001"))
+          (should (sp-litnotes-meta--entry key)))
+      (setq sp-litnotes-meta--index nil))))
+
+(ert-deftest sp-litnotes-meta-new-title-follows-sp-litnotes-titles ()
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (cl-flet ((title (key) (sp-litnotes-meta--new-title (sp-litnotes-meta--entry key))))
+      (should (equal (title "wb2020") "World Bank (2020) Report"))
+      (should (equal (title "vid2021") "Roe (2021) A Video"))
+      (should (equal (title "ed2001") "Lee (ed.) (2001) Ed"))
+      (let ((sp-litnotes-titles-editor-suffix nil))
+        (should (equal (title "ed2001") "Lee (2001) Ed"))))))
+
+(ert-deftest sp-litnotes-meta-citar-create-never-uses-citar-template-for-any-type ()
+  "For every entry type the note is made by us: no citar fallback."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (let* ((file (make-temp-file "sp-meta-note" nil ".org"))
+           (made nil) (orig nil)
+           (sp-litnotes-meta-auto nil)
+           (sp-litnotes-meta-create-function (lambda (key) (push key made) file)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered)
+                     (lambda () (make-hash-table :test 'equal)))
+                    ((symbol-function 'find-file) #'identity))
+            (dolist (key '("wb2020" "doe2019" "vid2021"))
+              (sp-litnotes-meta--around-create (lambda (&rest _) (setq orig t)) key))
+            (should-not orig)
+            (should (equal (sort made #'string<) '("doe2019" "vid2021" "wb2020"))))
+        (delete-file file)))))
+
+(ert-deftest sp-litnotes-meta-citar-create-visits-existing-note ()
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (let* ((file (make-temp-file "sp-meta-note" nil ".org"))
+           (made nil) (orig nil)
+           (covered (make-hash-table :test 'equal))
+           (sp-litnotes-meta-create-function (lambda (key) (push key made) file)))
+      (puthash "wb2020" file covered)
+      (unwind-protect
+          (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered) (lambda () covered))
+                    ((symbol-function 'find-file) #'identity))
+            (should (equal (sp-litnotes-meta--around-create
+                            (lambda (&rest _) (setq orig t)) "wb2020")
+                           file))
+            (should-not made)
+            (should-not orig))
+        (delete-file file)))))
+
+(ert-deftest sp-litnotes-meta-citar-template-is-never-used ()
+  "A missing entry or a failing create function is an error, not citar's note."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (let ((orig nil))
+      (cl-letf (((symbol-function 'sp-author-notes-bibtex--covered)
+                 (lambda () (make-hash-table :test 'equal))))
+        (should-error (sp-litnotes-meta--around-create
+                       (lambda (&rest _) (setq orig t)) "nokey")
+                      :type 'user-error)
+        (let ((sp-litnotes-meta-create-function (lambda (_) (error "boom"))))
+          (should-error (sp-litnotes-meta--around-create
+                         (lambda (&rest _) (setq orig t)) "wb2020")))
+        (should-not orig)))))
+
+(ert-deftest sp-litnotes-meta-citar-off-fills-and-tidies ()
+  "With the option off, citar's note is filled and tidied."
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib-types
+    (let ((filled nil) (tidied nil) (sp-litnotes-meta-citar-create nil))
+      (cl-letf (((symbol-function 'sp-litnotes-meta-fill)
+                 (lambda (key &rest _) (push key filled)))
+                ((symbol-function 'sp-litnotes-meta--tidy-new-note)
+                 (lambda (key &rest _) (push key tidied))))
+        (should (eq 'made (sp-litnotes-meta--around-create (lambda (&rest _) 'made) "wb2020")))
+        (should (equal filled '("wb2020")))
+        (should (equal tidied '("wb2020")))))))
