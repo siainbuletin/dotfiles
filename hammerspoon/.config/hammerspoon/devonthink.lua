@@ -2,29 +2,37 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x   Tools > Annotate > Highlight Text (persistent highlight mode)
---   c   next colour (menu order below), then highlight again
+--   x                 Tools > Annotate > Highlight Text (persistent highlight mode)
+--   c                 next colour (cycling), then highlight again
+--   Option+1 ... 7    pick colour N (list below), then highlight again
+--   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
+--                     highlights selected in the Annotations inspector; the
+--                     result depends on DEVONthink, see the PR)
 --
--- Key active only while DEVONthink is in front:
+-- Keys active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
+--   Cmd+Shift+Z    bring back the highlight just deleted, if it is the next
+--                  redo step; otherwise the normal Cmd+Shift+Z goes to DEVONthink
 --
 -- Why:
---   * The layer never reaches Emacs or any other app, and uses no Option,
---     Cmd+Space or Ctrl+Space chord.
---   * The keys do nothing outside DEVONthink.
+--   * The layer never reaches Emacs or any other app, so Option here does not
+--     become Emacs Meta. The keys do nothing outside DEVONthink.
 --   * No automatic highlight on activation: it only runs when you press the key.
+--   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
+--     numbers use Caps+Option+number, which the layer does not use otherwise.
 --
 -- Colours:
 --   * The colour menu items are renamed, e.g. "Red - Important point".
 --   * So they are found by the start of the name (the patterns below),
 --     searched in the Format menu, not by a fixed full title.
 --
--- Undo:
---   * The menu item is found by title pattern, because its title changes with
---     the action ("Undo Add Highlight").
---   * Only enabled items count. The Edit menu always shows the next undo step,
---     so a highlight that is gone or older than another action is never touched.
+-- Undo and redo:
+--   * The menu items are found by title pattern, because their titles change
+--     with the action ("Undo Add Highlight", "Redo Add Highlight").
+--   * Only enabled items count. The Edit menu always shows the next undo and
+--     redo step, so a highlight that is gone or older than another action is
+--     never touched.
 --   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
 
 local M = {}
@@ -36,7 +44,8 @@ local BUNDLE_IDS = {
   ["com.devon-technologies.think"] = true,
 }
 
--- Lua patterns for the start of each colour item title, in cycling order.
+-- Lua patterns for the start of each colour item title. The position is the
+-- number key (1 = Red, ...) and the cycling order.
 local colors = {
   { name = "Red",    pattern = "^Red" },
   { name = "Green",  pattern = "^Green" },
@@ -53,6 +62,13 @@ local undoHighlightPatterns = {
   "^Undo.*[Hh]ighlight",
   "^Undo.*[Aa]nnotat",
   "^Undo.*[Mm]arkup",
+}
+
+-- Edit > Redo titles that mean "the step to redo is a highlight".
+local redoHighlightPatterns = {
+  "^Redo.*[Hh]ighlight",
+  "^Redo.*[Aa]nnotat",
+  "^Redo.*[Mm]arkup",
 }
 
 local function isDevonthink(app)
@@ -134,26 +150,38 @@ function M.highlight()
   return selectMenu({ "Tools", "Annotate", "Highlight Text" })
 end
 
-function M.nextColor()
+-- Set colour number INDEX (see `colors`). With START_HIGHLIGHT, then start
+-- highlighting; without it, only the colour changes (for selected highlights).
+function M.setColor(index, startHighlight)
   local app = hs.application.frontmostApplication()
-  if not app then return end
-  colorIndex = colorIndex % #colors + 1
-  local color = colors[colorIndex]
+  local color = colors[index]
+  if not app or not color then return false end
   local path = findInMenu(app, "Format", color.pattern)
   if not path then
     hs.alert.show("No colour starting with " .. color.name .. " in the Format menu")
-    return
+    return false
   end
-  if selectMenu(path) then
-    hs.alert.show(color.name, 0.5)
-    M.highlight()
-  end
+  if not selectMenu(path) then return false end
+  colorIndex = index
+  hs.alert.show(color.name, 0.5)
+  if startHighlight then M.highlight() end
+  return true
+end
+
+function M.nextColor()
+  M.setColor(colorIndex % #colors + 1, true)
 end
 
 -- Undo the latest highlight. False when the next undo step is not a highlight.
 function M.undoHighlight()
   local app = hs.application.frontmostApplication()
   return app ~= nil and selectFirst(app, "Edit", undoHighlightPatterns)
+end
+
+-- Redo the highlight just undone. False when the next redo step is not a highlight.
+function M.redoHighlight()
+  local app = hs.application.frontmostApplication()
+  return app ~= nil and selectFirst(app, "Edit", redoHighlightPatterns)
 end
 
 -- Run FN only when DEVONthink is in front; elsewhere the key does nothing.
@@ -167,8 +195,15 @@ local layer = require("aerospace-keys").layer
 layer:bind({}, "x", inDevonthink(M.highlight))
 layer:bind({}, "c", inDevonthink(M.nextColor))
 
+-- Caps+Option+N picks colour N and highlights; Caps+Option+Shift+N only sets it.
+for index = 1, #colors do
+  local key = tostring(index)
+  layer:bind({ "alt" }, key, inDevonthink(function() M.setColor(index, true) end))
+  layer:bind({ "alt", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
+end
+
 --------------------------------------------------
--- Cmd+Z, only while DEVONthink is in front
+-- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
 --------------------------------------------------
 
 -- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
@@ -188,6 +223,7 @@ end
 
 local scoped = {
   withPassThrough({ "cmd" }, "z", M.undoHighlight),
+  withPassThrough({ "cmd", "shift" }, "z", M.redoHighlight),
 }
 
 local function setScoped(on)
