@@ -646,9 +646,10 @@
   (sp-see-also-test--text
    ":PROPERTIES:"
    ":ID: lit-id"
+   ":ROAM_REFS: @smith2020"
    ":END:"
    "#+title: Litnote on X"
-   "#+reference: smith2020"
+   "#+reference: ignored2020"
    "Own text, [[id:lit-id][itself]] and a thought[fn::[[id:c-one][Concept one]]]."))
 
 (ert-deftest sp-see-also-references-lists-every-way ()
@@ -723,12 +724,61 @@
       (cl-letf (((symbol-function 'executable-find) (lambda (&rest _) nil)))
         (should-not (sp-see-also-references "lit-id" "smith2020" lit))))))
 
-(ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
+(ert-deftest sp-see-also-citekeys-are-read-from-roam-refs-too ()
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write
+                root "roam.org"
+                (sp-see-also-test--text
+                 ":PROPERTIES:" ":ID: roam-id"
+                 ":ROAM_REFS: [cite:@one2020;@two2021] https://x.org/a doi:10.1/x"
+                 ":END:" "#+title: Roam note"))))
+      (should (equal (sp-see-also--citekeys lit) '("one2020" "two2021")))
+      (should (equal (sp-see-also--citekey lit) "one2020")))))
+
+(ert-deftest sp-see-also-show-lists-citations-of-a-roam-refs-litnote ()
+  (skip-unless (executable-find "rg"))
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write
+                root "roam.org"
+                (sp-see-also-test--text
+                 ":PROPERTIES:" ":ID: roam-id" ":ROAM_REFS: @two2021" ":END:"
+                 "#+title: Roam note"))))
+      (with-temp-file (expand-file-name "citing.org" root)
+        (insert "#+title: Citing\nSee [cite:@one2020;@two2021].\n"))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-see-also-show lit))
+      (with-current-buffer "*see-also*"
+        (should (string-match-p "Citing" (buffer-string)))
+        (should (string-match-p "\\[cite\\]" (buffer-string))))
+      (kill-buffer "*see-also*"))))
+
+(ert-deftest sp-see-also-citekey-falls-back-to-the-title-in-litnotes ()
+  (sp-see-also-test--with-vault
+    (let ((titled (sp-see-also-test--write
+                   root "a.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: a" ":END:"
+                                                        "#+title: smith2020")))
+          (named (sp-see-also-test--write
+                  root "jones2021.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: b" ":END:"
+                                                               "#+title: A long real title")))
+          (words (sp-see-also-test--write
+                  root "c.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: c" ":END:"
+                                                       "#+title: Two words")))
+          (outside (expand-file-name "other2020.org" root)))
+      (with-temp-file outside (insert "#+title: other2020\n"))
+      (should (equal (sp-see-also--citekeys titled) '("smith2020")))
+      (should (equal (sp-see-also--citekeys named) '("jones2021")))
+      (should (equal (sp-see-also--citekeys words) '("c")))
+      ;; not in litnotes/: no fallback
+      (should-not (sp-see-also--citekeys outside)))))
+
+(ert-deftest sp-see-also-citekey-is-read-from-roam-refs-only ()
   (sp-see-also-test--with-vault
     (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
       (should (equal (sp-see-also--citekey lit) "smith2020"))
       (should-not (sp-see-also--citekey
-                   (sp-see-also-test--write root "none.org" "#+title: No key\n"))))))
+                   (let ((none (expand-file-name "none.org" root)))
+                     (with-temp-file none (insert "#+title: No key\n"))
+                     none))))))
 
 (ert-deftest sp-see-also-show-one-view-for-a-litnote ()
   (sp-see-also-test--with-vault
