@@ -1740,9 +1740,10 @@ says what it would add."
 
 ;;;; Date fields to year and month
 
-(defcustom sp-bibtex-date-keep-day-types '("misc")
-  "Entry types that keep the day of a date, in a `day' field, when `date' is split.
-The date fix drops the day for every other type.  Types are compared in lower case."
+(defcustom sp-bibtex-date-keep-types '("misc")
+  "Entry types whose `date' the date fix leaves as it is, with the day.
+The date fix splits the `date' of every other type and drops the day.
+Types are compared in lower case."
   :type '(repeat string)
   :group 'sp-bibtex)
 
@@ -1793,28 +1794,24 @@ A string that says why it cannot be read when it is not YYYY, YYYY-MM or YYYY-MM
        (t (list year month day)))))
    (t (format "date %s is not YYYY, YYYY-MM or YYYY-MM-DD, left as it is" text))))
 
-(defun sp-bibtex-date--conflicts (type fields year month day)
-  "The lines that say how FIELDS of TYPE disagree with the YEAR, MONTH and DAY of its date."
+(defun sp-bibtex-date--conflicts (fields year month)
+  "The lines that say how FIELDS disagree with the YEAR and MONTH of its date."
   (let ((old-year (sp-bibtex-date--text "year" fields))
         (old-month (sp-bibtex-date--text "month" fields))
-        (old-day (sp-bibtex-date--text "day" fields))
-        (keep (member-ignore-case type sp-bibtex-date-keep-day-types))
         conflicts)
     (when (and old-year (not (equal old-year (number-to-string year))))
       (push (format "year = %s differs from the date (%d)" old-year year) conflicts))
     (when (and month old-month (not (eql month (sp-bibtex-date--month-number old-month))))
       (push (format "month = %s differs from the date (%d)" old-month month) conflicts))
-    (when (and day keep old-day (not (eql day (and (string-match-p "\\`[0-9]+\\'" old-day)
-                                                   (string-to-number old-day)))))
-      (push (format "day = %s differs from the date (%d)" old-day day) conflicts))
     (nreverse conflicts)))
 
 (defun sp-bibtex-date--plan (type fields)
   "What the date fix does to the entry of TYPE with FIELDS (an alist of name and raw value).
-Return nil when the entry has no date.  Otherwise (NEW-FIELDS DESC PROBLEMS):
+Return nil when the entry has no date or is of a type of `sp-bibtex-date-keep-types'.  Otherwise (NEW-FIELDS DESC PROBLEMS):
 NEW-FIELDS is the list of fields to write, nil when the entry is left as it is;
 DESC lists what changes; PROBLEMS say why the entry is left as it is."
-  (when-let* ((date (assoc-string "date" fields t))
+  (when-let* (((not (member-ignore-case type sp-bibtex-date-keep-types)))
+              (date (assoc-string "date" fields t))
               (text (sp-bibtex-date--text "date" fields)))
     (let ((parsed (if (sp-bibtex--unwrap (cdr date))
                       (sp-bibtex-date--parse text)
@@ -1822,17 +1819,14 @@ DESC lists what changes; PROBLEMS say why the entry is left as it is."
       (if (stringp parsed)
           (list nil nil (list parsed))
         (pcase-let* ((`(,year ,month ,day) parsed)
-                     (conflicts (sp-bibtex-date--conflicts type fields year month day)))
+                     (conflicts (sp-bibtex-date--conflicts fields year month)))
           (if conflicts
               (list nil nil (mapcar (lambda (c) (format "date %s not split: %s" text c)) conflicts))
             (let* ((open (or (cdr (sp-bibtex--unwrap (cdr date))) ?{))
                    (wrap (lambda (s) (if (eq open ?\") (format "\"%s\"" s) (format "{%s}" s))))
-                   (keep-type (member-ignore-case type sp-bibtex-date-keep-day-types))
-                   (keep (and day keep-type))
                    (wanted (delq nil
                                  (list (cons "year" (number-to-string year))
-                                       (and month (cons "month" (format sp-bibtex-date-month-format month)))
-                                       (and keep (cons "day" (number-to-string day))))))
+                                       (and month (cons "month" (format sp-bibtex-date-month-format month))))))
                    (added (seq-remove (lambda (w) (sp-bibtex-date--text (car w) fields)) wanted))
                    new)
               (dolist (field fields)
@@ -1842,7 +1836,7 @@ DESC lists what changes; PROBLEMS say why the entry is left as it is."
                     (dolist (a added) (push (cons (car a) (funcall wrap (cdr a))) new)))
                    ((and (member name '("year" "month" "day"))
                          (or (null (sp-bibtex-date--text name fields))
-                             (and (equal name "day") (not keep-type)))))
+                             (equal name "day"))))
                    (t (push field new)))))
               (list (nreverse new)
                     (list (format "date = %s → %s%s" (cdr date)
@@ -1850,10 +1844,7 @@ DESC lists what changes; PROBLEMS say why the entry is left as it is."
                                       (mapconcat (lambda (a) (format "%s = %s" (car a) (funcall wrap (cdr a))))
                                                  added ", ")
                                     "the year and month are already there")
-                                  (cond
-                                   ((and day keep) "")
-                                   (day (format " (day %d dropped)" day))
-                                   (t ""))))
+                                  (if day (format " (day %d dropped)" day) "")))
                     nil))))))))
 
 ;;;###autoload
@@ -1863,8 +1854,8 @@ FILE is the .bib file of the current buffer; with a prefix argument, or when
 the buffer is not a .bib file, it is read with completion.  A report shows
 every change and every date that is left as it is (a range, an unreadable
 date, a year or month that differs); `A' writes all entries after one question
-and a backup.  The day is dropped except for the types of
-`sp-bibtex-date-keep-day-types'.  See `sp-bibtex-date--plan'."
+and a backup.  The day is dropped; the types of `sp-bibtex-date-keep-types'
+keep their date.  See `sp-bibtex-date--plan'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
   (sp-bibtex-lint--fix-report file '(date date-skipped) "Date fields to year and month"
                               (lambda () (sp-bibtex-lint--fix file 'date))))

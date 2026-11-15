@@ -1333,15 +1333,13 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           (should (string-match-p "month = {5}" new))
           (should-not (string-match-p "date\\|day" new)))))))
 
-(ert-deftest sp-bibtex-date-test-misc-keeps-the-day ()
+(ert-deftest sp-bibtex-date-test-misc-keeps-the-full-date ()
   (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
-    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "web")))
-      (should (string-match-p "year = {2021}" new))
-      (should (string-match-p "month = {5}" new))
-      (should (string-match-p "day = {14}" new))
-      (should-not (string-match-p "date" new)))
-    (let* ((sp-bibtex-date-keep-day-types nil)
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (should-not (sp-bibprocess-lint-test--result results "web")))
+    (let* ((sp-bibtex-date-keep-types nil)
            (new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "web")))
+      (should (string-match-p "year = {2021}" new))
       (should-not (string-match-p "day" new)))))
 
 (ert-deftest sp-bibtex-date-test-month-format ()
@@ -1390,14 +1388,15 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-date-test-fix-writes-once-and-is-idempotent ()
   (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
     (let ((before (sp-bibprocess-lint-test--text file)))
-      ;; y, ym, ymd, web, same and extra are rewritten; the others are reported only.
-      (should (equal '(6) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
+      ;; y, ym, ymd, same and extra are rewritten; the others are reported only.
+      (should (equal '(5) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
       (let ((after (sp-bibprocess-lint-test--text file)))
         (should-not (equal before after))
         (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
         ;; The entries that are left as they are stay byte for byte.
         (dolist (text '("@article{range,\n  title = {Range},\n  date = {2020/2021}}"
                         "@article{words,\n  title = {Words},\n  date = {May 14, 2021}}"
+                        "@misc{web,\n  title = {A page},\n  date = {2021-05-14}}"
                         "@article{clash,\n  title = {Year clash},\n  year = {2019},\n  date = {2021-05-14}}"))
           (should (string-search text after)))
         (let ((results (sp-bibprocess-lint-test--date-results)))
