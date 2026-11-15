@@ -213,10 +213,15 @@ Two functions decide it. Both are options, so the scoring can be changed without
   - =section=: a link in a "See also" section or a =seealso ::= line.
   - =link=: any other =id:= link in the text.
   - =parent=: an =id:= link on a =parent ::= line.
-  - =cite=: a citation of the note's citekey, =[cite:@key]=, =cite:key= or =@key=; the citekey is the =#+reference:= of the note.
+  - =cite=: a citation of the note's citekey; the citekey is the =#+reference:= of the note.
+    - Read: =[cite:@key]=, =[cite/t:@key]= (any style), =[cite:@a;@b]=, =[cite:see @key p. 3]=, =[[cite:&key]]=, =cite:key= and =@key=.
+    - =key2= is another key, so it is not matched.
 - =sp-see-also-reference-kinds= chooses which of the five are shown (default all).
 - =sp-see-also-references ID CITEKEY EXCLUDE-FILE= is the function behind the part; it returns the same shape as =sp-see-also-concept-usage=.
   - Footnotes and sections come from the cached index; =link=, =parent= and =cite= are read from the files each time, not cached.
+  - Sources are any Org note, not only litnotes, so citations and =id:= links from concept notes and writing projects are listed.
+  - With a citekey, ripgrep looks in =sp-see-also-cite-dirs= (default: the notes folder and =sp-writing-projects=) for the key or the =id:= link, and the Vulpea backlinks are added.
+  - Without ripgrep, only the litnotes of =sp-see-also-files-function= are read, plus the Vulpea backlinks.
   - The file of the note itself is left out, so a note is not listed as referencing itself.
   - Links inside source blocks, example blocks and comment lines are ignored.
   - A reference already read as a mention is not listed twice.
@@ -249,7 +254,8 @@ Two functions decide it. Both are options, so the scoring can be changed without
 
 * Limits
 
-- Citations are found by the citekey only: with a citekey, every litnote file is read on each request (no database narrowing), so the view can be slow on a big vault.
+- Citations are found by the citekey only (ripgrep, then the matching files are read on each request, uncached); not tried on the real vault.
+- Without ripgrep every litnote is read on each request, so the view can be slow on a big vault, and notes that are not litnotes are missed.
 - Not tried against the real vault, =vulpea-ui= or the real =vulpea-db-query-links-to=. The scanner and the cache are tested here on fake files with Emacs 29.3.
 - A footnote that sits in the definition of another footnote at the end of the file is placed by the section of that definition.
 - The bracket counter assumes balanced square brackets inside a footnote, as Org does.
@@ -322,6 +328,14 @@ Two functions decide it. Both are options, so the scoring can be changed without
 (defcustom sp-see-also-use-db t
   "When non-nil, ask the Vulpea database which files link to a concept."
   :type 'boolean)
+
+(defcustom sp-see-also-cite-dirs
+  (delq nil (list (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
+                  (and (boundp 'sp-writing-projects) sp-writing-projects)))
+  "Folders searched with ripgrep for the notes that cite a litnote's citekey.
+Any Org note below them counts, not only litnotes.  Without ripgrep only the
+litnotes of `sp-see-also-files-function' are read."
+  :type '(repeat directory))
 
 (defcustom sp-see-also-cache-file
   (expand-file-name "see-also-index.eld"
@@ -1214,6 +1228,33 @@ the whole-vault index is used."
              "^#\\+reference:[ \t]*\\(?:cite:\\|@\\)?\\([^ \t\n]+\\)" nil t)
         (match-string-no-properties 1)))))
 
+(defun sp-see-also--cite-regexp (citekey)
+  "Return the Emacs regexp of a citation of CITEKEY.
+It reads `[cite:@key]', `[cite/t:@a;@b]', `[cite:see @key p. 3]', `cite:key' and
+`[[cite:&key]]'; the key must end there, so `key2' is another key.  Group 1 is
+the character after the key (empty at the end of the text)."
+  (format "\\(?:@\\|cite[[:alpha:]/]*:&?\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
+          (regexp-quote citekey)))
+
+(defun sp-see-also--cite-files (citekey id)
+  "Return the Org files of `sp-see-also-cite-dirs' that cite CITEKEY or link to ID.
+Ripgrep finds them, in any kind of note.  The value is `unavailable' when
+ripgrep is missing or fails, and then `sp-see-also-references' reads the litnotes."
+  (if-let* ((rg (executable-find "rg"))
+            (dirs (seq-filter #'file-directory-p
+                              (mapcar #'expand-file-name sp-see-also-cite-dirs))))
+    (with-temp-buffer
+      (let ((status (apply #'call-process rg nil t nil
+                           "-l" "-i" "--glob" "*.org"
+                           "-e" (format "(@|cite[a-z/]*:&?)%s([^A-Za-z0-9_:+-]|$)"
+                                        (regexp-quote citekey))
+                           "-e" (format "id:%s" (regexp-quote id))
+                           "--" dirs)))
+        (if (memq status '(0 1))
+            (split-string (buffer-string) "\n" t)
+          'unavailable)))
+    'unavailable))
+
 (defun sp-see-also--other-refs-in-buffer (id citekey covered)
   "Return the references to ID and CITEKEY in the buffer that are not mentions.
 COVERED are the ranges already read as mentions.  Source and example blocks
@@ -1226,8 +1267,7 @@ and comments are left out.  Each item is a plist of :beg, :end, :where (`link',
                                                 (regexp-quote id)))
                             (and citekey
                                  (cons 'cite
-                                       (format "\\(?:@\\|cite[[:alpha:]]*:\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
-                                               (regexp-quote citekey)))))))
+                                       (sp-see-also--cite-regexp citekey))))))
          (headings 'unread)
          items)
     (save-excursion
@@ -1308,9 +1348,15 @@ a :where of `prose', `quote', `section', `link', `parent' or `cite'.
 Only the kinds in `sp-see-also-reference-kinds' are returned.  CITEKEY is the
 `#+reference:' citekey of the note, when it has one, whose citations count too.
 EXCLUDE-FILE is not read, so a note is not listed as referencing itself.  The
-Vulpea database narrows the files to read, unless a citekey is looked for."
+Vulpea database narrows the files to read.  With a CITEKEY, the notes that cite
+it are found with ripgrep in `sp-see-also-cite-dirs', in any kind of note, and
+added to those the database says link to ID."
   (let* ((files (if citekey
-                    (funcall sp-see-also-files-function)
+                    (append (let ((found (sp-see-also--cite-files citekey id)))
+                              (if (eq found 'unavailable)
+                                  (funcall sp-see-also-files-function)
+                                found))
+                            (sp-see-also--db-files id))
                   (or (sp-see-also--db-files id)
                       (funcall sp-see-also-files-function))))
          (skip (and exclude-file (expand-file-name exclude-file)))
@@ -2139,6 +2185,7 @@ its text moves to the definitions section.  One undo step undoes all."
           (sp-see-also-directory (expand-file-name "litnotes/" root))
           (sp-see-also-files-function #'sp-see-also-default-files)
           (sp-see-also-use-db nil)
+          (sp-see-also-cite-dirs (list root))
           (sp-see-also--files nil)
           (sp-see-also--signature nil)
           (sp-see-also--dirty nil)
@@ -2768,6 +2815,36 @@ its text moves to the definitions section.  One undo step undoes all."
                                    (sp-see-also-references "lit-id" "smith2020"))
                            #'string<)
                      '("Litnote on X" "Referrer"))))))
+
+(ert-deftest sp-see-also-cite-regexp-reads-every-citation-style ()
+  (dolist (text '("[cite:@smith2020]" "[cite/t:@smith2020]" "[cite:@a;@smith2020]"
+                  "[cite:see @smith2020 p. 3]" "cite:smith2020" "[[cite:&smith2020]]"
+                  "[cite/text/bare:@smith2020, p. 3]" "@smith2020"))
+    (should (string-match-p (sp-see-also--cite-regexp "smith2020") text)))
+  (dolist (text '("[cite:@smith2020b]" "cite:smith20201" "[cite:@smith2020_x]"))
+    (should-not (string-match-p (sp-see-also--cite-regexp "smith2020") text))))
+
+(ert-deftest sp-see-also-references-find-citations-in-any-note ()
+  (skip-unless (executable-find "rg"))
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
+      ;; not a litnote: it is outside the litnote folder
+      (with-temp-file (expand-file-name "concept.org" root)
+        (insert (sp-see-also-test--text
+                 "#+title: A concept" "" "* Heading"
+                 "Argued in [cite/t:@other2001; @smith2020 p. 4]."
+                 "And again [[id:lit-id][the litnote]].")))
+      (with-temp-file (expand-file-name "unrelated.org" root)
+        (insert "#+title: Unrelated\nCites [cite:@smith2020b] only.\n"))
+      (let ((usage (sp-see-also-references "lit-id" "smith2020" lit)))
+        (should (equal (mapcar (lambda (e) (plist-get e :title)) usage)
+                       '("A concept")))
+        (should (equal (mapcar (lambda (m) (plist-get m :where))
+                               (plist-get (car usage) :mentions))
+                       '(cite link))))
+      ;; without ripgrep only the litnotes are read
+      (cl-letf (((symbol-function 'executable-find) (lambda (&rest _) nil)))
+        (should-not (sp-see-also-references "lit-id" "smith2020" lit))))))
 
 (ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
   (sp-see-also-test--with-vault
