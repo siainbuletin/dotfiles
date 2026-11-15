@@ -1894,6 +1894,10 @@
           (with-temp-file (expand-file-name "citing-2022.org" dir)
             (insert ":PROPERTIES:\n:ID: a\n:ROAM_REFS: @citing-2022\n:END:\n#+title: C\n\n- see :: [cite:@wb2020]\n"))
           (should-not (sp-litnotes-meta--note-of-key "wb2020"))
+          ;; a note without any heading: its whole body used to count as its head
+          (with-temp-file (expand-file-name "bare-2022.org" dir)
+            (insert ":PROPERTIES:\n:ID: c\n:ROAM_REFS: @bare-2022\n:END:\n#+title: B\n\nText citing [cite:@wb2020] in the body.\n"))
+          (should-not (sp-litnotes-meta--note-of-key "wb2020"))
           (with-temp-file (expand-file-name "other.org" dir)
             (insert ":PROPERTIES:\n:ID: b\n:ROAM_REFS: @x @wb2020\n:END:\n#+title: W\n"))
           (should (equal (sp-litnotes-meta--note-of-key "wb2020")

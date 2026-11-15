@@ -2930,7 +2930,7 @@ file to `fixed' or the error text."
 - The cases, in order:
   - The key already has a litnote: it is visited, no second note is made.
     - The note is found by =sp-litnotes-meta--note-of-key=: the file =KEY.org=, or a litnote whose =ROAM_REFS= holds the key.
-    - Not by =sp-author-notes-bibtex--covered=, which counts every word of the head of a note: a =[cite:@KEY]= in a meta line made the citing note "the note of KEY" (#547).
+    - Not by =sp-author-notes-bibtex--covered=, which counts every word of the head of a note: a =[cite:@KEY]= in a meta line, or anywhere in the body of a note without headings (its whole text is "the head"), made the citing note "the note of KEY" (#547).
   - The key has no BibTeX entry in the registered files: a =user-error= says so; no note is made.
   - =sp-litnotes-meta-create-function= fails: its error is shown; no half-made note from citar.
   - Otherwise: the note is made, filled from BibTeX and visited.
