@@ -7,7 +7,7 @@
 ;; group; a query searches DEVONthink or litdb.  Hits and records are Embark
 ;; candidates (open, PDF, note, link, tags, similar, preview); see also for a
 ;; record, and a text preview.  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-browse.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-browse.org.
 
 ;;; Code:
 

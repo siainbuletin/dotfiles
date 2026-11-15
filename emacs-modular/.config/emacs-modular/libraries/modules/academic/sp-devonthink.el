@@ -4,7 +4,7 @@
 
 ;; A `devonthink:UUID::PAGE' Org link, the `#+devonthink:' keyword of a litnote
 ;; and the commands that open a record from them.  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink.org.
 
 ;;; Code:
 

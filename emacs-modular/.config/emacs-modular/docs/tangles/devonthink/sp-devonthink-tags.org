@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-tags.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (section "Browsing the database and setting tags").
+Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "Browsing the database and setting tags").
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
@@ -36,7 +36,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-tags.el=. Design: 
 ;; Reads and sets the tags of DEVONthink records through `osascript', for one
 ;; record or many, and splits the comma-joined tag of the literature database.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-tags.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-tags.org.
 
 ;;; Code:
 

@@ -59,7 +59,7 @@ Keys in the BibTeX buffer:
   - the content is exported to a temporary folder, moved to =~/Documents/literature/KEY.pdf= and indexed as a new record named =KEY.pdf=
   - you are asked whether to move the old imported record to the trash
 - A file with no record: renamed on disk, then indexed (=sp-fetch-inbox-index-new=).
-- After the entry is appended, the author, title and keywords of the entry are copied to the record (=sp-fetch-inbox-sync-metadata=, see [[file:sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]]):
+- After the entry is appended, the author, title and keywords of the entry are copied to the record (=sp-fetch-inbox-sync-metadata=, see [[file:../devonthink/sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]]):
   - keywords become tags (added, none removed); author and title go to custom metadata;
   - both are kept by DEVONthink when the record is later renamed or moved;
   - a failure is only reported in the echo area: the article is already filed and the entry saved.
@@ -102,7 +102,7 @@ Keys in the BibTeX buffer:
 
 * What is untested
 
-- The JXA and AppleScript of the DEVONthink calls were written from the dictionary, not run. Same assumption as [[file:devonthink-move.org][devonthink-move]]: renaming an indexed record renames its file, and moving it into the group of another folder moves the file.
+- The JXA and AppleScript of the DEVONthink calls were written from the dictionary, not run. Same assumption as [[file:../devonthink/devonthink-move.org][devonthink-move]]: renaming an indexed record renames its file, and moving it into the group of another folder moves the file.
 - The sub-group walk of the listing script uses =type()=, =additionDate()= and the =children= element from the dictionary, now read in bulk (=g.children.name()= and so on); none has been run. The timing gain on the Mac is not measured. If sub-groups are not found, their records are simply missing from the picker (as before).
 - If DEVONthink does not move the file, the read-back fails and the command stops before the =.bib= is touched.
 - =sp-pdf-open= (the Emacs reader of the open PR #453) is used when defined; until it is merged the PDF is opened with =find-file=.
