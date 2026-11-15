@@ -62,6 +62,7 @@
 (require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
 (require 'sp-fetch-inbox)
+(require 'sp-devonthink-sync)
 (require 'sp-see-also)
 
 (use-package asoc
