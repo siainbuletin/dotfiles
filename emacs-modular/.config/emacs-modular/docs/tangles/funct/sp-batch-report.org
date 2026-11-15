@@ -465,6 +465,7 @@ data itself, so no Org text is built."
   - =sp-batch-report-open= starts the mode only when the buffer is not in it yet, so a drop, a restore or a refresh does not run =org-mode= and its hooks again over the whole report.
   - =sp-batch-report-open= sets the hints again after it has set the refresh, redraw and apply functions, so the list matches what the report can do.
   - It does so after =pop-to-buffer=: only a buffer in the selected window shows its hints at once.
+  - When the report is made again after =d=, =u= or =g= (the point is put back), the hints are set quietly: a message of the command stays in the echo area.
   - A mode derived from this one that sets its own =header-line-format= keeps that header; only the keys moved.
 - Buffer-local state, set by =sp-batch-report-open=:
   - =sp-batch-report-refresh-function=: what =g= calls
@@ -696,7 +697,7 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
 \\[sp-batch-report-refresh] makes the report again and \\[quit-window] closes it.
 \\[sp-backup-open] and \\[sp-backup-diff] open or diff a backup of the file on the line."
   (setq buffer-read-only t)
-  (sp-echo-help-set (sp-batch-report--hints)))
+  (sp-echo-help-set (sp-batch-report--hints) nil t))
 
 (let ((map sp-batch-report-org-mode-map))
   (map-keymap (lambda (event def) (define-key map (vector event) def)) sp-batch-report-mode-map))
@@ -729,9 +730,10 @@ MODE is a mode derived from `sp-batch-report-mode', or nil."
     (when map
       (use-local-map (make-composed-keymap (list map) (current-local-map))))))
 
-(defun sp-batch-report--set-hints ()
-  "Show the keys of this report in the echo area, now that its functions are set."
-  (sp-echo-help-set (sp-batch-report--hints)))
+(defun sp-batch-report--set-hints (&optional quiet)
+  "Show the keys of this report in the echo area, now that its functions are set.
+A non-nil QUIET (the report was made again after a drop) keeps the message there."
+  (sp-echo-help-set (sp-batch-report--hints) nil quiet))
 #+end_src
 
 * Buffers of the files a batch visits
@@ -906,10 +908,8 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
       (when line
         (goto-char (point-min))
         (forward-line (1- line)))
-      (when (fboundp 'sp-echo-help-set)
-        (sp-echo-help-set (sp-batch-report--hints)))
       (pop-to-buffer (current-buffer))
-      (sp-batch-report--set-hints)
+      (sp-batch-report--set-hints (and line t))
       (when-let* ((window (get-buffer-window (current-buffer))))
         (set-window-point window (point)))
       (current-buffer))))
@@ -1190,7 +1190,8 @@ derived from `sp-batch-report-mode'; the default is that mode."
               (setq shown nil)
               (with-current-buffer buffer (sp-echo-help-show))
               (should-not shown)        ; the polite show leaves the message alone
-              (sp-echo-help--idle-show)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
               (should (string-match-p "Quit" (car shown))))
           (when (buffer-live-p buffer) (kill-buffer buffer)))))))
 
@@ -1205,6 +1206,29 @@ derived from `sp-batch-report-mode'; the default is that mode."
             (insert-file-contents path)
             (goto-char (point-min))
             (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
+
+(ert-deftest sp-batch-report-redraw-keeps-the-command-message ()
+  "Dropping an entry redraws the report; its message must not be replaced by the hints."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Dropped x")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (puthash "*sp-batch-report-hints-test*" 1 sp-batch-report--pending-lines)
+              (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n" :refresh #'ignore)
+              (should-not shown)
+              ;; younger than the hold time: idle show leaves it alone too
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 2.0)))
+                (sp-echo-help--idle-show))
+              (should-not shown)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here
