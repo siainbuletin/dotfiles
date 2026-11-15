@@ -762,7 +762,7 @@ Notes:
   + a prefix argument means the same as on the command (=C-u= asks for the file or the source).
 - The report buffers use the matching keys: =g= list again, =A= apply, =d= drop, =u= restore, =k= stop the job, =q= quit (see =sp-batch-report=).
 - Modules: =b= BibTeX files, =m= litnote metadata fill, =q= litnote titles with quotes around all of them, =t= litnote authors, year and title, =r= litnote references, =f= footnotes, =g= org tags, =u= author notes, =n= notes filing.
-- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
+- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =d= date fields to year and month (=D= the non-ISO ones, after it), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
 - =L b z= moves the Zotero attachments of a =.bib= file into the literature folder (=sp-bibtex-zotero=): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
 - =L u w= is the same pair of commands for the Works tables of the author notes.
 
@@ -782,6 +782,8 @@ Notes:
            ("n" . sp-bibtex-lint-fix-authors)
            ("c" . sp-bibtex-lint-fix-crossref)
            ("C" . sp-bibtex-lint-crossref-dryrun)
+           ("d" . sp-bibtex-lint-fix-date)
+           ("D" . sp-bibtex-lint-fix-date-text)
            ("f" . sp-bibtex-lint-fix-files)
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)
@@ -1250,7 +1252,7 @@ Provides the =sp-keys= feature and closes the file.
 - The tests read =sp-keys.el= and evaluate only the =B=, =k= and =L= groups, the shim table and the shim function, so they need no package.
 - Checked:
   + every lint group lists with =l= (a =-dryrun= command) and applies with =a= (a =-convert= command);
-  + the BibTeX key fix has its key, =L b f k=;
+  + the BibTeX key fix has its key, =L b f k=, and the date fix =L b f d=;
   + every old key of =sp-keys-moved= is unique, is not below the leader, and its new key is bound to the same command;
   + (the shim table only holds keys that still have a shim).
 
@@ -1326,6 +1328,12 @@ Provides the =sp-keys= feature and closes the file.
   (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "k")
               'sp-bibtex-lint-fix-keys))
   (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys)))
+
+(ert-deftest sp-keys-bibtex-date-fix-has-a-key ()
+  (sp-keys-test--setup)
+  (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "d")
+              'sp-bibtex-lint-fix-date))
+  (should (eq (key-binding (kbd "C-; L b f d")) 'sp-bibtex-lint-fix-date)))
 
 (ert-deftest sp-keys-bibtex-zotero-group ()
   (sp-keys-test--setup)
