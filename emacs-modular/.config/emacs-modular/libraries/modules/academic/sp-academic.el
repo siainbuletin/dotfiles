@@ -47,6 +47,8 @@
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-abstract)
+(require 'sp-bibtex-biblatex)
 (require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
@@ -63,6 +65,7 @@
 (require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
 (require 'sp-fetch-inbox)
+(require 'sp-devonthink-sync)
 (require 'sp-see-also)
 
 (use-package asoc

@@ -1,0 +1,59 @@
+* PR #482: 📝 Update the CHANGELOGs and module docs to the state of 2026-11-14
+:PROPERTIES:
+:PR_NUMBER: 482
+:URL: https://github.com/siainbuletin/dotfiles/pull/482
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/482][https://github.com/siainbuletin/dotfiles/pull/482]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 17:41
+- Merged :: 2026-11-14 20:57
+- Branch :: =482-changelog-update= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/13f99039a3513d25299caf54bc2a4d18d157c107][13f99039a3]]
+- Labels :: documentation
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Shdo2tBHRnXCft3zWGTffy][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main=; no dependencies.
+- Edits only =CHANGELOG.org= files and the =.org= docs; no code, no tangled block.
+- #442 (older CHANGELOG and DEVONthink doc update up to #440) overlaps this PR: close it or rebase it after this one.
+- Any open PR that adds a CHANGELOG line will conflict in =CHANGELOG.org=; the tidy owns those lines.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- *Emacs =CHANGELOG.org=* (last tidy was #389 on 2026-11-11)
+  - Merged PRs #394 to #481 (except those only in the global file) in their feature sets, in dependency order, no repeated headings.
+  - New sets: citar candidates, reading PDFs (=sp-pdf-reader=), =sp-fetch-inbox=, echo-area hints, the vulpea-ui view frame, buffers/tabs/frames.
+  - "Being developed": the open PRs with their merge order (DEVONthink stack #418 → #419 → #420 → #421 → #451; #443 → #455; the rest on =main=).
+  - Direct commits on =main= since the tidy: =which-key= =:ensure nil= and the =test=/=course= tags; the hand edit 87a4fbb is under #423.
+- *Global =CHANGELOG.org=*
+  - DEVONthink open applet (#394, #444, #449), =gh-pr-pdf= (#401), fisher (#481), AeroSpace note (#447), the =dotfiles-prs= backup commits.
+- *Module docs* (23 docs): a "Changes by pull request" section added (sp-see-also, sp-tabs, sp-buffers, devonthink, reading, pdf-reader, fetch-inbox, bibsync, interaction, elpaca-melpa-fix) or extended (sp-academic, sp-org-lint, sp-vulpea, batch-report and others), as nested bullets.
+
+**** Not verified
+:PROPERTIES:
+:CUSTOM_ID: not-verified
+:END:
+- Written from the PR titles and bodies and the merge diffs; no Emacs here, so the =tangle= check was not run (only prose after the last code block changed).
+- Needs-testing flags come from the =needs-further-testing= label; #438, #442, #443, #446, #455 and the PRs opened after the 2026-11-14 backup have no label data.
+- Not read in full: PR bodies cut at about 1,100 characters, so some doc bullets (#409, #410, #414, #415, #424, #432) cover the main points only.
+- #458 (superseded) and #417 (replaced by #418) are left out.
+
+Docs only; no manual testing needed.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCdFzdq4QWUuMSesFX]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/21fde6d27d2ad059dc425f6eaa4c2decf73b13ee][21fde6d27d]] 📝 Update the CHANGELOGs and the module docs to the state of 2026-11-14 (Claude, 2026-11-14 17:40)

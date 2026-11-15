@@ -350,7 +350,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-normalise ()
   (sp-bibprocess-lint-test--with-notes
-   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
      (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should-not (string-match-p "Smyth" text))
@@ -372,7 +372,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-each-case ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((answers '(?n ?l)))
+   (let ((answers '(?f ?l)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) (pop answers))))
        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
@@ -450,7 +450,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (concat "@article{a,\n  author = {TW Adorno and John Smith},\n  title = {T}\n}\n\n"
               "@article{b,\n  author = {Theodor Adorno},\n  title = {U}\n}\n")
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a))
-              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
     (let ((text (sp-bibprocess-lint-test--text file)))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W. and Smith, John}" text))
@@ -474,7 +474,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           (cons (float-time)
                 (sp-bibtex--make-people (list "Theodor W. Adorno" "Tamara Adorno" "John Smith"))))
     (let ((before (sp-bibprocess-lint-test--text file)))
-      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not added))))
@@ -496,7 +496,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 
 (defun sp-bibprocess-lint-test--keys (&rest answers)
-  "Make `read-char-choice' give ANSWERS in turn; return the list of the answers given."
+  "Make `sp-batch-report-ask' give ANSWERS in turn; return the list of the answers given."
   (let (given)
     (cons (lambda (&rest _) (let ((a (pop answers))) (push a given) a))
           (lambda () (nreverse given)))))
@@ -506,7 +506,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (let* ((keys (sp-bibprocess-lint-test--keys ?d ?a))
            (shown nil))
       ;; Drop k2 for later, then apply the batch: k1 and k3 change, k2 does not.
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (_prompt candidates)
                                                                (setq shown candidates) '("k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
@@ -524,7 +524,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?s) #'sp-bibtex-lint-fix-authors)))
     ;; Bring k2 back with `u' while a batch is asked, then skip that batch.
     (let ((keys (sp-bibprocess-lint-test--keys ?u ?s)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
     (should-not sp-bibtex-lint--excluded)
@@ -536,7 +536,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
     (let ((before (sp-bibprocess-lint-test--text file))
           (keys (sp-bibprocess-lint-test--keys ?d ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k1" "k2"))))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
@@ -550,9 +550,9 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-drop-in-notes-batch ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((keys (sp-bibprocess-lint-test--keys ?d ?n)))
+   (let ((keys (sp-bibprocess-lint-test--keys ?d ?f)))
      ;; Drop entry a; the typo of entry b is normalised.
-     (cl-letf (((symbol-function 'read-char-choice) (car keys))
+     (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("a"))))
        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
@@ -1270,21 +1270,110 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (defun sp-bibtex-merge--ask-for-test (groups)
   "Accept every proposed name of GROUPS, as RET does in `sp-bibtex-merge--ask'."
-  (cl-letf (((symbol-function 'completing-read)
-             (lambda (_p _c _a _r _i _h def) def)))
-    (sp-bibtex-merge--ask groups)))
+  (let ((keys (make-list (length groups) ?\r)))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (sp-bibtex-merge--ask groups))))
+
+(ert-deftest sp-bibtex-merge-test-fix-merge-end-to-end ()
+  "The command shows the groups (the prompt text), asks, confirms and rewrites."
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  author = {Hegel, G. W. F.},\n  title = {T}\n}\n\n@article{b,\n  author = {Hegel, Georg Wilhelm Friedrich},\n  title = {U}\n}\n"
+    (let ((bibtex-dialect 'biblatex) (keys (list ?\r)) shown done)
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+                ((symbol-function 'sp-batch-report--window) #'ignore)
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (sp-bibtex-lint-fix-merge file (lambda () (setq done t)))
+        (setq shown (with-current-buffer sp-bibtex-lint--batch-buffer (buffer-string))))
+      (should done)
+      (should (string-match-p "^\\*\\* Hegel, Georg Wilhelm Friedrich$" shown))
+      (should (string-match-p "- Hegel, G. W. F. (1)" shown))
+      (should (string-match-p "← proposed" shown))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should-not (string-match-p "G\\. W\\. F\\." text))))))
 
 (ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
-  (let* ((counts (make-hash-table :test #'equal)) answers)
+  (let* ((counts (make-hash-table :test #'equal)) keys)
     (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
     (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
-    (setq answers (list "-" "Hegel, Georg Q."))
-    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (pop answers))))
+    ;; Doe comes first (sorted by target): `n' leaves it; Hegel is typed.
+    (setq keys (list ?n ?e))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore)
+              ((symbol-function 'read-string) (lambda (&rest _) "Hegel, Georg Q.")))
       (let ((mapping (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts))))
-        ;; Doe comes first (sorted by target), skipped; Hegel is edited.
         (should (equal "Hegel, Georg Q." (alist-get "Hegel, Georg" mapping nil nil #'equal)))
         (should (equal "Hegel, Georg Q." (alist-get "Hegel, G." mapping nil nil #'equal)))
         (should-not (assoc "Doe, J." mapping))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-pick-a-variant-and-step-back ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    ;; Doe: `n'; Hegel: `p' goes back to Doe, whose variant 1 is taken; then
+    ;; Hegel is left with `n', which ends the run.
+    (setq keys (list ?n ?p ?1 ?n))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (let* ((groups (sp-bibtex-merge--groups counts))
+             (first (car (car (plist-get (car groups) :forms))))
+             (mapping (sp-bibtex-merge--ask groups)))
+        (should-not keys)
+        ;; Variant 1 of the first group is its proposed name, so only the other form changes.
+        (should (= 1 (length mapping)))
+        (should (equal first (cdr (car mapping))))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-finish-and-clear ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    (setq keys (list ?\r ?p ?c ?n ?f))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (should-not (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts)))
+      (should-not keys))))
+
+(ert-deftest sp-bibtex-lint-test-pick-some-names-of-a-batch ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?o ?a)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k1" "k3"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      ;; k1 and k3 are fixed, k2 waits for the next run and is not dropped.
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{Smith1, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{Smith3, John}" text)))
+      (should-not sp-bibtex-lint--excluded)
+      (should-not sp-bibtex-lint--picked))))
+
+(ert-deftest sp-bibtex-lint-test-pick-first-option ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?a))
+          (sp-bibtex-lint-pick-first t))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k2"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{John Smith1}" text))
+        (should (string-match-p "author =[ \t]+{Smith2, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith3}" text))))))
+
+(ert-deftest sp-batch-report-test-ask-runs-moves-while-waiting ()
+  (let ((keys (list ?n ?x ?a)) moved shown)
+    (cl-letf (((symbol-function 'read-key) (lambda (prompt) (push prompt shown) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) (lambda () (selected-window)))
+              ((symbol-function 'ding) #'ignore)
+              ((symbol-function 'key-binding)
+               (lambda (key &rest _) (and (equal key [?n]) 'sp-batch-report-next)))
+              ((symbol-function 'sp-batch-report-next) (lambda () (interactive) (setq moved t))))
+      (should (eq ?a (sp-batch-report-ask '(("a" "Apply") ("q" "Quit")) "Batch 1 of 1")))
+      ;; `n' moved in the report, `x' was refused, and the help line was the prompt each time.
+      (should moved)
+      (should (= 3 (length shown)))
+      (should (string-match-p "\\[a\\] Apply" (car shown)))
+      (should (string-match-p "Batch 1 of 1" (car shown))))))
 
 (ert-deftest sp-bibtex-merge-test-report-section ()
   (sp-bibprocess-lint-test--with-bib
@@ -1577,7 +1666,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-identical-only ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?i)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'pop-to-buffer) #'ignore))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
     (let ((text (sp-bibprocess-lint-test--text file)))
@@ -1589,7 +1678,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-choose-value ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'completing-read)
                  (lambda (_prompt candidates &rest _)
                    (should (equal '("1. 2019" "2. 2020") (seq-take candidates 2)))
@@ -1603,7 +1692,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-dup-test-leave-keeps-every-value ()
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((keys (sp-bibprocess-lint-test--keys ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'completing-read)
                  (lambda (_prompt candidates &rest _) (car (last candidates))))
                 ((symbol-function 'pop-to-buffer) #'ignore))
@@ -1614,7 +1703,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
     (let ((before (sp-bibprocess-lint-test--text file))
           (keys (sp-bibprocess-lint-test--keys ?s)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'pop-to-buffer) #'ignore))
         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
@@ -1627,3 +1716,217 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (with-current-buffer sp-bibtex-lint--buffer
       (should (string-match-p "duplicate fields (2)" (buffer-string)))
       (should (string-match-p "^▼ Duplicate fields" (buffer-string))))))
+
+(ert-deftest sp-bibtex-date-test-bare-number-is-read ()
+  (sp-bibprocess-lint-test--with-biblatex
+      "@article{bare,\n  title = {Q},\n  date = 2002}\n\n@article{mac,\n  title = {R},\n  date = mydate}\n"
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (let ((new (sp-bibprocess-lint-test--date-new results "bare")))
+        (should (string-match-p "year = {2002}" new))
+        (should-not (string-match-p "date" new)))
+      (should (string-match-p "macro" (car (sp-bibprocess-lint-test--date-skipped results "mac")))))))
+
+;;;; Organisations as authors
+
+(defmacro sp-bibprocess-lint-test--with-orgs (organisations persons &rest body)
+  "Run BODY with the remembered ORGANISATIONS and PERSONS in a temporary file."
+  (declare (indent 2))
+  `(let* ((memory-file (make-temp-file "sp-orgs" nil ".eld"))
+          (sp-bibtex-organisations-file memory-file)
+          (sp-bibtex--organisations (list :organisations ,organisations :persons ,persons)))
+     (unwind-protect (progn ,@body)
+       (delete-file memory-file))))
+
+(ert-deftest sp-bibtex-lint-test-org-classes ()
+  (sp-bibprocess-lint-test--with-orgs '("Mute Collective") '("Anna Press")
+    (should (eq 'protected (sp-bibtex--name-class "{Mute Collective}")))
+    (should (eq 'organisation (sp-bibtex--name-class "mute collective")))
+    ;; A name already damaged to `Last, First' is still found.
+    (should (eq 'organisation (sp-bibtex--name-class "Collective, Mute")))
+    (should (eq 'likely (sp-bibtex--name-class "The editors")))
+    (should (eq 'likely (sp-bibtex--name-class "Oxford University Press")))
+    ;; A person you confirmed, a normal name, a one word name, a name with a comma.
+    (should-not (sp-bibtex--name-class "Anna Press"))
+    (should-not (sp-bibtex--name-class "John Smith"))
+    (should-not (sp-bibtex--name-class "Press"))
+    (should-not (sp-bibtex--name-class "Press, Anna"))
+    (should-not (sp-bibtex--protected-name-p "{Adorno}, Theodor"))
+    (should-not (sp-bibtex--protected-name-p "{A}b{C}"))))
+
+(ert-deftest sp-bibtex-lint-test-org-checked-names ()
+  (sp-bibprocess-lint-test--with-orgs '("Mute Collective") nil
+    (let ((checked (sp-bibtex--canonical-names-checked
+                    "The editors and John Smith and Mute Collective and {Big Corp}")))
+      (should (equal "The editors and Smith, John and {Mute Collective} and {Big Corp}" (car checked)))
+      (should (equal '("The editors") (cdr checked))))
+    (should (equal "{Mute Collective}" (car (sp-bibtex--canonical-names-checked "Collective, Mute"))))))
+
+(ert-deftest sp-bibtex-lint-test-org-lint-names-leaves-organisations ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    ;; In the field, the doubled braces: nothing changes and nothing is flagged.
+    (let ((linted (sp-bibtex--lint-names '(("author" . "{{Mute Collective}}")) nil)))
+      (should (equal '(("author" . "{{Mute Collective}}")) (car linted)))
+      (should-not (nth 1 linted))
+      (should-not (nth 4 linted)))
+    ;; Single braces are one name to read, but an organisation to flag.
+    (let ((linted (sp-bibtex--lint-names '(("author" . "{The editors}")) nil)))
+      (should (equal '(("author" . "{The editors}")) (car linted)))
+      (should-not (nth 1 linted))
+      (should (equal '(("author" "The editors")) (nth 4 linted))))))
+
+(ert-deftest sp-bibtex-lint-test-org-remember-persists ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (sp-bibtex--org-remember 'organisation "Collective, Mute")
+    (sp-bibtex--org-remember 'person "The Beatles")
+    (should (equal '("Mute Collective") (sp-bibtex-organisations)))
+    (setq sp-bibtex--organisations nil)
+    (should (equal '("Mute Collective") (sp-bibtex-organisations)))
+    (should (equal '("The Beatles") (plist-get (sp-bibtex--org-load) :persons)))
+    ;; A name moves from one list to the other.
+    (sp-bibtex--org-remember 'organisation "the beatles")
+    (should-not (plist-get (sp-bibtex--org-load) :persons))
+    (should (member "the beatles" (sp-bibtex-organisations)))))
+
+(ert-deftest sp-bibtex-lint-test-org-other-steps-leave-organisations ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (let ((people (sp-bibtex--make-people '("Mute Colletive" "John Smith"))))
+      ;; No note suggestion, surname match or merge for a name in braces.
+      (should-not (nth 2 (sp-bibtex--lint-names '(("author" . "{{Mute Collective}}")) people)))
+      (should-not (nth 3 (sp-bibtex--lint-names '(("author" . "{{Mute Collective}}")) people))))
+    (should-not (sp-bibtex-merge--field-names '(("author" . "{{Mute Collective} and {Mute}}"))))
+    (should (equal '("Smith, John")
+                   (sp-bibtex-merge--field-names '(("author" . "{{Mute Collective} and John Smith}")))))
+    (should (equal '(("author" . "{{Mute Collective}}"))
+                   (car (sp-bibtex--lint-prefixes '(("author" . "{{Mute Collective}}"))))))))
+
+(ert-deftest sp-bibtex-lint-test-org-fix-organisations ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (sp-bibprocess-lint-test--with-bib
+        (concat "@book{editors-1991,\n  author = {The editors},\n  title = {T}\n}\n\n"
+                "@book{mute-2024,\n  author = {Mute Collective and John Smith},\n  title = {U}\n}\n")
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-organisations) (lambda (&rest _) ?o)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-organisations file))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{{The editors}}" text))
+        (should (string-match-p "author =[ \t]+{{Mute Collective} and John Smith}" text)))
+      (should (equal '("Mute Collective" "The editors") (sp-bibtex-organisations)))
+      (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
+      ;; The remembered names are not asked about again, and the author fix keeps them.
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-organisations)
+                 (lambda (&rest _) (ert-fail "asked again")))
+                ((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{{The editors}}" text))
+        (should (string-match-p "{{Mute Collective} and Smith, John}" text))))))
+
+(ert-deftest sp-bibtex-lint-test-org-person-is-converted ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (sp-bibprocess-lint-test--with-bib
+        "@book{a,\n  author = {Anna Press},\n  title = {T}\n}\n"
+      (let ((before (sp-bibprocess-lint-test--text file)))
+        ;; Flagged: the author fix alone does not touch it.
+        (cl-letf (((symbol-function 'sp-bibtex-lint--ask-organisations) (lambda (&rest _) ?s))
+                  ((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a)))
+          (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+        (should (equal before (sp-bibprocess-lint-test--text file))))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-organisations) (lambda (&rest _) ?P))
+                ((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (should (string-match-p "author =[ \t]+{Press, Anna}" (sp-bibprocess-lint-test--text file)))
+      (should (equal '("Anna Press") (plist-get (sp-bibtex--org-load) :persons))))))
+
+(ert-deftest sp-bibtex-lint-test-org-each-name-asked-once ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (sp-bibprocess-lint-test--with-bib
+        (concat "@book{a,\n  author = {The editors},\n  title = {T}\n}\n\n"
+                "@book{b,\n  author = {The editors},\n  title = {U}\n}\n")
+      (let ((asked 0))
+        (cl-letf (((symbol-function 'sp-bibtex-lint--ask-organisations) (lambda (&rest _) ?e))
+                  ((symbol-function 'sp-bibtex-lint--ask-organisation)
+                   (lambda (_case) (cl-incf asked) ?o)))
+          (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-organisations file))
+        (should (= 1 asked))
+        (should (= 2 (with-temp-buffer
+                       (insert-file-contents file)
+                       (how-many "{{The editors}}" (point-min) (point-max)))))))))
+
+(ert-deftest sp-bibtex-lint-test-org-damaged-name-is-repaired ()
+  (sp-bibprocess-lint-test--with-orgs '("Mute Collective") nil
+    (sp-bibprocess-lint-test--with-bib
+        "@book{a,\n  author = {Collective, Mute},\n  title = {T}\n}\n"
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (should (string-match-p "author =[ \t]+{{Mute Collective}}" (sp-bibprocess-lint-test--text file))))))
+
+(ert-deftest sp-bibtex-lint-test-org-mark-in-the-report ()
+  (sp-bibprocess-lint-test--with-orgs nil nil
+    (sp-bibprocess-lint-test--with-bib
+        "@book{a,\n  author = {Mute Collective},\n  title = {T}\n}\n"
+      (let ((refreshed nil))
+        (cl-letf (((symbol-function 'sp-batch-report--key-at-point)
+                   (lambda () (sp-bibtex-lint--entry-key file "a#organisations")))
+                  ((symbol-function 'sp-batch-report-refresh) (lambda () (setq refreshed t))))
+          (should (equal '("Mute Collective") (sp-bibtex-lint--entry-names file "a")))
+          (sp-bibtex-lint-mark-organisation))
+        (should refreshed)
+        (should (equal '("Mute Collective") (sp-bibtex-organisations)))))))
+
+;;;; BibTeX accents in names
+
+(ert-deftest sp-bibtex-lint-test-accents-decode ()
+  (should (equal "C{é}sar Bola{ñ}o" (sp-bibtex--decode "C{\\'e}sar Bola{\\~n}o")))
+  (should (equal "César Bolaño" (sp-bibtex--plain-name "C{\\'e}sar Bola{\\~n}o")))
+  (should (equal "Müller" (sp-bibtex--plain-name "M{\\\"u}ller")))
+  (should (equal "Müller" (sp-bibtex--plain-name "M\\\"uller")))
+  (should (equal "François" (sp-bibtex--plain-name "Fran{\\c c}ois")))
+  (should (equal "Søren" (sp-bibtex--plain-name "S{\\o}ren")))
+  (should (equal "Dvořák" (sp-bibtex--plain-name "Dvo{\\v r}{\\'a}k")))
+  (should (equal "Pérez" (sp-bibtex--plain-name "P\\'{e}rez")))
+  (should (equal "Díaz" (sp-bibtex--plain-name "D{\\'\\i}az")))
+  (should (equal "Smith" (sp-bibtex--plain-name "Smith")))
+  (should (equal "{Mute Collective}" (sp-bibtex--plain-name "{Mute Collective}"))))
+
+(ert-deftest sp-bibtex-lint-test-accents-keep-braces-in-last-first ()
+  (should (equal "Bola{\\~n}o, C{\\'e}sar" (sp-bibtex-canonical-name "C{\\'e}sar Bola{\\~n}o")))
+  (should (equal "Bola{\\~n}o, C{\\'e}sar" (sp-bibtex-canonical-name "Bola{\\~n}o, C{\\'e}sar")))
+  (should (equal "Bulat{\\u a}, Ion" (sp-bibtex-canonical-name "Ion Bulat{\\u a}")))
+  ;; The space of an unbraced accent command does not split the name.
+  (should (equal "Fran\\c c, Ana" (sp-bibtex-canonical-name "Ana Fran\\c c")))
+  (should (equal "van Bola{\\~n}o, C{\\'e}sar" (sp-bibtex-canonical-name "C{\\'e}sar van Bola{\\~n}o"))))
+
+(ert-deftest sp-bibtex-lint-test-accents-match-the-note ()
+  (let ((people (sp-bibtex--make-people '("César Bolaño"))))
+    ;; The note is found: no typo is reported, the name is just written as `Last, First'.
+    (let ((linted (sp-bibtex--lint-names '(("author" . "{C{\\'e}sar Bola{\\~n}o}")) people)))
+      (should (equal '(("author" . "{Bola{\\~n}o, C{\\'e}sar}")) (car linted)))
+      (should-not (nth 2 linted))
+      (should-not (nth 3 linted)))
+    ;; Initials with an escaped surname fit the note, as with the plain letters.
+    (should (equal '("Bolaño, César")
+                   (sp-bibtex--surname-match "Bola{\\~n}o, C." people)))
+    (should (equal "bolaño, césar" (sp-bibtex--name-key "Bola{\\~n}o, C{\\'e}sar")))))
+
+(ert-deftest sp-bibtex-lint-test-accents-typo-of-an-unaccented-note ()
+  (let* ((people (sp-bibtex--make-people '("Cesar Bolano")))
+         (linted (sp-bibtex--lint-names '(("author" . "{C{\\'e}sar Bola{\\~n}o}")) people)))
+    (should (equal "Bolano, Cesar" (nth 2 (car (nth 2 linted)))))))
+
+(ert-deftest sp-bibtex-lint-test-accents-unicode-option ()
+  (let ((sp-bibtex-names-unicode t))
+    (should (equal '(("author" . "{Bolaño, César and Müller, Hans}"))
+                   (car (sp-bibtex--lint-names
+                         '(("author" . "{C{\\'e}sar Bola{\\~n}o and Hans M{\\\"u}ller}")) nil)))))
+  (let ((sp-bibtex-names-unicode nil))
+    (should (equal '(("author" . "{Bola{\\~n}o, C{\\'e}sar}"))
+                   (car (sp-bibtex--lint-names '(("author" . "{C{\\'e}sar Bola{\\~n}o}")) nil))))))
+
+(ert-deftest sp-bibtex-lint-test-accents-alias-is-plain ()
+  (sp-bibprocess-lint-test--with-notes
+   (let ((people (sp-bibtex--make-people (list (list :title "John Smith" :file note)))))
+     (setq sp-bibtex--people-cache (cons (float-time) people)))
+   (with-temp-file file
+     (insert "@article{a,\n  author = {Smyth, J{\\'o}hn},\n  title = {T}\n}\n"))
+   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
+     (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+   (should (equal (list (cons note "Smyth, Jóhn")) (delete-dups (copy-sequence added))))))

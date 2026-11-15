@@ -145,7 +145,7 @@
 }
 #show: doc => conf(
   title: [siainbuletin/dotfiles: pull requests],
-  date: [2026-11-14],
+  date: [2026-11-15],
   abstract-title: [Abstract],
   paper: "a4",
   fontsize: 9.5pt,
@@ -29112,9 +29112,364 @@ limited.
 - Branch name has no PR number prefix (cannot rename from the cloud
   session).
 
+==== Manual testing
+<manual-testing>
+All of these are untested by Claude unless noted: nothing here ran on
+the Mac, against the real vault, or against DEVONthink. Do the scratch
+setup first and the real-vault items last. Use a scratch copy, never the
+real #raw(lang:"verbatim", ".bib"), until the DEVONthink items pass.
+
+===== 0. Setup (scratch data)
+<0-setup-scratch-data>
+- ☐
+  #raw(lang:"verbatim", "git -C ~/dotfiles switch main && git -C ~/dotfiles pull"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")),
+  then #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-keys") exists and
+  #raw(lang:"verbatim", "C-c w b k") is bound
+  (#raw(lang:"verbatim", "C-h k C-c w b k"))
+- ☐ Make a scratch #raw(lang:"verbatim", ".bib")
+  #raw(lang:"verbatim", "~/tmp/keytest/keytest.bib") and register it
+  (#raw(lang:"verbatim", "C-c w b r") or add it to
+  #raw(lang:"verbatim", "sp-bibtex-files")) with these entries (key
+  lengths in brackets):
+  - #raw(lang:"verbatim", "Hayek1944TheRoadToSerfdomAndTheLongTitleOfAVeryLongBookAboutPlanning")
+    (over 45)
+  - #raw(lang:"verbatim", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrs")
+    (exactly 45, must NOT be flagged)
+  - #raw(lang:"verbatim", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrst")
+    (46, flagged)
+  - a short entry #raw(lang:"verbatim", "Short2020") (must NOT be
+    flagged)
+  - a #raw(lang:"verbatim", "\u{40}incollection") whose
+    `crossref = {Hayek1944TheRoadToSerfdomAndTheLongTitleOfAVeryLongBookAboutPlanning}`
+  - a long-key entry with no #raw(lang:"verbatim", "title")
+- ☐ Scratch notes folder #raw(lang:"verbatim", "~/tmp/keytest/notes/")
+  with: a litnote having
+  #raw(lang:"verbatim", "#+reference: \u{3c}long key>") and a
+  #raw(lang:"verbatim", ":ROAM_REFS: cite:\u{3c}long key>") line; a note with
+  #raw(lang:"verbatim", "[cite:\u{40}\u{3c}long key>]"),
+  #raw(lang:"verbatim", "[cite/t:\u{40}Short2020; \u{40}\u{3c}long key>]"), plain
+  #raw(lang:"verbatim", "\u{40}\u{3c}long key>") in text and
+  #raw(lang:"verbatim", "cite:\u{3c}long key>")\; a note with
+  #raw(lang:"verbatim", "\u{40}\u{3c}long key>-2") and
+  #raw(lang:"verbatim", "\u{40}\u{3c}long key>x") (must stay untouched); a note in
+  a subfolder; a note in a hidden folder
+  #raw(lang:"verbatim", ".hidden/")
+- ☐
+  #raw(lang:"verbatim", "(setq sp-bibtex-key-notes-directory \"~/tmp/keytest/notes/\")")
+  and make sure #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory")
+  points to a folder you can look at
+- ☐ Scratch library: files #raw(lang:"verbatim", "\u{3c}long key>.pdf"),
+  #raw(lang:"verbatim", "\u{3c}long key>-supplement.pdf"),
+  #raw(lang:"verbatim", "\u{3c}long key>x.pdf"),
+  #raw(lang:"verbatim", "\u{3c}long key>2.pdf") in
+  #raw(lang:"verbatim", "sp-literature-dir") (or a scratch dir set as
+  #raw(lang:"verbatim", "sp-literature-dir")), and the long entry\'s
+  `file = {...}` pointing at #raw(lang:"verbatim", "\u{3c}long key>.pdf")
+- ☐ Copy the scratch folder to
+  #raw(lang:"verbatim", "~/tmp/keytest-pristine/") so every run can be
+  reset (#raw(lang:"verbatim", "rm -rf") and copy back before each test
+  that changes things)
+
+===== 1. Detection (dry run, nothing changes)
+<1-detection-dry-run-nothing-changes>
+- ☐ #raw(lang:"verbatim", "C-c w b l") on the scratch
+  #raw(lang:"verbatim", ".bib"): the report has a \"Long citation keys\"
+  section and a #raw(lang:"verbatim", "keys") button with the count; the
+  46- and 69-character keys are listed, the 45-character and
+  #raw(lang:"verbatim", "Short2020") entries are not
+- ☐ Each listed item says
+  #raw(lang:"verbatim", "key has N characters, over the limit of 45")
+- ☐ #raw(lang:"verbatim", "(setq sp-bibtex-key-max-length 20)"), rerun
+  #raw(lang:"verbatim", "C-c w b l"): more keys listed; set it back to
+  45 (limit is honoured)
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-convert"):
+  #raw(lang:"verbatim", "long citation keys") is among the choices and
+  starts the same fix
+- ☐ Regression: the other sections of the dry run (field order,
+  indentation, authors, prefixes, attachment paths) still appear and
+  their buttons still work
+
+===== 2. Fix prompt (#raw(lang:"verbatim", "C-c w b k"))
+<2-fix-prompt-c-c-w-b-k>
+- ☐ #raw(lang:"verbatim", "C-c w b k") with the scratch
+  #raw(lang:"verbatim", ".bib") open: asks
+  #raw(lang:"verbatim", "Batch 1 of N (M long keys): [p]rompt … [s]kip, [q]uit")
+- ☐ #raw(lang:"verbatim", "p"): each prompt shows the old key, its
+  length, the limit and the #strong[title] of the entry, with a
+  suggested key already filled in
+- ☐ The suggestion is at most 45 characters (autokey, or the old key cut
+  to the limit)
+- ☐ Answer with a key of 50 characters: message says
+  #raw(lang:"verbatim", "50 characters, the limit is 45") and the prompt
+  comes back with your text
+- ☐ Answer #raw(lang:"verbatim", "bad key"): message says
+  #raw(lang:"verbatim", "a character BibTeX does not allow")
+- ☐ Answer #raw(lang:"verbatim", "{x}"), #raw(lang:"verbatim", "a,b"),
+  #raw(lang:"verbatim", "a#b"), #raw(lang:"verbatim", "a%b"): each
+  rejected for the forbidden character
+- ☐ Answer #raw(lang:"verbatim", "Short2020") (taken):
+  #raw(lang:"verbatim", "another entry has this key")
+- ☐ Answer with a key that exists only in a #strong[second registered
+  #raw(lang:"verbatim", ".bib")]: still rejected (taken in any
+  registered file)
+- ☐ With two long keys, give the second the same key as the first:
+  second is rejected (chosen in this run)
+- ☐ Empty answer: that key is kept and not in the plan
+- ☐ Entry with no title: prompt shows #raw(lang:"verbatim", "no title")
+  and does not error
+- ☐ Prefix argument #raw(lang:"verbatim", "C-u C-c w b k") asks which
+  #raw(lang:"verbatim", ".bib") file to use
+- ☐ #raw(lang:"verbatim", "s") at the first question skips the batch;
+  #raw(lang:"verbatim", "q") quits; neither changes the file
+- ☐ With the buffer for the #raw(lang:"verbatim", ".bib") modified and
+  unsaved: #raw(lang:"verbatim", "sp-bibtex-lint--unsaved-check") stops
+  the run (no changes made)
+- ☐ #raw(lang:"verbatim", "sp-bibtex-lint-batch-size") 1 with two long
+  keys: two batches, each asked in turn
+
+===== 3. Plan buffer and choices
+<3-plan-buffer-and-choices>
+- ☐ After the prompts the #raw(lang:"verbatim", "*BibTeX key renames*")
+  buffer shows: #raw(lang:"verbatim", "N keys of FILE to rename"),
+  counts of notes / references / citations, PDFs, cross references, then
+  #raw(lang:"verbatim", "OLD -> NEW") lines
+- ☐ The counts match the scratch data (e.g. notes with the key,
+  #raw(lang:"verbatim", "#+reference:") +
+  #raw(lang:"verbatim", "ROAM_REFS") values, each citation form counted
+  once)
+- ☐ #raw(lang:"verbatim", "s"): nothing changes anywhere (compare with
+  #raw(lang:"verbatim", "~/tmp/keytest-pristine/"),
+  #raw(lang:"verbatim", "git diff") or #raw(lang:"verbatim", "diff -r"))
+- ☐ #raw(lang:"verbatim", "q"): stops the run, nothing changes
+- ☐ #raw(lang:"verbatim", "b"): only the #raw(lang:"verbatim", ".bib")
+  entry key changes; notes, PDFs and crossref fields are untouched
+- ☐ #raw(lang:"verbatim", "y"): everything in the plan changes (sections
+  4 to 6)
+- ☐ Empty answers for every key: the batch is skipped without showing a
+  plan
+
+===== 4. Entry and cross references (reset scratch first, then #raw(lang:"verbatim", "y"))
+<4-entry-and-cross-references-reset-scratch-first-then-y>
+- ☐ The long entry\'s key in the #raw(lang:"verbatim", ".bib") is the
+  new key; the rest of the entry is unchanged
+- ☐ The #raw(lang:"verbatim", "\u{40}incollection")
+  #raw(lang:"verbatim", "crossref") now has the new key; run again with
+  #raw(lang:"verbatim", "xref"), #raw(lang:"verbatim", "xdata"),
+  `related = {a, <long key>, b}` (comma-separated): only the matching
+  part changes, the others stay
+- ☐ Entry in #strong[another registered #raw(lang:"verbatim", ".bib")]
+  with `crossref = {<long key>}`: updated, and a copy of that file is in
+  #raw(lang:"verbatim", "key-renames-STAMP/") in the backup folder
+- ☐ An unsaved visiting buffer of the other
+  #raw(lang:"verbatim", ".bib"): file is left alone (no changes, no
+  error)
+- ☐ The usual lint backup of the linted #raw(lang:"verbatim", ".bib") is
+  in #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory") and has
+  the old keys
+- ☐ #raw(lang:"verbatim", "citar-refresh") ran:
+  #raw(lang:"verbatim", "M-x citar-open") /
+  #raw(lang:"verbatim", "citar-insert-citation") shows the #strong[new]
+  key and not the old
+
+===== 5. Notes (reset scratch first, then #raw(lang:"verbatim", "y"))
+<5-notes-reset-scratch-first-then-y>
+- ☐ #raw(lang:"verbatim", "#+reference:") and
+  #raw(lang:"verbatim", ":ROAM_REFS:") lines have the new key
+- ☐ #raw(lang:"verbatim", "[cite:\u{40}KEY]"),
+  #raw(lang:"verbatim", "[cite/t:\u{40}Short2020; \u{40}KEY]"), plain
+  #raw(lang:"verbatim", "\u{40}KEY") in text and
+  #raw(lang:"verbatim", "cite:KEY") all changed;
+  #raw(lang:"verbatim", "\u{40}Short2020") unchanged
+- ☐ Edge case: #raw(lang:"verbatim", "\u{40}KEY-2") and
+  #raw(lang:"verbatim", "\u{40}KEYx") are #strong[not] changed; a
+  #raw(lang:"verbatim", "\u{40}KEY.") at the end of a sentence #strong[is]
+  changed
+- ☐ Note in a subfolder changed; note in
+  #raw(lang:"verbatim", ".hidden/") not scanned or changed; a
+  #raw(lang:"verbatim", ".#lockfile.org") is ignored
+- ☐ Each changed note was copied to
+  #raw(lang:"verbatim", "key-renames-STAMP/") first (file names use
+  #raw(lang:"verbatim", "!") for #raw(lang:"verbatim", "/")), and the
+  copy has the #strong[old] key
+- ☐ Open a note in a buffer with #strong[unsaved edits] before running:
+  that note is left alone, and
+  #raw(lang:"verbatim", "Not updated, open with unsaved changes: NAME")
+  appears in the echo area
+- ☐ A note open in a buffer #strong[without] edits is reverted to the
+  new content (buffer shows the new key)
+- ☐ vulpea (real vault only):
+  #raw(lang:"verbatim", "vulpea-db-update-file") ran, so
+  #raw(lang:"verbatim", "M-x vulpea-find") or the vulpea-ui widget for
+  the litnote shows the new key without a manual sync
+- ☐
+  #raw(lang:"verbatim", "(setq sp-bibtex-key-update-targets '(files bibrefs))"):
+  notes are not scanned (plan shows 0 notes) and not changed
+
+===== 6. PDFs (reset scratch first, then #raw(lang:"verbatim", "y"), DEVONthink tool not set)
+<6-pdfs-reset-scratch-first-then-y-devonthink-tool-not-set>
+- ☐ Plan lists #raw(lang:"verbatim", "\u{3c}long key>.pdf") and
+  #raw(lang:"verbatim", "\u{3c}long key>-supplement.pdf") for the rename;
+  #raw(lang:"verbatim", "\u{3c}long key>x.pdf") and
+  #raw(lang:"verbatim", "\u{3c}long key>2.pdf") are #strong[not] listed or
+  moved
+- ☐ After #raw(lang:"verbatim", "y"): both files are renamed to the new
+  key (#raw(lang:"verbatim", "NEW.pdf"),
+  #raw(lang:"verbatim", "NEW-supplement.pdf")); the others stay
+- ☐ The #raw(lang:"verbatim", "file") field of the entry now names
+  #raw(lang:"verbatim", "NEW.pdf") (and the additional file if present),
+  the rest of the field is unchanged
+- ☐ Edge case: #raw(lang:"verbatim", "NEW.pdf") already exists in the
+  library: that move is left out of the plan (nothing overwritten)
+- ☐ Edge case: no PDFs for the key: the plan says
+  #raw(lang:"verbatim", "0 PDFs") and the run still works
+- ☐ Edge case: a PDF named after an old BibDesk key (not the citekey) is
+  untouched
+- ☐
+  #raw(lang:"verbatim", "(setq sp-bibtex-key-update-targets '(notes bibrefs))"):
+  PDFs and the #raw(lang:"verbatim", "file") field are not changed
+- ☐ #raw(lang:"verbatim", "C-c w b k") again after a successful run: no
+  long keys left, says nothing to do (no loop, no error)
+- ☐ Stale entry: after the prompts, before pressing
+  #raw(lang:"verbatim", "y"), change the long entry\'s text in the
+  #raw(lang:"verbatim", ".bib") buffer (needs a second window): that
+  entry is left alone and counted as stale; the others are renamed
+
+===== 7. DEVONthink rename: the Python tool
+<7-devonthink-rename-the-python-tool>
+- ☐ Prerequisites: DEVONthink running, a #strong[test record] that is an
+  indexed copy of a scratch PDF (e.g.
+  #raw(lang:"verbatim", "testkey-old.pdf")) in a group of the same
+  folder
+- ☐ Dry run:
+  #raw(lang:"verbatim", "python3 ~/.config/emacs-modular/tools/devonthink-move.py move --moves FILE")
+  where FILE moves #raw(lang:"verbatim", "testkey-old.pdf") to
+  #raw(lang:"verbatim", "testkey-new.pdf") in the same folder: prints
+  #raw(lang:"verbatim", "renamed through DEVONthink: 1 to rename, 0 renamed  (dry run)")
+  and nothing changes on disk or in DEVONthink
+- ☐ #raw(lang:"verbatim", "--apply --limit 1"): prints
+  #raw(lang:"verbatim", "1 renamed")\; on disk the file is now
+  #raw(lang:"verbatim", "testkey-new.pdf")\; in DEVONthink the record is
+  named per the file and is #strong[still in the same group] it was in
+  before
+- ☐ The manifest
+  #raw(lang:"verbatim", "~/.local/state/devonthink-move/moves-*.json")
+  lists the rename (uuid, from, to)
+- ☐ Which name did DEVONthink accept: with the extension or without?
+  (Note it; a wrong assumption would stop the run)
+- ☐ Failure case: source file is not where asked / record not found: run
+  stops, old name restored, message says what was expected
+- ☐ Edge case: two records with the same path:
+  #raw(lang:"verbatim", "blocked: 2 records have this path"), not
+  renamed
+- ☐ Edge case: the source file does not exist: listed as
+  #raw(lang:"verbatim", "missing")
+- ☐ Edge case: a file not in DEVONthink:
+  #raw(lang:"verbatim", "not in DEVONthink: 1; left alone (--plain-rename moves them on disk)")\;
+  with #raw(lang:"verbatim", "--plain-rename") it is renamed on disk
+- ☐ Regression: a normal move to another folder
+  (#raw(lang:"verbatim", "move") plan) still works and still shows
+  #raw(lang:"verbatim", "through DEVONthink: N to move, N moved")
+- ☐ Undo: move the files back using the manifest; the record name and
+  file go back
+
+===== 8. DEVONthink rename: from the lint
+<8-devonthink-rename-from-the-lint>
+- ☐
+  #raw(lang:"verbatim", "(setq sp-bibtex-files-devonthink-tool \"~/.config/emacs-modular/tools/devonthink-move.py\")")
+  (or however it is set) and the scratch library PDFs indexed as records
+  in DEVONthink
+- ☐ #raw(lang:"verbatim", "C-c w b k"), one long key,
+  #raw(lang:"verbatim", "y"): the PDF is renamed #strong[through
+  DEVONthink] (record name and file both updated, record still in its
+  group; check DEVONthink and #raw(lang:"verbatim", "ls"))
+- ☐ Open the renamed PDF from Emacs (#raw(lang:"verbatim", "citar-open")
+  on the new key): opens the file; the DEVONthink record link /
+  #raw(lang:"verbatim", "sp-devonthink") item for it still resolves
+- ☐ Two records in a batch: both renamed, the manifest lists both
+- ☐ DEVONthink not running (quit it): #raw(lang:"verbatim", "y") shows
+  an error from the tool, #strong[no note, #raw(lang:"verbatim", ".bib")
+  or PDF is changed] (PDFs go first, so a failure leaves everything as
+  it was); re-run works once DEVONthink is open
+- ☐ PDF is a large file (hundreds of MB or a 1000-page PDF): rename
+  finishes without timing out and the record is read back correctly
+- ☐ Record is in more than one group (replicant) or in a different
+  database from the file: note what happens (stopped run, or renamed);
+  report if the record ends in the wrong group
+- ☐ Indexed PDF on a different volume or path than
+  #raw(lang:"verbatim", "sp-literature-dir"): not touched by this fix
+  (only #raw(lang:"verbatim", "sp-literature-dir") files are in the
+  plan)
+
+===== 9. Real vault (only after the scratch runs pass)
+<9-real-vault-only-after-the-scratch-runs-pass>
+- ☐ #raw(lang:"verbatim", "git -C ~/notes status") is clean before
+  starting, so the vault diff shows only this run
+- ☐ #raw(lang:"verbatim", "C-c w b l") on the real
+  #raw(lang:"verbatim", ".bib"): count of long keys looks plausible;
+  list is a section of its own
+- ☐ #raw(lang:"verbatim", "C-c w b k") with a batch size of 1 on one
+  real entry, #raw(lang:"verbatim", "y"): key, litnote reference,
+  citations in other notes, crossref and PDF all follow
+- ☐ #raw(lang:"verbatim", "git -C ~/notes diff") shows only the key
+  changed on the #raw(lang:"verbatim", "#+reference:") /
+  #raw(lang:"verbatim", "ROAM_REFS") and citation lines
+- ☐ Run again to confirm no other note changed;
+  #raw(lang:"verbatim", "M-x citar-open") and the litnote\'s
+  #raw(lang:"verbatim", "C-c k") DEVONthink actions still work for the
+  renamed key
+- ☐ Run for several keys at once (full batch); check
+  #raw(lang:"verbatim", "key-renames-STAMP/") has a copy of each changed
+  note and the other #raw(lang:"verbatim", ".bib") files
+
+===== 10. Regressions
+<10-regressions>
+- ☐ #raw(lang:"verbatim", "C-c w b L")
+  (#raw(lang:"verbatim", "sp-bibtex-lint-convert")): the other fixes
+  (field order, indentation, name prefixes, author names, attachment
+  paths) still run on the scratch #raw(lang:"verbatim", ".bib")
+- ☐ #raw(lang:"verbatim", "sp-bibtex-lint-fix-files") still moves PDFs
+  (through DEVONthink if set); the new rename code is not reached for
+  plain moves to another folder
+- ☐ Opening the #raw(lang:"verbatim", ".bib") and
+  #raw(lang:"verbatim", "citar-refresh") is not slower
+- ☐ Byte compile: #raw(lang:"verbatim", "M-x emacs-lisp-byte-compile")
+  on #raw(lang:"verbatim", "sp-bibprocess.el") shows no new warnings (no
+  #raw(lang:"verbatim", "when-let") / #raw(lang:"verbatim", "if-let")
+  obsolete warning)
+
+- Discard any local edits made while testing:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .") (and
+  #raw(lang:"verbatim", "git clean -fd") only after checking
+  #raw(lang:"verbatim", "git clean -nd")).
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch locally:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D claude/long-citekey-check")\;
+  the remote copy stays until the branch is deleted.
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")) so
+  the config matches main again.
+- If a run changed the real vault: restore the notes from
+  #raw(lang:"verbatim", "key-renames-STAMP/") in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory"), or
+  #raw(lang:"verbatim", "git -C ~/notes restore .") if the vault is
+  under git; restore the #raw(lang:"verbatim", ".bib") from the lint
+  backup in the same folder.
+- If a rename went through DEVONthink: move the files back using the
+  manifest in
+  #raw(lang:"verbatim", "~/.local/state/devonthink-move/moves-*.json"),
+  and check the record names and groups in DEVONthink.
+- Delete the scratch data:
+  #raw(lang:"verbatim", "rm -rf ~/tmp/keytest ~/tmp/keytest-pristine")
+  and remove the scratch #raw(lang:"verbatim", ".bib") from
+  #raw(lang:"verbatim", "sp-bibtex-files").
+- Fish shell works for all of the above; Sia uses GNU Stow, so no yadm
+  steps.
+
 🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
 
-#link("https://claude.ai/code/session_01WWLNi9m8fmtgNiBeMPZDGW")
+#link("https://claude.ai/code/session_01WWLNiAD7sVQHZBcbnXVRPT")
 
 == Commits (2)
 <commits-2-99>
@@ -29792,12 +30147,14 @@ Step 3 of 5 of
 = PR \#418: ✨ Search DEVONthink and litdb from one command, with similar records and preview
 <pr-418-search-devonthink-and-litdb-from-one-command-with-similar-records-and-preview>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/418")[#link("https://github.com/siainbuletin/dotfiles/pull/418")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-12 22:00
+/ Merged: 2026-11-14 21:07
 / Branch: #raw(lang:"verbatim", "418-devonthink-search") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/8442bb96a9015316073e12203514ff579bd69e63")[8442bb96a9]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/f20c21adcdd372496c9303b926d2df1ecf27b68c")[f20c21adcd]
+/ Labels: new-feature, needs-further-testing
 
 == Description
 <description-415>
@@ -29906,8 +30263,8 @@ sp-devonthink-similar-to-note\".
 
 #emph[Generated by #link("https://claude.ai/code")[Claude Code]]
 
-== Commits (10)
-<commits-10-1>
+== Commits (11)
+<commits-11-1>
 - #link("https://github.com/siainbuletin/dotfiles/commit/9e7be76fa1d041953e27e496cf8e166909df21a8")[9e7be76fa1]
   ✨ Search DEVONthink and litdb from one command, with similar records
   and preview (Claude, 2026-11-12 21:59)
@@ -29938,81 +30295,146 @@ sp-devonthink-similar-to-note\".
 - #link("https://github.com/siainbuletin/dotfiles/commit/95360b34d231cbda939171b53ec76d4e8595b6d2")[95360b34d2]
   🐛 Follow crossref in sp-devonthink-similar-to-note (Claude,
   2026-11-13 00:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e")[1aa58c81bd]
+  Merge branch \'main\' into 418-devonthink-search (Sia Piperea,
+  2026-11-14 21:07)
 
-= PR \#419: 📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0027-0031
-<pr-419-merge-the-devonthink-design-into-the-sp-devonthink-doc-and-add-adrs-0027-0031>
+= PR \#419: 📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs 0028-0032
+<pr-419-merge-the-devonthink-design-into-the-sp-devonthink-doc-and-add-adrs-0028-0032>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/419")[#link("https://github.com/siainbuletin/dotfiles/pull/419")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-12 22:02
+/ Merged: 2026-11-15 10:16
 / Branch: #raw(lang:"verbatim", "419-devonthink-design-adrs") →
-    #raw(lang:"verbatim", "418-devonthink-search")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/a9c5d215acdf973a2eacfcbf9cfe20477d81639a")[a9c5d215ac]
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/435040f7776eb6180e8cc067e886b2e76caf1c95")[435040f777]
+/ Labels: documentation
 
 == Description
 <description-416>
 #emph[Requested by #strong[Sia] ·
-#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK")[project thread]]
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2ANG8z1sQ4781ggL7ayVKz3")[project thread]]
 
-#strong[Base: #raw(lang:"verbatim", "418-devonthink-search") (\#418)].
-Stack: \#414 → \#415 → \#418 → \#419 → \#420. Docs only.
+#strong[Base: #raw(lang:"verbatim", "main").] \#415, \#418 and \#500 are
+merged; this PR is next, then \#420 and \#421. Docs, README and file
+moves only; no code logic changes.
+
+==== Update 2026-11-15 (merge of #raw(lang:"verbatim", "main"))
+<update-2026-11-15-merge-of-main>
+- #raw(lang:"verbatim", "main") merged
+  #raw(lang:"verbatim", "sp-devonthink-search") into
+  #raw(lang:"verbatim", "sp-devonthink-browse") (\#500), so the search
+  doc and module stay deleted; the merged
+  #raw(lang:"verbatim", "sp-devonthink-browse.org") is
+  #raw(lang:"verbatim", "main")\'s, now in
+  #raw(lang:"verbatim", "docs/tangles/devonthink/").
+- #raw(lang:"verbatim", "main") took ADR 0027 (centered miniframe), so
+  the DEVONthink ADRs are renumbered #strong[0028 to 0032] (files,
+  titles, links, #raw(lang:"verbatim", "adr/README.org")).
+- #raw(lang:"verbatim", "sp-devonthink.org") keeps
+  #raw(lang:"verbatim", "main")\'s \"Current state\" and this PR\'s
+  \"Design\"; the intro says \"Current state\" wins where they differ.
+- Links from #raw(lang:"verbatim", "sp-devonthink.org") to docs that
+  stay in #raw(lang:"verbatim", "academic/") now use
+  #raw(lang:"verbatim", "../academic/").
+- Not run (no Emacs in the cloud):
+  #raw(lang:"verbatim", "tools/check-tangle.sh") and the ERT tests; run
+  them on the Mac.
+
+==== Merge order
+<merge-order>
+- \#420 and \#421 are stacked on this branch; do not rename it.
+- \#421 mentions \"ADR 0030\" in
+  #raw(lang:"verbatim", "sp-devonthink-sync.org")\; it now means ADR
+  0031 (two-way litnote and record link).
+- A later change to a DEVONthink doc in
+  #raw(lang:"verbatim", "docs/tangles/academic/") (from any other PR)
+  would need the same move.
 
 ==== What
 <what>
 - #raw(lang:"verbatim", "docs/architecture/devonthink-emacs-integration.org")
   is deleted; its content is a bullet-point \"Design\" section of
-  #raw(lang:"verbatim", "docs/tangles/academic/sp-devonthink.org"), with
-  a status table (which PR delivers which step) and a new \"Open
-  questions\" list of everything still unclear or untested.
-- Five ADRs, listed in #raw(lang:"verbatim", "adr/README.org"): 0027
-  citekey joins BibTeX/litnote/DEVONthink; 0028 DEVONthink only through
-  its scripting interface; 0029 litdb indexes only highlighted pages;
-  0030 two-way litnote and record link (proposed); 0031 the small
+  #raw(lang:"verbatim", "sp-devonthink.org"), with a status table and an
+  \"Open questions\" list.
+- The \"Design\" section links the old document at its last commit
+  (#link("https://github.com/siainbuletin/dotfiles/commit/c0188a9f0b7c1840034707d3866582a5000eeea3")[#raw(lang:"verbatim", "c0188a9f")],
+  2026-11-08) and says how to print it with
+  #raw(lang:"verbatim", "git show").
+- New folder #raw(lang:"verbatim", "docs/tangles/devonthink/") holds the
+  DEVONthink docs, moved out of
+  #raw(lang:"verbatim", "docs/tangles/academic/"):
+  #raw(lang:"verbatim", "sp-devonthink"),
+  #raw(lang:"verbatim", "-tags"), #raw(lang:"verbatim", "-browse"),
+  #raw(lang:"verbatim", "-bibsync"),
+  #raw(lang:"verbatim", "devonthink-move") and
+  #raw(lang:"verbatim", "devonthink-reading"). The
+  #raw(lang:"verbatim", ".el") files stay in
+  #raw(lang:"verbatim", "libraries/modules/academic/")\; tangle paths
+  are unchanged.
+- Fixed after the move: #raw(lang:"verbatim", "Literate source:")
+  comments, #raw(lang:"verbatim", "Tangled from") lines of
+  #raw(lang:"verbatim", "tools/devonthink-*.py"), tangle commands in the
+  tool docs, links from #raw(lang:"verbatim", "sp-litdb"),
+  #raw(lang:"verbatim", "sp-fetch-inbox"),
+  #raw(lang:"verbatim", "sp-academic"),
+  #raw(lang:"verbatim", "sp-org-lint") and two architecture docs.
+- #raw(lang:"verbatim", "README.org"): every DEVONthink row of the
+  #raw(lang:"verbatim", "academic/") table links to
+  #raw(lang:"verbatim", "docs/tangles/devonthink/").
+- Five ADRs listed in #raw(lang:"verbatim", "adr/README.org"): 0028
+  citekey joins BibTeX/litnote/DEVONthink; 0029 DEVONthink only through
+  its scripting interface; 0030 litdb indexes only highlighted pages;
+  0031 two-way litnote and record link (proposed); 0032 the small
   #raw(lang:"verbatim", "reading") database.
-- Links to the old doc in the sibling module docs,
-  #raw(lang:"verbatim", "sp-litdb.org"),
-  #raw(lang:"verbatim", "devonthink-reading.org"),
-  #raw(lang:"verbatim", "sp-org-lint.org") and two architecture docs now
-  point to #raw(lang:"verbatim", "sp-devonthink.org"). Generated
-  #raw(lang:"verbatim", "dotfiles-prs/") and the CHANGELOG are
+- Generated #raw(lang:"verbatim", "dotfiles-prs/") and the CHANGELOG are
   untouched.
-
-==== Not tested
-<not-tested>
-- Nothing to run; the tangle check passes.
 
 ==== Manual testing
 <manual-testing>
-- ☐ Check out:
-  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 419-devonthink-design-adrs; git checkout 419-devonthink-design-adrs").
-- ☐ Open
-  #raw(lang:"verbatim", "~/.config/emacs-modular/docs/tangles/academic/sp-devonthink.org"):
-  \"Design\" is the first section, then the module sections; everything
-  is bullet lists or tables.
-- ☐ #raw(lang:"verbatim", "C-c C-o") on each of the five ADR links in
-  the Design intro → each ADR opens.
-- ☐ Read \"Open questions\": is anything missing or wrong? Tell me what
-  to add.
 - ☐
-  #raw(lang:"verbatim", "ls ~/.config/emacs-modular/docs/architecture/")
-  shows no #raw(lang:"verbatim", "devonthink-emacs-integration.org").
+  #raw(lang:"verbatim", "ls ~/.config/emacs-modular/docs/tangles/devonthink/")
+  shows the DEVONthink docs (no
+  #raw(lang:"verbatim", "sp-devonthink-search.org")), and
+  #raw(lang:"verbatim", "ls docs/tangles/academic | grep -i devonthink")
+  shows nothing.
+- ☐ Open
+  #raw(lang:"verbatim", "docs/tangles/devonthink/sp-devonthink.org"):
+  \"Design\" and \"Current state\" are both there; the old-document
+  links open on GitHub.
+- ☐ #raw(lang:"verbatim", "C-c C-o") on each of the five ADR links in
+  the Design intro: each ADR opens (0028 to 0032);
+  #raw(lang:"verbatim", "adr/README.org") lists 0027 to 0032.
 - ☐ Follow the \"Design:\" link at the top of
   #raw(lang:"verbatim", "sp-devonthink-tags.org"),
-  #raw(lang:"verbatim", "sp-devonthink-browse.org"),
-  #raw(lang:"verbatim", "sp-devonthink-search.org"),
+  #raw(lang:"verbatim", "-browse.org"), and in
   #raw(lang:"verbatim", "sp-litdb.org") and
-  #raw(lang:"verbatim", "devonthink-reading.org") → each lands in
+  #raw(lang:"verbatim", "devonthink-reading.org"): each lands in
   #raw(lang:"verbatim", "sp-devonthink.org").
+- ☐ README: in the #raw(lang:"verbatim", "academic/") table, the
+  \"Literate doc\" link of each #raw(lang:"verbatim", "sp-devonthink*")
+  row opens its file in
+  #raw(lang:"verbatim", "docs/tangles/devonthink/").
 - ☐
   #raw(lang:"verbatim", "cd ~/.config/emacs-modular; bash tools/check-tangle.sh")
-  → \"All tangled modules match their docs.\"
+  gives \"All tangled modules match their docs.\"
+
+==== Revert guide
+<revert-guide>
+- The move is one commit (\"Move the DEVONthink docs to
+  docs/tangles/devonthink and link the old design document\"):
+  #raw(lang:"verbatim", "git revert") it to put the docs back in
+  #raw(lang:"verbatim", "docs/tangles/academic/").
+- The design merge and the ADRs are in an earlier commit and do not
+  depend on the move.
 
 🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
 
 #link("https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC")
 
-== Commits (7)
-<commits-7-6>
+== Commits (10)
+<commits-10-1>
 - #link("https://github.com/siainbuletin/dotfiles/commit/b22a07d95e0746c9b5eadbe3a102edca1fbcb10d")[b22a07d95e]
   📝 Merge the DEVONthink design into the sp-devonthink doc and add ADRs
   0027-0031 (Claude, 2026-11-12 22:02)
@@ -30034,16 +30456,27 @@ Stack: \#414 → \#415 → \#418 → \#419 → \#420. Docs only.
 - #link("https://github.com/siainbuletin/dotfiles/commit/6bf6b68cb024c2fb1e3f770b58c708bc4f431d71")[6bf6b68cb0]
   Merge branch \'418-devonthink-search\' into 419-devonthink-design-adrs
   (Claude, 2026-11-13 00:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f8ea95ea709d8ae144c9a4e0a32349690bdf1d41")[f8ea95ea70]
+  Merge remote-tracking branch \'origin/main\' into
+  419-devonthink-design-adrs (Claude, 2026-11-14 15:34)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1937aced05eab81136619a09a90bf1cafefddfe9")[1937aced05]
+  🔧 Move the DEVONthink docs to docs/tangles/devonthink and link the
+  old design document (Claude, 2026-11-14 15:35)
+- #link("https://github.com/siainbuletin/dotfiles/commit/3810740f9afee98a31c7f8d34041e99d9b68e454")[3810740f9a]
+  🔧 Merge main into the DEVONthink design PR; keep the merged browse
+  doc, renumber the ADRs (Claude, 2026-11-15 10:14)
 
 = PR \#420: ✨ Bring the highlights of a litnote\'s PDF into the note
 <pr-420-bring-the-highlights-of-a-litnotes-pdf-into-the-note>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/420")[#link("https://github.com/siainbuletin/dotfiles/pull/420")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-12 22:04
+/ Merged: 2026-11-15 10:22
 / Branch: #raw(lang:"verbatim", "420-devonthink-highlights") →
-    #raw(lang:"verbatim", "419-devonthink-design-adrs")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/228c7d70ccc3e4816e018d3f1e884f8b9ddfb22a")[228c7d70cc]
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/6504f85552e2d7b380f3264246bee92eae430dbc")[6504f85552]
+/ Labels: new-feature, needs-further-testing
 
 == Description
 <description-417>
@@ -30146,8 +30579,31 @@ sp-devonthink-highlights-import\".
 
 #emph[Generated by #link("https://claude.ai/code")[Claude Code]]
 
-== Commits (8)
-<commits-8-3>
+=== \u{40}siainbuletin, 2026-11-14 15:37
+<siainbuletin-2026-11-14-1537>
+#link("https://github.com/siainbuletin/dotfiles/pull/420#issuecomment-6879879100")[permalink]
+#strong[Merge note:] merge \#419 first. This branch now contains
+\#419\'s move of the DEVONthink docs:
+#raw(lang:"verbatim", "sp-devonthink-highlights.org") is in
+#raw(lang:"verbatim", "docs/tangles/devonthink/") and its README row
+links there; #raw(lang:"verbatim", "sp-academic.org") and the README
+rows merged with #raw(lang:"verbatim", "main") (bibsync, fetch-inbox).
+
+#strong[Extra manual test:]
+
+- ☐
+  #raw(lang:"verbatim", "docs/tangles/devonthink/sp-devonthink-highlights.org")
+  exists and its README link opens it.
+
+#strong[Revert:] revert the merge commit of \#419 in this branch, then
+#raw(lang:"verbatim", "git mv") the doc back if needed.
+
+#divider()
+
+#emph[Generated by #link("https://claude.ai/code")[Claude Code]]
+
+== Commits (10)
+<commits-10-2>
 - #link("https://github.com/siainbuletin/dotfiles/commit/eb41d968b0cf3acae8018438b162212f7cd81929")[eb41d968b0]
   ✨ Bring the highlights of a litnote\'s PDF into the note (Claude,
   2026-11-12 22:04)
@@ -30172,6 +30628,12 @@ sp-devonthink-highlights-import\".
 - #link("https://github.com/siainbuletin/dotfiles/commit/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3")[29a5f3f397]
   🐛 Follow crossref in sp-devonthink-highlights-import, asking first
   (Claude, 2026-11-13 00:58)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9f2861dd1457fdcefe08875697b5e44cc18c40fe")[9f2861dd14]
+  Merge branch \'419-devonthink-design-adrs\' into
+  420-devonthink-highlights (Claude, 2026-11-14 15:36)
+- #link("https://github.com/siainbuletin/dotfiles/commit/eaea9228b34cc7db4d4cdeeb5938439c3333a14f")[eaea9228b3]
+  Merge branch \'main\' into 420-devonthink-highlights (Sia Piperea,
+  2026-11-15 10:22)
 
 = PR \#421: ✨ Report and backfill the link between litnotes and DEVONthink records
 <pr-421-report-and-backfill-the-link-between-litnotes-and-devonthink-records>
@@ -30181,7 +30643,7 @@ sp-devonthink-highlights-import\".
 / Opened: 2026-11-12 22:08
 / Branch: #raw(lang:"verbatim", "421-devonthink-sync") →
     #raw(lang:"verbatim", "420-devonthink-highlights")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/8106ac6ee58b5c3689b28e1e7913fd621b2149b2")[8106ac6ee5]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/b347dd4e4ce671230cb2a10fe76600a4398e8a98")[b347dd4e4c]
 
 == Description
 <description-418>
@@ -30346,8 +30808,32 @@ backfill and field probe\".
 
 #emph[Generated by #link("https://claude.ai/code")[Claude Code]]
 
-== Commits (8)
-<commits-8-4>
+=== \u{40}siainbuletin, 2026-11-14 15:37
+<siainbuletin-2026-11-14-1537-1>
+#link("https://github.com/siainbuletin/dotfiles/pull/421#issuecomment-6879879591")[permalink]
+#strong[Merge note:] merge \#419 and \#420 first. This branch now
+contains \#419\'s move of the DEVONthink docs:
+#raw(lang:"verbatim", "sp-devonthink-sync.org") is in
+#raw(lang:"verbatim", "docs/tangles/devonthink/") and its README row
+links there; #raw(lang:"verbatim", "README.org") and
+#raw(lang:"verbatim", "sp-academic.org") conflicts with
+#raw(lang:"verbatim", "main") are resolved (bibsync and fetch-inbox kept
+next to the sync module).
+
+#strong[Extra manual test:]
+
+- ☐
+  #raw(lang:"verbatim", "docs/tangles/devonthink/sp-devonthink-sync.org")
+  exists and its README link opens it.
+
+#strong[Revert:] revert the merge commit of \#420 in this branch.
+
+#divider()
+
+#emph[Generated by #link("https://claude.ai/code")[Claude Code]]
+
+== Commits (9)
+<commits-9>
 - #link("https://github.com/siainbuletin/dotfiles/commit/bdbfd1fa548c52d3718ae79e2b84c0469c9217ed")[bdbfd1fa54]
   ✨ Report and backfill the link between litnotes and DEVONthink
   records (Claude, 2026-11-12 22:08)
@@ -30372,6 +30858,9 @@ backfill and field probe\".
 - #link("https://github.com/siainbuletin/dotfiles/commit/d32efb3feeb06dfed994cf838046ce2525372855")[d32efb3fee]
   🐛 Follow crossref in the sync report, backfill and field probe,
   asking before writing the parent\'s record (Claude, 2026-11-13 00:58)
+- #link("https://github.com/siainbuletin/dotfiles/commit/aa5901c8db0500a8f301f4ef29ad8da72cc4ac1b")[aa5901c8db]
+  Merge branch \'420-devonthink-highlights\' into 421-devonthink-sync
+  (Claude, 2026-11-14 15:37)
 
 = PR \#422: 🐛 Fix sp-reading-refresh printing object references instead of UUIDs and names
 <pr-422-fix-sp-reading-refresh-printing-object-references-instead-of-uuids-and-names>
@@ -32595,13 +33084,14 @@ Follow-up to \#408 / \#412
 = PR \#441: ✨ Keep a chapter\'s own keywords in its parent\'s DEVONthink record
 <pr-441-keep-a-chapters-own-keywords-in-its-parents-devonthink-record>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/441")[#link("https://github.com/siainbuletin/dotfiles/pull/441")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-13 01:11
+/ Merged: 2026-11-14 14:31
 / Branch: #raw(lang:"verbatim", "441-devonthink-chapter-keywords") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/add478665bf8af98d4b96f10d6fa3665dc733c08")[add478665b]
-/ Labels: new-feature, needs-further-testing
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/ae7efe2defd4a56c55384f77c6366ae586b3f3d6")[ae7efe2def]
+/ Labels: new-feature, needs-further-testing, design, check-later
 
 == Description
 <description-438>
@@ -32828,12 +33318,13 @@ was.
 = PR \#442: 📝 Update the CHANGELOG to \#440 and the DEVONthink doc to the current state
 <pr-442-update-the-changelog-to-440-and-the-devonthink-doc-to-the-current-state>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/442")[#link("https://github.com/siainbuletin/dotfiles/pull/442")]
-/ State: open
+/ State: closed
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-13 01:24
+/ Closed: 2026-11-14 20:57
 / Branch: #raw(lang:"verbatim", "442-changelog-devonthink-docs") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/f84b5d0146b1313f17a45f88f40d7b5f9b06888f")[f84b5d0146]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/218866fd02df32a0d272ebd19176511035935e71")[218866fd02]
 
 == Description
 <description-439>
@@ -34157,11 +34648,14 @@ another note.
 = PR \#452: ✨ Highlight a DEVONthink selection from Emacs, by key or automatically
 <pr-452-highlight-a-devonthink-selection-from-emacs-by-key-or-automatically>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/452")[#link("https://github.com/siainbuletin/dotfiles/pull/452")]
-/ State: open
+/ State: closed
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-14 00:12
+/ Closed: 2026-11-15 09:58
 / Branch: #raw(lang:"verbatim", "452-devonthink-auto-highlight") →
     #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/fde673458b94bfb9f95f57c8caf8586636370d4c")[fde673458b]
+/ Labels: broken
 
 == Description
 <description-449>
@@ -34217,7 +34711,7 @@ another note.
 - ☐ If it says there is no enabled \"Highlight\" item, check the real
   menu name and set
   #raw(lang:"verbatim", "sp-devonthink-highlight-menu-item").
-- ☐ If it says the Accessibility permission is missing, grant it to
+- ☒ If it says the Accessibility permission is missing, grant it to
   Emacs and retry.
 - ☐ #raw(lang:"verbatim", "M-x sp-devonthink-auto-highlight-mode"),
   select text in DEVONthink, wait about two seconds: it is highlighted
@@ -34237,14 +34731,17 @@ another note.
 #emph[Generated by
 #link("https://claude.ai/code/session_01WWLNiCNcBkSpRJxEkvTQ7P")[Claude Code]]
 
-== Commits (2)
-<commits-2-105>
+== Commits (3)
+<commits-3-67>
 - #link("https://github.com/siainbuletin/dotfiles/commit/051f23ef588fc1373d8e521a39b27592950b0d0e")[051f23ef58]
   ✨ Highlight a DEVONthink selection from Emacs, by key or
   automatically (Claude, 2026-11-14 00:11)
 - #link("https://github.com/siainbuletin/dotfiles/commit/084dd5f73111e538244c331808dde1434d45159c")[084dd5f731]
   🔧 Add the autohighlight require to the sp-academic doc so it tangles
   (Claude, 2026-11-14 00:13)
+- #link("https://github.com/siainbuletin/dotfiles/commit/0fe145161f7e7e8b606c7b0b02107f0f8031259b")[0fe145161f]
+  Merge branch \'main\' into 452-devonthink-auto-highlight (Sia Piperea,
+  2026-11-14 23:42)
 
 = PR \#453: ✨ Read PDFs in Emacs with emureader (GNU ELPA)
 <pr-453-read-pdfs-in-emacs-with-emureader-gnu-elpa>
@@ -34348,7 +34845,7 @@ Mac, #raw(lang:"verbatim", "~/.config/emacs-modular"). emureader needs
 #link("https://claude.ai/code/session_01WWLNi9WVc3ZxBjNArViRDW")[Claude Code]]
 
 == Commits (2)
-<commits-2-106>
+<commits-2-105>
 - #link("https://github.com/siainbuletin/dotfiles/commit/29a6335b758ae80569ad96b644e6f849830f2105")[29a6335b75]
   ✨ Read PDFs in Emacs with emureader (GNU ELPA) (Claude, 2026-11-14
   00:42)
@@ -35147,7 +35644,7 @@ Needs \#457 checked out first (this branch includes it).
 - ☒
   #raw(lang:"verbatim", "cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -L libraries/modules/base -L libraries/modules/academic -L libraries/modules/ui -L libraries/modules/vulpea -l tests/sp-batch-report-test.el -f ert-run-tests-batch-and-exit")
   → 18 pass (more #raw(lang:"verbatim", "-L") if Emacs asks)
-- ☐ #raw(lang:"verbatim", "M-x sp-litnotes-titles-dryrun"): no keys in
+- ☒ #raw(lang:"verbatim", "M-x sp-litnotes-titles-dryrun"): no keys in
   the header line; the echo area shows the grid of hints with
   #raw(lang:"verbatim", "Apply") and #raw(lang:"verbatim", "Quit") bold
   (untested by Claude)
@@ -35214,7 +35711,7 @@ Needs \#457 checked out first (this branch includes it).
 #link("https://claude.ai/code/session_01WWLNiA3876SADjpTLYKDZ5")
 
 == Commits (2)
-<commits-2-107>
+<commits-2-106>
 - #link("https://github.com/siainbuletin/dotfiles/commit/a47a438750c46ab1be04bfb7c9b1cc3e4d319bf5")[a47a438750]
   ✨ Show the keys of the report and lint buffers as echo-area hints
   (Claude, 2026-11-14 11:14)
@@ -35413,7 +35910,7 @@ record named like a citekey with a BibTeX entry that has
 #link("https://claude.ai/code/session_01WWLNiDA975qzsw8QcXaRN6")[Claude Code]]
 
 == Commits (2)
-<commits-2-108>
+<commits-2-107>
 - #link("https://github.com/siainbuletin/dotfiles/commit/6fdb48d6ae3105577e094ce0820c8f346e12e511")[6fdb48d6ae]
   ✨ Sync BibTeX author, title and keywords to the DEVONthink record
   (Claude, 2026-11-14 11:21)
@@ -35641,6 +36138,17 @@ record named like a citekey with a BibTeX entry that has
 
 #emph[Generated by
 #link("https://claude.ai/code/session_01WWLNi9x8iU8uUb42qXRcTV")[Claude Code]]
+
+== Conversation
+<conversation-46>
+=== \u{40}benleis1, 2026-11-14 22:56
+<benleis1-2026-11-14-2256>
+#link("https://github.com/siainbuletin/dotfiles/pull/462#issuecomment-6885517530")[permalink]
+I just followed from your comment on the main elpaca bug. This works but
+you don\'t need anything this heavyweight on an existing instance in the
+interim while elpaca is being fixed. Just go to
+\.emacs.d/elpcaca/cache/melpa/recipes git fetch git checkout main and
+then run elpaca-update-menus once inside emacs.
 
 == Commits (1)
 <commits-1-217>
@@ -35951,7 +36459,7 @@ record named like a citekey with a BibTeX entry that has
 #link("https://claude.ai/code/session_01WWLNiD9ebSHChd2mUbx219")
 
 == Commits (2)
-<commits-2-109>
+<commits-2-108>
 - #link("https://github.com/siainbuletin/dotfiles/commit/44750183286a29fd441584ee8b1e571086feac39")[4475018328]
   🐛 Always offer #strong[Messages] in C-x b (Claude, 2026-11-14 12:22)
 - #link("https://github.com/siainbuletin/dotfiles/commit/ba5c3b97976762ed4e702383666559d509a85b07")[ba5c3b9797]
@@ -36071,7 +36579,7 @@ record named like a citekey with a BibTeX entry that has
 #link("https://claude.ai/code/session_01WWLNi8xdhv6htPzxTPgb4a")
 
 == Commits (2)
-<commits-2-110>
+<commits-2-109>
 - #link("https://github.com/siainbuletin/dotfiles/commit/31a750d07c3433f3ed2f86886b618df581cf4c98")[31a750d07c]
   ✨ Share the buffer list between frames (Claude, 2026-11-14 12:22)
 - #link("https://github.com/siainbuletin/dotfiles/commit/c5b90a24fd5fc78cbb703f2c05574930a2849ca8")[c5b90a24fd]
@@ -36080,12 +36588,14 @@ record named like a citekey with a BibTeX entry that has
 = PR \#467: 📝 Document how tabspaces workspaces are made and how to add one
 <pr-467-document-how-tabspaces-workspaces-are-made-and-how-to-add-one>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/467")[#link("https://github.com/siainbuletin/dotfiles/pull/467")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-14 12:48
+/ Merged: 2026-11-14 21:55
 / Branch: #raw(lang:"verbatim", "claude/project-thread-zqcvvh") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/2a2bce31138912cc1f2d0e9b4e76dad7c102e9de")[2a2bce3113]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/9554b5d3c0c6c2e547ee4faf9ec215ac4adf9f48")[9554b5d3c0]
+/ Labels: documentation, check-later
 
 == Description
 <description-464>
@@ -36265,7 +36775,7 @@ record named like a citekey with a BibTeX entry that has
 #link("https://claude.ai/code/session_01WWLNiBhjMEvTpuoTULaVya")[Claude Code]]
 
 == Commits (2)
-<commits-2-111>
+<commits-2-110>
 - #link("https://github.com/siainbuletin/dotfiles/commit/534690076c60a2df6ffb729faac840b4cdf07ca5")[534690076c]
   ✨ Make batch jobs stoppable with C-g and visible from outside Emacs
   (Claude, 2026-11-14 12:59)
@@ -36903,12 +37413,14 @@ record named like a citekey with a BibTeX entry that has
 = PR \#474: 🐛 Never delete meta lines, values or tags in sp-litnotes-meta-fill
 <pr-474-never-delete-meta-lines-values-or-tags-in-sp-litnotes-meta-fill>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/474")[#link("https://github.com/siainbuletin/dotfiles/pull/474")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-14 13:50
+/ Merged: 2026-11-14 21:30
 / Branch: #raw(lang:"verbatim", "claude/project-thread-1oploz") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c48dc770a6cd0118ed209f207f3a35e549308853")[c48dc770a6]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/5f4f5ed719b1168058962689d538a7933fe06d72")[5f4f5ed719]
+/ Labels: bugfix, needs-further-testing, check-NOW
 
 == Description
 <description-471>
@@ -37040,12 +37552,13 @@ fields, only adds or modifies.
 = PR \#475: ✨ Backfill missing BibTeX fields from the crossref parent
 <pr-475-backfill-missing-bibtex-fields-from-the-crossref-parent>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/475")[#link("https://github.com/siainbuletin/dotfiles/pull/475")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-14 13:52
+/ Merged: 2026-11-14 21:28
 / Branch: #raw(lang:"verbatim", "claude/project-thread-bnuc36") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c0d7a4096ae478771584924758ace7426bbaa143")[c0d7a4096a]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/df1f28873c1d186c5e293b7e485eac3aee897fa7")[df1f28873c]
 
 == Description
 <description-472>
@@ -37229,12 +37742,14 @@ fields, only adds or modifies.
 = PR \#476: 🐛 Keep the message of a command when the echo-area hints are set
 <pr-476-keep-the-message-of-a-command-when-the-echo-area-hints-are-set>
 / Link: #link("https://github.com/siainbuletin/dotfiles/pull/476")[#link("https://github.com/siainbuletin/dotfiles/pull/476")]
-/ State: open
+/ State: merged
 / Author: \u{40}siainbuletin
 / Opened: 2026-11-14 13:53
+/ Merged: 2026-11-15 10:44
 / Branch: #raw(lang:"verbatim", "476-echo-help-keep-messages") →
     #raw(lang:"verbatim", "main")
-/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c7c31bd8e28a1d93dde02c9c4d567596e4d18610")[c7c31bd8e2]
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/55709ccb8fbd7fef2741ef03b9b9177d3bc1d938")[55709ccb8f]
+/ Labels: bugfix, needs-further-testing
 
 == Description
 <description-473>
@@ -37308,7 +37823,7 @@ fields, only adds or modifies.
 
 ==== Manual testing
 <manual-testing>
-- ☐
+- ☒
   #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 476-echo-help-keep-messages; git checkout 476-echo-help-keep-messages"),
   restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
 - ☐ #raw(lang:"verbatim", "M-x sp-author-notes"), then
@@ -37339,11 +37854,20 @@ fields, only adds or modifies.
 
 #link("https://claude.ai/code/session_01WWLNiCsjdfwKhDG3Nkddb7")
 
-== Commits (1)
-<commits-1-227>
+== Commits (4)
+<commits-4-28>
 - #link("https://github.com/siainbuletin/dotfiles/commit/19f91faac51a518a0b8c7a1a466b4ed63f8f23ec")[19f91faac5]
   🐛 Keep the message of a command when the report is redrawn (Claude,
   2026-11-14 13:53)
+- #link("https://github.com/siainbuletin/dotfiles/commit/ead4382e436c5257fe4148167cbb926848ca2554")[ead4382e43]
+  Merge branch \'main\' into 476-echo-help-keep-messages (Sia Piperea,
+  2026-11-14 22:07)
+- #link("https://github.com/siainbuletin/dotfiles/commit/95d15f613489e3dc01c5a6cf05bc5a6268cebab9")[95d15f6134]
+  🔧 Merge main into the echo-help message branch (Claude, 2026-11-15
+  10:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/4cee6fa08f4c10f3a50821543c9c3eb21136a8fa")[4cee6fa08f]
+  🐛 Update the batch report tests to the Org view and the dashboard
+  (Claude, 2026-11-15 10:43)
 
 = PR \#477: 🐛 Fix the footnote lint worker not finding sp-interaction
 <pr-477-fix-the-footnote-lint-worker-not-finding-sp-interaction>
@@ -37448,7 +37972,7 @@ fields, only adds or modifies.
 #link("https://claude.ai/code/session_01WWLNiD22hb7nU9mVzT6YQk")[Claude Code]]
 
 == Commits (1)
-<commits-1-228>
+<commits-1-227>
 - #link("https://github.com/siainbuletin/dotfiles/commit/806cbce1d3b2bab55339ad0214fa2da86cc1bf2a")[806cbce1d3]
   🐛 Fix the footnote lint worker not finding sp-interaction (Claude,
   2026-11-14 13:53)
@@ -37549,7 +38073,4023 @@ Follow-up to \#472.
 #link("https://claude.ai/code/session_01WWLNiCXyk3bC6YPxjXfvkE")[Claude Code]]
 
 == Commits (1)
-<commits-1-229>
+<commits-1-228>
 - #link("https://github.com/siainbuletin/dotfiles/commit/dc9a8740b014256bbb0661be108cf0b950723148")[dc9a8740b0]
   🐛 Speed up the sp-fetch-inbox picker and fix C-u folder choice
   (Claude, 2026-11-14 13:58)
+
+= PR \#479: ⚡ Group the sp-fetch-inbox picker in one pass
+<pr-479-group-the-sp-fetch-inbox-picker-in-one-pass>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/479")[#link("https://github.com/siainbuletin/dotfiles/pull/479")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 15:34
+/ Merged: 2026-11-14 21:54
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-ftphul") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/a6b2e4ebc6a483db7655d437120a0f9394714e79")[a6b2e4ebc6]
+/ Labels: bugfix, needs-further-testing, does-what-it-should,
+    check-later
+
+== Description
+<description-476>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2QDdTfoDxMxaJgd9Y2t9Ap6")[project thread]]
+
+Follow-up to \#472 and \#478.
+
+==== Merge order
+<merge-order>
+- Independent; touches only #raw(lang:"verbatim", "sp-fetch-inbox.el"),
+  its literate doc and its tests.
+
+==== Cause (measured this time)
+<cause-measured-this-time>
+- Sia\'s profile: DEVONthink script 0.15 s, folder scan 0.34 s, merge
+  0.67 s, #strong[arrange and candidates 11.5 s] for 6296 files. \#478
+  targeted the wrong step.
+- #raw(lang:"verbatim", "sp-fetch-inbox--arrange") ran
+  #raw(lang:"verbatim", "seq-filter") over all items once per folder, so
+  cost is folders × items.
+- Reproduced in batch Emacs 29.3 on a synthetic tree of 6296 PDFs: 40
+  folders took 0.35 s, 1500 folders took 5.3 s.
+
+==== Changes
+<changes>
+- Group with one pass into a hash-table bucket per folder, keeping the
+  order.
+- Same for the folder counts of the #raw(lang:"verbatim", "C-u") /
+  #raw(lang:"verbatim", "C-c d") prompt.
+- After the fix, the 1500-folder case takes 0.19 s.
+- Test: 6000 items in 1500 folders arrange in under 1.5 s, folders stay
+  together, newest folder first.
+- Whole #raw(lang:"verbatim", "tests/sp-fetch-inbox-test.el") run in
+  batch Emacs: 32 of 32 pass. The
+  #raw(lang:"verbatim", "sp-fetch-inbox-prefix-argument-folder-with-spaces")
+  test from \#478 was wrong (it expected no picker); fixed.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-fetch-inbox") with the real inbox: the
+  #raw(lang:"verbatim", "arrange and candidates") profile line is well
+  under a second
+- ☒ Grouping and order unchanged: newest first,
+  #raw(lang:"verbatim", "C-c s") toggles A-Z,
+  #raw(lang:"verbatim", "(inbox)") group first in A-Z
+- ☐ #raw(lang:"verbatim", "C-c d") lists folders with counts and
+  restricts correctly
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCXyk3bC6YPxjXfvkE")[Claude Code]]
+
+== Commits (1)
+<commits-1-229>
+- #link("https://github.com/siainbuletin/dotfiles/commit/9bf38b80bca0fc9a446a579476b142b9bfd87de5")[9bf38b80bc]
+  ⚡ Group the sp-fetch-inbox picker in one pass (Claude, 2026-11-14
+  15:34)
+
+= PR \#480: 🐛 Fix the citar preload failing on every file and not writing its cache
+<pr-480-fix-the-citar-preload-failing-on-every-file-and-not-writing-its-cache>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/480")[#link("https://github.com/siainbuletin/dotfiles/pull/480")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 15:35
+/ Merged: 2026-11-14 21:00
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-d7whd6") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/61027df2bda7b07c989eebe6d5601ce6797724c5")[61027df2bd]
+/ Labels: bugfix, needs-further-testing
+
+== Description
+<description-477>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG")[project thread]]
+
+Follow-up to \#471.
+
+==== Merge order
+<merge-order>
+- Base: #raw(lang:"verbatim", "main")\; \#471 is already merged. Touches
+  only #raw(lang:"verbatim", "sp-citations")
+  (#raw(lang:"verbatim", ".el"), its section in
+  #raw(lang:"verbatim", "sp-academic.org"), the preload test).
+- Branch is #raw(lang:"verbatim", "claude/project-thread-d7whd6"), not
+  number-prefixed: a cloud session cannot rename a branch after the PR
+  number is known.
+
+==== Causes
+<causes>
+- #strong[#raw(lang:"verbatim", "(setf citar-cache--bibliography-buffers)")
+  is void:] #raw(lang:"verbatim", "sp-citations.el") loads before
+  #raw(lang:"verbatim", "citar") does. When Emacs loads a file it
+  expands #raw(lang:"verbatim", "setf") and
+  #raw(lang:"verbatim", "cl-pushnew") at once; the accessor was unknown,
+  so the expansion became a call to a function named
+  #raw(lang:"verbatim", "(setf citar-cache--bibliography-buffers)"),
+  which does not exist. Reproduced in batch with the same message; this
+  hit every file.
+- #strong[No #raw(lang:"verbatim", "citar-bibliography.eld"):] the file
+  was written only at the end of a pass that finished. The pass died on
+  the first file, and nothing wrote it at exit either.
+
+==== Changes
+<changes>
+- The slots #raw(lang:"verbatim", "entries"),
+  #raw(lang:"verbatim", "props") and #raw(lang:"verbatim", "buffers")
+  are read with #raw(lang:"verbatim", "cl-struct-slot-value") and set
+  with #raw(lang:"verbatim", "aset") at
+  #raw(lang:"verbatim", "cl-struct-slot-offset"), never with
+  #raw(lang:"verbatim", "setf") on the accessors
+  (#raw(lang:"verbatim", "sp-citations-preload--slot"),
+  #raw(lang:"verbatim", "--set-slot")).
+- #raw(lang:"verbatim", "sp-citations-preload--compatible-p") checks the
+  variable, the three functions and the three slots before the first
+  file. If they differ, the preload says so once in the echo area and
+  stays off.
+- The disk cache is written when the pass ends, when it stops on an
+  error or #raw(lang:"verbatim", "C-g"), and on
+  #raw(lang:"verbatim", "kill-emacs-hook"). Each time only if citar\'s
+  entry tables differ from the last write, or the file does not exist,
+  so a parse done by a #raw(lang:"verbatim", "citar") call is saved at
+  exit too.
+- Docs updated as bullets; no CHANGELOG edit; no
+  #raw(lang:"verbatim", "when-let").
+
+==== Tested
+<tested>
+- #raw(lang:"verbatim", "tests/sp-citations-preload-test.el"): 11 tests
+  pass on Emacs 29.3 against a stand-in for
+  #raw(lang:"verbatim", "citar-cache").
+- The test file now loads the preload code with
+  #raw(lang:"verbatim", "load") before the struct exists, as Emacs does.
+  With the old #raw(lang:"verbatim", "setf") style the tests fail with
+  #raw(lang:"verbatim", "void-function \\(setf\\ citar-cache--bibliography-buffers\\)")
+  (checked); with the fix they pass.
+- New tests: cache file written; saved after an error and at exit; not
+  rewritten when nothing changed; preload off when citar\'s functions
+  are missing.
+- #raw(lang:"verbatim", "tools/check-tangle.sh"): the
+  #raw(lang:"verbatim", ".el") is what the doc tangles to.
+
+==== Not tested
+<not-tested>
+- Still nothing ran against the real #raw(lang:"verbatim", "citar"),
+  #raw(lang:"verbatim", "parsebib") or your bibliography; the container
+  has no citar, and I could not reach your Elpaca sources, so the
+  internals come from citar\'s #raw(lang:"verbatim", "main") branch on
+  GitHub. If your installed citar differs, the preload should now say so
+  instead of failing on every file.
+- No timings.
+- Whether #raw(lang:"verbatim", "aset") on the cache object works with
+  your citar\'s struct definition: tested only on a stand-in
+  #raw(lang:"verbatim", "cl-defstruct").
+
+==== Manual testing
+<manual-testing>
+- ☐
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin claude/project-thread-d7whd6; git checkout claude/project-thread-d7whd6"),
+  restart Emacs
+- ☒
+  #raw(lang:"verbatim", "emacs -Q --batch -l tests/sp-citations-preload-test.el -f ert-run-tests-batch-and-exit")
+  passes
+- ☒ After about 5 s idle: #raw(lang:"verbatim", "*Messages*") shows
+  #raw(lang:"verbatim", "Updating bibliography ...") for each
+  #raw(lang:"verbatim", ".bib"), no
+  #raw(lang:"verbatim", "citar preload:") error
+- ☒ If it says #raw(lang:"verbatim", "citar preload is off: ..."): send
+  me that message (your citar has other internals)
+- ☒ #raw(lang:"verbatim", "M-x citar-open") right after: no
+  #raw(lang:"verbatim", "Updating bibliography") and no wait
+- ☒ The file #raw(lang:"verbatim", "citar-bibliography.eld") exists in
+  #raw(lang:"verbatim", "sp-cache-dir") once the pass is done
+- ☐ Quit and restart: the pass shows no
+  #raw(lang:"verbatim", "Updating") lines for unchanged files
+- ☐ Edit and save one #raw(lang:"verbatim", ".bib"): only that file is
+  read again after the idle delay
+- ☐ #raw(lang:"verbatim", "C-g") during a parse: preload stops,
+  #raw(lang:"verbatim", "citar-open") still works
+
+- #raw(lang:"verbatim", "git -C ~/dotfiles restore ."), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles switch main && git -C ~/dotfiles pull")\;
+  restart Emacs.
+- Delete #raw(lang:"verbatim", "citar-bibliography.eld") in your cache
+  dir for a cold start.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v")[Claude Code]]
+
+== Commits (1)
+<commits-1-230>
+- #link("https://github.com/siainbuletin/dotfiles/commit/208baf317c8f4ff24c2e4f116c5b2cee617ca7b7")[208baf317c]
+  🐛 Fix the citar preload failing on every file and not writing its
+  cache (Claude, 2026-11-14 15:35)
+
+= PR \#481: ✨ Add a basic fisher setup for fish
+<pr-481-add-a-basic-fisher-setup-for-fish>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/481")[#link("https://github.com/siainbuletin/dotfiles/pull/481")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 17:27
+/ Merged: 2026-11-14 17:31
+/ Branch: #raw(lang:"verbatim", "481-fisher-setup") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/64394006013448bc4d9f47802f0f960c65878ed6")[6439400601]
+
+== Description
+<description-478>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2DzC1zdwykGbjEqSNPXeWXk")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; touches only the #raw(lang:"verbatim", "fish") package,
+  #raw(lang:"verbatim", ".gitignore") and
+  #raw(lang:"verbatim", "README.org").
+- Branch is #raw(lang:"verbatim", "481-fisher-setup"), number-prefixed
+  as the PR number was known in advance.
+
+==== Changes
+<changes>
+- #raw(lang:"verbatim", "fish/.config/fish/fish_plugins"): lists only
+  #raw(lang:"verbatim", "jorgebucaran/fisher").
+- #raw(lang:"verbatim", "fish/.config/fish/functions/fisher-bootstrap.fish"):
+  run by hand, never at startup.
+  - If fisher is missing, downloads #raw(lang:"verbatim", "fisher.fish")
+    with #raw(lang:"verbatim", "curl -fsSL") to a temp file, sources it.
+  - Then #raw(lang:"verbatim", "fisher update") (installs all of
+    #raw(lang:"verbatim", "fish_plugins")), or
+    #raw(lang:"verbatim", "fisher install jorgebucaran/fisher") if there
+    is no list.
+  - If fisher exists already, it only runs
+    #raw(lang:"verbatim", "fisher update").
+  - Optional argument: a tag or branch of fisher instead of
+    #raw(lang:"verbatim", "main").
+- #raw(lang:"verbatim", ".gitignore"): ignores
+  #raw(lang:"verbatim", "completions/") and
+  #raw(lang:"verbatim", "functions/fisher.fish") of the fish package.
+- #raw(lang:"verbatim", "README.org"), section \"Fish plugins with
+  fisher\": new machine, add, update, remove, restore, and how it fits
+  with Stow.
+- No CHANGELOG edit (the nightly tidy writes it); no conflict with
+  #raw(lang:"verbatim", "config.fish"), #raw(lang:"verbatim", "conf.d/")
+  or #raw(lang:"verbatim", "functions/") files already in the package.
+
+==== Stow notes
+<stow-notes>
+- #raw(lang:"verbatim", ".stowrc") has
+  #raw(lang:"verbatim", "--no-folding"), so plugin files land in
+  #raw(lang:"verbatim", "~/.config/fish/{functions,conf.d,completions}")
+  as real files, not in #raw(lang:"verbatim", "~/dotfiles").
+- #raw(lang:"verbatim", "fish_variables") is tracked and will hold
+  fisher\'s #raw(lang:"verbatim", "_fisher_*") universal variables; docs
+  say not to commit those lines. Untracking
+  #raw(lang:"verbatim", "fish_variables") would be a separate change.
+
+==== Not tested
+<not-tested>
+- No #raw(lang:"verbatim", "fish") or fisher in the container: the
+  function was only read, not run or syntax-checked.
+- Network download of fisher not tried.
+- Fisher writing to #raw(lang:"verbatim", "fish_plugins") through the
+  Stow symlink not tried.
+
+==== Manual testing
+<manual-testing>
+- ☐
+  #raw(lang:"verbatim", "cd ~/dotfiles && git fetch origin 481-fisher-setup && git checkout 481-fisher-setup"),
+  then #raw(lang:"verbatim", "stow fish") (links
+  #raw(lang:"verbatim", "fish_plugins") and
+  #raw(lang:"verbatim", "fisher-bootstrap.fish")) (untested by Claude)
+- ☐ Open a new fish: no download, no new output at startup
+- ☐ #raw(lang:"verbatim", "fisher-bootstrap"): downloads fisher, then
+  #raw(lang:"verbatim", "fisher list") shows
+  #raw(lang:"verbatim", "jorgebucaran/fisher") (untested by Claude)
+- ☐ #raw(lang:"verbatim", "git -C ~/dotfiles status"): clean except for
+  your own changes (no plugin files in the repo)
+- ☐ Run #raw(lang:"verbatim", "fisher-bootstrap") again: says fisher is
+  installed and runs #raw(lang:"verbatim", "fisher update")
+- ☐ #raw(lang:"verbatim", "fisher install jorgebucaran/nvm.fish"):
+  appended to
+  #raw(lang:"verbatim", "~/dotfiles/fish/.config/fish/fish_plugins")
+  (the symlink was kept); #raw(lang:"verbatim", "fisher remove") removes
+  it again
+- ☐ Edge case: #raw(lang:"verbatim", "fisher-bootstrap") with no
+  network: prints #raw(lang:"verbatim", "could not download"), fish
+  still usable
+- ☐ Regression: prompt, #raw(lang:"verbatim", "emacs-pr --help"),
+  #raw(lang:"verbatim", "zoxide") and the greeting work as before
+
+- #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+  (#raw(lang:"verbatim", "git clean -fd") only after checking
+  #raw(lang:"verbatim", "git clean -nd")).
+- #raw(lang:"verbatim", "git -C ~/dotfiles switch main") and
+  #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 481-fisher-setup").
+- Optionally #raw(lang:"verbatim", "fisher remove jorgebucaran/fisher")
+  and delete
+  #raw(lang:"verbatim", "~/.config/fish/functions/fisher.fish"),
+  #raw(lang:"verbatim", "_fisher_*") lines in
+  #raw(lang:"verbatim", "fish_variables").
+- Restart fish.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiBSvN6Sz9QDy9WaQCS")[Claude Code]]
+
+== Commits (1)
+<commits-1-231>
+- #link("https://github.com/siainbuletin/dotfiles/commit/5f47ae6ca361c779ab10f503bb1975d6f092ee24")[5f47ae6ca3]
+  ✨ Add a basic fisher setup for fish (Claude, 2026-11-14 17:26)
+
+= PR \#482: 📝 Update the CHANGELOGs and module docs to the state of 2026-11-14
+<pr-482-update-the-changelogs-and-module-docs-to-the-state-of-2026-11-14>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/482")[#link("https://github.com/siainbuletin/dotfiles/pull/482")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 17:41
+/ Merged: 2026-11-14 20:57
+/ Branch: #raw(lang:"verbatim", "482-changelog-update") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/13f99039a3513d25299caf54bc2a4d18d157c107")[13f99039a3]
+/ Labels: documentation
+
+== Description
+<description-479>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Shdo2tBHRnXCft3zWGTffy")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main")\; no dependencies.
+- Edits only #raw(lang:"verbatim", "CHANGELOG.org") files and the
+  #raw(lang:"verbatim", ".org") docs; no code, no tangled block.
+- \#442 (older CHANGELOG and DEVONthink doc update up to \#440) overlaps
+  this PR: close it or rebase it after this one.
+- Any open PR that adds a CHANGELOG line will conflict in
+  #raw(lang:"verbatim", "CHANGELOG.org")\; the tidy owns those lines.
+
+==== What
+<what>
+- #strong[Emacs #raw(lang:"verbatim", "CHANGELOG.org")] (last tidy was
+  \#389 on 2026-11-11)
+  - Merged PRs \#394 to \#481 (except those only in the global file) in
+    their feature sets, in dependency order, no repeated headings.
+  - New sets: citar candidates, reading PDFs
+    (#raw(lang:"verbatim", "sp-pdf-reader")),
+    #raw(lang:"verbatim", "sp-fetch-inbox"), echo-area hints, the
+    vulpea-ui view frame, buffers/tabs/frames.
+  - \"Being developed\": the open PRs with their merge order (DEVONthink
+    stack \#418 → \#419 → \#420 → \#421 → \#451; \#443 → \#455; the rest
+    on #raw(lang:"verbatim", "main")).
+  - Direct commits on #raw(lang:"verbatim", "main") since the tidy:
+    #raw(lang:"verbatim", "which-key")
+    #raw(lang:"verbatim", ":ensure nil") and the
+    #raw(lang:"verbatim", "test=/=course") tags; the hand edit 87a4fbb
+    is under \#423.
+- #strong[Global #raw(lang:"verbatim", "CHANGELOG.org")]
+  - DEVONthink open applet (\#394, \#444, \#449),
+    #raw(lang:"verbatim", "gh-pr-pdf") (\#401), fisher (\#481),
+    AeroSpace note (\#447), the #raw(lang:"verbatim", "dotfiles-prs")
+    backup commits.
+- #strong[Module docs] (23 docs): a \"Changes by pull request\" section
+  added (sp-see-also, sp-tabs, sp-buffers, devonthink, reading,
+  pdf-reader, fetch-inbox, bibsync, interaction, elpaca-melpa-fix) or
+  extended (sp-academic, sp-org-lint, sp-vulpea, batch-report and
+  others), as nested bullets.
+
+==== Not verified
+<not-verified>
+- Written from the PR titles and bodies and the merge diffs; no Emacs
+  here, so the #raw(lang:"verbatim", "tangle") check was not run (only
+  prose after the last code block changed).
+- Needs-testing flags come from the
+  #raw(lang:"verbatim", "needs-further-testing") label; \#438, \#442,
+  \#443, \#446, \#455 and the PRs opened after the 2026-11-14 backup
+  have no label data.
+- Not read in full: PR bodies cut at about 1,100 characters, so some doc
+  bullets (\#409, \#410, \#414, \#415, \#424, \#432) cover the main
+  points only.
+- \#458 (superseded) and \#417 (replaced by \#418) are left out.
+
+Docs only; no manual testing needed.
+
+🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiCdFzdq4QWUuMSesFX")
+
+== Commits (1)
+<commits-1-232>
+- #link("https://github.com/siainbuletin/dotfiles/commit/21fde6d27d2ad059dc425f6eaa4c2decf73b13ee")[21fde6d27d]
+  📝 Update the CHANGELOGs and the module docs to the state of
+  2026-11-14 (Claude, 2026-11-14 17:40)
+
+= PR \#483: 🐛 Keep the citar preload from being thrown away by the frame width
+<pr-483-keep-the-citar-preload-from-being-thrown-away-by-the-frame-width>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/483")[#link("https://github.com/siainbuletin/dotfiles/pull/483")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:05
+/ Merged: 2026-11-14 21:06
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-d7whd6") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/d39a9ff931642b8059dcb73efef1259077395cb4")[d39a9ff931]
+/ Labels: bugfix, needs-further-testing, check-NOW
+
+== Description
+<description-480>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG")[project thread]]
+
+Follow-up to \#480 (merged): #raw(lang:"verbatim", "citar-open") still
+showed #raw(lang:"verbatim", "Updating bibliography").
+
+==== Merge order
+<merge-order>
+- Base: #raw(lang:"verbatim", "main")\; no dependency. Touches only
+  #raw(lang:"verbatim", "sp-citations") (#raw(lang:"verbatim", ".el"),
+  its section in #raw(lang:"verbatim", "sp-academic.org"), the preload
+  test).
+- Branch is #raw(lang:"verbatim", "claude/project-thread-d7whd6"), not
+  number-prefixed: a cloud session cannot rename a branch after the PR
+  number is known.
+
+==== Likely cause (from reading the code; not confirmed on your Emacs)
+<likely-cause-from-reading-the-code-not-confirmed-on-your-emacs>
+- #raw(lang:"verbatim", "citar") keeps, with each file, the list of
+  fields it parsed (#raw(lang:"verbatim", "citar--fields-to-parse")) and
+  reads the file again when the list differs.
+- The list comes from the templates, and
+  #raw(lang:"verbatim", "sp-citations--layout-templates") only adds
+  #raw(lang:"verbatim", "\u{24}{tags keywords:N}") when the room is 110
+  columns or more. So the list depended on the width of the frame.
+- The preload ran at one width and the first call at another (the
+  posframe takes a fraction of the frame), so the cache was thrown away.
+- Other possible causes (preload not finished yet, not in the cache) are
+  not excluded: see
+  #raw(lang:"verbatim", "sp-citations-preload-explain") below.
+
+==== Changes
+<changes>
+- #raw(lang:"verbatim", "sp-citations--stable-fields"), a filter on
+  #raw(lang:"verbatim", "citar--fields-to-parse"): sorts the list and
+  always has #raw(lang:"verbatim", "tags") and
+  #raw(lang:"verbatim", "keywords") in it, so it is the same at any
+  width.
+- #raw(lang:"verbatim", "M-x sp-citations-preload-explain"): for each
+  file, says whether it is in the cache, tied to
+  #raw(lang:"verbatim", "global"), has the same fields and size, and
+  whether the preload is still waiting. If it still reads a file again,
+  run it before #raw(lang:"verbatim", "citar-open") and send me the
+  text.
+- The end of a pass says
+  #raw(lang:"verbatim", "citar preload: N bibliography file(s) ready")
+  in #raw(lang:"verbatim", "*Messages*").
+- The disk cache from before this change has the old fields, so each
+  file is parsed once more after updating.
+- Docs as bullets; no CHANGELOG edit; no
+  #raw(lang:"verbatim", "when-let").
+
+==== Tested
+<tested>
+- #raw(lang:"verbatim", "tests/sp-citations-preload-test.el"): 13 tests
+  pass on Emacs 29.3 (stand-in for
+  #raw(lang:"verbatim", "citar-cache")), including that the fields are
+  equal with and without the tags column, and the explain command.
+  #raw(lang:"verbatim", "tests/sp-citations-layout-test.el"): 13 pass.
+- #raw(lang:"verbatim", "tools/check-tangle.sh"): the
+  #raw(lang:"verbatim", ".el") is what the doc tangles to.
+
+==== Not tested
+<not-tested>
+- Nothing ran against the real #raw(lang:"verbatim", "citar") or your
+  bibliography, so the width explanation is a reading of the code, not a
+  reproduction.
+- Whether the preload finished before your first
+  #raw(lang:"verbatim", "citar-open"): it waits for 3 idle seconds, then
+  reads one file per idle pause.
+- Whether #raw(lang:"verbatim", "citar--fields-to-parse") is used
+  elsewhere in your citar version in a way that needs the original
+  order.
+
+==== Manual testing
+<manual-testing>
+- ☐
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin claude/project-thread-d7whd6; git checkout claude/project-thread-d7whd6"),
+  restart Emacs
+- ☐ Wait until #raw(lang:"verbatim", "*Messages*") says
+  #raw(lang:"verbatim", "citar preload: N bibliography file(s) ready")
+- ☐ #raw(lang:"verbatim", "M-x sp-citations-preload-explain"): every
+  file says #raw(lang:"verbatim", "ready")
+- ☐ #raw(lang:"verbatim", "M-x citar-open"): no
+  #raw(lang:"verbatim", "Updating bibliography") line, no wait
+- ☐ Resize the frame (or toggle the posframe),
+  #raw(lang:"verbatim", "M-x citar-open") again: still no
+  #raw(lang:"verbatim", "Updating")
+- ☐ Quit and restart: the first pass after the restart parses nothing
+  (the disk cache is used)
+- ☐ If a file still re-reads: run
+  #raw(lang:"verbatim", "M-x sp-citations-preload-explain") before
+  #raw(lang:"verbatim", "citar-open") and send the text
+
+- #raw(lang:"verbatim", "git -C ~/dotfiles restore ."), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles switch main && git -C ~/dotfiles pull")\;
+  restart Emacs.
+- Delete #raw(lang:"verbatim", "citar-bibliography.eld") in your cache
+  dir for a cold start.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v")[Claude Code]]
+
+== Commits (1)
+<commits-1-233>
+- #link("https://github.com/siainbuletin/dotfiles/commit/50e55ef923a00dd85c9b8e68c12695449670b98f")[50e55ef923]
+  🐛 Keep the citar preload from being thrown away by the frame width
+  (Claude, 2026-11-14 21:05)
+
+= PR \#484: ✨ Bind embark actions under the leader key
+<pr-484-bind-embark-actions-under-the-leader-key>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/484")[#link("https://github.com/siainbuletin/dotfiles/pull/484")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:08
+/ Merged: 2026-11-14 21:12
+/ Branch: #raw(lang:"verbatim", "484-embark-keys") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/1dc73c0afe9b445a069a621f91ad528f79143cb7")[1dc73c0afe]
+/ Labels: correction, new-feature, does-what-it-should, check-later
+
+== Description
+<description-481>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2U9j5hzSNzpqaW8cZvVNEHC")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main")\; no dependency. Touches only
+  #raw(lang:"verbatim", "sp-embark") (#raw(lang:"verbatim", ".el") and
+  its literate doc).
+- Branch is #raw(lang:"verbatim", "484-embark-keys"): the number was
+  predicted (last PR was \#483); if GitHub gave another number, tell me.
+
+==== Changes
+<changes>
+- New map #raw(lang:"verbatim", "lem+embark-keys") on the leader,
+  #raw(lang:"verbatim", "C-; E") (#raw(lang:"verbatim", "E") was free;
+  #raw(lang:"verbatim", "e") is eval):
+  - #raw(lang:"verbatim", "a") act, #raw(lang:"verbatim", "A") act-all,
+    #raw(lang:"verbatim", "s") select, #raw(lang:"verbatim", "c")
+    collect, #raw(lang:"verbatim", "l") live, #raw(lang:"verbatim", "e")
+    export, #raw(lang:"verbatim", "b") become,
+    #raw(lang:"verbatim", "d") dwim, #raw(lang:"verbatim", "B")
+    bindings.
+- #raw(lang:"verbatim", "C-,") in
+  #raw(lang:"verbatim", "minibuffer-local-map") is
+  #raw(lang:"verbatim", "embark-select"), to mark candidates fast.
+- Works in the minibuffer too, since the leader is global.
+- No #raw(lang:"verbatim", "C-z"), #raw(lang:"verbatim", "C-x"),
+  #raw(lang:"verbatim", "C-c"), #raw(lang:"verbatim", "C-v"),
+  #raw(lang:"verbatim", "C-SPC") or #raw(lang:"verbatim", "s-SPC")
+  (clipboard keys, input-source switch, Alfred). GUI keys only.
+- Docs as bullets in
+  #raw(lang:"verbatim", "docs/tangles/tooling/sp-embark.org"). No
+  CHANGELOG edit.
+
+==== Choices and alternatives
+<choices-and-alternatives>
+- Chose a leader submenu over new global roots. Alternatives:
+  - Bind inside #raw(lang:"verbatim", "embark-general-map") (only
+    reachable after #raw(lang:"verbatim", "C-."), which already offers
+    these keys).
+  - A dedicated minibuffer-only key set (kept just
+    #raw(lang:"verbatim", "C-,") for select).
+  - Put the map in #raw(lang:"verbatim", "sp-keys") instead of
+    #raw(lang:"verbatim", "sp-embark").
+- #raw(lang:"verbatim", "C-,") was free in my search of the modules; Org
+  and some packages bind it locally.
+
+==== Not tested
+<not-tested>
+- No Emacs in the container: nothing was loaded or run, and
+  #raw(lang:"verbatim", "tools/check-tangle.sh") was not run.
+- Not checked that #raw(lang:"verbatim", "C-; E") is free in every mode.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 484-embark-keys; git checkout 484-embark-keys"),
+  restart Emacs
+- ☒ #raw(lang:"verbatim", "C-; E") shows the map in which-key
+- ☐ #raw(lang:"verbatim", "M-x find-file"), then
+  #raw(lang:"verbatim", "C-,") on a candidate: it is marked;
+  #raw(lang:"verbatim", "C-; E A") runs an action on all marked
+- ☒ #raw(lang:"verbatim", "C-; E c") and
+  #raw(lang:"verbatim", "C-; E e") in a minibuffer prompt open a collect
+  and an export buffer
+- ☐ #raw(lang:"verbatim", "C-; E s") outside the minibuffer selects the
+  target at point
+- ☐ #raw(lang:"verbatim", "C-.") and #raw(lang:"verbatim", "M-.") still
+  work
+- ☐ In an Org buffer #raw(lang:"verbatim", "C-,") is unchanged
+  (minibuffer only)
+
+- #raw(lang:"verbatim", "git -C ~/dotfiles restore ."), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles switch main && git -C ~/dotfiles pull")\;
+  restart Emacs.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiDP4jhu4cC46YFafhr")[Claude Code]]
+
+== Commits (1)
+<commits-1-234>
+- #link("https://github.com/siainbuletin/dotfiles/commit/a7aa0a397f1982a263b9ca37795058789bf0a394")[a7aa0a397f]
+  ✨ Bind embark actions under the leader key (Claude, 2026-11-14 21:08)
+
+= PR \#485: 🔧 Show the author works report in the shared batch report buffer
+<pr-485-show-the-author-works-report-in-the-shared-batch-report-buffer>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/485")[#link("https://github.com/siainbuletin/dotfiles/pull/485")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:14
+/ Merged: 2026-11-14 21:32
+/ Branch: #raw(lang:"verbatim", "485-author-works-batch-report") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/1bca299c7bb5c7f2f35f08b9fa918c730865ed2b")[1bca299c7b]
+/ Labels: simplifying, needs-further-testing
+
+== Description
+<description-482>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23YPHZgtrQdmM3x3d757z7z")[project thread]]
+
+==== Summary
+<summary>
+- #strong[Problem (found after \#459):]
+  #raw(lang:"verbatim", "M-x sp-author-notes-bibtex") opened a
+  #raw(lang:"verbatim", "special-mode") buffer, not an Org-like batch
+  report, so #raw(lang:"verbatim", "C-c ?") and the echo-area hints did
+  nothing useful and #raw(lang:"verbatim", "d=/=u=/=b=/=k") were
+  missing.
+- \#459 is already merged, so this is a new PR on
+  #raw(lang:"verbatim", "main").
+- #strong[Change:]
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-report-mode") now
+  derives from #raw(lang:"verbatim", "sp-batch-report-mode") (same as
+  the footnote lint, tag lint and notes filing reports).
+  - The buffer is opened with
+    #raw(lang:"verbatim", "sp-batch-report-open"): Org text, one heading
+    per author note, one line per entry.
+  - #raw(lang:"verbatim", "d") / #raw(lang:"verbatim", "u") drop and
+    restore entries, #raw(lang:"verbatim", "g") refreshes (keeps the
+    dropped ones), #raw(lang:"verbatim", "b") /
+    #raw(lang:"verbatim", "D") / #raw(lang:"verbatim", "k") /
+    #raw(lang:"verbatim", "q") as in every report.
+  - Own keys stay: #raw(lang:"verbatim", "RET") visit entry,
+    #raw(lang:"verbatim", "o") visit author note,
+    #raw(lang:"verbatim", "c") create litnote,
+    #raw(lang:"verbatim", "C") create for all exact. On a heading they
+    act on its first entry.
+  - New buffer-local
+    #raw(lang:"verbatim", "sp-batch-report-extra-hints"): a derived mode
+    adds its hints with it; they appear before
+    #raw(lang:"verbatim", "b Backups").
+- Docs updated as bullet lists
+  (#raw(lang:"verbatim", "sp-org-lint.org"),
+  #raw(lang:"verbatim", "sp-batch-report.org"));
+  #raw(lang:"verbatim", ".el") files match the docs.
+  #raw(lang:"verbatim", "when-let*") only; no CHANGELOG edit.
+- #strong[Tested (Emacs 29.3, batch):]
+  #raw(lang:"verbatim", "sp-batch-report-test") 21 pass;
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-test") 16 pass (report
+  test now checks the mode, Org, hints, no header line, and a drop).
+  Byte-compile shows only the old docstring-width warnings.
+- #strong[Untested by Claude:] the real GUI and your vault/BibTeX files.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 485-author-works-batch-report; git checkout 485-author-works-batch-report"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☒ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex"): the buffer is
+  Org-like (headings fold with #raw(lang:"verbatim", "TAB")), mode line
+  shows the report mode, no key line in the buffer
+- ☒ The echo area shows the hints (#raw(lang:"verbatim", "RET"),
+  #raw(lang:"verbatim", "d"), #raw(lang:"verbatim", "u"),
+  #raw(lang:"verbatim", "g"), #raw(lang:"verbatim", "o"),
+  #raw(lang:"verbatim", "c"), #raw(lang:"verbatim", "C"),
+  #raw(lang:"verbatim", "b"), #raw(lang:"verbatim", "D"),
+  #raw(lang:"verbatim", "k"), #raw(lang:"verbatim", "q"));
+  #raw(lang:"verbatim", "C-c ?") shows them again after another message
+- ☒ #raw(lang:"verbatim", "RET") on an entry visits the
+  #raw(lang:"verbatim", ".bib") entry; #raw(lang:"verbatim", "o") visits
+  the author note
+- ☒ #raw(lang:"verbatim", "d") on an entry: it moves to \"Dropped from
+  the list\"; #raw(lang:"verbatim", "u") brings it back;
+  #raw(lang:"verbatim", "g") keeps it dropped
+- ☒ #raw(lang:"verbatim", "c") on an entry asks, creates the litnote,
+  and the report refreshes (the dropped entries stay dropped)
+- ☐ #raw(lang:"verbatim", "C") on a heading or an entry creates the
+  litnotes for the exact ones of that author
+- ☐ #raw(lang:"verbatim", "RET"), #raw(lang:"verbatim", "o"),
+  #raw(lang:"verbatim", "c") on a heading act on its first entry
+- ☒ No unmatched works: the buffer says \"none\"
+- ☒ Regression:
+  #raw(lang:"verbatim", "M-x sp-author-notes-bibtex-author") (one author
+  report), #raw(lang:"verbatim", "sp-litnotes-titles-dryrun"), footnote
+  lint hints are unchanged
+- ☐ Switch to another buffer: no stray hints there
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+- Back to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main"),
+  then #raw(lang:"verbatim", "git -C ~/dotfiles pull")
+- Optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 485-author-works-batch-report")
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- The report only reads; #raw(lang:"verbatim", "c") /
+  #raw(lang:"verbatim", "C") create litnotes, so delete any made while
+  testing
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAF6gJZsaMTJLEA9cM")[Claude Code]]
+
+== Commits (1)
+<commits-1-235>
+- #link("https://github.com/siainbuletin/dotfiles/commit/e9c1d504d99fb18305708c5790abfb76f512ecea")[e9c1d504d9]
+  🔧 Show the author works report in the shared batch report buffer
+  (Claude, 2026-11-14 21:14)
+
+= PR \#486: 🐛 Fix the citar preload error after the disk cache is used
+<pr-486-fix-the-citar-preload-error-after-the-disk-cache-is-used>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/486")[#link("https://github.com/siainbuletin/dotfiles/pull/486")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:37
+/ Merged: 2026-11-14 21:44
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-d7whd6") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/605e9b097e3a980e0fe6a8c8261a0338192f2d9e")[605e9b097e]
+/ Labels: bugfix, does-what-it-should
+
+== Description
+<description-483>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG")[project thread]]
+
+Follow-up to \#483. After it, #raw(lang:"verbatim", "*Messages*") shows
+#raw(lang:"verbatim", "citar preload: ~/Documents/bibliography/a1s1-filosofia-istoriei-viitorului.bib: Wrong type argument: stringp, nil").
+
+==== Merge order
+<merge-order>
+- Base: #raw(lang:"verbatim", "main")\; no dependency. Touches only
+  #raw(lang:"verbatim", "sp-citations") (#raw(lang:"verbatim", ".el"),
+  its section in #raw(lang:"verbatim", "sp-academic.org"), the preload
+  and layout tests).
+- Branch is #raw(lang:"verbatim", "claude/project-thread-d7whd6"), not
+  number-prefixed: a cloud session cannot rename a branch after the PR
+  number is known.
+
+==== Cause (reproduced on the Mac with the real citar 1.4.0, parsebib 6.7, Emacs 31.1, your 80 #raw(lang:"verbatim", ".bib") files)
+<cause-reproduced-on-the-mac-with-the-real-citar-140-parsebib-67-emacs-311-your-80-bib-files>
+- It is not a bad entry. The nil is the
+  #raw(lang:"verbatim", "format-string") slot of a bibliography that the
+  preload took from #raw(lang:"verbatim", "citar-bibliography.eld").
+- #raw(lang:"verbatim", "sp-citations-preload--prime") fills
+  #raw(lang:"verbatim", "entries"), #raw(lang:"verbatim", "props") and
+  #raw(lang:"verbatim", "buffers")\;
+  #raw(lang:"verbatim", "format-string") and the pre-formatted
+  candidates stay nil until
+  #raw(lang:"verbatim", "citar-cache--get-bibliography") runs for that
+  file.
+- #raw(lang:"verbatim", "sp-citations-preload--read") calls
+  #raw(lang:"verbatim", "sp-citations--apply-layout") first. In a new
+  session its state is empty, the layout counts as changed, and
+  #raw(lang:"verbatim", "sp-citations--repreformat") pre-formatted every
+  bibliography in the cache, including the primed ones.
+  #raw(lang:"verbatim", "citar-format--parse") fails on a nil format
+  string.
+- The file in the message is only the first in hash order; any primed
+  file would fail. The preload took it for \"saved entries did not
+  work\", dropped that file and read it again, so the cost was one
+  wasted parse and a misleading message.
+- With an empty cache (first pass) or a second pass in the same session
+  nothing is primed or the state is set, which is why the tests did not
+  see it.
+
+==== Changes
+<changes>
+- #raw(lang:"verbatim", "sp-citations--repreformat") skips a
+  bibliography without a format string
+  (#raw(lang:"verbatim", "citar-cache--get-bibliography") sets it and
+  pre-formats the file itself). Checked on the Mac in a scratch copy:
+  the primed pass then ran with no error and no re-parse.
+- From the first commit of this PR, kept for other errors: the backtrace
+  of a preload error
+  (#raw(lang:"verbatim", "M-x sp-citations-preload-show-error")), a
+  retry from the #raw(lang:"verbatim", ".bib") when saved entries fail,
+  and an error in one file no longer stops the other files.
+- Docs as bullets; no CHANGELOG edit; no
+  #raw(lang:"verbatim", "when-let").
+
+==== Timings (batch, your real files, 80 #raw(lang:"verbatim", ".bib"), sum over all files)
+<timings-batch-your-real-files-80-bib-sum-over-all-files>
+- First parse without a cache: 1.4 to 1.6 s (slowest:
+  #raw(lang:"verbatim", "humanities.bib") 0.33 s,
+  #raw(lang:"verbatim", "marx.bib") 0.29 s,
+  #raw(lang:"verbatim", "a1s1-filosofia") 0.09 s).
+- Primed read from the disk cache: 0.4 to 0.8 s. The cache file is about
+  11.7 MB.
+
+==== Tested
+<tested>
+- On the Mac, batch Emacs 31.1 with the real citar: the error reproduced
+  from a copy of your live cache; the fix removed it (scratch copy).
+- Here (Emacs 29.3, stand-in for #raw(lang:"verbatim", "citar-cache")):
+  #raw(lang:"verbatim", "tests/sp-citations-preload-test.el") 16 pass,
+  #raw(lang:"verbatim", "tests/sp-citations-layout-test.el") 13 pass,
+  also when loaded together. New:
+  #raw(lang:"verbatim", "sp-citations-repreformat-skips-bibliographies-from-the-disk"),
+  which signals like citar on a nil format string.
+- #raw(lang:"verbatim", "tools/check-tangle.sh"): the
+  #raw(lang:"verbatim", ".el") matches the doc.
+
+==== Not tested
+<not-tested>
+- A graphical frame: the real frame width, the pixel-cell path and the
+  idle-timer flow in a running Emacs.
+- Your live session with this branch.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin claude/project-thread-d7whd6; git checkout claude/project-thread-d7whd6"),
+  restart Emacs, wait for the idle pass
+- ☒ #raw(lang:"verbatim", "*Messages*") ends with
+  #raw(lang:"verbatim", "citar preload: N bibliography file(s) ready")
+  and has no #raw(lang:"verbatim", "citar preload:") error line
+- ☒ #raw(lang:"verbatim", "M-x sp-citations-preload-explain"): every
+  file says #raw(lang:"verbatim", "ready")
+- ☒ #raw(lang:"verbatim", "M-x citar-open"): no
+  #raw(lang:"verbatim", "Updating bibliography"), no wait
+- ☒ Restart again: no error, no #raw(lang:"verbatim", "Updating") lines
+- ☒ #raw(lang:"verbatim", "M-x sp-citations-fit-layout") and resize the
+  frame: candidates still look right
+
+- #raw(lang:"verbatim", "git -C ~/dotfiles restore ."), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles switch main && git -C ~/dotfiles pull")\;
+  restart Emacs.
+- Delete #raw(lang:"verbatim", "citar-bibliography.eld") in your cache
+  dir for a cold start.
+
+🤖 Generated with #link("https://claude.ai/code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v")
+
+== Commits (4)
+<commits-4-29>
+- #link("https://github.com/siainbuletin/dotfiles/commit/7b6fbc7716ee7c3d868a7cd2bab4c01025d43c81")[7b6fbc7716]
+  🐛 Keep the backtrace of a citar preload error and recover from bad
+  saved entries (Claude, 2026-11-14 21:37)
+- #link("https://github.com/siainbuletin/dotfiles/commit/fb7be572d8b60fee57fa798ce15e359b21788db1")[fb7be572d8]
+  🔧 Restore sp-litnotes-meta.el, tangle drift that was committed by
+  mistake (Claude, 2026-11-14 21:37)
+- #link("https://github.com/siainbuletin/dotfiles/commit/99dd871a67d282bef72e165139c9ea55f30ae77e")[99dd871a67]
+  🐛 Skip bibliographies without a format string when the layout is
+  applied again (Claude, 2026-11-14 21:41)
+- #link("https://github.com/siainbuletin/dotfiles/commit/03af0f85b7ae3d0605df930938045397c5c86d6c")[03af0f85b7]
+  🐛 Give the layout test a real cache object with a format string
+  (Claude, 2026-11-14 21:42)
+
+= PR \#487: ✨ Show the author works report as Org tables
+<pr-487-show-the-author-works-report-as-org-tables>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/487")[#link("https://github.com/siainbuletin/dotfiles/pull/487")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:45
+/ Merged: 2026-11-14 21:58
+/ Branch: #raw(lang:"verbatim", "487-author-works-org-tables") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/0a01228fd0791b7068ec7faa52cd4e8e358c6f8f")[0a01228fd0]
+/ Labels: correction, needs-further-testing
+
+== Description
+<description-484>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23YPHZgtrQdmM3x3d757z7z")[project thread]]
+
+==== Summary
+<summary>
+- #strong[Request:] in the
+  #raw(lang:"verbatim", "sp-author-notes-bibtex") report, show the
+  results under each heading as an Org table instead of plain lines.
+  \#485 is merged, so this is a new PR on #raw(lang:"verbatim", "main").
+- #strong[Report:] one table per author note:
+  #raw(lang:"verbatim", "Match | Key | Year | Title | BibTeX file"),
+  columns already padded (aligned without #raw(lang:"verbatim", "TAB")).
+- #strong[Keys unchanged:] each row carries its entry and author note as
+  text properties, so #raw(lang:"verbatim", "RET"),
+  #raw(lang:"verbatim", "o"), #raw(lang:"verbatim", "c"),
+  #raw(lang:"verbatim", "C"), #raw(lang:"verbatim", "d=/=u"),
+  #raw(lang:"verbatim", "g") work from any cell of a row. A dropped row
+  moves to \"Dropped from the list\" as a plain row.
+- #strong[#raw(lang:"verbatim", "sp-batch-report"):] new
+  #raw(lang:"verbatim", "sp-batch-report-table-section TITLE HEADER ITEMS")\;
+  an item with #raw(lang:"verbatim", ":row") (list of cells) is a table
+  row with the item\'s key and #raw(lang:"verbatim", ":props").
+  #raw(lang:"verbatim", "|") in a cell is written
+  #raw(lang:"verbatim", "\\vert{}"). Other reports are unchanged.
+- Docs are bullet lists (#raw(lang:"verbatim", "sp-org-lint.org"),
+  #raw(lang:"verbatim", "sp-batch-report.org"));
+  #raw(lang:"verbatim", ".el") files match.
+  #raw(lang:"verbatim", "when-let*") only; no CHANGELOG edit.
+- #strong[Tested (Emacs 29.3 batch):]
+  #raw(lang:"verbatim", "sp-batch-report-test") 22 pass (1 new for
+  tables, bar escaping, keys, dropped rows);
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-test") 16 pass (report
+  test checks the header row, the row properties, drop and restore).
+- #strong[Untested by Claude:] the look in your GUI/theme and your real
+  BibTeX files.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 487-author-works-org-tables; git checkout 487-author-works-org-tables"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☒ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex"): each author
+  note heading has an aligned table with the five columns
+- ☒ Long titles are cut with #raw(lang:"verbatim", "…") and the table
+  still lines up; a title with #raw(lang:"verbatim", "|") shows
+  #raw(lang:"verbatim", "|") safely
+- ☒ #raw(lang:"verbatim", "RET") in any cell of a row visits the BibTeX
+  entry; #raw(lang:"verbatim", "o") visits the author note
+- ☒ #raw(lang:"verbatim", "d") on a row: it leaves the table and shows
+  under \"Dropped from the list\"; #raw(lang:"verbatim", "u") there
+  brings it back; #raw(lang:"verbatim", "g") keeps it dropped
+- ☐ #raw(lang:"verbatim", "c") on a row creates the litnote and the
+  report refreshes; #raw(lang:"verbatim", "C") creates all exact ones of
+  that author
+- ☐ #raw(lang:"verbatim", "TAB") in a table moves between cells;
+  #raw(lang:"verbatim", "C-c ?") still shows the hints
+- ☐ An author with no entries left shows no empty table; with no groups
+  at all the buffer says \"none\"
+- ☐ Regression: other batch reports (litnote titles, tag lint, footnote
+  lint) look as before
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+- Back to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main"),
+  then #raw(lang:"verbatim", "git -C ~/dotfiles pull")
+- Optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 487-author-works-org-tables")
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- #raw(lang:"verbatim", "c") / #raw(lang:"verbatim", "C") create
+  litnotes: delete any made while testing
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAF6gJZsaMTJLEA9cM")[Claude Code]]
+
+== Commits (1)
+<commits-1-236>
+- #link("https://github.com/siainbuletin/dotfiles/commit/23e869cc277193f52adae1de2133d36d7a5dfe91")[23e869cc27]
+  ✨ Show the author works report as Org tables (Claude, 2026-11-14
+  21:45)
+
+= PR \#488: 📝 Put the centered minibuffer on the backburner, posframe off by default
+<pr-488-put-the-centered-minibuffer-on-the-backburner-posframe-off-by-default>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/488")[#link("https://github.com/siainbuletin/dotfiles/pull/488")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:49
+/ Merged: 2026-11-14 21:57
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-izq57x") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/3c33353d18739ce9a1f45b261ad40e7c8c5e649f")[3c33353d18]
+/ Labels: documentation, does-what-it-should, design
+
+== Description
+<description-485>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2SXkQr5Fvq2bqdPfkbgRFUe")[project thread]]
+
+==== Summary
+<summary>
+- #raw(lang:"verbatim", "sp-posframe-enabled") now defaults to
+  #raw(lang:"verbatim", "nil"): a fresh start has no posframe.
+- #raw(lang:"verbatim", "sp-posframe-toggle") is unchanged and still
+  works for a session.
+- The centered miniframe is marked as on the backburner in the module
+  commentary and docstring (nothing deleted).
+- #raw(lang:"verbatim", "docs/tangles/ui/sp-posframe.org") starts with
+  an archived status banner; the #raw(lang:"verbatim", "README.org")
+  module table entry is marked archived.
+- New ADR
+  #raw(lang:"verbatim", "adr/0027-centered-miniframe-on-the-backburner.org"),
+  linked from #raw(lang:"verbatim", "adr/README.org").
+- The #raw(lang:"verbatim", ".org") and tangled
+  #raw(lang:"verbatim", ".el") are kept in sync. No CHANGELOG edit
+  (nightly tidy).
+
+==== Manual testing
+<manual-testing>
+- ☒ Pull this branch, restart Emacs (untested by Claude)
+- ☒ Fresh start: #raw(lang:"verbatim", "M-x") shows the minibuffer at
+  the bottom of the frame, no centered posframe (untested by Claude)
+- ☒ #raw(lang:"verbatim", "M-x sp-posframe-toggle"): message
+  \"Minibuffer posframe on\", next #raw(lang:"verbatim", "M-x") is
+  centered (untested by Claude)
+- ☒ #raw(lang:"verbatim", "M-x sp-posframe-toggle") again: message
+  \"off\", minibuffer back at the bottom (untested by Claude)
+- ☒ Edge case: #raw(lang:"verbatim", "C-x C-f") and a citar prompt work
+  normally with the posframe off (untested by Claude)
+- ☐ Regression: typing in #raw(lang:"verbatim", "M-x") shows no
+  glitching and no stray #raw(lang:"verbatim", "*Minibuf-1*") window
+  (untested by Claude)
+- ☒ Open #raw(lang:"verbatim", "docs/tangles/ui/sp-posframe.org"): the
+  banner and ADR 0027 link render and resolve
+- ☐ Check the README module table row and
+  #raw(lang:"verbatim", "adr/README.org") row for 0027
+
+Branch note: this branch is
+#raw(lang:"verbatim", "claude/project-thread-izq57x") because the
+session can only push there; it cannot carry the PR-number prefix.
+Please rename or retarget if needed.
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+  (#raw(lang:"verbatim", "git clean -fd") only after
+  #raw(lang:"verbatim", "git clean -nd")).
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D claude/project-thread-izq57x").
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")) so
+  the config matches main.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiD2n6SyCzEyHKthiaG")[Claude Code]]
+
+== Commits (1)
+<commits-1-237>
+- #link("https://github.com/siainbuletin/dotfiles/commit/cf224b24cfb014c1a11ecd0e7f6a5568063d8c33")[cf224b24cf]
+  📝 Put the centered minibuffer on the backburner and turn posframe off
+  by default (Claude, 2026-11-14 21:48)
+
+= PR \#489: ✨ Unify the academic and lint keymaps under the leader (B, k, L)
+<pr-489-unify-the-academic-and-lint-keymaps-under-the-leader-b-k-l>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/489")[#link("https://github.com/siainbuletin/dotfiles/pull/489")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 21:56
+/ Merged: 2026-11-14 21:59
+/ Branch: #raw(lang:"verbatim", "489-academic-lint-keymaps") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/d5d9ab952e16dd54c040f58c3dea9913a51d18a5")[d5d9ab952e]
+/ Labels: simplifying, check-later
+
+== Description
+<description-486>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21DH7fdHNhSnfhtpK1ep4if")[project thread]]
+
+==== Merge order
+<merge-order>
+- Order: independent of \#410 (already merged); branch is
+  #raw(lang:"verbatim", "489-…"), based on
+  #raw(lang:"verbatim", "main").
+- Depends on: nothing open.
+- If merged out of order: doc conflicts expected with \#487
+  (#raw(lang:"verbatim", "sp-batch-report.org"),
+  #raw(lang:"verbatim", "sp-org-lint.org")) and with the DEVONthink PRs
+  (\#420, \#421, \#443, \#451, \#452, \#455) on lines that say
+  #raw(lang:"verbatim", "C-c k d")\; keep their text and change the key
+  to #raw(lang:"verbatim", "C-; k d"). Their
+  #raw(lang:"verbatim", "keymap-set sp-devonthink-map") lines still work
+  (the map is mounted at #raw(lang:"verbatim", "C-; k d")).
+- After merging: none.
+
+==== Summary
+<summary>
+- #strong[Request:] #raw(lang:"verbatim", "sp-bibtex-lint-fix-keys") (PR
+  \#410) had no usable key; simplify the academic keymaps; unify the
+  lint keymaps; then remove the shims. \#410 is merged, so this is a new
+  PR.
+- #strong[Cause of the missing key:] #raw(lang:"verbatim", "C-c w b k")
+  was bound twice: #raw(lang:"verbatim", "sp-bibtex-lint-fix-keys")
+  globally and #raw(lang:"verbatim", "citar-vulpea-add-reference") in
+  #raw(lang:"verbatim", "org-mode-map"). In an Org note the key added a
+  citekey, so the fix looked unbound. (The command is
+  #raw(lang:"verbatim", "-fix-keys"), there is no
+  #raw(lang:"verbatim", "-fix-key")\.)
+- #strong[Three leader groups] in #raw(lang:"verbatim", "sp-keys")
+  (leader #raw(lang:"verbatim", "C-;")):
+  - #raw(lang:"verbatim", "B") bibliography, from
+    #raw(lang:"verbatim", "C-c w b")\;
+  - #raw(lang:"verbatim", "k") knowledge search, from
+    #raw(lang:"verbatim", "C-c k")\;
+  - #raw(lang:"verbatim", "L") lint, new: one sub-letter per module, the
+    same verbs everywhere: #raw(lang:"verbatim", "l") list (dry run),
+    #raw(lang:"verbatim", "a") apply (convert),
+    #raw(lang:"verbatim", "r") restore.
+- #strong[Reports:] the footnote report applied with
+  #raw(lang:"verbatim", "a")\; it is now #raw(lang:"verbatim", "A") like
+  every other report. Rule written in
+  #raw(lang:"verbatim", "sp-batch-report.org"): lower-case acts on the
+  entry at point, upper-case on the whole list.
+- #strong[No shims for the moved keys] (removed on request): the old
+  #raw(lang:"verbatim", "C-c w b …"), #raw(lang:"verbatim", "C-c k …")
+  and footnote #raw(lang:"verbatim", "a") are unbound. The older shims
+  in #raw(lang:"verbatim", "sp-keys-moved") (easysession,
+  #raw(lang:"verbatim", "C-c e b b")) are untouched.
+- Docs are bullet lists (#raw(lang:"verbatim", "sp-keys.org"),
+  #raw(lang:"verbatim", "sp-academic.org"),
+  #raw(lang:"verbatim", "sp-batch-report.org"),
+  #raw(lang:"verbatim", "sp-org-lint.org"), the design doc status);
+  #raw(lang:"verbatim", ".el") files tangled from them. No CHANGELOG
+  edit, #raw(lang:"verbatim", "when-let*") only, GUI-only keys, no
+  #raw(lang:"verbatim", "C-z=/=C-x=/=C-c=/=C-v") root.
+- Left alone: #raw(lang:"verbatim", "C-c w") keys outside
+  #raw(lang:"verbatim", "b") (reading, olivetti, elfeed, collection
+  query, Denote), #raw(lang:"verbatim", "n b"), and
+  #raw(lang:"verbatim", "sp-org-normalise=/=sp-vulpea-meta-order") lints
+  (no key before, none now).
+
+==== Old to new keys
+<old-to-new-keys>
+#figure(
+  align(center)[#table(
+    columns: 2,
+    align: (auto,auto,),
+    table.header([Old (now unbound)], [New],),
+    table.hline(),
+    [#raw(lang:"verbatim", "C-c w b r")
+    register], [#raw(lang:"verbatim", "C-; B r")],
+    [#raw(lang:"verbatim", "C-c w b o") / #raw(lang:"verbatim", "e") /
+    #raw(lang:"verbatim", "n") / #raw(lang:"verbatim", "c") citar open /
+    entry / notes / create], [#raw(lang:"verbatim", "C-; B o") /
+    #raw(lang:"verbatim", "e") / #raw(lang:"verbatim", "n") /
+    #raw(lang:"verbatim", "c")],
+    [#raw(lang:"verbatim", "C-c w b d") / #raw(lang:"verbatim", "k") /
+    #raw(lang:"verbatim", "K") (Org
+    only)], [#raw(lang:"verbatim", "C-; B d") /
+    #raw(lang:"verbatim", "k") / #raw(lang:"verbatim", "K") (now
+    global)],
+    [#raw(lang:"verbatim", "C-c w b b") / #raw(lang:"verbatim", "i") /
+    #raw(lang:"verbatim", "u") / #raw(lang:"verbatim", "s") /
+    #raw(lang:"verbatim", "a") fetch], [#raw(lang:"verbatim", "C-; B b")
+    \/ #raw(lang:"verbatim", "i") / #raw(lang:"verbatim", "u") /
+    #raw(lang:"verbatim", "s") / #raw(lang:"verbatim", "a")],
+    [#raw(lang:"verbatim", "C-c w b l") / #raw(lang:"verbatim", "L")
+    lint report / convert], [#raw(lang:"verbatim", "C-; L b l") /
+    #raw(lang:"verbatim", "C-; L b a")],
+    [#raw(lang:"verbatim", "C-c w b k") (key fix,
+    shadowed)], [#raw(lang:"verbatim", "C-; L b f k")],
+    [#raw(lang:"verbatim", "C-c k l") #raw(lang:"verbatim", "I")
+    #raw(lang:"verbatim", "s") #raw(lang:"verbatim", "S")
+    #raw(lang:"verbatim", ".") #raw(lang:"verbatim", "R")
+    #raw(lang:"verbatim", "t")
+    #raw(lang:"verbatim", "T")], [#raw(lang:"verbatim", "C-; k l")
+    #raw(lang:"verbatim", "I") #raw(lang:"verbatim", "s")
+    #raw(lang:"verbatim", "S") #raw(lang:"verbatim", ".")
+    #raw(lang:"verbatim", "R") #raw(lang:"verbatim", "t")
+    #raw(lang:"verbatim", "T")],
+    [#raw(lang:"verbatim", "C-c k d …") DEVONthink
+    map], [#raw(lang:"verbatim", "C-; k d …")],
+    [footnote report
+    #raw(lang:"verbatim", "a")], [#raw(lang:"verbatim", "A")],
+  )]
+  , kind: table
+  )
+
+New #raw(lang:"verbatim", "L") groups (#raw(lang:"verbatim", "l") list,
+#raw(lang:"verbatim", "a") apply unless noted):
+
+#figure(
+  align(center)[#table(
+    columns: 2,
+    align: (auto,auto,),
+    table.header([Keys], [Command pair],),
+    table.hline(),
+    [#raw(lang:"verbatim", "L b")], [BibTeX
+    #raw(lang:"verbatim", "sp-bibtex-lint-dryrun") /
+    #raw(lang:"verbatim", "-convert")\; #raw(lang:"verbatim", "r")
+    restore dropped],
+    [#raw(lang:"verbatim", "L b f") + #raw(lang:"verbatim", "n")
+    #raw(lang:"verbatim", "c") #raw(lang:"verbatim", "C")
+    #raw(lang:"verbatim", "f") #raw(lang:"verbatim", "i")
+    #raw(lang:"verbatim", "k") #raw(lang:"verbatim", "o")
+    #raw(lang:"verbatim", "p")], [fix authors, crossref
+    (#raw(lang:"verbatim", "C") its report), files, indent, keys, order,
+    prefixes],
+    [#raw(lang:"verbatim", "L m")], [litnote metadata fill
+    (#raw(lang:"verbatim", "sp-litnotes-meta-fill-all-*"))],
+    [#raw(lang:"verbatim", "L q")], [litnote titles in quotes
+    (#raw(lang:"verbatim", "sp-litnotes-meta-title-lint-*"))],
+    [#raw(lang:"verbatim", "L t") /
+    #raw(lang:"verbatim", "L r")], [litnote titles, authors and year /
+    litnote references],
+    [#raw(lang:"verbatim", "L f")], [footnotes],
+    [#raw(lang:"verbatim", "L g")], [tags: #raw(lang:"verbatim", "l")
+    #raw(lang:"verbatim", "sp-org-tag-lint"), #raw(lang:"verbatim", "b")
+    current buffer],
+    [#raw(lang:"verbatim", "L u"),
+    #raw(lang:"verbatim", "L u w")], [author notes, their Works tables],
+    [#raw(lang:"verbatim", "L n")], [notes filing;
+    #raw(lang:"verbatim", "r") restore, #raw(lang:"verbatim", "s")
+    schedule],
+  )]
+  , kind: table
+  )
+
+==== Tested
+<tested>
+- New #raw(lang:"verbatim", "tests/sp-keys-test.el"): 4 pass (Emacs 29.3
+  batch): each lint group is #raw(lang:"verbatim", "-dryrun") on
+  #raw(lang:"verbatim", "l") and #raw(lang:"verbatim", "-convert") on
+  #raw(lang:"verbatim", "a"), the key fix is
+  #raw(lang:"verbatim", "C-; L b f k"), the old academic keys are not in
+  the shim table.
+- Still pass: #raw(lang:"verbatim", "sp-batch-report-test") 21,
+  #raw(lang:"verbatim", "sp-org-lint-test") 17,
+  #raw(lang:"verbatim", "sp-org-tag-lint-test") 13,
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-test") 16.
+- Not run: a real Emacs with the full config, the GUI, Alfred or the
+  real vault.
+- Not done: which-key labels are untested
+  (#raw(lang:"verbatim", "which-key-add-keymap-based-replacements")).
+
+==== Manual testing
+<manual-testing>
+- ☐ Pull this branch, restart Emacs (or
+  #raw(lang:"verbatim", "M-x sp-reload-modules")) (untested by Claude)
+- ☒ #raw(lang:"verbatim", "C-; = then =C-h"): which-key lists
+  #raw(lang:"verbatim", "B"), #raw(lang:"verbatim", "k"),
+  #raw(lang:"verbatim", "L") with names (untested by Claude)
+- ☒ #raw(lang:"verbatim", "C-; L") then #raw(lang:"verbatim", "C-h"):
+  lists #raw(lang:"verbatim", "b m q t r f g u n")\;
+  #raw(lang:"verbatim", "C-; L b f") lists the seven fixes
+- ☐ On a scratch #raw(lang:"verbatim", ".bib"):
+  #raw(lang:"verbatim", "C-; L b l") shows the lint report,
+  #raw(lang:"verbatim", "C-; L b f k") runs the key fix,
+  #raw(lang:"verbatim", "C-; L b a") asks which fixes to run
+- ☐ In an Org note and in a #raw(lang:"verbatim", ".bib") buffer:
+  #raw(lang:"verbatim", "C-; B k") / #raw(lang:"verbatim", "K") add and
+  remove a citekey of the note (untested by Claude)
+- ☐ Per module, #raw(lang:"verbatim", "l") shows a dry run and writes
+  nothing: #raw(lang:"verbatim", "C-; L m l"),
+  #raw(lang:"verbatim", "L q l"), #raw(lang:"verbatim", "L t l"),
+  #raw(lang:"verbatim", "L r l"), #raw(lang:"verbatim", "L f l"),
+  #raw(lang:"verbatim", "L g l"), #raw(lang:"verbatim", "L u l"),
+  #raw(lang:"verbatim", "L u w l"), #raw(lang:"verbatim", "L n l")
+- ☐ #raw(lang:"verbatim", "a") applies after a question:
+  #raw(lang:"verbatim", "C-; L f a") on a scratch vault (backup made)
+- ☒ #raw(lang:"verbatim", "C-; B b") #raw(lang:"verbatim", "i")
+  #raw(lang:"verbatim", "u") #raw(lang:"verbatim", "s")
+  #raw(lang:"verbatim", "a") start the fetch commands;
+  #raw(lang:"verbatim", "C-; B o") opens citar
+- ☐ #raw(lang:"verbatim", "C-; k l") litdb, #raw(lang:"verbatim", "k s")
+  semantic, #raw(lang:"verbatim", "k t") tab p-search;
+  #raw(lang:"verbatim", "C-; k d") then #raw(lang:"verbatim", "o") opens
+  a record
+- ☐ Edge: footnote report #raw(lang:"verbatim", "A") applies and
+  #raw(lang:"verbatim", "a") does nothing; tag report
+  #raw(lang:"verbatim", "a") still registers the tag at point
+- ☒ Old keys are unbound: #raw(lang:"verbatim", "C-c w b l"),
+  #raw(lang:"verbatim", "C-c w b k"), #raw(lang:"verbatim", "C-c k s"),
+  #raw(lang:"verbatim", "C-c k d") say \"undefined\"
+- ☒ #raw(lang:"verbatim", "M-x sp-keys-audit"): no void command among
+  the new groups
+- ☐ Regression: #raw(lang:"verbatim", "C-; b b"),
+  #raw(lang:"verbatim", "C-; g s"), #raw(lang:"verbatim", "C-; E a")
+  (embark), #raw(lang:"verbatim", "C-c a"),
+  #raw(lang:"verbatim", "C-c c"), and the old easysession shim
+  #raw(lang:"verbatim", "C-c s s") still work
+- ☐ Keys reach Emacs on the Mac with Alfred running
+  (#raw(lang:"verbatim", "C-;") then #raw(lang:"verbatim", "L"))
+  (untested by Claude)
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+  (#raw(lang:"verbatim", "git clean -fd") only after
+  #raw(lang:"verbatim", "git clean -nd")).
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 489-academic-lint-keymaps").
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")).
+- Apply keys (#raw(lang:"verbatim", "a")) write to the vault or
+  #raw(lang:"verbatim", ".bib"): restore from the backup folder the
+  command reported, or
+  #raw(lang:"verbatim", "git -C ~/notes restore .").
+- Fish shell works for all of the above; no yadm steps.
+
+🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiCzaeJZR142mh9L4AR")
+
+== Commits (2)
+<commits-2-111>
+- #link("https://github.com/siainbuletin/dotfiles/commit/6d31298996419a92851bba76784d732136382656")[6d31298996]
+  ✨ Unify the academic and lint keymaps under the leader (B, k, L)
+  (Claude, 2026-11-14 21:55)
+- #link("https://github.com/siainbuletin/dotfiles/commit/7b556699229ef0e75a9fa6d0d0ce4f1960ccd87c")[7b55669922]
+  🔧 Remove the shims for the academic and footnote keys (Claude,
+  2026-11-14 21:57)
+
+= PR \#490: ✨ Match Zotero attachment paths to zotero-backup PDFs and move them into literature
+<pr-490-match-zotero-attachment-paths-to-zotero-backup-pdfs-and-move-them-into-literature>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/490")[#link("https://github.com/siainbuletin/dotfiles/pull/490")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 22:11
+/ Merged: 2026-11-14 23:11
+/ Branch: #raw(lang:"verbatim", "490-zotero-paths-to-literature") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/668b1f8bd763a0d4ee1d417c3c539ee9f5b8414b")[668b1f8bd7]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-487>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2FSQZoNBfQ8ZYkxVh7C8Wx5")[project thread]]
+
+==== Merge order
+<merge-order>
+- Base: #raw(lang:"verbatim", "main") (includes \#487 and \#489).
+  Depends on nothing open.
+- The branch is numbered #raw(lang:"verbatim", "490-…") and needs no
+  rename.
+- After merging: run the dry run on one #raw(lang:"verbatim", ".bib")
+  file and read it before applying (see \"Not applied yet\").
+
+==== Summary
+<summary>
+- #strong[Request:] a function in the BibTeX lint that takes the Zotero
+  paths in #raw(lang:"verbatim", "file") fields, matches each PDF to the
+  copy already in
+  #raw(lang:"verbatim", "literature/inbox/zotero-backup"), moves it to
+  the top of #raw(lang:"verbatim", "literature/"), rewrites the field,
+  and moves the record in DEVONthink too. Modelled on the earlier
+  #raw(lang:"verbatim", "bdsk") fix.
+- #strong[New module #raw(lang:"verbatim", "sp-bibtex-zotero")] (own doc
+  #raw(lang:"verbatim", "docs/tangles/academic/sp-bibtex-zotero.org"),
+  bullet lists; the module is separate because
+  #raw(lang:"verbatim", "sp-bibprocess.el") is already about 2,600
+  lines). Required from #raw(lang:"verbatim", "sp-academic").
+- #strong[Keys] (#raw(lang:"verbatim", "C-; L b z"), same verbs as every
+  lint group): #raw(lang:"verbatim", "l") dry run,
+  #raw(lang:"verbatim", "a") apply (#raw(lang:"verbatim", "C-u") also
+  the weak matches), #raw(lang:"verbatim", "r") restore a run.
+- #strong[What the real data looks like] (read-only look at
+  #raw(lang:"verbatim", "~/Documents/bibliography") and
+  #raw(lang:"verbatim", "~/Documents/literature")):
+  - The \"6-digit encoding\" is an #strong[8-character Zotero key]
+    (#raw(lang:"verbatim", "A-Z0-9"), for example
+    #raw(lang:"verbatim", "Z6HVLKNU")). All 3,926 Zotero paths in the 80
+    #raw(lang:"verbatim", ".bib") files use it
+    (#raw(lang:"verbatim", "sp-bibtex-zotero-key-regexp") if that ever
+    changes).
+  - 3,879 of those paths have a folder in
+    #raw(lang:"verbatim", "zotero-backup")\; the folder normally holds
+    the PDF and Zotero cache files
+    (#raw(lang:"verbatim", ".zotero-ft-cache") and so on).
+  - Path forms handled: bare
+    #raw(lang:"verbatim", "/Users/…/Zotero/storage/KEY/name.pdf"),
+    Zotero\'s #raw(lang:"verbatim", "label:path:mime"), several parts
+    joined with #raw(lang:"verbatim", ";"), BibTeX escapes
+    (#raw(lang:"verbatim", "\\;")), wrapped lines, another user\'s home
+    (#raw(lang:"verbatim", "/Users/clb3/…")).
+- #strong[Matching] (names only, no guessing):
+  #raw(lang:"verbatim", "exact"), #raw(lang:"verbatim", "normalised")
+  (case, spacing, accents, TeX accents like
+  #raw(lang:"verbatim", "{\\\"i}"), curly quotes and dashes), then two
+  #strong[weak] levels shown for review only
+  (#raw(lang:"verbatim", "by-dir"): the only file of that type in the
+  folder; #raw(lang:"verbatim", "by-name"): no folder, but exactly one
+  file of that name in the whole backup). Otherwise reported as
+  #raw(lang:"verbatim", "no-dir"), #raw(lang:"verbatim", "no-file")
+  (Zotero caches only), #raw(lang:"verbatim", "ambiguous"),
+  #raw(lang:"verbatim", "collision") or
+  #raw(lang:"verbatim", "unsafe-name").
+- #strong[Dry-run numbers from a Python mirror of these rules on the
+  real files] (nothing was written; the Elisp itself has not run on the
+  real library):
+  - 1,824 sure matches, which are 1,426 distinct PDFs (several entries
+    share one file);
+  - 11 weak matches for review; 34 paths with no folder and no file of
+    that name; 50 whose folder has no PDF;
+  - 19 destination names clash between different backup folders (6
+    identical files, 13 different), so the 13 would be reported as
+    #raw(lang:"verbatim", "collision") and not moved; no clash with a
+    file already at the top of #raw(lang:"verbatim", "literature/")\;
+  - 1,408 #raw(lang:"verbatim", ".html") snapshots and 75
+    #raw(lang:"verbatim", ".epub") and other files are left alone
+    (#raw(lang:"verbatim", "sp-bibtex-zotero-extensions"), default
+    #raw(lang:"verbatim", "(\"pdf\")")).
+- #strong[Safety]:
+  - dry run changes nothing; the plan is an Org table report built with
+    #raw(lang:"verbatim", "sp-batch-report-table-section") (rows link to
+    the entry; #raw(lang:"verbatim", "d") drops a row from the plan,
+    #raw(lang:"verbatim", "u") brings it back,
+    #raw(lang:"verbatim", "g") refreshes, #raw(lang:"verbatim", "A") or
+    #raw(lang:"verbatim", "C-c C-c") applies);
+  - only adds or modifies: no file or record is deleted; a file is never
+    moved over another; a clash is reported, or, for an identical file
+    already at the top, only the field is rewritten (the backup copy
+    stays);
+  - apply copies the #raw(lang:"verbatim", ".bib") file first (same
+    backup folder as the other lint fixes) and writes a manifest
+    (#raw(lang:"verbatim", "zotero-manifest.eld")) #strong[before]
+    moving, so a cut-short run can still be restored; if the move fails
+    half way, the files that did move are still rewritten and the error
+    is shown;
+  - #raw(lang:"verbatim", "restore") moves the files back and puts the
+    earlier #raw(lang:"verbatim", ".bib") text back; it refuses if the
+    #raw(lang:"verbatim", ".bib") file changed after the run, and keeps
+    the current text as #raw(lang:"verbatim", "before-restore.bib")\;
+  - #strong[DEVONthink]: moves go through
+    #raw(lang:"verbatim", "tools/devonthink-move.py") (PR \#410) with
+    #raw(lang:"verbatim", "--plain-rename"), so records keep UUID, tags
+    and highlights. The dry run asks the tool for its own dry run
+    (records to move, files not in DEVONthink, blocked). Apply and
+    restore #strong[refuse before touching anything] when
+    #raw(lang:"verbatim", "sp-bibtex-files-devonthink-tool") is unset or
+    DEVONthink is not running (checked with
+    #raw(lang:"verbatim", "pgrep"), so DEVONthink is never launched by
+    accident);
+    #raw(lang:"verbatim", "sp-bibtex-zotero-require-devonthink") turns
+    that off.
+- No #raw(lang:"verbatim", "CHANGELOG.org") edit (nightly tidy),
+  #raw(lang:"verbatim", "when-let*=/=if-let*") only, no
+  #raw(lang:"verbatim", ".el") edited by hand (tangled from the docs;
+  #raw(lang:"verbatim", "tools/tangle-all.el") gives no drift for the
+  three docs touched).
+
+==== Not applied yet
+<not-applied-yet>
+- #strong[The real library was not touched.] Please read the dry-run
+  output on your Mac first and approve it before anyone runs
+  #raw(lang:"verbatim", "a").
+- Not run on the Mac: the Elisp against your real
+  #raw(lang:"verbatim", ".bib") files, and the AppleScript of
+  #raw(lang:"verbatim", "devonthink-move.py") on this plan (it is the
+  existing, merged tool; this PR only calls it). The container has no
+  DEVONthink.
+- Open on the Mac: DEVONthink needs a group for the top-level
+  #raw(lang:"verbatim", "literature") folder (the tool stops with
+  #raw(lang:"verbatim", "no group for …") otherwise).
+
+==== Tested
+<tested>
+- New #raw(lang:"verbatim", "tests/sp-bibtex-zotero-test.el"), Emacs
+  29.3 batch: 22 pass. Covers parsing (labels, mime, escapes, wrapped
+  lines, other users), name matching, every match level, plan classes,
+  clashes, an existing file at the top, unsafe names, a dry run that
+  changes nothing, drop, aligned Org tables, apply (moves, rewrites,
+  snapshots and weak/unmatched paths untouched), weak apply, never
+  overwriting, identical-file link, refusing without DEVONthink, partial
+  failure, idempotence (including a move seen only in the manifest), and
+  restore (round trip, refusal after an edit).
+- #raw(lang:"verbatim", "tests/sp-keys-test.el"): 5 pass (one new for
+  #raw(lang:"verbatim", "C-; L b z")).
+  #raw(lang:"verbatim", "sp-batch-report-test"): 22 pass.
+- Not run: the GUI, which-key labels,
+  #raw(lang:"verbatim", "sp-bibprocess-lint-test") (it fails to load in
+  the container on #raw(lang:"verbatim", "main") as well:
+  #raw(lang:"verbatim", "void-variable sp-cache-dir")).
+
+==== Manual testing
+<manual-testing>
+- ☐ Pull this branch, restart Emacs (or
+  #raw(lang:"verbatim", "M-x sp-reload-modules")) (untested by Claude)
+- ☐ #raw(lang:"verbatim", "C-; L b z") then
+  #raw(lang:"verbatim", "C-h"): which-key shows
+  #raw(lang:"verbatim", "l"), #raw(lang:"verbatim", "a"),
+  #raw(lang:"verbatim", "r")\; the label
+  #raw(lang:"verbatim", "zotero paths") is under
+  #raw(lang:"verbatim", "C-; L b") (untested by Claude)
+- ☐ Open #raw(lang:"verbatim", "humanities.bib") and press
+  #raw(lang:"verbatim", "C-; L b z l"): the
+  #raw(lang:"verbatim", "*Zotero paths*") report opens, nothing is
+  written
+  (#raw(lang:"verbatim", "git -C ~/Documents/bibliography status") is
+  clean)
+- ☐ The summary says how many files would move; the DEVONthink line
+  gives records to move, files not in DEVONthink and blocked
+- ☐ Spot-check 5 rows of \"To move\" against Finder: the Zotero path,
+  the file in #raw(lang:"verbatim", "zotero-backup/KEY/"), the new name
+- ☐ Check \"Review\", \"Not matched\" and the collisions: nothing there
+  is applied by #raw(lang:"verbatim", "A")
+- ☐ #raw(lang:"verbatim", "RET") on a row visits the entry in the
+  #raw(lang:"verbatim", ".bib")\; #raw(lang:"verbatim", "d") on a row
+  drops it, #raw(lang:"verbatim", "u") brings it back,
+  #raw(lang:"verbatim", "g") makes the plan again
+- ☐ Quit DEVONthink, press #raw(lang:"verbatim", "A") or
+  #raw(lang:"verbatim", "C-; L b z a"): it refuses with \"DEVONthink is
+  not running\" and nothing changes
+- ☐ Safe trial: copy one #raw(lang:"verbatim", ".bib") and 3 PDFs (with
+  their #raw(lang:"verbatim", "KEY") folders) to a scratch library, set
+  #raw(lang:"verbatim", "sp-literature-dir") to it, run
+  #raw(lang:"verbatim", "a") with DEVONthink open
+- ☐ After the trial: the PDFs are at the top of the scratch library, the
+  fields say #raw(lang:"verbatim", "name.pdf"), the backup folder has no
+  PDFs left in those #raw(lang:"verbatim", "KEY") folders, the
+  #raw(lang:"verbatim", ".bib") copy and
+  #raw(lang:"verbatim", "zotero-manifest.eld") are in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory")
+- ☐ In DEVONthink the moved records keep their tags and highlights (same
+  UUID, now in the #raw(lang:"verbatim", "literature") group)
+- ☐ #raw(lang:"verbatim", "C-; L b z r") puts the files and the
+  #raw(lang:"verbatim", ".bib") back; run it twice: the second time says
+  there is nothing to restore
+- ☐ Edge: edit the #raw(lang:"verbatim", ".bib") after an apply, then
+  #raw(lang:"verbatim", "r"): it refuses and tells you where the copy is
+- ☐ Edge: #raw(lang:"verbatim", "C-u C-; L b z a") also applies the weak
+  matches (check one in the dry run first)
+- ☐ Only after reading the real dry run: apply on the real library, one
+  #raw(lang:"verbatim", ".bib") file at a time
+
+- Restore a run: #raw(lang:"verbatim", "C-; L b z r") (moves back
+  through DEVONthink, puts the earlier #raw(lang:"verbatim", ".bib")
+  back).
+- By hand: the #raw(lang:"verbatim", ".bib") copy and
+  #raw(lang:"verbatim", "zotero-manifest.eld") are in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory/\u{3c}stamp>/")\;
+  the manifest lists every move as #raw(lang:"verbatim", "(FROM . TO)").
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .").
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull")\; optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 490-zotero-paths-to-literature").
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")).
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCGfFMGGDntzUxNQTU")[Claude Code]]
+
+== Commits (1)
+<commits-1-238>
+- #link("https://github.com/siainbuletin/dotfiles/commit/5a12d1e645f6d3dc62df648784adf8596c0d8e08")[5a12d1e645]
+  ✨ Match Zotero attachment paths to the PDFs in zotero-backup and move
+  them (Claude, 2026-11-14 22:10)
+
+= PR \#491: ✨ Move the BibTeX abstract into the litnote (sp-bibtex-lint abstract)
+<pr-491-move-the-bibtex-abstract-into-the-litnote-sp-bibtex-lint-abstract>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/491")[#link("https://github.com/siainbuletin/dotfiles/pull/491")]
+/ State: open
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 22:12
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-jtrror") →
+    #raw(lang:"verbatim", "main")
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-488>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2C1Tfw69DcoEtS6XhVSXRCT")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent of other open PRs; it builds on merged \#489 (lint keys),
+  \#474 and \#475.
+- Touches #raw(lang:"verbatim", "sp-keys") (4 lines in
+  #raw(lang:"verbatim", "L b f")), #raw(lang:"verbatim", "sp-academic")
+  (one #raw(lang:"verbatim", "require")) and
+  #raw(lang:"verbatim", "sp-backup-lookup") (one list entry). A conflict
+  in those files is trivial.
+
+==== Summary
+<summary>
+- New module #raw(lang:"verbatim", "sp-bibtex-abstract") (literate doc:
+  #raw(lang:"verbatim", "docs/tangles/academic/sp-bibtex-abstract.org")).
+- Moves the #raw(lang:"verbatim", "abstract") field of a BibTeX entry
+  into its litnote under #raw(lang:"verbatim", "* Abstract").
+- Keys under #raw(lang:"verbatim", "C-; L b f"):
+  - #raw(lang:"verbatim", "B") dry-run report (Org table sections,
+    #raw(lang:"verbatim", "d=/=u=/=A=/=g") as in the other lints)
+  - #raw(lang:"verbatim", "b") move the abstracts of a whole file, after
+    one question, in batches
+  - #raw(lang:"verbatim", "e") move the abstract of the entry at point
+    (prefix: dry run)
+  - #raw(lang:"verbatim", "R") restore a run from its backup
+- Safety:
+  - Note first: saved, then read back from disk; only if it holds the
+    abstract does the field leave the #raw(lang:"verbatim", ".bib").
+  - The #raw(lang:"verbatim", ".bib") is written once, at the end, with
+    verified entries only; every other field of an entry must be
+    unchanged or the entry is left alone.
+  - Note writes only add
+    (#raw(lang:"verbatim", "sp-litnotes-meta--verify-kept")).
+- Matching and edge cases:
+  - Entry-to-note matching uses
+    #raw(lang:"verbatim", "sp-author-notes-bibtex--covered")
+    (ROAM#sub[REFS] / #raw(lang:"verbatim", "#+reference:")).
+  - #raw(lang:"verbatim", "* Abstract") missing: created as the first
+    heading. Empty: filled. Same text: only the field goes.
+  - Different text: conflict, reported with both texts, nothing
+    overwritten.
+  - No litnote: skipped and listed. Macro, concatenation or empty
+    abstract: listed as a problem.
+- Conversion: abstract is converted to Org (accents to Unicode,
+  #raw(lang:"verbatim", "\\emph") to #raw(lang:"verbatim", "/x/"),
+  #raw(lang:"verbatim", "\\&") etc., braces removed,
+  #raw(lang:"verbatim", "\u{24}math\u{24}") kept verbatim, unknown commands kept
+  and named in the report).
+- Backup:
+  #raw(lang:"verbatim", "sp-bibtex-abstract-backup-directory/\u{3c}stamp>/")
+  holds the #raw(lang:"verbatim", ".bib"), changed notes and a manifest;
+  also visible to #raw(lang:"verbatim", "sp-backup-lookup").
+- Tests: #raw(lang:"verbatim", "tests/sp-bibtex-abstract-test.el") (23,
+  Emacs 29 batch, temp files) plus a keys test; the lint, meta and keys
+  suites still pass. Not run on the real vault.
+- Not changed: no CHANGELOG edit; the main
+  #raw(lang:"verbatim", "sp-bibtex-lint-dryrun") report has no abstract
+  button yet.
+
+==== Manual testing
+<manual-testing>
+- ☐ Pull this branch, restart Emacs (or
+  #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☐ Copy a few entries with abstracts into a scratch
+  #raw(lang:"verbatim", ".bib") that is in
+  #raw(lang:"verbatim", "sp-bibtex-files") (untested by Claude on the
+  real vault)
+- ☐ #raw(lang:"verbatim", "C-; L b f B") on it: report lists movable,
+  conflicts, no-litnote and problems; nothing on disk changes
+- ☐ In a #raw(lang:"verbatim", ".bib") buffer,
+  #raw(lang:"verbatim", "C-u C-; L b f e") on one entry: message only
+- ☐ #raw(lang:"verbatim", "C-; L b f e") on one entry: confirm; note
+  gets #raw(lang:"verbatim", "* Abstract") as its first heading, field
+  is gone from the buffer (unsaved), #raw(lang:"verbatim", "C-/") brings
+  it back
+- ☐ Edge: entry whose note already has a different
+  #raw(lang:"verbatim", "* Abstract"): refused, nothing changes
+- ☐ Edge: entry without a litnote and one with a LaTeX-heavy abstract
+  (accents, #raw(lang:"verbatim", "\\emph"),
+  #raw(lang:"verbatim", "\u{24}x\u{24}")): skipped / converted as described
+- ☐ #raw(lang:"verbatim", "C-; L b f b") on the scratch file: one
+  question, backup folder reported, fields removed, notes have the text
+- ☐ Open a moved note: heading, text and meta lines look right;
+  #raw(lang:"verbatim", "vulpea") finds it
+- ☐ Run #raw(lang:"verbatim", "C-; L b f b") again: \"No abstract to
+  move\"
+- ☐ #raw(lang:"verbatim", "C-; L b f R"): #raw(lang:"verbatim", ".bib")
+  and notes are back as before the run
+- ☐ Regression: #raw(lang:"verbatim", "C-; L b l") and
+  #raw(lang:"verbatim", "C-; L b f c") still work
+
+- Discard local edits made while testing:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+  (#raw(lang:"verbatim", "git clean -fd") only after
+  #raw(lang:"verbatim", "git clean -nd")).
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch locally:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D claude/project-thread-jtrror").
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")).
+- If the vault changed, use #raw(lang:"verbatim", "C-; L b f R"), or
+  restore from
+  #raw(lang:"verbatim", "sp-bibtex-abstract-backup-directory/\u{3c}stamp>/").
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9pYp9dtCTs91ttKJG")[Claude Code]]
+
+== Commits (1)
+<commits-1-239>
+- #link("https://github.com/siainbuletin/dotfiles/commit/2bb1f4e72aaf01cfefcc9436c8e6ca0445487eca")[2bb1f4e72a]
+  ✨ Move the BibTeX abstract into the litnote (sp-bibtex-lint abstract)
+  (Claude, 2026-11-14 22:12)
+
+= PR \#492: ⚡ Keep org-table-widget from drawing the tables of batch reports
+<pr-492-keep-org-table-widget-from-drawing-the-tables-of-batch-reports>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/492")[#link("https://github.com/siainbuletin/dotfiles/pull/492")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 23:12
+/ Merged: 2026-11-14 23:15
+/ Branch: #raw(lang:"verbatim", "492-batch-report-no-table-widget") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/28748bee42f11e06e7e4c32a489364c6fcf46cf9")[28748bee42]
+/ Labels: enhancement, fixed-afterwards, does-what-it-should,
+    check-later
+
+== Description
+<description-489>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23YPHZgtrQdmM3x3d757z7z")[project thread]]
+
+==== Summary
+<summary>
+- #strong[Problem (after \#487):] the author works report takes about 10
+  s before its tables show.
+- #strong[Cause:] not Org tables. Building the report text is fast; the
+  slow part is #raw(lang:"verbatim", "org-table-widget-mode"), which
+  #raw(lang:"verbatim", "sp-textui") turns on for every Org buffer
+  (#raw(lang:"verbatim", "org-mode-hook")). It lays out each table as
+  its own widget (overlays, pixel measuring), about 10 to 20 ms per
+  table, and the report has one table per author.
+- #strong[Fix:] batch reports keep plain Org tables.
+  #raw(lang:"verbatim", "sp-batch-report--quiet-table-widget") on
+  #raw(lang:"verbatim", "sp-batch-report-mode-hook") turns the widget
+  off; it runs while the buffer is still empty, so it costs nothing. The
+  tables are already padded in Lisp (\#487), so they look aligned
+  without it.
+- #strong[Opt back in:]
+  #raw(lang:"verbatim", "sp-batch-report-table-widgets") non-nil (slow
+  for many tables).
+- Docs are bullet lists (#raw(lang:"verbatim", "sp-batch-report.org"));
+  #raw(lang:"verbatim", ".el") matches.
+  #raw(lang:"verbatim", "when-let*") only; no CHANGELOG edit.
+
+==== Timings (Emacs 29.3 batch, synthetic data, widget forced in a terminal window; the GUI measures pixels too, so it is slower there)
+<timings-emacs-293-batch-synthetic-data-widget-forced-in-a-terminal-window-the-gui-measures-pixels-too-so-it-is-slower-there>
+#figure(
+  align(center)[#table(
+    columns: 3,
+    align: (auto,auto,auto,),
+    table.header([Tables x rows], [Before (widget on)], [After (widget
+      off)],),
+    table.hline(),
+    [20 x 10], [0.45 s], [0.01 s],
+    [120 x 10], [1.80 s], [0.06 s],
+    [300 x 20 (6000 rows)], [9.95 s, 6600 overlays], [0.37 s, 0
+    overlays],
+  )]
+  , kind: table
+  )
+
+- Text build alone for 6000 rows: 0.4 s;
+  #raw(lang:"verbatim", "font-lock-ensure") 0.07 s; one
+  #raw(lang:"verbatim", "org-table-align") 0.01 s.
+- #strong[Not measured:] the GUI and your real BibTeX data (no access to
+  your machine from this session). The 300-table case matching your 10 s
+  is the evidence, not a profile of your Emacs.
+- #strong[Tests:] #raw(lang:"verbatim", "sp-batch-report-test") 23 pass
+  (1 new: the widget is off in a report, on with the option);
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-test") 16 pass.
+
+==== Manual testing
+<manual-testing>
+- ☐
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 492-batch-report-no-table-widget; git checkout 492-batch-report-no-table-widget"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☐ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex"): the tables show
+  within a second or two after the reading is done (time it; it was
+  about 10 s)
+- ☐ The tables are plain aligned #raw(lang:"verbatim", "|") text (no
+  widget borders), headings fold with #raw(lang:"verbatim", "TAB")
+- ☐ #raw(lang:"verbatim", "RET"), #raw(lang:"verbatim", "o"),
+  #raw(lang:"verbatim", "c"), #raw(lang:"verbatim", "C"),
+  #raw(lang:"verbatim", "d"), #raw(lang:"verbatim", "u"),
+  #raw(lang:"verbatim", "g") still work on rows
+- ☐ #raw(lang:"verbatim", "d") / #raw(lang:"verbatim", "u") /
+  #raw(lang:"verbatim", "g") redraw quickly too
+- ☐
+  #raw(lang:"verbatim", "M-x customize-variable sp-batch-report-table-widgets")
+  to #raw(lang:"verbatim", "t"), run the report again: widgets are back
+  (and slow); set it to nil again
+- ☐ Other Org buffers (a normal note with a table) still show table
+  widgets
+- ☐ Optional: #raw(lang:"verbatim", "M-x profiler-start") before the
+  command and #raw(lang:"verbatim", "M-x profiler-report") after, to see
+  if anything else is slow
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+- Back to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main"),
+  then #raw(lang:"verbatim", "git -C ~/dotfiles pull")
+- Optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 492-batch-report-no-table-widget")
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAF6gJZsaMTJLEA9cM")[Claude Code]]
+
+== Commits (1)
+<commits-1-240>
+- #link("https://github.com/siainbuletin/dotfiles/commit/72a7264ae7963ef3b9b2545771c4f1f001b9e294")[72a7264ae7]
+  ⚡ Keep org-table-widget from drawing the tables of batch reports
+  (Claude, 2026-11-14 23:12)
+
+= PR \#493: 🐛 Follow symlinks without asking when visiting a file
+<pr-493-follow-symlinks-without-asking-when-visiting-a-file>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/493")[#link("https://github.com/siainbuletin/dotfiles/pull/493")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 23:19
+/ Merged: 2026-11-14 23:25
+/ Branch: #raw(lang:"verbatim", "493-follow-symlinks-without-asking") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c3e3baa45883bb15c4c0aa436b3bbb7bd7291a18")[c3e3baa458]
+/ Labels: correction, does-what-it-should
+
+== Description
+<description-490>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25hpPrxDU9jUYPwDwRgDUXd")[project thread]]
+
+==== Summary
+<summary>
+- #strong[Problem:] Emacs asks \"Symbolic link to Git-controlled source
+  file; follow link?\" for every Stow-linked file.
+- #strong[Cause:] #raw(lang:"verbatim", "vc-follow-symlinks") was set
+  only by #raw(lang:"verbatim", "sp-auto-follow-symlinks"), which only
+  #raw(lang:"verbatim", "sensible-defaults/use-all-settings") (in
+  #raw(lang:"verbatim", "sp-helper-funct")) calls. Nothing calls that
+  function, so the setting never ran.
+- #strong[Fix:] #raw(lang:"verbatim", "sp-navi") calls
+  #raw(lang:"verbatim", "(sp-auto-follow-symlinks)") when it loads, so
+  #raw(lang:"verbatim", "vc-follow-symlinks") is
+  #raw(lang:"verbatim", "t"). The buffer visits the real file in
+  #raw(lang:"verbatim", "~/dotfiles").
+- Docs: #raw(lang:"verbatim", "sp-navi.org") section rewritten as
+  bullets; #raw(lang:"verbatim", ".el") matches the doc;
+  #raw(lang:"verbatim", "sp-vcontrol.org") now says \"called when
+  #raw(lang:"verbatim", "sp-navi") loads\".
+- No CHANGELOG edit.
+- #strong[Not changed:] the other helpers that only
+  #raw(lang:"verbatim", "use-all-settings") would call (for example
+  #raw(lang:"verbatim", "sp-open-from-home-dir")) are still never run.
+- #strong[Not tested by Claude:] no Emacs in the container; the change
+  is one top-level call.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 493-follow-symlinks-without-asking; git checkout 493-follow-symlinks-without-asking"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+  (untested by Claude)
+- ☒ #raw(lang:"verbatim", "C-h v vc-follow-symlinks"): value is
+  #raw(lang:"verbatim", "t")
+- ☒ #raw(lang:"verbatim", "C-x C-f ~/.config/emacs-modular/init.el"):
+  opens with no prompt; #raw(lang:"verbatim", "C-h v buffer-file-name")
+  shows the path under #raw(lang:"verbatim", "~/dotfiles/...")
+- ☒ Edge: open a symlink to a file that is not in Git: opens with no
+  prompt
+- ☒ Regression: #raw(lang:"verbatim", "M-x magit")
+  (#raw(lang:"verbatim", "C-M-g")) from that buffer finds the
+  #raw(lang:"verbatim", "~/dotfiles") repository
+- ☒ Regression: open a normal, non-link file: nothing changes
+
+- Discard local edits made while testing:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .").
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch locally:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 493-follow-symlinks-without-asking").
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")).
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAcvqv2EdH5ejwfdf4")[Claude Code]]
+
+== Commits (1)
+<commits-1-241>
+- #link("https://github.com/siainbuletin/dotfiles/commit/45a1b8129011fa18e7440efb31708234e3e1e232")[45a1b81290]
+  🐛 Follow symlinks without asking when visiting a file (Claude,
+  2026-11-14 23:19)
+
+= PR \#494: ⚡ Do not start the report mode again on every redraw of a batch report
+<pr-494-do-not-start-the-report-mode-again-on-every-redraw-of-a-batch-report>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/494")[#link("https://github.com/siainbuletin/dotfiles/pull/494")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-14 23:25
+/ Merged: 2026-11-14 23:29
+/ Branch: #raw(lang:"verbatim", "494-batch-report-fast-redraw") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/f955d167d45acd3b4c4c7a11022f573e4d37b472")[f955d167d4]
+/ Labels: bugfix, correction, needs-further-testing
+
+== Description
+<description-491>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23YPHZgtrQdmM3x3d757z7z")[project thread]]
+
+==== Summary
+<summary>
+- #strong[Problem (comment on \#487):] #raw(lang:"verbatim", "d") (drop)
+  in the author works report gets slow and the buffer hangs.
+  #raw(lang:"verbatim", "u") restore and #raw(lang:"verbatim", "g")
+  refresh took the same path.
+- #strong[Cause:] #raw(lang:"verbatim", "d"), #raw(lang:"verbatim", "u")
+  and #raw(lang:"verbatim", "g") draw the whole report again through
+  #raw(lang:"verbatim", "sp-batch-report-open"), which called the mode
+  function every time. That re-runs #raw(lang:"verbatim", "org-mode")
+  over the whole old buffer: all of
+  #raw(lang:"verbatim", "org-mode-hook")
+  (#raw(lang:"verbatim", "org-indent-mode"),
+  #raw(lang:"verbatim", "org-num-mode"),
+  #raw(lang:"verbatim", "org-table-widget-mode"), cite hover, …), reset
+  of buffer state, then the buffer is erased and filled. Before \#492
+  the table widget also laid out every table again on each of those.
+- #strong[Fix:] #raw(lang:"verbatim", "sp-batch-report-open") starts the
+  mode only when the buffer is not in it yet. Same for every other
+  report that uses it (litnote titles, tag lint, footnote lint,
+  normalise, notes filing …). The buffer-local state is set afterwards
+  as before.
+- Also: a table cell is only escaped when it holds
+  #raw(lang:"verbatim", "|") or a newline (the common case did two
+  regexp passes per cell).
+- #strong[Not done, on purpose:] editing only the affected row and table
+  in place. After this change the redraw is a plain text rebuild; a
+  local edit would be a larger change and a new UI that renders reports
+  as a #raw(lang:"verbatim", "vulpea-ui-schema-dashboard") style
+  special-mode buffer is being worked on in another thread, which may
+  replace this Org renderer and supersede this PR.
+- Docs are bullet lists (#raw(lang:"verbatim", "sp-batch-report.org"));
+  #raw(lang:"verbatim", ".el") matches.
+  #raw(lang:"verbatim", "when-let*") only; no CHANGELOG edit.
+
+==== Timings (Emacs 29.3 batch, synthetic data, byte-compiled code, #raw(lang:"verbatim", "org-indent-mode") and #raw(lang:"verbatim", "org-num-mode") in #raw(lang:"verbatim", "org-mode-hook")\; one drop = #raw(lang:"verbatim", "sp-batch-report-drop") + redisplay + font-lock of the first 20k characters)
+<timings-emacs-293-batch-synthetic-data-byte-compiled-code-org-indent-mode-and-org-num-mode-in-org-mode-hook-one-drop--sp-batch-report-drop--redisplay--font-lock-of-the-first-20k-characters>
+#figure(
+  align(center)[#table(
+    columns: 3,
+    align: (auto,auto,auto,),
+    table.header([Report size], [Drop before], [Drop after],),
+    table.hline(),
+    [100 tables, 1000 rows], [0.04 to 0.11 s], [0.02 to 0.07 s],
+    [300 tables, 6000 rows], [0.34 to 0.49 s], [0.11 to 0.27 s],
+    [300 tables, restore], [0.42 s], [0.35 s],
+    [120 tables with the table widget #strong[on]
+    (#raw(lang:"verbatim", "sp-batch-report-table-widgets") t)], [3.4 to
+    4.3 s], [1.4 to 1.6 s],
+  )]
+  , kind: table
+  )
+
+- With your real hooks (org-modern, vulpea, cite hover, …) the avoided
+  mode run costs more than in these runs, but I could not measure that:
+  no access to your machine. Please time a drop on your side.
+- The text rebuild is now the bulk of what is left (about 0.1 s for 6000
+  rows compiled).
+- #strong[Tests:] #raw(lang:"verbatim", "sp-batch-report-test") 24 pass
+  (1 new: the mode and its hook run once for several draws, a different
+  #raw(lang:"verbatim", ":mode") still starts),
+  #raw(lang:"verbatim", "sp-author-notes-bibtex-test") 16 pass.
+
+==== Manual testing
+<manual-testing>
+- ☒
+  #raw(lang:"verbatim", "cd ~/dotfiles; git fetch origin 494-batch-report-fast-redraw; git checkout 494-batch-report-fast-redraw"),
+  restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☒ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex")\; press
+  #raw(lang:"verbatim", "d") on several entries one after another: each
+  drop is quick, no hang, point stays on the same line
+- ☒ #raw(lang:"verbatim", "u") on a dropped entry, and
+  #raw(lang:"verbatim", "g"): both quick; dropped entries stay dropped
+  after #raw(lang:"verbatim", "g")
+- ☒ Drop 20 or more entries: the time per drop does not grow
+- ☒ Another report
+  (#raw(lang:"verbatim", "M-x sp-litnotes-titles-dryrun") or the tag
+  lint): #raw(lang:"verbatim", "d"), #raw(lang:"verbatim", "u"),
+  #raw(lang:"verbatim", "g"), #raw(lang:"verbatim", "A") still work and
+  the hints stay in the echo area
+- ☐ A report that opens in its own mode (footnote lint, tag lint
+  #raw(lang:"verbatim", "a") key) still has its keys after a redraw
+- ☐ Optional: #raw(lang:"verbatim", "M-x profiler-start"), drop an
+  entry, #raw(lang:"verbatim", "M-x profiler-report"), and send me the
+  top entries if it is still slow
+
+- Discard local edits:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .")
+- Back to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main"),
+  then #raw(lang:"verbatim", "git -C ~/dotfiles pull")
+- Optionally
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 494-batch-report-fast-redraw")
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules"))
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiAF6gJZsaMTJLEA9cM")[Claude Code]]
+
+== Commits (1)
+<commits-1-242>
+- #link("https://github.com/siainbuletin/dotfiles/commit/8c2b40c619889f3bdbe1e27d957143bb4ba30db2")[8c2b40c619]
+  ⚡ Do not start the report mode again on every redraw of a batch
+  report (Claude, 2026-11-14 23:25)
+
+= PR \#495: ✨ Tile Emacs frames in AeroSpace, keep quick capture floating
+<pr-495-tile-emacs-frames-in-aerospace-keep-quick-capture-floating>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/495")[#link("https://github.com/siainbuletin/dotfiles/pull/495")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 01:53
+/ Merged: 2026-11-15 10:59
+/ Branch: #raw(lang:"verbatim", "495-tile-emacs-frames-aerospace") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/0171cf53d0dec30d1bf9790495ff638fcedc03fe")[0171cf53d0]
+/ Labels: bugfix, follow-up-pr-needed, needs-further-testing,
+    check-later
+
+== Description
+<description-492>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2QaT2HKFAS5qjaYzA8ioqLq")[project thread]]
+
+==== Summary
+<summary>
+- Relaunched Emacs often opens a small frame that AeroSpace leaves
+  floating.
+- Likely cause: #raw(lang:"verbatim", "sp-frame.el") sets
+  #raw(lang:"verbatim", "(undecorated . t)") in
+  #raw(lang:"verbatim", "default-frame-alist"), and AeroSpace may not
+  treat undecorated windows as standard.
+- Adds an #raw(lang:"verbatim", "[[on-window-detected]]") rule for
+  #raw(lang:"verbatim", "org.gnu.Emacs") with
+  #raw(lang:"verbatim", "layout tiling").
+- Only the first matching rule runs, so a rule before it keeps the
+  #raw(lang:"verbatim", "quick-capture") popup floating.
+- No Emacs frame settings changed.
+- Documented in #raw(lang:"verbatim", "aerospace.org"), section \"Emacs
+  frames tile\".
+- No CHANGELOG edit (the nightly tidy owns it; this belongs in the
+  global one).
+
+==== Not verified
+<not-verified>
+- The Mac was not reachable from the cloud session, so the app id
+  #raw(lang:"verbatim", "org.gnu.Emacs") and the floating layout were
+  not checked on the device.
+- First check:
+  #raw(lang:"verbatim", "aerospace list-windows --all --format '%{app-bundle-id} %{window-layout} %{window-title}'").
+- If the id differs, change it in both rules.
+
+==== Manual testing
+<manual-testing>
+- ☒ #raw(lang:"verbatim", "aerospace reload-config") shows no error
+- ☐ Quit and relaunch Emacs several times: the first frame tiles to the
+  side
+- ☒ New frame with #raw(lang:"verbatim", "C-x 5 2") tiles
+- ☐ vulpea-ui view frame (#raw(lang:"verbatim", "M-o v")) tiles
+- ☐ Quick capture frame stays floating
+- ☐ Other apps are not affected
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCdojFnPgFvFm1dj4R")[Claude Code]]
+
+== Commits (1)
+<commits-1-243>
+- #link("https://github.com/siainbuletin/dotfiles/commit/a938f5df27ff968ddd86c38fc68b30001cb83cc9")[a938f5df27]
+  ✨ Tile Emacs frames in AeroSpace, keep quick capture floating
+  (Claude, 2026-11-15 01:53)
+
+= PR \#496: ✨ Merge variants of one author in sp-bibtex-lint-fix-authors
+<pr-496-merge-variants-of-one-author-in-sp-bibtex-lint-fix-authors>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/496")[#link("https://github.com/siainbuletin/dotfiles/pull/496")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 01:55
+/ Merged: 2026-11-15 10:17
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-ti8dcv") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/2a16ae8831c6232d4f6c724bc40e665c101b0fc6")[2a16ae8831]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-493>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Nj63G7ZhArAdRaWCoEmS1p")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent of the open PRs; touches only
+  #raw(lang:"verbatim", "sp-bibprocess") (docs in
+  #raw(lang:"verbatim", "sp-academic.org"), tangled
+  #raw(lang:"verbatim", ".el"), tests).
+- It does not change #raw(lang:"verbatim", "sp-batch-report"), so it
+  should not conflict with the batch-report rebuild; the report section
+  is plain Org text added next to the existing ones.
+
+==== What
+<what>
+- Adds step 4 to #raw(lang:"verbatim", "sp-bibtex-lint-fix-authors"),
+  also #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-merge") and \"merge
+  author names\" in #raw(lang:"verbatim", "sp-bibtex-lint-convert").
+- Finds variants of one person in the #raw(lang:"verbatim", ".bib")
+  file: same surname (accents, case, braces, dots ignored) and given
+  names that fit name by name (#raw(lang:"verbatim", "Hegel, G. W. F.")
+  \/ #raw(lang:"verbatim", "Hegel, Georg Wilhelm Friedrich"),
+  #raw(lang:"verbatim", "Müller") / #raw(lang:"verbatim", "Muller")),
+  using the matching of the litnote autofill.
+- A name that fits two names that do not fit each other
+  (#raw(lang:"verbatim", "Hegel, G.") for Georg and Gottfried) is never
+  merged, only listed.
+- Proposed name: an author-note name if a variant is one, else most
+  spelled-out given names, then most used.
+- Dry run: #raw(lang:"verbatim", "sp-bibtex-lint-dryrun") has a new
+  section \"Variants of one author\" with the groups, counts and
+  proposed name; nothing is written.
+- Fix: shows the groups, asks for each (RET proposed, edit,
+  #raw(lang:"verbatim", "-") skip, #raw(lang:"verbatim", "C-g") stop),
+  one yes-or-no question, backup, one write.
+- Only names are replaced in #raw(lang:"verbatim", "author") and
+  #raw(lang:"verbatim", "editor"): order, #raw(lang:"verbatim", "and")
+  separators, quotes or braces and other names stay. Entries with a
+  comment inside are left alone.
+- Author notes and litnotes are not touched (separate optional step).
+
+==== Not done / notes
+<not-done--notes>
+- Spelling variants such as #raw(lang:"verbatim", "Smyth") stay with the
+  existing note-typo step.
+- The report section scans the file synchronously, so the dry run may
+  pause on a very large #raw(lang:"verbatim", ".bib").
+- Branch is #raw(lang:"verbatim", "claude/project-thread-ti8dcv"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+- Tests: 78 pass in batch Emacs 29.3
+  (#raw(lang:"verbatim", "tests/sp-bibprocess-lint-test.el"), 5 new).
+  Not run on the real #raw(lang:"verbatim", ".bib") files.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-dryrun") on a real
+  #raw(lang:"verbatim", ".bib"): section \"Variants of one author\"
+  lists plausible groups, with the proposed name first
+- ☐ Check a group that should not merge (two people with the same
+  surname and initial) is absent or listed as \"not merged\"
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-merge"): accept one
+  group, edit the name of another, skip a third with
+  #raw(lang:"verbatim", "-")
+- ☐ After the write, #raw(lang:"verbatim", "git diff") of the
+  #raw(lang:"verbatim", ".bib") shows only names replaced, same author
+  order, same #raw(lang:"verbatim", "and") separators, braces intact
+- ☐ Entries with a comment inside are unchanged
+- ☐ A backup copy exists in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory")
+- ☐ #raw(lang:"verbatim", "C-g") during the questions leaves the file
+  unchanged
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-authors") runs the
+  four earlier steps and then the merge step
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiD4sbuQPYY3vLSVmkK")[Claude Code]]
+
+== Commits (1)
+<commits-1-244>
+- #link("https://github.com/siainbuletin/dotfiles/commit/99f42e1a2ee8b9651559dfbf93e33c6472a3fd71")[99f42e1a2e]
+  ✨ Merge variants of one author in sp-bibtex-lint-fix-authors (Claude,
+  2026-11-15 01:55)
+
+= PR \#497: 📝 Document the current state of the DEVONthink integration
+<pr-497-document-the-current-state-of-the-devonthink-integration>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/497")[#link("https://github.com/siainbuletin/dotfiles/pull/497")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 01:56
+/ Merged: 2026-11-15 09:58
+/ Branch: #raw(lang:"verbatim", "497-devonthink-docs-current-state") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/1605dda568ebfdc642863678becaeae00f6f8982")[1605dda568]
+/ Labels: documentation, needs-further-testing
+
+== Description
+<description-494>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2VYqMS7K4Fjg3scyUvmRDty")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") (at
+  #raw(lang:"verbatim", "b09d4e0")); docs only, no code and no tangled
+  block changed, no CHANGELOG edit.
+- Conflicts with \#419 (open): it rewrites the top of
+  #raw(lang:"verbatim", "sp-devonthink.org") and moves the DEVONthink
+  docs to #raw(lang:"verbatim", "docs/tangles/devonthink/").
+  - Merge this one first, or keep my \"Current state\" section and the
+    new #raw(lang:"verbatim", "Overview") bullets when resolving.
+  - The section\'s relative links
+    (#raw(lang:"verbatim", "file:sp-reading.org") etc.) work in
+    #raw(lang:"verbatim", "docs/tangles/academic/")\; after \#419\'s
+    move the links to non-DEVONthink docs need
+    #raw(lang:"verbatim", "../academic/").
+- After merging: nothing to retarget.
+
+==== What changed
+<what-changed>
+- #raw(lang:"verbatim", "sp-devonthink.org"): new section
+  #strong[Current state], as bullets and tables:
+  - what exists and which PR delivered it (\#414, \#415, \#418, \#441,
+    \#454 and follow-ups, \#460, \#449, \#444);
+  - what each module does, in a few bullets;
+  - all keys under the unified leader
+    (#raw(lang:"verbatim", "C-; k d …"),
+    #raw(lang:"verbatim", "C-; B a"), #raw(lang:"verbatim", "C-; k l"),
+    #raw(lang:"verbatim", "C-; E")), the Embark record actions, and the
+    removal of #raw(lang:"verbatim", "C-c k d") (\#484, \#489);
+  - options per module, including
+    #raw(lang:"verbatim", "sp-fetch-inbox-profile") and the
+    #raw(lang:"verbatim", "DT_OPEN_*") settings
+    (#raw(lang:"verbatim", "DT_OPEN_RAISE") =
+    #raw(lang:"verbatim", "window"), #raw(lang:"verbatim", "app") or
+    #raw(lang:"verbatim", "none"));
+  - the Hammerspoon highlight keys of #raw(lang:"verbatim", "b09d4e0")
+    (no PR);
+  - open PRs not on #raw(lang:"verbatim", "main") (\#419, \#420, \#421,
+    \#451, \#443, \#455) and the closed \#452, which is not described as
+    a feature;
+  - known limitations and what is untested.
+- Top of #raw(lang:"verbatim", "sp-devonthink.org"): status line and
+  intro updated; the link to the older
+  #raw(lang:"verbatim", "devonthink-emacs-integration.org") is kept,
+  plus a link to it at #raw(lang:"verbatim", "c0188a9f").
+- #raw(lang:"verbatim", "sp-devonthink-{browse,tags,search,bibsync}.org"):
+  one bullet pointing to \"Current state\"; bibsync now says \#455 is
+  not on #raw(lang:"verbatim", "main").
+- #raw(lang:"verbatim", "README.org"):
+  #raw(lang:"verbatim", "sp-devonthink") row extended, and a short
+  DEVONthink bullet list under the #raw(lang:"verbatim", "academic/")
+  table.
+
+==== Not done or not checked
+<not-done-or-not-checked>
+- No Emacs in the container:
+  #raw(lang:"verbatim", "tools/check-tangle.sh") could not run. No
+  #raw(lang:"verbatim", "emacs-lisp") block was edited, so the tangled
+  #raw(lang:"verbatim", ".el") files should still match.
+- The module code and PR texts were read, not run; \"untested\" lists
+  repeat what the module docs and PR bodies say, not Sia\'s manual test
+  results.
+- The Hammerspoon file\'s header comment says
+  #raw(lang:"verbatim", "Cmd+Option+Space")\; the code binds
+  #raw(lang:"verbatim", "Cmd+Ctrl+Alt+H"). The doc follows the code.
+
+==== Manual testing
+<manual-testing>
+- ☐ Open #raw(lang:"verbatim", "sp-devonthink.org"), section \"Current
+  state\": follow the links to the module docs,
+  #raw(lang:"verbatim", "devonthink-open/README.org") and the c0188a9f
+  link.
+- ☐ In #raw(lang:"verbatim", "README.org"), follow the \"Current state\"
+  link under the #raw(lang:"verbatim", "academic/") table.
+- ☐ #raw(lang:"verbatim", "bash tools/check-tangle.sh") still says all
+  modules match their docs.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiB8aYxfMBuTwtyuJV6")[Claude Code]]
+
+== Commits (1)
+<commits-1-245>
+- #link("https://github.com/siainbuletin/dotfiles/commit/ee92f66ab47589d5fa0dc0bd1268c5715cda3982")[ee92f66ab4]
+  📝 Document the current state of the DEVONthink integration (Claude,
+  2026-11-15 01:56)
+
+= PR \#498: ✨ Show the batch reports in a special-mode dashboard, drop in place
+<pr-498-show-the-batch-reports-in-a-special-mode-dashboard-drop-in-place>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/498")[#link("https://github.com/siainbuletin/dotfiles/pull/498")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 02:03
+/ Merged: 2026-11-15 10:31
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-4a39fy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/145c44b4e87c031844e18e28bc93139d64a7d2bc")[145c44b4e8]
+/ Labels: new-feature, needs-further-testing, check-NOW
+
+== Description
+<description-495>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NbtoxptncnUmZRtU5iK66L")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") at
+  #raw(lang:"verbatim", "28748be") (after \#492).
+- Touches #raw(lang:"verbatim", "sp-batch-report"), a new
+  #raw(lang:"verbatim", "sp-batch-report-view"), and the fix commands of
+  #raw(lang:"verbatim", "sp-bibprocess") (docs in
+  #raw(lang:"verbatim", "sp-academic.org")).
+- Conflicts with \#496 are possible in
+  #raw(lang:"verbatim", "sp-bibprocess.el") /
+  #raw(lang:"verbatim", "sp-academic.org"): both edit
+  #raw(lang:"verbatim", "sp-bibtex-lint-fix-authors") (\#496 adds a step
+  to the chain; this PR wraps the chain in a report).
+  - Merge \#496 first, then re-wrap its new step inside
+    #raw(lang:"verbatim", "sp-bibtex-lint--fix-report")\'s apply
+    function; or this one first and \#496 resolves the same hunk.
+- \#491 (abstract mover) and \#476 (echo-help) do not touch these
+  functions; no conflict seen.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-4a39fy"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia (same as \#496).
+- Not found: another open PR for the slow drop in the Org table report.
+  This PR makes drop local in the new view; the Org view keeps its old
+  (slow) behaviour.
+
+==== What changed (stage 1)
+<what-changed-stage-1>
+- New #raw(lang:"verbatim", "sp-batch-report-view") (literate doc
+  #raw(lang:"verbatim", "docs/tangles/funct/sp-batch-report-view.org")):
+  the default view, a #raw(lang:"verbatim", "special-mode") buffer in
+  the style of #raw(lang:"verbatim", "vulpea-ui-schema-dashboard").
+  - Folding sections (#raw(lang:"verbatim", "TAB"),
+    #raw(lang:"verbatim", "S-TAB")) with the count at the window edge (a
+    #raw(lang:"verbatim", "display") #raw(lang:"verbatim", ":align-to"),
+    so it stays aligned on resize).
+  - One row per entry; file and Org links become labels; table sections
+    have aligned columns; header line shows sections, entries, dropped.
+  - Items can carry an #raw(lang:"verbatim", ":action") (RET runs it).
+  - No new package: #raw(lang:"verbatim", "vui.el") re-renders a tree on
+    every change, which is what made drop slow.
+- #raw(lang:"verbatim", "d") / #raw(lang:"verbatim", "u") only restyle
+  the rows with that key (text properties and one fixed-width count);
+  the report is not made again, the buffer size does not change,
+  #raw(lang:"verbatim", "g") and #raw(lang:"verbatim", "A") still get
+  the dropped keys.
+- #raw(lang:"verbatim", "sp-batch-report-display")
+  (#raw(lang:"verbatim", "special") default,
+  #raw(lang:"verbatim", "org")): the Org buffer stays as
+  #raw(lang:"verbatim", "sp-batch-report-org-mode").
+  - Reports still built as Org text (BibTeX lint report, litnote
+    titles/refs/meta, notes filing, property preview) open in it, with
+    the keys of their own mode merged in.
+  - #raw(lang:"verbatim", "sp-batch-report-buffer-p") says whether a
+    buffer is a report in either view.
+- Every #raw(lang:"verbatim", "sp-bibtex-lint-fix-*") command
+  (#raw(lang:"verbatim", "order"), #raw(lang:"verbatim", "indent"),
+  #raw(lang:"verbatim", "prefixes"), #raw(lang:"verbatim", "authors"),
+  #raw(lang:"verbatim", "files"), #raw(lang:"verbatim", "crossref"),
+  #raw(lang:"verbatim", "keys")) now opens the shared report first: drop
+  (#raw(lang:"verbatim", "d")), restore (#raw(lang:"verbatim", "u")),
+  refresh (#raw(lang:"verbatim", "g")), apply
+  (#raw(lang:"verbatim", "A")) and stop (#raw(lang:"verbatim", "k"))
+  work in all of them.
+  - Dropped entries are kept per fix
+    (#raw(lang:"verbatim", "FILE::KEY#order"), …); the author fixes keep
+    their old shared key, so existing dropped lists still work.
+  - #raw(lang:"verbatim", "A") runs the previous flow (confirmation or
+    batches, backup, one write) on what is left.
+- Keys unchanged (#raw(lang:"verbatim", "RET"),
+  #raw(lang:"verbatim", "n=/=p"), #raw(lang:"verbatim", "d"),
+  #raw(lang:"verbatim", "u"), #raw(lang:"verbatim", "A"),
+  #raw(lang:"verbatim", "g"), #raw(lang:"verbatim", "b"),
+  #raw(lang:"verbatim", "D"), #raw(lang:"verbatim", "k"),
+  #raw(lang:"verbatim", "q"), echo-area hints), plus
+  #raw(lang:"verbatim", "TAB=/=S-TAB")\; #raw(lang:"verbatim", "n=/=p")
+  now move between entries.
+
+==== Stages not done yet (next PRs)
+<stages-not-done-yet-next-prs>
+- Convert the reports still built as Org text to sections of items: the
+  BibTeX lint report (with fix buttons as
+  #raw(lang:"verbatim", ":action") items), litnote titles, references,
+  meta fill-all, notes filing, property preview.
+- Replace the batch prompt (#raw(lang:"verbatim", "a/g/s/q")) of the fix
+  commands by progress in the report.
+- #raw(lang:"verbatim", "d") on a section header to drop a whole group.
+- Fix the same slow drop in the Org view only if it is kept.
+
+==== Measured (batch Emacs 29.3, cloud container, no Org loaded)
+<measured-batch-emacs-293-cloud-container-no-org-loaded>
+- 4000 rows in 400 sections: drawn in 0.08 to 0.1 s.
+- 4800 rows in 300 sections with links and children: 0.15 s.
+- 200 drops: 4 ms in total.
+- Not measured: the Org view for comparison (Org cannot load in the
+  container), the real vault, the GUI.
+
+==== Tests
+<tests>
+- New #raw(lang:"verbatim", "tests/sp-batch-report-view-test.el") (12,
+  one skipped without Org) and 3 new tests in
+  #raw(lang:"verbatim", "sp-bibprocess-lint-test.el")\; the fix tests
+  now press #raw(lang:"verbatim", "A") in the report.
+- The Org-text tests of Zotero and
+  #raw(lang:"verbatim", "table-section") run with
+  #raw(lang:"verbatim", "sp-batch-report-display")
+  #raw(lang:"verbatim", "org").
+- Compared with a baseline on #raw(lang:"verbatim", "main") in the same
+  container: no new failures. About 13 tests of
+  #raw(lang:"verbatim", "sp-bibprocess-lint-test.el") and others still
+  fail here as on #raw(lang:"verbatim", "main"), because Org cannot load
+  in the container (missing packages); they need a run on the Mac.
+- #raw(lang:"verbatim", "tools/check-tangle.sh") logic checked by
+  tangling: the touched #raw(lang:"verbatim", ".el") files match their
+  docs (the existing drift of
+  #raw(lang:"verbatim", "sp-litnotes-meta.el") is not mine).
+
+==== Manual testing
+<manual-testing>
+- ☒ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex") on the real
+  vault: opens the dashboard, #raw(lang:"verbatim", "TAB") folds a
+  section, #raw(lang:"verbatim", "S-TAB") folds all, count at the right
+  edge
+- ☒ #raw(lang:"verbatim", "d") on a few rows: row struck through at
+  once, section count #raw(lang:"verbatim", "N of M"), header line
+  \"dropped\" grows, no pause; #raw(lang:"verbatim", "u") restores
+- ☒ #raw(lang:"verbatim", "g") keeps the folded sections and the dropped
+  rows
+- ☒ #raw(lang:"verbatim", "RET") on a file label visits it;
+  #raw(lang:"verbatim", "o"), #raw(lang:"verbatim", "c"),
+  #raw(lang:"verbatim", "C") of the author works report still work
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-authors") (and
+  #raw(lang:"verbatim", "-order"), #raw(lang:"verbatim", "-indent"),
+  #raw(lang:"verbatim", "-prefixes"), #raw(lang:"verbatim", "-files"),
+  #raw(lang:"verbatim", "-crossref"), #raw(lang:"verbatim", "-keys")):
+  the report lists candidates, nothing is written;
+  #raw(lang:"verbatim", "d") one, #raw(lang:"verbatim", "g"), then
+  #raw(lang:"verbatim", "A") leaves the dropped one alone
+- ☐ #raw(lang:"verbatim", "k") stops a running lint job from the report
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-dryrun") and the litnote
+  reports still open (in the Org view) with their keys
+- ☐ #raw(lang:"verbatim", "(setq sp-batch-report-display 'org)") brings
+  the Org view back for the model-based reports
+- ☐ Large report (hundreds of sections): drawing time and a run of
+  #raw(lang:"verbatim", "d d d") feel instant; paste the numbers here
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS")[Claude Code]]
+
+== Commits (2)
+<commits-2-112>
+- #link("https://github.com/siainbuletin/dotfiles/commit/163a7b748723cd96cf215c5612dff3c2c94aa3d7")[163a7b7487]
+  ✨ Show the batch reports in a special-mode dashboard, drop in place
+  (Claude, 2026-11-15 02:03)
+- #link("https://github.com/siainbuletin/dotfiles/commit/9b6964f8d065251c1be2d6d3a2b09a2d703f7bcb")[9b6964f8d0]
+  🔧 Merge main into the batch report dashboard branch (Claude,
+  2026-11-15 10:29)
+
+= PR \#499: 🔧 Move DEVONthink highlight keys to the Caps Lock layer
+<pr-499-move-devonthink-highlight-keys-to-the-caps-lock-layer>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/499")[#link("https://github.com/siainbuletin/dotfiles/pull/499")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 09:50
+/ Merged: 2026-11-15 09:58
+/ Branch: #raw(lang:"verbatim", "499-devonthink-highlight-keys") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/ba368f2793ee217ce3e6f8e62788da043377a883")[ba368f2793]
+/ Labels: correction, does-what-it-should
+
+== Description
+<description-496>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; builds on b09d4e0 (already on
+  #raw(lang:"verbatim", "main")).
+- Needs #raw(lang:"verbatim", "aerospace-keys.lua") (Caps Lock layer) to
+  load first; it does, in #raw(lang:"verbatim", "init.lua").
+
+==== What changes
+<what-changes>
+- Replaces the global Cmd+Ctrl+Option+H leader (and its Cmd+Option+Space
+  comment) in
+  #raw(lang:"verbatim", "hammerspoon/.config/hammerspoon/devonthink.lua").
+- #raw(lang:"verbatim", "Caps+x"): Tools \> Annotate \> Highlight Text.
+- #raw(lang:"verbatim", "Caps+c"): next colour (Yellow, Red, Green,
+  Blue), then highlight again.
+- Keys act only when DEVONthink 3 or 4 is frontmost; elsewhere they do
+  nothing.
+- The activation watcher is removed: highlight mode starts only when you
+  press the key.
+
+==== Why these keys
+<why-these-keys>
+- The layer never reaches Emacs and uses no Option, Cmd+Space or
+  Ctrl+Space chord.
+- #raw(lang:"verbatim", "x") and #raw(lang:"verbatim", "c") are free in
+  the layer (used: h/j/k/l, 1-9, a, b, d, e, m, t, w,
+  #raw(lang:"verbatim", "/"), #raw(lang:"verbatim", ","), tab, return,
+  escape).
+- A native App Shortcut did not work, so no DEVONthink-side setup is
+  needed.
+
+==== Manual testing
+<manual-testing>
+- ☒ Reload Hammerspoon: no error in the console.
+- ☒ In DEVONthink with a PDF open, select text, hold Caps and press
+  #raw(lang:"verbatim", "x"): text is highlighted.
+- ☒ Press Caps+=c= repeatedly: colour cycles Yellow, Red, Green, Blue
+  and highlights.
+- ☒ Switch to DEVONthink: nothing is highlighted automatically.
+- ☒ In another app, Caps+=x= and Caps+=c= do nothing.
+- ☒ Existing Caps+h/j/k/l and workspace keys still work.
+- ☒ If \"Menu item not found\" appears, check the exact Tools \>
+  Annotate and Format \> Highlight Color names in DEVONthink.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (1)
+<commits-1-246>
+- #link("https://github.com/siainbuletin/dotfiles/commit/342bc930d4b33ec00b0329ded212cb813d1c6f2c")[342bc930d4]
+  🔧 Move DEVONthink highlight keys to the Caps Lock layer (Sia Piperea,
+  2026-11-15 09:49)
+
+= PR \#500: 🔧 Merge DEVONthink search into sp-devonthink-browse
+<pr-500-merge-devonthink-search-into-sp-devonthink-browse>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/500")[#link("https://github.com/siainbuletin/dotfiles/pull/500")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:00
+/ Merged: 2026-11-15 10:10
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-rex2wj") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/47847e548258d7eaf9e9af4a55cbffc13adc8650")[47847e5482]
+/ Labels: simplifying, needs-further-testing, check-NOW
+
+== Description
+<description-497>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2KPRRzem8yYfc5PawUUApJv")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") at
+  #raw(lang:"verbatim", "ba368f27") (after \#497 and \#499); independent
+  of the open PRs.
+- Docs of the DEVONthink modules are also touched by \#419 (open, moves
+  them to #raw(lang:"verbatim", "docs/tangles/devonthink/")); whichever
+  merges second resolves the moved/deleted
+  #raw(lang:"verbatim", "sp-devonthink-search.org").
+- The history entries in the docs name this PR as \#500.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-rex2wj"): the
+  cloud proxy cannot create the number-prefixed branch, so it needs the
+  prefix from Sia.
+
+==== What changed
+<what-changed>
+- #raw(lang:"verbatim", "sp-devonthink-browse") and
+  #raw(lang:"verbatim", "sp-devonthink-search") did the same job (same
+  candidates, category and Embark actions; pick a record and open it),
+  so they are now one module and one command.
+- Module #raw(lang:"verbatim", "sp-devonthink-browse")
+  (#raw(lang:"verbatim", ".el"), doc, tests) now holds everything;
+  #raw(lang:"verbatim", "sp-devonthink-search") (module, doc, tests) is
+  removed and no longer required by
+  #raw(lang:"verbatim", "sp-academic"). No shims.
+- Command #raw(lang:"verbatim", "sp-devonthink-browse")
+  (#raw(lang:"verbatim", "C-; k d f")):
+  - empty query: the record list, grouped by DEVONthink group, cached;
+  - a query: DEVONthink search; #raw(lang:"verbatim", "C-u") chooses the
+    engine (DEVONthink or litdb);
+  - empty query with a litdb engine:
+    #raw(lang:"verbatim", "user-error \"litdb needs a query\"").
+- Also moved in: #raw(lang:"verbatim", "sp-devonthink-similar"),
+  #raw(lang:"verbatim", "-similar-to-note")
+  (#raw(lang:"verbatim", "C-; k d a")),
+  #raw(lang:"verbatim", "sp-devonthink-preview"), and Embark
+  #raw(lang:"verbatim", "s") and #raw(lang:"verbatim", "v").
+- Renamed:
+  - options #raw(lang:"verbatim", "sp-devonthink-search-limit") and
+    #raw(lang:"verbatim", "-preview-chars") are now
+    #raw(lang:"verbatim", "sp-devonthink-browse-limit") and
+    #raw(lang:"verbatim", "-preview-chars")\;
+  - the internal #raw(lang:"verbatim", "sp-devonthink-search--*")
+    functions are now #raw(lang:"verbatim", "sp-devonthink-browse--*")
+    (the rank-ordered table is #raw(lang:"verbatim", "--ranked-table")).
+- Removed: the key #raw(lang:"verbatim", "C-; k d b") (the old
+  #raw(lang:"verbatim", "sp-devonthink-browse") command was the same as
+  #raw(lang:"verbatim", "C-; k d f") with an empty query).
+- Docs (bullets): the two pages are merged into
+  #raw(lang:"verbatim", "sp-devonthink-browse.org") (history entries for
+  \#415, \#418, \#453, \#454, \#500);
+  #raw(lang:"verbatim", "sp-devonthink.org"),
+  #raw(lang:"verbatim", "sp-fetch-inbox.org"),
+  #raw(lang:"verbatim", "sp-academic.org") and
+  #raw(lang:"verbatim", "README.org") updated.
+  #raw(lang:"verbatim", "CHANGELOG.org") not edited.
+- Tests: the search tests are in
+  #raw(lang:"verbatim", "tests/sp-devonthink-browse-test.el") (renamed),
+  plus new ones: empty query browses, litdb with empty query errors,
+  merged command and keys.
+
+==== Not done or not checked
+<not-done-or-not-checked>
+- No Emacs in the container: the tests and
+  #raw(lang:"verbatim", "tools/check-tangle.sh") were not run. I checked
+  by script that the #raw(lang:"verbatim", "emacs-lisp") blocks of the
+  doc equal the #raw(lang:"verbatim", ".el") (ignoring blank lines) and
+  that the parentheses balance.
+- The DEVONthink JavaScript is unchanged.
+- The key stays #raw(lang:"verbatim", "f") (not
+  #raw(lang:"verbatim", "b")); say if you want
+  #raw(lang:"verbatim", "C-; k d b") for browse.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "C-; k d f"), press
+  #raw(lang:"verbatim", "RET") on an empty query: the record list
+  appears, grouped by DEVONthink group; choosing one opens it in
+  DEVONthink.
+- ☐ #raw(lang:"verbatim", "C-; k d f"), type a query (e.g.
+  #raw(lang:"verbatim", "kind:pdf value form")): ranked hits with kind
+  and page count, as before.
+- ☐ #raw(lang:"verbatim", "C-u C-; k d f"), choose a litdb engine, type
+  a query: litdb search runs; with an empty query you get \"litdb needs
+  a query\".
+- ☐ Embark on a record from either list:
+  #raw(lang:"verbatim", "o p n l t s v") work
+  (#raw(lang:"verbatim", "y") and #raw(lang:"verbatim", "f") too, from
+  bibsync and fetch-inbox).
+- ☐ #raw(lang:"verbatim", "C-; k d a") in a litnote lists similar
+  records.
+- ☐ #raw(lang:"verbatim", "C-; k d b") is unbound;
+  #raw(lang:"verbatim", "M-x sp-devonthink-search") does not exist;
+  Emacs starts with no error about a missing
+  #raw(lang:"verbatim", "sp-devonthink-search").
+- ☐ #raw(lang:"verbatim", "M-x sp-devonthink-browse-refresh"), then
+  #raw(lang:"verbatim", "C-; k d f") + #raw(lang:"verbatim", "RET"): the
+  new list is shown.
+- ☐ #raw(lang:"verbatim", "M-x ert") with
+  #raw(lang:"verbatim", "sp-devonthink"): all pass.
+
+🤖 Generated with
+#link("https://claude.ai/code/session_01WWLNi9s57TjxKDkAZRDQUU")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNi9s57TjxKDkAZRDQUU")
+
+== Commits (3)
+<commits-3-68>
+- #link("https://github.com/siainbuletin/dotfiles/commit/f0eb22053f7fdb654dbdd68db703f51c8729c5f4")[f0eb22053f]
+  🔧 Merge sp-devonthink-browse into sp-devonthink-search (Claude,
+  2026-11-15 09:59)
+- #link("https://github.com/siainbuletin/dotfiles/commit/b97d537cd96331e6c0006d72b72d1d6bb2895d1d")[b97d537cd9]
+  🔧 Keep the module header in the search doc (Claude, 2026-11-15 10:01)
+- #link("https://github.com/siainbuletin/dotfiles/commit/c9ba5b0c0ba7efd4ec64f05d1d3f7ab0cd9c756c")[c9ba5b0c0b]
+  🔧 Move the search module into sp-devonthink-browse (Claude,
+  2026-11-15 10:03)
+
+= PR \#501: 🐛 Find DEVONthink highlight colours by name prefix
+<pr-501-find-devonthink-highlight-colours-by-name-prefix>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/501")[#link("https://github.com/siainbuletin/dotfiles/pull/501")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:13
+/ Merged: 2026-11-15 10:15
+/ Branch: #raw(lang:"verbatim", "501-devonthink-colour-names") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/5169f8bb01607cb20c2fa04d8cb353a26649941c")[5169f8bb01]
+/ Labels: bugfix, does-what-it-should
+
+== Description
+<description-498>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; fixes the colour cycling added in \#499 (already merged).
+
+==== What changes
+<what-changes>
+- Your DEVONthink colour items have descriptions (\"Red - Important
+  point\"), so the exact titles Yellow, Red, Green, Blue were never
+  found.
+- #raw(lang:"verbatim", "Caps+c") now searches the Format menu for an
+  item whose title starts with the colour name.
+- Cycle order follows your menu: Red, Green, Blue, Yellow, Orange,
+  Purple, Grey.
+- If a colour is missing, an alert names the colour instead of a full
+  menu path.
+- Renaming a colour\'s description no longer breaks it; renaming its
+  first word does.
+
+==== Manual testing
+<manual-testing>
+- ☒ Reload Hammerspoon: no error in the console.
+- ☒ In DEVONthink, Caps+=c= repeatedly: the alert shows Red, Green,
+  Blue, Yellow, Orange, Purple, Grey, then Red again.
+- ☒ Each press changes the checked colour in the Format menu.
+- ☒ Select text in a PDF and press Caps+=c=: it highlights in the new
+  colour.
+- ☒ If \"No colour starting with …\" appears, tell me the Format menu
+  path of the colour list.
+- ☒ Caps+=x= still starts highlighting; both keys do nothing in other
+  apps.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (1)
+<commits-1-247>
+- #link("https://github.com/siainbuletin/dotfiles/commit/653661eb03c474b855fdce4bdc6f18990b17503c")[653661eb03]
+  🐛 Find DEVONthink highlight colours by name prefix (Sia Piperea,
+  2026-11-15 10:13)
+
+= PR \#502: ✨ Wrap the tables of the report dashboard to fit the window
+<pr-502-wrap-the-tables-of-the-report-dashboard-to-fit-the-window>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/502")[#link("https://github.com/siainbuletin/dotfiles/pull/502")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:41
+/ Merged: 2026-11-15 10:43
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-4a39fy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/456cd580b976f30b410073a5cd7ed2900969b4b1")[456cd580b9]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-499>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NbtoxptncnUmZRtU5iK66L")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#498; touches only
+  #raw(lang:"verbatim", "sp-batch-report-view") (doc, tangled
+  #raw(lang:"verbatim", ".el"), tests).
+- No conflict expected with the open PRs. The next conversions of the
+  other reports build on this, so merge this first.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-4a39fy"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- Table columns have a fixed width: as wide as the widest cell, at most
+  #raw(lang:"verbatim", "sp-batch-report-column-max-width") (40).
+  - The rest of a cell wraps inside its column, on the lines under it:
+    at spaces, a long word is cut; links and faces stay.
+- When the columns do not fit the window, the widest are narrowed first,
+  down to #raw(lang:"verbatim", "sp-batch-report-column-min-width") (8),
+  so no row runs off the window.
+- The width is counted in characters of the buffer\'s own text size, so
+  zooming the text counts too.
+- The tables are laid out again by themselves, with nothing to press:
+  - triggers: #raw(lang:"verbatim", "window-size-change-functions")
+    (frame resize, split),
+    #raw(lang:"verbatim", "window-configuration-change-hook"),
+    #raw(lang:"verbatim", "text-scale-mode-hook")\;
+  - it waits for 0.2 s idle, so dragging a frame edge draws once;
+    nothing happens when the width is unchanged or the report has no
+    table.
+- Drawing again keeps the folded sections, the dropped entries, the
+  point (same row, same offset) and the top line of each window.
+- A row is still one entry for #raw(lang:"verbatim", "n=/=p"),
+  #raw(lang:"verbatim", "d") and #raw(lang:"verbatim", "u").
+
+==== Measured (batch Emacs 29.3, container)
+<measured-batch-emacs-293-container>
+- 3000 table rows in 300 sections: first draw 0.50 s; draw again for a
+  new width 0.58 s (once, after the resize stops).
+- Not measured: the GUI (frame drag,
+  #raw(lang:"verbatim", "text-scale-adjust")).
+
+==== Tests
+<tests>
+- 6 new tests in
+  #raw(lang:"verbatim", "tests/sp-batch-report-view-test.el") (wrapping,
+  widths, wrapped table, layout again keeps state, scheduling, lists
+  need no layout); 17 pass, 1 skipped without Org.
+- Other test files: the only differences from before are Org-path tests
+  that fail in the container because #raw(lang:"verbatim", "goggles")
+  (loaded from #raw(lang:"verbatim", "org-mode-hook")) is missing; they
+  need a run on the Mac.
+
+==== Manual testing
+<manual-testing>
+- ☐ Open #raw(lang:"verbatim", "M-x sp-author-notes-bibtex") (tables):
+  long titles wrap inside the Title column
+- ☐ Drag the frame narrower and wider: tables re-wrap on their own,
+  after a short pause, with no key pressed
+- ☐ #raw(lang:"verbatim", "C-x C-+") / #raw(lang:"verbatim", "C-x C--")
+  (text scale): the tables re-wrap for the new size
+- ☐ Fold a section, drop a few rows, then resize: folds and drops are
+  kept and the point stays on its row
+- ☐ Split the window: the report in the narrower window re-wraps
+- ☐ A long list report (no table) does not flicker or re-draw on resize
+- ☐ Try
+  #raw(lang:"verbatim", "(setq sp-batch-report-column-max-width 25)")
+  and re-open: columns are narrower
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS")[Claude Code]]
+
+== Commits (1)
+<commits-1-248>
+- #link("https://github.com/siainbuletin/dotfiles/commit/4530363c053dcc8f0eda2902f532dd10dfd919d2")[4530363c05]
+  ✨ Wrap the tables of the report dashboard to fit the window (Claude,
+  2026-11-15 10:41)
+
+= PR \#503: ✨ Split BibTeX date fields into year and month (ISO and text)
+<pr-503-split-bibtex-date-fields-into-year-and-month-iso-and-text>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/503")[#link("https://github.com/siainbuletin/dotfiles/pull/503")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:42
+/ Merged: 2026-11-15 10:50
+/ Branch: #raw(lang:"verbatim", "503-bibtex-date-to-year") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/a52d7eb621f3122fa4d3e3d622664a8c290ddc10")[a52d7eb621]
+
+== Description
+<description-500>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW255SXr86d2fAJcCNAASjKPb")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#498 (the shared batch
+  report).
+- Touches #raw(lang:"verbatim", "sp-bibprocess") (doc, tangled
+  #raw(lang:"verbatim", ".el"), tests) and the
+  #raw(lang:"verbatim", "L b f") keys in
+  #raw(lang:"verbatim", "sp-keys"). Independent of \#502.
+- The other open PRs that edit the BibTeX lint code (the
+  #raw(lang:"verbatim", "sp-bibtex-lint--kinds") list,
+  #raw(lang:"verbatim", "sp-bibtex--entry-rewrites"), the report in
+  #raw(lang:"verbatim", "sp-bibtex-lint--render"),
+  #raw(lang:"verbatim", "sp-bibtex-lint-convert")) can conflict in those
+  few lines; keep both sides.
+
+==== What changed
+<what-changed>
+Two separate commands, in this order:
+
++ #raw(lang:"verbatim", "sp-bibtex-lint-fix-date")
+  (#raw(lang:"verbatim", "C-; L b f d")): the automatic one, ISO dates
+  only.
+  - #raw(lang:"verbatim", "{2021}") → `year = {2021}`
+  - #raw(lang:"verbatim", "{2021-05}") → #raw(lang:"verbatim", "year"),
+    `month = {5}`
+  - #raw(lang:"verbatim", "{2021-05-14}") →
+    #raw(lang:"verbatim", "year"), `month = {5}`\; the day is dropped
+    (and an existing #raw(lang:"verbatim", "day") field goes with it)
+  - the new fields take the place of #raw(lang:"verbatim", "date")\;
+    braces or quotes are kept
++ #raw(lang:"verbatim", "sp-bibtex-lint-fix-date-text")
+  (#raw(lang:"verbatim", "C-; L b f D")): run it after the first, for
+  the dates that one leaves.
+  - month as a word: #raw(lang:"verbatim", "May 14, 2021"),
+    #raw(lang:"verbatim", "14th May 2021"),
+    #raw(lang:"verbatim", "May. 2021"),
+    #raw(lang:"verbatim", "2021 Mai")\; month names in English, German,
+    French and Spanish
+    (#raw(lang:"verbatim", "sp-bibtex-date-month-names"))
+  - numbers: #raw(lang:"verbatim", "14.5.2021") and
+    #raw(lang:"verbatim", "14-5-2021") (day first),
+    #raw(lang:"verbatim", "5/14/2021"),
+    #raw(lang:"verbatim", "2021/5/14"),
+    #raw(lang:"verbatim", "2021-5-4")
+  - #raw(lang:"verbatim", "3/4/2021") (both numbers could be the month)
+    is reported and left, unless
+    #raw(lang:"verbatim", "sp-bibtex-date-numeric-order") is
+    #raw(lang:"verbatim", "day-first") or
+    #raw(lang:"verbatim", "month-first")\; a number over 12 settles it
+  - it also reads ISO dates, so on its own it does everything; after the
+    first it has only the rest
+
+Both:
+
+- #raw(lang:"verbatim", "\u{40}misc") entries
+  (#raw(lang:"verbatim", "sp-bibtex-date-keep-types")) are not touched:
+  their #raw(lang:"verbatim", "date") stays whole, with the day.
+- Never overwritten silently (entry left as it is, listed under \"… left
+  as they are\", with the reason):
+  - an existing #raw(lang:"verbatim", "year") that differs from the
+    date; an existing #raw(lang:"verbatim", "month") that is another
+    month (#raw(lang:"verbatim", "5"), #raw(lang:"verbatim", "05"),
+    #raw(lang:"verbatim", "{May}"), #raw(lang:"verbatim", "may") count
+    as the same)
+  - ranges, seasons (#raw(lang:"verbatim", "Spring 2021")), approximate
+    dates (#raw(lang:"verbatim", "c. 1850"),
+    #raw(lang:"verbatim", "2021?")), impossible dates, a
+    #raw(lang:"verbatim", "date") that is a macro
+- A field that already holds the same value stays; only
+  #raw(lang:"verbatim", "date") is dropped. An empty field is replaced.
+- Like the other fixes: the command opens the report, nothing is written
+  until #raw(lang:"verbatim", "A")\; #raw(lang:"verbatim", "A") asks
+  once, copies the file to
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory") and writes;
+  #raw(lang:"verbatim", "d=/=u") drop and bring back entries
+  (#raw(lang:"verbatim", "C-; L b r")).
+- The report of #raw(lang:"verbatim", "sp-bibtex-lint-dryrun") has a
+  section and a button for the ISO fix;
+  #raw(lang:"verbatim", "sp-bibtex-lint-convert") has an entry for each.
+- Options: #raw(lang:"verbatim", "sp-bibtex-date-keep-types"),
+  #raw(lang:"verbatim", "sp-bibtex-date-month-format")
+  (#raw(lang:"verbatim", "%d") gives #raw(lang:"verbatim", "5"),
+  #raw(lang:"verbatim", "%02d") gives #raw(lang:"verbatim", "05")),
+  #raw(lang:"verbatim", "sp-bibtex-date-numeric-order"),
+  #raw(lang:"verbatim", "sp-bibtex-date-month-names").
+- Docs: section \"Date fields to year and month\" in
+  #raw(lang:"verbatim", "sp-academic.org") (bullets);
+  #raw(lang:"verbatim", "L b f d") and #raw(lang:"verbatim", "L b f D")
+  in #raw(lang:"verbatim", "sp-keys.org"). No shims,
+  #raw(lang:"verbatim", "CHANGELOG.org") not edited.
+
+==== Tests
+<tests>
+- 17 new tests in
+  #raw(lang:"verbatim", "tests/sp-bibprocess-lint-test.el") (ISO forms,
+  #raw(lang:"verbatim", "\u{40}misc") untouched, month format, conflicts,
+  unreadable dates, one write plus backup and idempotence, the text
+  forms, the numeric-order option, text fix after the ISO fix) and 1 in
+  #raw(lang:"verbatim", "tests/sp-keys-test.el")\; the every-fix-command
+  test also covers both commands.
+- Emacs 29.3 in batch: 102 of 103 pass.
+  #raw(lang:"verbatim", "sp-bibtex-lint-test-dryrun-report") fails the
+  same way on #raw(lang:"verbatim", "main").
+- Not run on the real #raw(lang:"verbatim", ".bib") files.
+
+==== Manual testing
+<manual-testing>
+- ☐ On a copy of a real #raw(lang:"verbatim", ".bib"):
+  #raw(lang:"verbatim", "C-; L b f d") opens the report; nothing is
+  written yet
+- ☐ `date = {2021}` is listed as `year = {2021}`\;
+  #raw(lang:"verbatim", "{2021-05-14}") as #raw(lang:"verbatim", "year")
+  and `month = {5}` with \"day 14 dropped\"
+- ☐ A #raw(lang:"verbatim", "\u{40}misc") with a full date is not listed and
+  keeps its #raw(lang:"verbatim", "date")
+- ☐ A range, a #raw(lang:"verbatim", "May 14, 2021") date and a
+  differing #raw(lang:"verbatim", "year") are under \"Date fields left
+  as they are\", with the reason
+- ☐ #raw(lang:"verbatim", "d") on an entry drops it from the fix,
+  #raw(lang:"verbatim", "u") brings it back
+- ☐ #raw(lang:"verbatim", "A"): one question, a backup appears in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory"), entries are
+  rewritten and the conflicts are untouched
+- ☐ #raw(lang:"verbatim", "C-; L b f d") again: nothing left to fix
+- ☐ Then #raw(lang:"verbatim", "C-; L b f D"): the
+  #raw(lang:"verbatim", "May 14, 2021")-style dates are listed with
+  their year and month; seasons, ranges and
+  #raw(lang:"verbatim", "c. 1850") are listed as left
+- ☐ A #raw(lang:"verbatim", "3/4/2021") date is reported as ambiguous;
+  with
+  #raw(lang:"verbatim", "(setq sp-bibtex-date-numeric-order 'day-first)")
+  it becomes month 4
+- ☐ A German date such as #raw(lang:"verbatim", "14. Mai 2021") becomes
+  `month = {5}`
+- ☐ #raw(lang:"verbatim", "C-; L b l") shows the date section and
+  button; #raw(lang:"verbatim", "C-; L b a") offers both fixes
+- ☐
+  #raw(lang:"verbatim", "(setq sp-bibtex-date-month-format \"%02d\")"):
+  the month is written as #raw(lang:"verbatim", "05")
+
+🤖 Generated with #link("https://claude.com/claude-code")[Claude Code]
+
+#link("https://claude.ai/code/session_01WWLNiDSLSq2vmaTSLDx6bL")
+
+== Commits (5)
+<commits-5-13>
+- #link("https://github.com/siainbuletin/dotfiles/commit/1c7c96674a2aec887f40848d1b49fefeb88aa0ee")[1c7c96674a]
+  ✨ Add a BibTeX lint fix that splits date fields into year and month
+  (Claude, 2026-11-15 10:42)
+- #link("https://github.com/siainbuletin/dotfiles/commit/5ed911882c9c22943a304bd1d74030342836cc64")[5ed911882c]
+  ✨ Leave the date of \u{40}misc entries as it is in the date fix (Claude,
+  2026-11-15 10:44)
+- #link("https://github.com/siainbuletin/dotfiles/commit/16540330ee501208b9e174e8c49b817ed0673658")[16540330ee]
+  ✨ Add a text date fix for non-ISO dates, to run after the ISO one
+  (Claude, 2026-11-15 10:46)
+- #link("https://github.com/siainbuletin/dotfiles/commit/39ab2f8e81d6d5a59b4fa7791b4906b145b55abe")[39ab2f8e81]
+  🐛 Read a day followed by a full stop in the text date fix (Claude,
+  2026-11-15 10:46)
+- #link("https://github.com/siainbuletin/dotfiles/commit/12b6a3d7971102870232e096aa8f932ee742056a")[12b6a3d797]
+  🔧 Merge main into the BibTeX date fix branch (Claude, 2026-11-15
+  10:48)
+
+= PR \#504: ✨ Share table columns across headings and fill the frame
+<pr-504-share-table-columns-across-headings-and-fill-the-frame>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/504")[#link("https://github.com/siainbuletin/dotfiles/pull/504")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:50
+/ Merged: 2026-11-15 10:50
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-4a39fy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/592c8dc4a0c8c1dcb2f33470d86f3846d32c4f01")[592c8dc4a0]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-501>
+#emph[Requested by #strong[Sia] · follow-up to \#502 (already merged)]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#502; touches only
+  #raw(lang:"verbatim", "sp-batch-report-view") (doc, tangled
+  #raw(lang:"verbatim", ".el"), tests). No conflict expected.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-4a39fy"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- All tables of a report share their column widths, so columns line up
+  across headings.
+- The Title column
+  (#raw(lang:"verbatim", "sp-batch-report-flexible-column")) takes what
+  the others leave, so the columns fill the whole frame; it is narrowed
+  first when the window is small.
+- BibTeX keys are cut after 45 characters (the lint limit) and the
+  #raw(lang:"verbatim", "BibTeX file") name is cut after it is listed
+  (#raw(lang:"verbatim", "sp-batch-report-truncated-columns")): cut with
+  an ellipsis, not wrapped.
+- Other cells still wrap inside their column.
+
+==== Tests
+<tests>
+- #raw(lang:"verbatim", "tests/sp-batch-report-view-test.el"): 20 tests,
+  19 pass, 1 skipped without Org. New: shared columns, Title widest and
+  filling the row, keys and files cut not wrapped.
+- #raw(lang:"verbatim", "sp-bibtex-zotero") tests pass;
+  #raw(lang:"verbatim", "sp-author-notes-bibtex") has the same 7
+  Org-path failures as before this change (Org does not load in the
+  container).
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex"): tables of
+  different people have the same column widths
+- ☐ The table fills the frame; Title is the widest column
+- ☐ A BibTeX key over 45 characters ends in #raw(lang:"verbatim", "…")\;
+  a long #raw(lang:"verbatim", ".bib") name is cut, not wrapped
+- ☐ Resize the frame and #raw(lang:"verbatim", "text-scale-adjust"):
+  columns follow, keeping folds and drops
+- ☐ Zotero path report: its tables also line up with each other
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS")[Claude Code]]
+
+== Commits (1)
+<commits-1-249>
+- #link("https://github.com/siainbuletin/dotfiles/commit/bd450a7693871460a72fc740959dd7e81a325fbd")[bd450a7693]
+  ✨ Share table columns across headings, fill the frame, cut keys and
+  file names (Claude, 2026-11-15 10:49)
+
+= PR \#505: ✨ Flag and remove duplicate BibTeX fields with sp-bibtex-lint-fix-duplicates
+<pr-505-flag-and-remove-duplicate-bibtex-fields-with-sp-bibtex-lint-fix-duplicates>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/505")[#link("https://github.com/siainbuletin/dotfiles/pull/505")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:50
+/ Merged: 2026-11-15 10:56
+/ Branch: #raw(lang:"verbatim", "504-bibtex-duplicate-fields") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/45b1e498dbee5cdc509c87e4207be92a51f16cdd")[45b1e498db]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-502>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2F9bG3BeYczp4ntf5s3m69z")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main")
+  (#raw(lang:"verbatim", "55709cc"), after \#498 and \#502); needs
+  nothing else, safe to merge anytime.
+- Conflicts with \#503 (open) in a few lines of
+  #raw(lang:"verbatim", "sp-bibprocess") (doc and tangled
+  #raw(lang:"verbatim", ".el")): the
+  #raw(lang:"verbatim", "sp-bibtex-lint--kinds") list,
+  #raw(lang:"verbatim", "sp-bibtex--entry-rewrites"), the report in
+  #raw(lang:"verbatim", "sp-bibtex-lint--render"),
+  #raw(lang:"verbatim", "sp-bibtex-lint--follow"),
+  #raw(lang:"verbatim", "sp-bibtex-lint-convert")\; and in the
+  #raw(lang:"verbatim", "L b f") keymap and its test in
+  #raw(lang:"verbatim", "sp-keys"). Keep both sides; the keys do not
+  clash (#raw(lang:"verbatim", "d=/=D") are \#503,
+  #raw(lang:"verbatim", "u") is this PR).
+- After merging: if \#503 merges first, merge
+  #raw(lang:"verbatim", "main") into this branch and keep both kinds;
+  tangle #raw(lang:"verbatim", "sp-academic.org") again.
+
+==== What changed
+<what-changed>
+New command #raw(lang:"verbatim", "sp-bibtex-lint-fix-duplicates")
+(#raw(lang:"verbatim", "C-; L b f u")): an entry with the same field
+twice is flagged first, and nothing is written until you apply.
+
+- Duplicate = same field name in one entry (case-insensitive); values
+  compared without outer braces/quotes and with white space collapsed.
+- Identical copies: the report says so; the first copy is kept (safe).
+- Differing values: the report lists them numbered; you pick the value
+  to keep for each field, or choose \"leave as it is\" to keep every
+  copy. A differing value is never dropped without your pick.
+- Flow, like the other fixes: the command opens the report
+  (#raw(lang:"verbatim", "d=/=u=/=g=/=A")); #raw(lang:"verbatim", "A")
+  starts batches of #raw(lang:"verbatim", "sp-bibtex-lint-batch-size")\;
+  each batch asks #raw(lang:"verbatim", "a") apply (choose for each
+  differing field), #raw(lang:"verbatim", "i") identical copies only,
+  #raw(lang:"verbatim", "s") skip, #raw(lang:"verbatim", "q") quit.
+- The file is copied to
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory") before the
+  first write (restore by copying it back); an entry changed since the
+  lint is left alone and counted.
+- Only the removed field lines change (the field with its comma, and its
+  own line); the rest of the entry and its layout stay.
+- #raw(lang:"verbatim", "sp-bibtex-lint-dryrun") has a \"Duplicate
+  fields\" section and a button;
+  #raw(lang:"verbatim", "sp-bibtex-lint-convert") lists \"duplicate
+  fields\".
+- Docs: section \"Duplicate fields\" in
+  #raw(lang:"verbatim", "sp-academic.org") (bullets);
+  #raw(lang:"verbatim", "L b f u") in
+  #raw(lang:"verbatim", "sp-keys.org"). No shims,
+  #raw(lang:"verbatim", "CHANGELOG.org") not edited.
+
+==== Tests
+<tests>
+- 9 new tests in
+  #raw(lang:"verbatim", "tests/sp-bibprocess-lint-test.el") (scan and
+  groups, resolve, one-line entry, report writes nothing, identical
+  only, choose a value, leave as it is, skip, dry run report) and 1 in
+  #raw(lang:"verbatim", "tests/sp-keys-test.el") (tangled from
+  #raw(lang:"verbatim", "sp-keys.org")).
+- Emacs 29.3 in batch: 89 of 90 #raw(lang:"verbatim", "sp-bibtex-*")
+  tests pass; #raw(lang:"verbatim", "sp-bibtex-lint-test-dryrun-report")
+  fails the same way on #raw(lang:"verbatim", "main").
+- Not run on the real #raw(lang:"verbatim", ".bib") files or on the Mac.
+
+==== Manual testing
+<manual-testing>
+- ☐ Pull this branch, restart Emacs (or
+  #raw(lang:"verbatim", "M-x sp-reload-modules"))
+- ☐ On a copy of a real #raw(lang:"verbatim", ".bib"), add
+  `year = {2019},` twice to one entry and `year = {2019}` /
+  `year = {2020}` to another
+- ☐ #raw(lang:"verbatim", "C-; L b f u"): the report lists both entries;
+  the identical one says \"identical copies\", the other lists \"1. 2019
+  \2. 2020\"; the file is unchanged
+- ☐ #raw(lang:"verbatim", "d") on one entry drops it from the fix;
+  #raw(lang:"verbatim", "u") brings it back
+- ☐ #raw(lang:"verbatim", "A"), then #raw(lang:"verbatim", "i"): only
+  the identical copy is removed; the differing years are both still
+  there; a backup exists in
+  #raw(lang:"verbatim", "sp-bibtex-lint-backup-directory")
+- ☐ Run again, #raw(lang:"verbatim", "A"), #raw(lang:"verbatim", "a"):
+  you are asked which year to keep; the other line is removed and
+  nothing else in the entry changes (#raw(lang:"verbatim", "git diff"))
+- ☐ Choose \"leave as it is (keep every copy)\": that field is untouched
+- ☐ #raw(lang:"verbatim", "s") and #raw(lang:"verbatim", "q") at the
+  batch question write nothing
+- ☐ A field with a different case (#raw(lang:"verbatim", "Year")) counts
+  as a duplicate of #raw(lang:"verbatim", "year")
+- ☐ Regression: #raw(lang:"verbatim", "C-; L b l") shows the new section
+  and button; #raw(lang:"verbatim", "C-; L b a") offers \"duplicate
+  fields\"; #raw(lang:"verbatim", "C-; L b f k") and
+  #raw(lang:"verbatim", "C-; L b f o") still work
+- ☐ Copy the backup over the #raw(lang:"verbatim", ".bib") to restore it
+  (untested by Claude on the real vault)
+
+- Discard any local edits made while testing:
+  #raw(lang:"verbatim", "git -C ~/dotfiles status"), then
+  #raw(lang:"verbatim", "git -C ~/dotfiles restore .") (and
+  #raw(lang:"verbatim", "git clean -fd") only after checking
+  #raw(lang:"verbatim", "git clean -nd")).
+- Return to main: #raw(lang:"verbatim", "git -C ~/dotfiles switch main")
+  and #raw(lang:"verbatim", "git -C ~/dotfiles pull").
+- Optionally delete the test branch locally:
+  #raw(lang:"verbatim", "git -C ~/dotfiles branch -D 504-bibtex-duplicate-fields")\;
+  the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or #raw(lang:"verbatim", "M-x sp-reload-modules")) so
+  the config matches main again.
+- If the fix changed a #raw(lang:"verbatim", ".bib") file, restore it
+  from the backup folder the command reported
+  (#raw(lang:"verbatim", "sp-bibtex-lint-backup-directory")), or
+  #raw(lang:"verbatim", "git -C ~/Documents/bibliography restore .") if
+  it is under git.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCARx5xrptvAbssfTb")[Claude Code]]
+
+== Commits (2)
+<commits-2-113>
+- #link("https://github.com/siainbuletin/dotfiles/commit/e0f4f6b7528a7dd56648ec2a2512ea226acf0433")[e0f4f6b752]
+  ✨ Flag and remove duplicate BibTeX fields with
+  sp-bibtex-lint-fix-duplicates (Claude, 2026-11-15 10:49)
+- #link("https://github.com/siainbuletin/dotfiles/commit/db0319147cfbd4d93e2f47d1cd73e5578e634d80")[db0319147c]
+  🔧 Merge main into the duplicate-fields branch (Claude, 2026-11-15
+  10:54)
+
+= PR \#506: ✨ Shorter keys and file names, 60% for Title in report tables
+<pr-506-shorter-keys-and-file-names-60-for-title-in-report-tables>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/506")[#link("https://github.com/siainbuletin/dotfiles/pull/506")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:54
+/ Merged: 2026-11-15 10:57
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-4a39fy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/5bd787ccdc7d288f8c907d4514be1c917e312e17")[5bd787ccdc]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-503>
+#emph[Requested by #strong[Sia] · follow-up to \#504 (merged)]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#504; touches only
+  #raw(lang:"verbatim", "sp-batch-report-view") (doc, tangled
+  #raw(lang:"verbatim", ".el"), tests). No conflict expected.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-4a39fy"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- BibTeX keys are cut after 20 characters (was 45) and the
+  #raw(lang:"verbatim", "BibTeX file") name after 10
+  (#raw(lang:"verbatim", "sp-batch-report-truncated-columns")).
+- The Title column gets at least 60% of the window width
+  (#raw(lang:"verbatim", "sp-batch-report-flexible-share")); the other
+  columns narrow, widest first, down to 8 characters, to make room.
+- Below about 90 columns the other columns cannot narrow enough, so
+  Title gets what is left.
+
+==== Tests
+<tests>
+- #raw(lang:"verbatim", "tests/sp-batch-report-view-test.el"): 21 tests,
+  20 pass, 1 skipped without Org. New: Title keeps 60% at several widths
+  and the file column stays within 10.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-author-notes-bibtex"): Key column is
+  about 20 characters, #raw(lang:"verbatim", ".bib") name about 10, each
+  ending in #raw(lang:"verbatim", "…")
+- ☐ Title takes at least 60% of the frame width, and all tables still
+  line up
+- ☐ Narrow the frame: Title keeps its share until the other columns
+  reach their minimum
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS")[Claude Code]]
+
+== Commits (1)
+<commits-1-250>
+- #link("https://github.com/siainbuletin/dotfiles/commit/26314076ca85f9d1fb1416993be6c484cb309dae")[26314076ca]
+  ✨ Cut keys at 20 and file names at 10; Title gets 60% of the frame
+  (Claude, 2026-11-15 10:54)
+
+= PR \#507: ✨ Undo the last highlight with Cmd+Z and close the inspector with Cmd+Shift+D in DEVONthink
+<pr-507-undo-the-last-highlight-with-cmdz-and-close-the-inspector-with-cmdshiftd-in-devonthink>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/507")[#link("https://github.com/siainbuletin/dotfiles/pull/507")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:57
+/ Merged: 2026-11-15 10:59
+/ Branch: #raw(lang:"verbatim", "507-devonthink-undo-highlight") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/bcecb684b0a8cceab9888979a4ba8cbc6225f1ab")[bcecb684b0]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-504>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; builds on \#499 and \#501 (both merged).
+
+==== What changes
+<what-changes>
+- Both keys act only while DEVONthink is in front (the hotkeys are
+  switched on and off by an app watcher).
+- #raw(lang:"verbatim", "Cmd+Z"): runs Edit \> Undo only when its title
+  says highlight, annotation or markup (e.g. \"Undo Add Highlight\").
+  Otherwise the normal Cmd+Z goes to DEVONthink.
+- No stale highlights: the Edit menu always shows the next undo step. A
+  highlight that is gone, or that came before another action, is not
+  touched.
+- #raw(lang:"verbatim", "Cmd+Shift+D"): runs View \> \"Hide Inspector\"
+  or \"Hide Sidebar\" when one is shown. Otherwise the normal
+  Cmd+Shift+D goes to DEVONthink.
+- #raw(lang:"verbatim", "DEVONthink.dumpMenu(\"Edit\")") in the
+  Hammerspoon console prints a menu\'s titles, to fix the patterns if
+  needed.
+
+==== Things to check
+<things-to-check>
+- I could not read DEVONthink\'s menus from here, so the title patterns
+  are a best guess.
+- Cmd+Shift+D may already be a DEVONthink shortcut. While the sidebar is
+  shown, this PR overrides it. Check Edit/View/Go/Tools in DEVONthink
+  for it.
+- If DEVONthink does not put highlights on the undo stack, Cmd+Z will
+  pass through unchanged and nothing is deleted. Tell me the Edit menu
+  text after making a highlight.
+
+==== Manual testing
+<manual-testing>
+- ☐ Reload Hammerspoon: no error in the console.
+- ☐ Make a highlight (Caps+x, then select text), open the Edit menu:
+  note the Undo title.
+- ☐ Press Cmd+Z: the highlight disappears.
+- ☐ Press Cmd+Z again with no highlight to undo: normal DEVONthink undo
+  behaviour, no error.
+- ☐ Make a highlight, then another action (e.g. rename an item), press
+  Cmd+Z: the rename is undone, the highlight stays.
+- ☐ Show the inspector/sidebar, press Cmd+Shift+D: it closes.
+- ☐ Press Cmd+Shift+D with both hidden: DEVONthink\'s own Cmd+Shift+D
+  behaviour, if any.
+- ☐ In another app (e.g. Emacs, Finder), Cmd+Z and Cmd+Shift+D behave as
+  usual.
+- ☐ Caps+x and Caps+c still work.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (2)
+<commits-2-114>
+- #link("https://github.com/siainbuletin/dotfiles/commit/42f9b887ad5bd723cea4a87281ea75283ee9dd59")[42f9b887ad]
+  ✨ Undo the last highlight with Cmd+Z and close the inspector with
+  Cmd+Shift+D in DEVONthink (Sia Piperea, 2026-11-15 10:57)
+- #link("https://github.com/siainbuletin/dotfiles/commit/bbbba1ad4acaf1da1166997914f3087e00182765")[bbbba1ad4a]
+  🐛 Hide the DEVONthink sidebar via its checked item and the inspector
+  via Tools (Sia Piperea, 2026-11-15 10:59)
+
+= PR \#508: ✨ Show the other lint reports in the dashboard view
+<pr-508-show-the-other-lint-reports-in-the-dashboard-view>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/508")[#link("https://github.com/siainbuletin/dotfiles/pull/508")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 10:58
+/ Merged: 2026-11-15 10:59
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-4a39fy") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/8fef5c0115a761a793a2c045d1e03aa0c76a2d5c")[8fef5c0115]
+/ Labels: simplifying, needs-further-testing
+
+== Description
+<description-505>
+#emph[Requested by #strong[Sia] · stage 2 of \#498]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#506 (and \#505); no
+  other open PR is needed first.
+- Touches #raw(lang:"verbatim", "sp-bibprocess"),
+  #raw(lang:"verbatim", "sp-litnotes-titles"),
+  #raw(lang:"verbatim", "-refs") and #raw(lang:"verbatim", "-meta"),
+  #raw(lang:"verbatim", "sp-notes"),
+  #raw(lang:"verbatim", "sp-vulpea-convert-properties") (each with its
+  doc and tests) and the view doc.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-4a39fy"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- The BibTeX lint report is sections of items: the fixes are an action
+  section (RET runs one), then the entries with problems, then a section
+  per kind (files, crossref, date, keys, duplicates, surnames, merge).
+- The crossref dry run, litnote titles, litnote references, meta
+  fill-all, notes filing and the property preview are sections of items
+  too.
+- Counts and flags are items with #raw(lang:"verbatim", ":key nil"), so
+  #raw(lang:"verbatim", "d") only drops real entries.
+- Notes filing cuts its plan at apply time (the dashboard drops in
+  place, so no redraw runs).
+- The view doc lists which reports use it.
+- Dropping a row does not change the counts on the Fix buttons until
+  #raw(lang:"verbatim", "g").
+
+==== Tests (batch Emacs 29.3, container)
+<tests-batch-emacs-293-container>
+- #raw(lang:"verbatim", "sp-bibprocess-lint"): 104 of 106 pass; the 2
+  failures (#raw(lang:"verbatim", "indent"),
+  #raw(lang:"verbatim", "dup-test-choose-value")) fail the same way
+  before this PR (Org/=goggles= missing).
+- #raw(lang:"verbatim", "sp-litnotes-refs"),
+  #raw(lang:"verbatim", "sp-vulpea-convert-properties"),
+  #raw(lang:"verbatim", "sp-bibtex-zotero"),
+  #raw(lang:"verbatim", "sp-batch-report-view"): all pass.
+- #raw(lang:"verbatim", "sp-litnotes-titles"),
+  #raw(lang:"verbatim", "sp-notes"),
+  #raw(lang:"verbatim", "sp-litnotes-meta"),
+  #raw(lang:"verbatim", "sp-vulpea-meta-order"): no failure that was not
+  there before; the rest fail before and after for the Org reason. These
+  need a run on the Mac.
+- Tests that read Org text bind
+  #raw(lang:"verbatim", "sp-batch-report-display") to
+  #raw(lang:"verbatim", "org")\; new tests check the sections.
+- Not measured: the GUI, and the speed of these reports with a real
+  vault.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-dryrun"): the Fix items
+  run their fix on RET; #raw(lang:"verbatim", "d=/=u") drop and restore
+  an entry; #raw(lang:"verbatim", "A") applies
+- ☐ #raw(lang:"verbatim", "M-x sp-litnotes-titles-dryrun") and
+  #raw(lang:"verbatim", "sp-litnotes-refs-dryrun"): sections, links open
+  the note, #raw(lang:"verbatim", "d") drops a note,
+  #raw(lang:"verbatim", "A") leaves it out
+- ☐ #raw(lang:"verbatim", "M-x sp-litnotes-meta-fill-all-dryrun"):
+  counts, to-change notes with their lines, skipped sections
+- ☐ #raw(lang:"verbatim", "M-x sp-notes-filing-dryrun"): moves list;
+  drop one file and apply: it stays where it is
+- ☐
+  #raw(lang:"verbatim", "M-x sia-vulpea-convert-all-notes-properties-to-meta-dryrun"):
+  preview, drop, apply
+- ☐ Set #raw(lang:"verbatim", "sp-batch-report-display") to
+  #raw(lang:"verbatim", "org"): the same reports still open as Org
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS")[Claude Code]]
+
+== Commits (1)
+<commits-1-251>
+- #link("https://github.com/siainbuletin/dotfiles/commit/fab03a4d105c415b3d8029597affeb83e89d9921")[fab03a4d10]
+  ✨ Show the other lint reports in the dashboard view (Claude,
+  2026-11-15 10:58)
+
+= PR \#509: 🐛 Keep the help line in batch questions; pick author variants and names
+<pr-509-keep-the-help-line-in-batch-questions-pick-author-variants-and-names>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/509")[#link("https://github.com/siainbuletin/dotfiles/pull/509")]
+/ State: open
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 11:00
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-vp77bk") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/1c94f6e67499646fa73c1f1c5c836c1eed8b55ac")[1c94f6e674]
+
+== Description
+<description-506>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2LsmML8L7aw9coNUrrWP8iz")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#508; \#496 and \#498
+  are already merged. No other open PR is needed first.
+- Touches #raw(lang:"verbatim", "sp-batch-report") and
+  #raw(lang:"verbatim", "sp-bibprocess") (docs in
+  #raw(lang:"verbatim", "sp-batch-report.org") and
+  #raw(lang:"verbatim", "sp-academic.org"), tests of the lint, long keys
+  and litnote meta).
+- One PR for the three points: they share the new question helper, so
+  splitting would conflict.
+- Branch is #raw(lang:"verbatim", "claude/project-thread-vp77bk"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- Cause of the lost help line: the batch questions
+  (#raw(lang:"verbatim", "a/g/s/q"), #raw(lang:"verbatim", "d"),
+  #raw(lang:"verbatim", "u")) were
+  #raw(lang:"verbatim", "read-char-choice") prompts, so a long prompt
+  replaced the echo-area hints of the report.
+  - New #raw(lang:"verbatim", "sp-batch-report-ask") shows the question
+    as the same two-row help line (keys with their descriptions, plus a
+    note line such as \"Batch 1 of 3\").
+  - #raw(lang:"verbatim", "n"), #raw(lang:"verbatim", "p"),
+    #raw(lang:"verbatim", "TAB"), #raw(lang:"verbatim", "S-TAB") and
+    scrolling still work while it waits, so you can look through the
+    batch before you answer
+    (#raw(lang:"verbatim", "sp-batch-report-ask-moves")).
+  - Used by #raw(lang:"verbatim", "sp-batch-report--ask-batch") (all
+    #raw(lang:"verbatim", "sp-batch-process")-style commands) and by
+    every BibTeX lint batch question: author names, notes and surnames,
+    duplicates, long keys.
+  - #raw(lang:"verbatim", "n") is no longer an answer: in steps 2 and 3
+    \"normalise in the field\" is #raw(lang:"verbatim", "f").
+- Merging variants of one author
+  (#raw(lang:"verbatim", "sp-bibtex-lint-fix-merge"), step 4):
+  - one group at a time, the report scrolls to it;
+    #raw(lang:"verbatim", "RET") takes the proposed name,
+    #raw(lang:"verbatim", "1")-#raw(lang:"verbatim", "9") take that
+    variant, #raw(lang:"verbatim", "e") types a name.
+  - #raw(lang:"verbatim", "n") and #raw(lang:"verbatim", "p") step to
+    the next or previous group (as in the report),
+    #raw(lang:"verbatim", "c") clears a choice,
+    #raw(lang:"verbatim", "f") finishes, #raw(lang:"verbatim", "q") or
+    #raw(lang:"verbatim", "C-g") stops.
+- Step 1 of the author names (#raw(lang:"verbatim", "Last, First")):
+  - new #raw(lang:"verbatim", "o") in the batch question: pick the
+    entries to fix (comma separated, with completion); the others are
+    not dropped, they come again in the next run.
+  - new option #raw(lang:"verbatim", "sp-bibtex-lint-pick-first")
+    (default nil): ask which names to fix before every batch of that
+    step.
+
+==== Tests (batch Emacs 29.3, container)
+<tests-batch-emacs-293-container>
+- #raw(lang:"verbatim", "sp-bibprocess-lint"): 111 of 111 pass (new:
+  merge ask with digits, #raw(lang:"verbatim", "n=/=p"), clear/finish;
+  #raw(lang:"verbatim", "o") and the option; the ask helper runs moves
+  while waiting).
+- #raw(lang:"verbatim", "sp-bibtex-long-keys"),
+  #raw(lang:"verbatim", "sp-batch-report-view"): all pass.
+- #raw(lang:"verbatim", "sp-litnotes-meta") and
+  #raw(lang:"verbatim", "sp-batch-report"): the same 3 and 4 failures as
+  on #raw(lang:"verbatim", "main") (Org/packages missing in the
+  container), no new ones.
+- Not run: the GUI, the real vault.
+
+==== Manual testing
+<manual-testing>
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-authors"), press
+  #raw(lang:"verbatim", "A"): the batch question is the two-row help
+  line at the bottom, not a one-line prompt
+- ☐ While it waits, #raw(lang:"verbatim", "n=/=p") move in the report,
+  #raw(lang:"verbatim", "TAB") folds, #raw(lang:"verbatim", "C-v=/=M-v")
+  scroll; an unknown key only beeps
+- ☐ Step 1: #raw(lang:"verbatim", "o"), pick two names with completion,
+  #raw(lang:"verbatim", "a")… only those change; the others show up in
+  the next run and are not in \"dropped\"
+- ☐ #raw(lang:"verbatim", "(setq sp-bibtex-lint-pick-first t)"): step 1
+  asks which names to fix first; empty answer fixes all
+- ☐ Steps 2 and 3: #raw(lang:"verbatim", "f") normalises in the field,
+  #raw(lang:"verbatim", "l") adds an alias, #raw(lang:"verbatim", "e")
+  asks per name, #raw(lang:"verbatim", "n") does not answer
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-merge") on a file with
+  variants: the report scrolls to each group; #raw(lang:"verbatim", "2")
+  takes the second variant, #raw(lang:"verbatim", "p") goes back,
+  #raw(lang:"verbatim", "n") skips a group, #raw(lang:"verbatim", "f")
+  finishes, then the yes-or-no and the write
+- ☐ #raw(lang:"verbatim", "C-g") or #raw(lang:"verbatim", "q") in the
+  merge stops with nothing written
+- ☐ Another #raw(lang:"verbatim", "sp-batch-report-run-batches") command
+  (litnote meta fill-all, convert): batch question is the help line,
+  #raw(lang:"verbatim", "a/c/s/g/q") still work
+- ☐ #raw(lang:"verbatim", "M-x sp-bibtex-lint-fix-keys") and the
+  duplicates fix: questions use the help line
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiA9pvREDF2uyWN7wMC")[Claude Code]]
+
+== Conversation
+<conversation-47>
+=== \u{40}siainbuletin, 2026-11-15 11:01
+<siainbuletin-2026-11-15-1101>
+#link("https://github.com/siainbuletin/dotfiles/pull/509#issuecomment-6893335950")[permalink]
+The #raw(lang:"verbatim", "tangle") check fails on
+#raw(lang:"verbatim", "sp-litnotes-refs.el") and
+#raw(lang:"verbatim", "sp-litnotes-titles.el"), which this PR does not
+touch. The same drift shows up when tangling
+#raw(lang:"verbatim", "main") at #raw(lang:"verbatim", "8fef5c0") (after
+\#508), so it comes from \#508 and not from this change. The two files
+this PR changes, #raw(lang:"verbatim", "sp-bibprocess.el") and
+#raw(lang:"verbatim", "sp-batch-report.el"), match their docs. I am
+leaving the drift alone here so this PR stays in scope. It needs a
+re-tangle of those two docs in a separate PR.
+
+#divider()
+
+#emph[Generated by #link("https://claude.ai/code")[Claude Code]]
+
+== Commits (1)
+<commits-1-252>
+- #link("https://github.com/siainbuletin/dotfiles/commit/950a6fe70c5c4a395531c78854146bd6fe335d44")[950a6fe70c]
+  🐛 Keep the help line in batch questions; pick variants, names and
+  some entries (Claude, 2026-11-15 10:59)
+
+= PR \#510: 🔥 Remove the Cmd+Shift+D binding: DEVONthink already closes the inspector
+<pr-510-remove-the-cmdshiftd-binding-devonthink-already-closes-the-inspector>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/510")[#link("https://github.com/siainbuletin/dotfiles/pull/510")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 11:06
+/ Merged: 2026-11-15 11:23
+/ Branch: #raw(lang:"verbatim", "510-devonthink-remove-cmd-shift-d") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/c2372164a0e94aed538978ebf5a244ef74d486a4")[c2372164a0]
+/ Labels: correction, needs-further-testing
+
+== Description
+<description-507>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; removes part of \#507 (already merged).
+
+==== What changes
+<what-changes>
+- Removes the Hammerspoon #raw(lang:"verbatim", "Cmd+Shift+D") binding
+  from #raw(lang:"verbatim", "devonthink.lua"), since DEVONthink already
+  does it natively.
+- Removes the code only that binding used: the inspector and sidebar
+  patterns, #raw(lang:"verbatim", "hidePanel"),
+  #raw(lang:"verbatim", "selectChecked") and
+  #raw(lang:"verbatim", "submenuItems").
+- Keeps #raw(lang:"verbatim", "Cmd+Z") (undo the latest highlight),
+  #raw(lang:"verbatim", "Caps+x") and #raw(lang:"verbatim", "Caps+c"),
+  and #raw(lang:"verbatim", "DEVONthink.dumpMenu()").
+
+==== Manual testing
+<manual-testing>
+- ☒ Reload Hammerspoon: no error in the console.
+- ☐ In DEVONthink, Cmd+Shift+D does DEVONthink\'s own action.
+- ☐ Cmd+Z still removes the latest highlight, and otherwise undoes
+  normally.
+- ☐ Caps+x and Caps+c still work.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (1)
+<commits-1-253>
+- #link("https://github.com/siainbuletin/dotfiles/commit/15d8332e102b058ed465897f469dd5bad906ed88")[15d8332e10]
+  🔥 Remove the Cmd+Shift+D binding: DEVONthink already closes the
+  inspector (Sia Piperea, 2026-11-15 11:05)
+
+= PR \#511: 🔧 Re-tangle sp-litnotes-refs and sp-litnotes-titles from their docs
+<pr-511-re-tangle-sp-litnotes-refs-and-sp-litnotes-titles-from-their-docs>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/511")[#link("https://github.com/siainbuletin/dotfiles/pull/511")]
+/ State: open
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 11:06
+/ Branch: #raw(lang:"verbatim", "claude/project-thread-vp77bk-tangle") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/65d73520c5532de3ca4124ad2ab8e470cb51e310")[65d73520c5]
+
+== Description
+<description-508>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2LsmML8L7aw9coNUrrWP8iz")[project thread]]
+
+==== Merge order
+<merge-order>
+- Based on #raw(lang:"verbatim", "main") after \#508; independent of
+  \#509 (touches other files). Merging it makes the
+  #raw(lang:"verbatim", "tangle") check green on \#509 after that PR is
+  updated with #raw(lang:"verbatim", "main").
+- Branch is
+  #raw(lang:"verbatim", "claude/project-thread-vp77bk-tangle"): the
+  cloud proxy cannot rename a branch, so it needs the number prefix from
+  Sia.
+
+==== What changed
+<what-changed>
+- #raw(lang:"verbatim", "sp-litnotes-refs.el") and
+  #raw(lang:"verbatim", "sp-litnotes-titles.el") did not match what
+  their docs tangle to (drift from \#508).
+- They are now the tangled output of
+  #raw(lang:"verbatim", "sp-litnotes-refs.org") and
+  #raw(lang:"verbatim", "sp-litnotes-titles.org")\; no doc and no
+  behaviour changed.
+- #raw(lang:"verbatim", "tools/check-tangle.sh") now prints \"All
+  tangled modules match their docs.\"
+
+==== Manual testing
+<manual-testing>
+- ☐ CI #raw(lang:"verbatim", "tangle") check is green
+- ☐ #raw(lang:"verbatim", "M-x sp-litnotes-titles-dryrun") and
+  #raw(lang:"verbatim", "M-x sp-litnotes-refs-dryrun") still open their
+  reports
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiA9pvREDF2uyWN7wMC")[Claude Code]]
+
+== Commits (1)
+<commits-1-254>
+- #link("https://github.com/siainbuletin/dotfiles/commit/48fd786a7aa1a9bd68efd0b54ded242daf4793e4")[48fd786a7a]
+  🔧 Re-tangle sp-litnotes-refs and sp-litnotes-titles from their docs
+  (Claude, 2026-11-15 11:06)
+
+= PR \#512: ✨ Pick a DEVONthink highlight colour directly with Caps+Option+number
+<pr-512-pick-a-devonthink-highlight-colour-directly-with-capsoptionnumber>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/512")[#link("https://github.com/siainbuletin/dotfiles/pull/512")]
+/ State: merged
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 11:19
+/ Merged: 2026-11-15 14:18
+/ Branch: #raw(lang:"verbatim", "512-devonthink-pick-colour") →
+    #raw(lang:"verbatim", "510-devonthink-remove-cmd-shift-d")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/f3b22dd133c23569a7ff34c3cc7fa0981b996c36")[f3b22dd133]
+/ Labels: new-feature, needs-further-testing
+
+== Description
+<description-509>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Stacked on \#510: this PR\'s base is its branch
+  #raw(lang:"verbatim", "510-devonthink-remove-cmd-shift-d").
+- Merge \#510 first, then retarget this PR to
+  #raw(lang:"verbatim", "main") (GitHub does it when the base branch is
+  deleted).
+- If merged out of order, nothing breaks, but the Cmd+Shift+D removal
+  comes along with this PR.
+
+==== What changes
+<what-changes>
+- #raw(lang:"verbatim", "Caps+Option+1") to
+  #raw(lang:"verbatim", "Caps+Option+7") pick the colour directly (1
+  Red, 2 Green, 3 Blue, 4 Yellow, 5 Orange, 6 Purple, 7 Grey) and start
+  highlighting.
+- #raw(lang:"verbatim", "Caps+c") cycling stays: it is still handy to
+  step through colours, and it shares the new
+  #raw(lang:"verbatim", "setColor") function.
+- #raw(lang:"verbatim", "Caps+Option+Shift+1..7") only set the colour
+  and do not start highlighting. This is for recolouring highlights
+  selected in the Annotations inspector.
+- Keys work only while DEVONthink is in front.
+- #raw(lang:"verbatim", "aerospace-keys.lua") also opens the Caps layer
+  when Option is already held, so either press order works.
+
+==== Clash check
+<clash-check>
+- Caps+1 to 9 are AeroSpace workspaces, so plain numbers could not be
+  used.
+- Caps+Option+anything is unused in the layer, so there is no clash.
+  Option only reaches Hammerspoon, never Emacs, so it does not become
+  Meta.
+- Caps+Ctrl+h/j/k/l (join-with) and Caps+Shift+number (move to
+  workspace) are untouched.
+
+==== Recolouring several highlights (unverified)
+<recolouring-several-highlights-unverified>
+- I found no DEVONthink scripting call for annotation colours, so there
+  is no direct way to recolour a selection.
+- #raw(lang:"verbatim", "Caps+Option+Shift+N") runs the same Format \>
+  Highlight Color item. If DEVONthink applies it to the annotations
+  selected in the inspector, it recolours them; if not, it only changes
+  the colour for new highlights.
+- Please test it with several selected annotations and tell me what
+  happens.
+
+==== Manual testing
+<manual-testing>
+- ☐ Reload Hammerspoon: no error in the console.
+- ☐ In DEVONthink, Caps+Option+1 through 7: the alert shows Red, Green,
+  Blue, Yellow, Orange, Purple, Grey, and highlight mode starts.
+- ☐ Select text in a PDF and press Caps+Option+4: it highlights in
+  Yellow.
+- ☐ Press Caps+Option first, then Caps (opposite order): the key still
+  works.
+- ☐ Caps+c still cycles through the colours.
+- ☐ Select several highlights in the Annotations inspector, press
+  Caps+Option+Shift+3: note whether they turn Blue.
+- ☐ Caps+3 (no Option) still switches to AeroSpace workspace 3, in
+  DEVONthink and elsewhere.
+- ☐ In other apps, Caps+Option+number does nothing.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (3)
+<commits-3-69>
+- #link("https://github.com/siainbuletin/dotfiles/commit/cbd34dc06c885000342eaef616e74d169a6abf19")[cbd34dc06c]
+  ✨ Pick a DEVONthink highlight colour directly with Caps+Ctrl+number
+  (Sia Piperea, 2026-11-15 11:18)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6bb5bfa57d157ba4c645c867ade4d5281a9a911d")[6bb5bfa57d]
+  🔧 Open the Caps layer when Option is already held (Sia Piperea,
+  2026-11-15 11:18)
+- #link("https://github.com/siainbuletin/dotfiles/commit/4901d54700ecd93ed4af26be6e02d1d73e2fbec1")[4901d54700]
+  ✨ Use Caps+Option+number for the DEVONthink colour keys (Sia Piperea,
+  2026-11-15 11:19)
+
+= PR \#513: ✨ Open the DEVONthink record of a selected citation with Caps+r
+<pr-513-open-the-devonthink-record-of-a-selected-citation-with-capsr>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/513")[#link("https://github.com/siainbuletin/dotfiles/pull/513")]
+/ State: open
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 11:29
+/ Branch: #raw(lang:"verbatim", "513-cite-open-devonthink-record") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/fdf1041baf911e76f1ad353be24f53f8dfe89465")[fdf1041baf]
+
+== Description
+<description-510>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW245GLZmEXLJfoqFSif6eB5m")[project thread]]
+
+==== What
+<what>
+- In DEVONthink, select a citation and press
+  #raw(lang:"verbatim", "Caps Lock + r"): the record of the cited work
+  opens.
+- Builds on the existing design
+  (#raw(lang:"verbatim", "docs/architecture/citation-matching-from-selection.org"))
+  and on #raw(lang:"verbatim", "sp-cite-match")\; no new matcher.
+- Lookup order:
+  - the reference list at the end of the same document (numeric
+    #raw(lang:"verbatim", "[12]") or author-year
+    #raw(lang:"verbatim", "(Smith 2017)"));
+  - the BibTeX files, with the #raw(lang:"verbatim", "sp-cite-match")
+    scoring and thresholds;
+  - litdb, as a list to choose from (never automatic).
+- A BibTeX match opens through #raw(lang:"verbatim", "sp-reading-open"),
+  so the record-lookup code of
+  #raw(lang:"verbatim", "sp-devonthink-browse=/=sp-reading") (crossref
+  parent, index-if-missing) is unchanged.
+
+==== Files
+<files>
+- #raw(lang:"verbatim", "sp-cite-open.el") (+ literate doc
+  #raw(lang:"verbatim", "docs/tangles/academic/sp-cite-open.org")) and 9
+  ERT tests (pass in batch on Emacs 29.3).
+- #raw(lang:"verbatim", "hammerspoon/cite-match.lua"):
+  #raw(lang:"verbatim", "M.send") takes a protocol; new
+  #raw(lang:"verbatim", "M.open").
+- #raw(lang:"verbatim", "hammerspoon/devonthink.lua"):
+  #raw(lang:"verbatim", "Caps+r"), DEVONthink only. No clash with
+  Caps+x/c or Caps+Option+1-7 (\#512); #raw(lang:"verbatim", "r") is not
+  a workspace key.
+- #raw(lang:"verbatim", "README.org") module table and design doc
+  updated. No CHANGELOG edit.
+
+==== Not done / doubtful
+<not-done--doubtful>
+- Citations in running prose are only parsed as surnames plus a year.
+  #raw(lang:"verbatim", "Ibid.") and #raw(lang:"verbatim", "op. cit.")
+  match nothing.
+- No page jump inside the cited work; the record opens at its start.
+- A PDF without a text layer has no reference list; the selection itself
+  is matched.
+- Not run on the Mac: the DEVONthink AppleScript
+  (#raw(lang:"verbatim", "plain text of record")), the hotkey with Caps
+  held, org-protocol.
+
+==== Manual testing
+<manual-testing>
+- ☐ Stow, reload Hammerspoon, restart the Emacs server;
+  #raw(lang:"verbatim", "M-x emacs-version") and
+  #raw(lang:"verbatim", "(require 'sp-cite-open)") load without error.
+- ☐ Open a PDF with a numbered reference list in DEVONthink, select
+  #raw(lang:"verbatim", "[3]"), press Caps+r: the record of entry 3
+  opens (or the BibTeX/litdb prompt appears).
+- ☐ Select #raw(lang:"verbatim", "(Smith 2017)") for an author-year
+  paper whose list has that entry: the record opens.
+- ☐ Select a whole reference entry that is in your BibTeX: its record
+  opens without a prompt.
+- ☐ Select a citation that is in no BibTeX file: a litdb list appears;
+  choosing a hit opens it.
+- ☐ Select #raw(lang:"verbatim", "Mueller 2015") when the list has 2015a
+  and 2015b: you are asked to choose.
+- ☐ Caps+r with nothing selected shows \"nothing was selected\" and does
+  nothing else.
+- ☐ Caps+r in another app does nothing; Ctrl+Shift+K still writes the
+  Cited works section.
+- ☐ Clipboard content is the same after the key as before.
+- ☐ #raw(lang:"verbatim", "M-x sp-cite-open-text") with a typed citation
+  works in Emacs without Hammerspoon.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNi8q5mntJU5gbou4xiT")[Claude Code]]
+
+== Conversation
+<conversation-48>
+=== \u{40}siainbuletin, 2026-11-15 11:30
+<siainbuletin-2026-11-15-1130>
+#link("https://github.com/siainbuletin/dotfiles/pull/513#issuecomment-6893651520")[permalink]
+The #raw(lang:"verbatim", "tangle") check fails on
+#raw(lang:"verbatim", "sp-litnotes-refs.el") and
+#raw(lang:"verbatim", "sp-litnotes-titles.el"), which this PR does not
+touch. Their docs and #raw(lang:"verbatim", ".el") files are out of sync
+on #raw(lang:"verbatim", "main")\; \#511 re-tangles them. The files this
+PR adds (#raw(lang:"verbatim", "sp-cite-open.el"),
+#raw(lang:"verbatim", "sp-academic.el")) are not in the list, so no
+change is needed here. The check should pass once \#511 is merged.
+
+#divider()
+
+#emph[Generated by #link("https://claude.ai/code")[Claude Code]]
+
+== Commits (1)
+<commits-1-255>
+- #link("https://github.com/siainbuletin/dotfiles/commit/6611045bd3a2ea3a1c419e7ad16a2c7cfb640f80")[6611045bd3]
+  ✨ Open the DEVONthink record of a selected citation with Caps+r
+  (Claude, 2026-11-15 11:29)
+
+= PR \#514: ✨ Redo a deleted highlight with Cmd+Shift+Z in DEVONthink
+<pr-514-redo-a-deleted-highlight-with-cmdshiftz-in-devonthink>
+/ Link: #link("https://github.com/siainbuletin/dotfiles/pull/514")[#link("https://github.com/siainbuletin/dotfiles/pull/514")]
+/ State: open
+/ Author: \u{40}siainbuletin
+/ Opened: 2026-11-15 14:21
+/ Branch: #raw(lang:"verbatim", "514-devonthink-redo-highlight") →
+    #raw(lang:"verbatim", "main")
+/ Merge commit: #link("https://github.com/siainbuletin/dotfiles/commit/3fc3952a4ab52e8611167f0b5867e3d44de466a0")[3fc3952a4a]
+
+== Description
+<description-511>
+#emph[Requested by #strong[Sia] ·
+#link("https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE")[project thread]]
+
+==== Merge order
+<merge-order>
+- Independent; merge any time.
+- #strong[Includes \#512.] \#512 was merged into the branch of \#510,
+  not into #raw(lang:"verbatim", "main"), so the Caps+Option+number
+  colour keys never reached #raw(lang:"verbatim", "main"). This PR
+  carries them, with the redo on top.
+
+==== What changes
+<what-changes>
+- #raw(lang:"verbatim", "Cmd+Shift+Z") runs Edit \> Redo only when its
+  title says highlight, annotation or markup (e.g. \"Redo Add
+  Highlight\"). Otherwise the normal Cmd+Shift+Z goes to DEVONthink.
+- It mirrors #raw(lang:"verbatim", "Cmd+Z"): the Edit menu always shows
+  the next redo step, so a stale or already-redone highlight is never
+  touched.
+- Only active while DEVONthink is in front.
+- Also from \#512, now landing on #raw(lang:"verbatim", "main"):
+  - #raw(lang:"verbatim", "Caps+Option+1") to #raw(lang:"verbatim", "7")
+    pick Red, Green, Blue, Yellow, Orange, Purple, Grey and start
+    highlighting.
+  - #raw(lang:"verbatim", "Caps+Option+Shift+1") to
+    #raw(lang:"verbatim", "7") only set the colour.
+  - #raw(lang:"verbatim", "aerospace-keys.lua") opens the Caps layer
+    when Option is already held.
+
+==== Manual testing
+<manual-testing>
+- ☐ Reload Hammerspoon: no error in the console.
+- ☐ Make a highlight, press Cmd+Z: it disappears. Press Cmd+Shift+Z: it
+  comes back.
+- ☐ Open the Edit menu after Cmd+Z: note the Redo title. If it does not
+  mention highlight, send me
+  #raw(lang:"verbatim", "DEVONthink.dumpMenu(\"Edit\")").
+- ☐ Press Cmd+Shift+Z with nothing to redo: normal DEVONthink behaviour,
+  no error.
+- ☐ Undo a highlight, then do another action, then Cmd+Shift+Z: the
+  highlight is not brought back.
+- ☐ Caps+Option+1 to 7 pick the colours; Caps+c still cycles; Caps+3
+  alone still switches workspace.
+- ☐ In other apps, Cmd+Z and Cmd+Shift+Z behave as usual.
+
+#divider()
+
+#emph[Generated by
+#link("https://claude.ai/code/session_01WWLNiCTb5QFPFZUd9wzRgq")[Claude Code]]
+
+== Commits (5)
+<commits-5-14>
+- #link("https://github.com/siainbuletin/dotfiles/commit/cbd34dc06c885000342eaef616e74d169a6abf19")[cbd34dc06c]
+  ✨ Pick a DEVONthink highlight colour directly with Caps+Ctrl+number
+  (Sia Piperea, 2026-11-15 11:18)
+- #link("https://github.com/siainbuletin/dotfiles/commit/6bb5bfa57d157ba4c645c867ade4d5281a9a911d")[6bb5bfa57d]
+  🔧 Open the Caps layer when Option is already held (Sia Piperea,
+  2026-11-15 11:18)
+- #link("https://github.com/siainbuletin/dotfiles/commit/4901d54700ecd93ed4af26be6e02d1d73e2fbec1")[4901d54700]
+  ✨ Use Caps+Option+number for the DEVONthink colour keys (Sia Piperea,
+  2026-11-15 11:19)
+- #link("https://github.com/siainbuletin/dotfiles/commit/f3b22dd133c23569a7ff34c3cc7fa0981b996c36")[f3b22dd133]
+  Merge pull request \#512 from siainbuletin/512-devonthink-pick-colour
+  (Sia Piperea, 2026-11-15 14:18)
+- #link("https://github.com/siainbuletin/dotfiles/commit/1cf39876a4132e983fb68875234657b1433feb7b")[1cf39876a4]
+  ✨ Redo a deleted highlight with Cmd+Shift+Z in DEVONthink (Sia
+  Piperea, 2026-11-15 14:21)

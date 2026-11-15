@@ -22,7 +22,7 @@
             "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/420"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3"
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/eaea9228b34cc7db4d4cdeeb5938439c3333a14f"
         }
     },
     "active_lock_reason": null,
@@ -74,8 +74,8 @@
     "author_association": "OWNER",
     "auto_merge": null,
     "base": {
-        "label": "siainbuletin:419-devonthink-design-adrs",
-        "ref": "419-devonthink-design-adrs",
+        "label": "siainbuletin:main",
+        "ref": "main",
         "repo": {
             "allow_forking": true,
             "archive_url": "https://api.github.com/repos/siainbuletin/dotfiles/{archive_format}{/ref}",
@@ -132,8 +132,8 @@
             "name": "dotfiles",
             "node_id": "R_kgDOQOHyyA",
             "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
-            "open_issues": 19,
-            "open_issues_count": 19,
+            "open_issues": 12,
+            "open_issues_count": 12,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
                 "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -158,9 +158,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
-            "pushed_at": "2026-11-14T12:10:30Z",
+            "pushed_at": "2026-11-15T11:05:59Z",
             "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
-            "size": 115104,
+            "size": 117535,
             "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
@@ -179,7 +179,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "6bf6b68cb024c2fb1e3f770b58c708bc4f431d71",
+        "sha": "2a16ae8831c6232d4f6c724bc40e665c101b0fc6",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
             "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -204,7 +204,7 @@
     },
     "body": "<!-- claude-projects-attribution: {\"github_login\":\"siainbuletin\"} -->\n_Requested by **Sia** · [project thread](https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK)_\n\nStep 4 of 5. **Base: `419-devonthink-design-adrs` (#419)**. Stack: #414 → #415 → #418 → #419 → #420.\n\n## What\n- `sp-devonthink-highlights-import` (`C-c k d h`) in a litnote copies the highlights of its PDF under a `* Highlights` heading: one list item each, the text plus a `devonthink:` link to its page (`key p. 6`).\n- One way only (DEVONthink to Emacs): it only appends list items under that heading and adds only highlights not already there (whitespace and case ignored), so your edits survive a second run. The buffer is left unsaved.\n- `tools/devonthink-highlights.py FILE.pdf` prints the highlights as JSON by page (from 1), reusing the reader of `devonthink-to-litdb.py`; Emacs runs it with `sp-litdb-python`.\n- Literate doc `docs/tangles/academic/sp-devonthink-highlights.org`; README row.\n\n## Not tested\n- On the Mac: the `path of` AppleScript, and that highlights made in DEVONthink's viewer are standard highlight annotations in the file.\n- Tested here: 7 ERT tests, 4 Python tests including a real PDF with a highlight made with PyMuPDF, and the tangle check.\n\n## Manual testing\nMac, fish, `~/.config/emacs-modular`. This edits a litnote buffer (not saved); use a note you can discard changes in.\n- [ ] Check out: `cd ~/dotfiles; git fetch origin 420-devonthink-highlights; git checkout 420-devonthink-highlights`, restart Emacs.\n- [ ] Elisp tests: `cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-highlights-test.el -f ert-run-tests-batch-and-exit` → 7 pass. Python: `~/.local/share/uv/tools/litdb/bin/python -m unittest tests/test_devonthink_highlights.py` → 4 pass.\n- [ ] Script alone: `~/.local/share/uv/tools/litdb/bin/python tools/devonthink-highlights.py ~/Documents/literature/KEY.pdf` (a PDF with highlights) → JSON like `[{\"page\": 6, \"highlights\": [\"…\"]}]`.\n- [ ] In that PDF's litnote: `C-c k d h` → \"Added N highlights under Highlights (not saved)\"; a `* Highlights` heading at the end with `- text [[devonthink:UUID::6][key p. 6]]` items.\n- [ ] `C-c C-o` on a link → DEVONthink opens on that page (report if off by one).\n- [ ] Reword one item, run `C-c k d h` again → \"No new highlights\", your edit untouched. Add a highlight in DEVONthink, run again → only the new one is added.\n- [ ] A note whose record has no file on disk → \"The record has no file on disk (is it indexed?)\"; a PDF without highlights → \"No highlights in the PDF\".\n- [ ] Discard the buffer changes (do not save) or save and check `git diff` in `~/notes` shows only the new section.\n\n🤖 Generated with [Claude Code](https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC)\n\nhttps://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC\n",
     "changed_files": 8,
-    "closed_at": null,
+    "closed_at": "2026-11-15T10:22:44Z",
     "comment_data": [],
     "comment_regular_data": [
         {
@@ -322,9 +322,125 @@
                 "url": "https://api.github.com/users/siainbuletin",
                 "user_view_type": "public"
             }
+        },
+        {
+            "author_association": "OWNER",
+            "body": "**Merge note:** merge #419 first. This branch now contains #419's move of the DEVONthink docs: `sp-devonthink-highlights.org` is in `docs/tangles/devonthink/` and its README row links there; `sp-academic.org` and the README rows merged with `main` (bibsync, fetch-inbox).\n\n**Extra manual test:**\n- [ ] `docs/tangles/devonthink/sp-devonthink-highlights.org` exists and its README link opens it.\n\n**Revert:** revert the merge commit of #419 in this branch, then `git mv` the doc back if needed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_",
+            "created_at": "2026-11-14T15:37:39Z",
+            "html_url": "https://github.com/siainbuletin/dotfiles/pull/420#issuecomment-6879879100",
+            "id": 6879879100,
+            "issue_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/420",
+            "minimized": null,
+            "node_id": "IC_kwDOQOHyyM8AAAABmhKfvA",
+            "performed_via_github_app": {
+                "client_id": "Iv23liqTIFEtdIu6Vn1r",
+                "created_at": "2025-04-30T17:54:24Z",
+                "description": "Run Claude Code from your GitHub Pull Requests and Issues to respond to reviewer feedback, fix CI errors, or modify code, turning it into a virtual teammate that works alongside your development pipelines.\r\n\r\nThis is built on the publicly available Claude Code SDK.",
+                "events": [
+                    "branch_protection_rule",
+                    "check_run",
+                    "check_suite",
+                    "commit_comment",
+                    "discussion",
+                    "discussion_comment",
+                    "issues",
+                    "issue_comment",
+                    "merge_group",
+                    "merge_queue_entry",
+                    "pull_request",
+                    "pull_request_review",
+                    "pull_request_review_comment",
+                    "pull_request_review_thread",
+                    "push",
+                    "release",
+                    "repository_ruleset",
+                    "status",
+                    "sub_issues"
+                ],
+                "external_url": "https://anthropic.com/claude-code",
+                "html_url": "https://github.com/apps/claude",
+                "id": 1236702,
+                "name": "Claude",
+                "node_id": "A_kwHOBIuudM4AEt7e",
+                "owner": {
+                    "avatar_url": "https://avatars.githubusercontent.com/u/76263028?v=4",
+                    "events_url": "https://api.github.com/users/anthropics/events{/privacy}",
+                    "followers_url": "https://api.github.com/users/anthropics/followers",
+                    "following_url": "https://api.github.com/users/anthropics/following{/other_user}",
+                    "gists_url": "https://api.github.com/users/anthropics/gists{/gist_id}",
+                    "gravatar_id": "",
+                    "html_url": "https://github.com/anthropics",
+                    "id": 76263028,
+                    "login": "anthropics",
+                    "node_id": "MDEyOk9yZ2FuaXphdGlvbjc2MjYzMDI4",
+                    "organizations_url": "https://api.github.com/users/anthropics/orgs",
+                    "received_events_url": "https://api.github.com/users/anthropics/received_events",
+                    "repos_url": "https://api.github.com/users/anthropics/repos",
+                    "site_admin": false,
+                    "starred_url": "https://api.github.com/users/anthropics/starred{/owner}{/repo}",
+                    "subscriptions_url": "https://api.github.com/users/anthropics/subscriptions",
+                    "type": "Organization",
+                    "url": "https://api.github.com/users/anthropics",
+                    "user_view_type": "public"
+                },
+                "permissions": {
+                    "actions": "write",
+                    "administration": "read",
+                    "checks": "write",
+                    "contents": "write",
+                    "discussions": "write",
+                    "issues": "write",
+                    "members": "read",
+                    "merge_queues": "read",
+                    "metadata": "read",
+                    "pull_requests": "write",
+                    "repository_creation": "write",
+                    "repository_hooks": "write",
+                    "statuses": "read",
+                    "vulnerability_alerts": "read",
+                    "workflows": "write"
+                },
+                "slug": "claude",
+                "updated_at": "2026-11-12T22:28:30Z"
+            },
+            "reactions": {
+                "+1": 0,
+                "-1": 0,
+                "confused": 0,
+                "eyes": 0,
+                "heart": 0,
+                "hooray": 0,
+                "laugh": 0,
+                "rocket": 0,
+                "total_count": 0,
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments/6879879100/reactions"
+            },
+            "updated_at": "2026-11-14T15:37:39Z",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/comments/6879879100",
+            "user": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            }
         }
     ],
-    "comments": 1,
+    "comments": 2,
     "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/420/comments",
     "commit_data": [
         {
@@ -1012,9 +1128,183 @@
             ],
             "sha": "29a5f3f3972ebf2fdb372d4dcef4e735857e9de3",
             "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/9f2861dd1457fdcefe08875697b5e44cc18c40fe/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-14T15:36:36Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-14T15:36:36Z",
+                    "email": "noreply@anthropic.com",
+                    "name": "Claude"
+                },
+                "message": "Merge branch '419-devonthink-design-adrs' into 420-devonthink-highlights\n\n# Conflicts:\n#\temacs-modular/.config/emacs-modular/README.org\n#\temacs-modular/.config/emacs-modular/docs/tangles/academic/sp-academic.org\n#\temacs-modular/.config/emacs-modular/libraries/modules/academic/sp-academic.el",
+                "tree": {
+                    "sha": "8b2813252d11042bf4f54c9f34bd0e753b5888f0",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/8b2813252d11042bf4f54c9f34bd0e753b5888f0"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/9f2861dd1457fdcefe08875697b5e44cc18c40fe",
+                "verification": {
+                    "payload": "tree 8b2813252d11042bf4f54c9f34bd0e753b5888f0\nparent 29a5f3f3972ebf2fdb372d4dcef4e735857e9de3\nparent 1937aced05eab81136619a09a90bf1cafefddfe9\nauthor Claude <noreply@anthropic.com> 1794670596 +0000\ncommitter Claude <noreply@anthropic.com> 1794670596 +0000\n\nMerge branch '419-devonthink-design-adrs' into 420-devonthink-highlights\n\n# Conflicts:\n#\temacs-modular/.config/emacs-modular/README.org\n#\temacs-modular/.config/emacs-modular/docs/tangles/academic/sp-academic.org\n#\temacs-modular/.config/emacs-modular/libraries/modules/academic/sp-academic.el\n",
+                    "reason": "valid",
+                    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgrLzsfFISF4by8Q+FKz27YpkK1USsBB+m\namu1QkJnbDsAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5AAAAQAIFGH7x\ndTL8xP9eEyZCiDhTQwpCVgwzlZvYFW2yw2oFfWoazp3TKkJI5WeH3BLTLpYLUBOWMiqaI08CS6Pl\nHwo=\n-----END SSH SIGNATURE-----",
+                    "verified": true,
+                    "verified_at": "2026-11-14T15:36:38Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/81847?v=4",
+                "events_url": "https://api.github.com/users/claude/events{/privacy}",
+                "followers_url": "https://api.github.com/users/claude/followers",
+                "following_url": "https://api.github.com/users/claude/following{/other_user}",
+                "gists_url": "https://api.github.com/users/claude/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/claude",
+                "id": 81847,
+                "login": "claude",
+                "node_id": "MDQ6VXNlcjgxODQ3",
+                "organizations_url": "https://api.github.com/users/claude/orgs",
+                "received_events_url": "https://api.github.com/users/claude/received_events",
+                "repos_url": "https://api.github.com/users/claude/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/claude/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/claude/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/claude",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/9f2861dd1457fdcefe08875697b5e44cc18c40fe",
+            "node_id": "C_kwDOQOHyyNoAKDlmMjg2MWRkMTQ1N2ZkY2VmZTA4ODc1Njk3YjVlNDRjYzE4YzQwZmU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3",
+                    "sha": "29a5f3f3972ebf2fdb372d4dcef4e735857e9de3",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/1937aced05eab81136619a09a90bf1cafefddfe9",
+                    "sha": "1937aced05eab81136619a09a90bf1cafefddfe9",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1937aced05eab81136619a09a90bf1cafefddfe9"
+                }
+            ],
+            "sha": "9f2861dd1457fdcefe08875697b5e44cc18c40fe",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/9f2861dd1457fdcefe08875697b5e44cc18c40fe"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/eaea9228b34cc7db4d4cdeeb5938439c3333a14f/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-15T10:22:28Z",
+                    "email": "97026492+siainbuletin@users.noreply.github.com",
+                    "name": "Sia Piperea"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-15T10:22:28Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'main' into 420-devonthink-highlights",
+                "tree": {
+                    "sha": "baf156c46d38ace23edf038737def1d1709f587d",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/baf156c46d38ace23edf038737def1d1709f587d"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/eaea9228b34cc7db4d4cdeeb5938439c3333a14f",
+                "verification": {
+                    "payload": "tree baf156c46d38ace23edf038737def1d1709f587d\nparent 9f2861dd1457fdcefe08875697b5e44cc18c40fe\nparent 2a16ae8831c6232d4f6c724bc40e665c101b0fc6\nauthor Sia Piperea <97026492+siainbuletin@users.noreply.github.com> 1794738148 +0200\ncommitter GitHub <noreply@github.com> 1794738148 +0200\n\nMerge branch 'main' into 420-devonthink-highlights",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq+YfkCRC1aQ7uu5UhlAAA4OIQAKG+CEDzA27Kv6tfi6CR/nRr\nVbqbJLF3h6ke3u6IonzrfXlS+GVLh4JyH4jQfliopvz31wVuGncneqcwn4meg5u9\ns+kuLsxOesbOK24jGkaC5GEauvfvfJs9x1Kgo4WOYEyqKFr9OZXsr2IiRgk3+DdI\n5wJXwf7YLt2iROuxF/ssUc+xTpDRyRrmmZc3pXMcy9ExZCAIhm1MeDYrtGyRM/kI\naeQwZMrYqHgYoZ2jF95UtEFvpTpaWgfsNT/ZvSabeCh3/BaWHUwtZ3bplpA9GUb3\nTg68BJ/mK4Pt8H1I/OaAgIvTH9buXMxnXZSQTnz7jSa2V9I4Ilbz5V7e3g/QGGro\n/5TH5NvN6PUAIb5xK6P215z6Wbd60yO+0tEUAkDfuAX3dSS3E0pYVNEcZtSx+yyz\nWf2hVMucCL1zMj7JBfh3pqBIilBcWzMI9hvAEaFwXYXl1XU7itW5c41pEycZKHzS\nDJReVU6mkthwNgKJr5BFcEFSPUm53k/oQL/cGTJURx3yKHygGurVUP5sMvvf4ZTm\nM/HhHELkayGneXeIz3jI6/0Zw+6BMBzL091luKLP6swphtPUOd89HKOPvP8Xt8eW\njRrVyZi6HU761UHtN0DPBuNA/qI7LoXbMjmjXfaSMVNxwquYu1msWZ1K4ecwbacf\nmd/GWYSv11+H9014dGxW\n=gd/a\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-11-15T10:22:28Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/eaea9228b34cc7db4d4cdeeb5938439c3333a14f",
+            "node_id": "C_kwDOQOHyyNoAKGVhZWE5MjI4YjM0Y2M3ZGI0ZDRjZGVlYjU5Mzg0MzljMzMzM2ExNGY",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/9f2861dd1457fdcefe08875697b5e44cc18c40fe",
+                    "sha": "9f2861dd1457fdcefe08875697b5e44cc18c40fe",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/9f2861dd1457fdcefe08875697b5e44cc18c40fe"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/2a16ae8831c6232d4f6c724bc40e665c101b0fc6",
+                    "sha": "2a16ae8831c6232d4f6c724bc40e665c101b0fc6",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/2a16ae8831c6232d4f6c724bc40e665c101b0fc6"
+                }
+            ],
+            "sha": "eaea9228b34cc7db4d4cdeeb5938439c3333a14f",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/eaea9228b34cc7db4d4cdeeb5938439c3333a14f"
         }
     ],
-    "commits": 8,
+    "commits": 10,
     "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/420/commits",
     "created_at": "2026-11-12T22:04:54Z",
     "deletions": 0,
@@ -1079,8 +1369,8 @@
             "name": "dotfiles",
             "node_id": "R_kgDOQOHyyA",
             "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
-            "open_issues": 19,
-            "open_issues_count": 19,
+            "open_issues": 12,
+            "open_issues_count": 12,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
                 "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -1105,9 +1395,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
-            "pushed_at": "2026-11-14T12:10:30Z",
+            "pushed_at": "2026-11-15T11:05:59Z",
             "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
-            "size": 115104,
+            "size": 117535,
             "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
@@ -1126,7 +1416,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "29a5f3f3972ebf2fdb372d4dcef4e735857e9de3",
+        "sha": "eaea9228b34cc7db4d4cdeeb5938439c3333a14f",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
             "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -1152,30 +1442,73 @@
     "html_url": "https://github.com/siainbuletin/dotfiles/pull/420",
     "id": 5285984326,
     "issue_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/420",
-    "labels": [],
+    "labels": [
+        {
+            "archived_at": null,
+            "archived_by": null,
+            "color": "82f1b9",
+            "default": false,
+            "description": "Newly-developed feature (from scratch). This is where development starts.",
+            "id": 12808100853,
+            "name": "new-feature",
+            "node_id": "LA_kwDOQOHyyM8AAAAC-2wb9Q",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/labels/new-feature"
+        },
+        {
+            "archived_at": null,
+            "archived_by": null,
+            "color": "4ADB72",
+            "default": false,
+            "description": "Merged because I need it for testing; functionality unconfirmed",
+            "id": 12812641364,
+            "name": "needs-further-testing",
+            "node_id": "LA_kwDOQOHyyM8AAAAC-7FkVA",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/labels/needs-further-testing"
+        }
+    ],
     "locked": false,
     "maintainer_can_modify": false,
-    "merge_commit_sha": "228c7d70ccc3e4816e018d3f1e884f8b9ddfb22a",
-    "mergeable": true,
-    "mergeable_state": "clean",
-    "merged": false,
-    "merged_at": null,
-    "merged_by": null,
+    "merge_commit_sha": "6504f85552e2d7b380f3264246bee92eae430dbc",
+    "mergeable": null,
+    "mergeable_state": "unknown",
+    "merged": true,
+    "merged_at": "2026-11-15T10:22:44Z",
+    "merged_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    },
     "milestone": null,
     "node_id": "PR_kwDOQOHyyM8AAAABOxG4Rg",
     "number": 420,
     "patch_url": "https://github.com/siainbuletin/dotfiles/pull/420.patch",
-    "rebaseable": true,
+    "rebaseable": null,
     "requested_reviewers": [],
     "requested_teams": [],
     "review_comment_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/comments{/number}",
     "review_comments": 0,
     "review_comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/420/comments",
     "review_data": [],
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/29a5f3f3972ebf2fdb372d4dcef4e735857e9de3",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/eaea9228b34cc7db4d4cdeeb5938439c3333a14f",
     "title": "✨ Bring the highlights of a litnote's PDF into the note",
-    "updated_at": "2026-11-13T00:59:23Z",
+    "updated_at": "2026-11-15T10:22:44Z",
     "url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/420",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",

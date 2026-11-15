@@ -164,7 +164,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 
 ** Consequences
 
-- Modules: =sp-devonthink= (this file), =sp-devonthink-tags=, =sp-devonthink-browse= (browse and search); scripts =tools/devonthink-to-litdb.py=, =tools/devonthink-reading.py=, =tools/devonthink-move.py=; litdb search in =sp-litdb=.
+- Modules: =sp-devonthink= (this file), =sp-devonthink-tags=, =sp-devonthink-browse= (browse and search), =sp-devonthink-highlights=, =sp-devonthink-sync=; scripts =tools/devonthink-to-litdb.py=, =tools/devonthink-reading.py=, =tools/devonthink-move.py=; litdb search in =sp-litdb=.
 - litdb is an engine only for pages with highlights; the index stays in the hundreds of thousands of chunks at most (estimate, to measure after the first run).
 - The record-to-litnote link needs a custom metadata field and an org-protocol or URL handler on macOS.
 - Tags and the unread flag stay in DEVONthink; read status stays in the litnote.
@@ -177,12 +177,12 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 | 1 | core: =devonthink:= link, =#+devonthink:= keyword, open from note | #414 (this module) |
 | 2 | browse and tags | #415 |
 | 3 | search front end, similar records, preview | #418 |
-| 4 | highlights into the litnote | next |
-| 5 | sync report, guarded backfill, record-side link | after the probes below |
+| 4 | highlights into the litnote | #420 (=sp-devonthink-highlights=) |
+| 5 | sync report, guarded backfill, record-side link | #421 (=sp-devonthink-sync=); the record-side link is written but needs the probes below |
 
 ** Open questions
 
-- To probe on the Mac before step 5:
+- To probe on the Mac before writing record links (=sp-devonthink-sync-probe-field= does the first one):
   - what the =litnote= custom metadata field can store (type URL, length), and whether DEVONthink opens an =emacsclient=/org-protocol URL from it;
   - how to register the URL handler on macOS (an app, or =org-protocol= through =emacsclient.desktop= equivalents) and where its setup should live in the repo.
 - AppleScript written from the dictionary and not yet run (each module doc lists its own):
@@ -237,7 +237,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Links and litnotes (=sp-devonthink=):
   - =[[devonthink:UUID::6][key p. 6]]= opens the record at printed page 6 (the URL gets page 5); exporting writes only the description.
   - =#+devonthink: UUID= in a litnote's front matter names its record; the citekey is the fallback.
-  - An entry with no record of its own (a chapter) uses the record of its =crossref= parent and opens at its first page plus an offset.
+  - An entry with no record of its own (a chapter) uses the record of its =crossref= parent and opens at the PDF page whose page label is its first page (labels are written into the PDF, see ADR 0033).
   - A command that changes the parent's record asks first.
   - A chapter's own keywords are stored in a block of the parent record's comment and can be shown at the bottom of the chapter's litnote.
   - =sp-devonthink-store-link= stores a link to the record and page now showing in DEVONthink (any window); the selected text goes to the kill ring.
@@ -291,8 +291,8 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Core (=sp-devonthink=):
   - =sp-devonthink-keyword=: name of the litnote keyword, =devonthink=.
   - =sp-devonthink-store-page-offset=: added to the page DEVONthink reports when a link is stored, 0.
-  - =sp-devonthink-page-offset=: PDF page minus printed page for a chapter in its parent's PDF, 0.
-  - =sp-devonthink-parent-page-offsets=: alist =(PARENT-CITEKEY . OFFSET)= that overrides it for one book.
+  - =sp-devonthink-label-command=: program and arguments, before the script, that run Python with =pikepdf=, =("python3")=.
+  - =sp-devonthink-label-script=: =tools/pdf-labels-read.py=, the reader of PDF page labels.
 - From =sp-reading=:
   - =sp-reading-database=: the database that holds the literature, =literature=.
   - =sp-reading-index-group=: the group that new indexed files go to, nil (the root).
@@ -347,8 +347,8 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 ** Known limitations
 
 - A chapter or section has no record of its own; everything for it goes through its =crossref= parent.
-  - Only the first number of =pages= is used; roman numerals give no page, and the parent opens at the start.
-  - The printed page to PDF page offset is a setting (=sp-devonthink-page-offset=), not detected.
+  - Only the first page of =pages= is used, as written (=45=, =e123=, =xii=); it is looked up among the PDF's page labels.
+  - The parent opens at the start, with a message, when the PDF has no page labels or none matches (run =tools/pdf-labels-book.py=; needs =pikepdf=).
 - One database only: =sp-reading-database=; the other packages in =~/Databases= are never searched.
 - DEVONthink's concordance is not in its scripting dictionary, so it is not offered from Emacs.
 - The browser list is cached for the session; run =M-x sp-devonthink-browse-refresh= after the database changes.
@@ -387,10 +387,12 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - =sp-devonthink-keyword= is the name of the litnote keyword that holds the UUID.
 - =sp-devonthink-store-page-offset= is added to the page DEVONthink reports when a link is stored.
   - It is 0 until tried: if stored links open one page off, set it to 1 or -1.
-- =sp-devonthink-page-offset= is added to the printed page of a chapter or article when its record is the parent's PDF.
-  - The offset is PDF page minus printed page: a book whose first numbered page is the 9th PDF page has offset 8.
-  - It is 0 by default, since the printed page and the PDF page often agree for proceedings and offprints.
-- =sp-devonthink-parent-page-offsets= is an alist =(PARENT-CITEKEY . OFFSET)= that overrides the default for one book.
+- =sp-devonthink-label-command= is the program (and arguments) that runs Python with =pikepdf=, put before the script path.
+  - Default =("python3")=; use =("uv" "run" "--script")= if =pikepdf= is not installed.
+- =sp-devonthink-label-script= is =tools/pdf-labels-read.py=, the reader of PDF page labels.
+- There is no page offset variable any more:
+  - the printed-to-physical page mapping is written into the PDF (see [[file:../academic/pdf-page-labels.org][pdf-page-labels]] and ADR 0033);
+  - the two offset variables of the first version were removed.
 
 #+begin_src emacs-lisp
 ;;; sp-devonthink.el --- DEVONthink records from Org and litnotes -*- lexical-binding: t; -*-
@@ -424,16 +426,17 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
   "Number added to the page DEVONthink reports when a link is stored."
   :type 'integer :group 'sp-devonthink)
 
-(defcustom sp-devonthink-page-offset 0
-  "Number added to a printed page to get the PDF page, for chapters in a parent's PDF.
-PDF page minus printed page; see `sp-devonthink-parent-page-offsets'."
-  :type 'integer :group 'sp-devonthink)
+(defcustom sp-devonthink-label-command '("python3")
+  "Program and arguments, before the script path, that run Python with pikepdf."
+  :type '(repeat string) :group 'sp-devonthink)
 
-(defcustom sp-devonthink-parent-page-offsets nil
-  "Alist of (PARENT-CITEKEY . OFFSET) overriding `sp-devonthink-page-offset'."
-  :type '(alist :key-type string :value-type integer) :group 'sp-devonthink)
+(defcustom sp-devonthink-label-script
+  (expand-file-name "tools/pdf-labels-read.py" user-emacs-directory)
+  "The script that turns a printed page into a PDF page using the PDF's page labels."
+  :type 'file :group 'sp-devonthink)
 
 (declare-function citar-get-value "citar")
+(declare-function sp-reading--pdf "sp-reading")
 #+end_src
 
 * Links: the pure parts
@@ -581,8 +584,9 @@ UUID defaults to the record named after the note's citekey."
   - It returns the entry's own record when there is one.
   - Otherwise it follows =crossref= (or =xref=) to the parent and returns the parent's record, with =:via= naming the parent.
 - =sp-devonthink-resolve= adds the page for a record that is the parent's.
-  - First page of =pages= (=45--67=, =45-67=, =e123= give 45, 45, 123; roman numerals give none), plus the offset.
-  - The offset is =sp-devonthink-page-offset= or the per-parent entry in =sp-devonthink-parent-page-offsets=.
+  - First page of =pages= as written (=45--67=, =45-67=, =e123=, =xii--xv= give =45=, =45=, =e123=, =xii=).
+  - The PDF page is the one whose page label is that text, read from the parent's PDF by =sp-devonthink-pdf-page-for-label= (it runs =tools/pdf-labels-read.py=).
+  - With no labels or no match the parent opens at the start and the note says why.
 - =crossref= and =pages= are read with =citar-get-value=, then from =citar-get-entry= if that gives nothing.
 - =sp-devonthink-note-record-uuid= is the same decision for the current litnote: the =#+devonthink:= keyword, else the record of its citekey, else the parent's.
   - It always says which record it is using when that is the parent's.
@@ -594,16 +598,42 @@ UUID defaults to the record named after the note's citekey."
 #+begin_src emacs-lisp
 ;;;; Chapters in a parent's PDF
 
-(defun sp-devonthink-first-page (pages)
-  "The first page number in the BibTeX PAGES string, or nil.
-Takes the part before a range or list separator (--, -, en dash, comma), and
-accepts a plain number or a number with a letter prefix such as e123 or S45.
-Roman numerals and other text give nil."
+(defun sp-devonthink-first-page-label (pages)
+  "The first page of the BibTeX PAGES string as written, or nil.
+=45--67= and =45-67= give \"45\", =e123= gives \"e123\", =xii--xv= gives \"xii\".
+A leading p. or pp. and a trailing + are dropped.  The result is looked up among
+the page labels of the PDF, so it is a string, not a number."
   (when (and (stringp pages) (not (string-empty-p (string-trim pages))))
-    (let ((first (car (split-string (string-trim pages) "[-–—,;]+" t "[ \t]+"))))
-      (when (and first (string-match "\\`[A-Za-z]?\\([0-9]+\\)\\'" first))
-        (let ((n (string-to-number (match-string 1 first))))
-          (and (>= n 1) n))))))
+    (let* ((text (replace-regexp-in-string "\\`pp?\\.?[ \t]*" "" (string-trim pages) t t))
+           (first (car (split-string text "[-–—,;]+" t "[ \t]+"))))
+      (when first
+        (setq first (string-trim-right first "\\++"))
+        (and (string-match-p "\\`\\(?:[A-Za-z]\\{1,4\\}[0-9]+\\|[0-9]+\\|[A-Za-z]+\\)\\'" first)
+             first)))))
+
+(defun sp-devonthink-pdf-page-for-label (file label)
+  "The PDF page (counted from 1) of FILE whose page label is LABEL, as a plist.
+Asks `sp-devonthink-label-script'.  The plist is (:page N), or (:why WHY :message TEXT)
+with WHY one of `no-labels' (the PDF has none), `not-found' (no page has LABEL) and
+`error' (anything else, such as pikepdf missing)."
+  (let* ((errfile (make-temp-file "sp-pdf-labels"))
+         (out nil)
+         (status (condition-case err
+                     (with-temp-buffer
+                       (prog1 (apply #'call-process (car sp-devonthink-label-command) nil
+                                     (list t errfile) nil
+                                     (append (cdr sp-devonthink-label-command)
+                                             (list sp-devonthink-label-script file "--resolve" label)))
+                         (setq out (string-trim (buffer-string)))))
+                   (error (error-message-string err))))
+         (message (string-trim (with-temp-buffer (insert-file-contents errfile) (buffer-string)))))
+    (delete-file errfile)
+    (cond
+     ((and (eq status 0) (string-match-p "\\`[1-9][0-9]*\\'" out))
+      (list :page (string-to-number out)))
+     ((eq status 3) (list :why 'no-labels :message message))
+     ((eq status 4) (list :why 'not-found :message message))
+     (t (list :why 'error :message (if (stringp status) status message))))))
 
 (defun sp-devonthink--field (field key)
   "The value of the BibTeX FIELD (a symbol) of the entry KEY, or nil when empty.
@@ -652,20 +682,31 @@ whole parent book); declining signals a `user-error'."
 (defun sp-devonthink-resolve (key)
   "Where to open the work KEY in DEVONthink: `sp-devonthink-record' plus the page.
 Adds :page (PDF page counted from 1, or nil) and :note (a message, or nil)
-when the record is the parent's: the first page of KEY's =pages= plus the offset."
+when the record is the parent's: the PDF page whose page label is the first page
+of KEY's =pages= (see `sp-devonthink-pdf-page-for-label')."
   (when-let* ((found (sp-devonthink-record key)))
     (if-let* ((parent (plist-get found :via)))
-        (let* ((printed (sp-devonthink-first-page (sp-devonthink--field 'pages key)))
-               (offset (or (cdr (assoc parent sp-devonthink-parent-page-offsets))
-                           sp-devonthink-page-offset))
-               (page (and printed (max 1 (+ printed offset)))))
+        (let* ((label (sp-devonthink-first-page-label (sp-devonthink--field 'pages key)))
+               (pdf (and label (sp-reading--pdf parent)))
+               (hit (and pdf (sp-devonthink-pdf-page-for-label pdf label)))
+               (page (plist-get hit :page)))
           (append found
                   (list :page page
-                        :note (if page
-                                  (format "%s is in %s: PDF page %d (printed page %d, offset %+d)"
-                                          key parent page printed offset)
-                                (format "%s is in %s: no usable pages field, using the start"
-                                        key parent)))))
+                        :note (cond
+                               (page (format "%s is in %s: PDF page %d (printed page %s, from the PDF's page labels)"
+                                             key parent page label))
+                               ((not label) (format "%s is in %s: no usable pages field, using the start"
+                                                    key parent))
+                               ((not pdf) (format "%s is in %s: no PDF file found for %s, using the start"
+                                                  key parent parent))
+                               ((eq (plist-get hit :why) 'no-labels)
+                                (format "%s is in %s: its PDF has no page labels, using the start (run tools/pdf-labels-book.py %s --first-page N)"
+                                        key parent parent))
+                               ((eq (plist-get hit :why) 'not-found)
+                                (format "%s is in %s: no page of its PDF is labelled %s, using the start"
+                                        key parent label))
+                               (t (format "%s is in %s: could not read the page labels (%s), using the start"
+                                          key parent (plist-get hit :message)))))))
       found)))
 #+end_src
 
@@ -674,7 +715,7 @@ when the record is the parent's: the first page of KEY's =pages= plus the offset
 - =sp-devonthink-open-from-note=: the UUID comes from the keyword, or from the citekey when the keyword is missing.
   - A prefix argument asks for a page (counted from 1).
 - =sp-devonthink-insert-link=: choose a citekey with =citar=, then always ask for a page, and insert the Org link.
-  - An entry without a record of its own links the crossref parent's record; the page prompt starts with the entry's first page (plus offset), which you can change or clear.
+  - An entry without a record of its own links the crossref parent's record; the page prompt starts with the PDF page found from the page labels (empty when none), which you can change or clear.
   - The page prompt accepts a number (from 1); an empty answer links the whole record.
   - It used to ask only with a prefix argument, so a plain =M-x= never offered a page.
 - =sp-devonthink-store-link=: store a link to the record (and page) now showing in DEVONthink, for =org-insert-link=.
@@ -684,9 +725,14 @@ when the record is the parent's: the first page of KEY's =pages= plus the offset
   - It returns nothing, and the command says so, when no window has a record.
 - =sp-devonthink-citar-open=: the =citar= / Embark action; opens the record of a citekey at a page.
   - If the entry has no record of its own, it follows =crossref= to the parent (the book or proceedings) and opens the parent's PDF at the entry's first page.
-  - The first page is read from the =pages= field (=45--67=, =45-67=, =e123= give 45, 45, 123); roman numerals and other non-numeric pages give no page, and the parent opens at the start with a message.
-  - =sp-devonthink-page-offset= (or the per-parent alist) converts the printed page into the PDF page.
-  - A prefix argument still asks for a page, which then wins over =pages= and is used as given (no offset).
+  - The first page is read from the =pages= field as written (=45--67=, =45-67=, =e123=, =xii--xv= give =45=, =45=, =e123=, =xii=).
+  - The PDF page is the one whose /page label/ is that text, read from the parent's PDF by =sp-devonthink-pdf-page-for-label= (it runs =tools/pdf-labels-read.py=).
+  - The parent opens at the start, with a message saying why, when:
+    - there is no usable =pages= field;
+    - no PDF file is found for the parent;
+    - the PDF has no page labels (run =tools/pdf-labels-book.py= for the book);
+    - no page has that label.
+  - A prefix argument still asks for a page, which then wins over =pages= and is used as given: a PDF page counted from 1.
   - With no record for the entry or its parent, the old behaviour stays (offer to index the entry's own PDF, or say there is no PDF).
 
 #+begin_src emacs-lisp
