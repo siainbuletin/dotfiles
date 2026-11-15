@@ -230,6 +230,13 @@ This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match
 - Data needed: all =Cited works= tables of the litnotes with =read-status= current or preparing, read in one pass (the tables are plain Org text, so no extra index is required).
 - Open points: whether to count cross-references only inside the current project or the whole vault, and how to treat works cited twice in one source.
 
+** SOURCEREFS lines (first version, built)
+
+- A line =SOURCEREFS text= in a litnote marks a reference met in the PDF being read.
+- =sp-sourcerefs-convert= (=C-c o s=) matches those lines (reference list of the PDF from =sp-cite-open=, then =sp-cite-match=) and turns the matches into =[cite:@key]= links.
+- Lines that match nothing stay, and become =TODO unmatched= rows of the table: the works to read next.
+- See =docs/tangles/academic/sp-sourcerefs.org=.
+
 * Part 4: backfilling item links in DEVONthink
 
 - Goal: the works a source cites become DEVONthink item links, so they show in its graph and Info inspector.
