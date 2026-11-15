@@ -201,6 +201,7 @@ the line, respectively."
            ;; The three kinds of note (sp-note-kinds): a see-also note is a
            ;; sidenote, an endnote goes to the Notes section.
            ("a"  .  sp-see-also-note-new)
+           ("A"  .  sp-see-also-note-new-bare)
            ("e"  .  sp-note-endnote-new)
            ("E"  .  sp-note-insert-endnotes-section)
            ("r"  .  sp-note-renumber)

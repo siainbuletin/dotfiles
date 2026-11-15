@@ -441,6 +441,7 @@ Notes:
            ;; The three kinds of note (sp-note-kinds): a see-also note is a
            ;; sidenote, an endnote goes to the Notes section.
            ("a"  .  sp-see-also-note-new)
+           ("A"  .  sp-see-also-note-new-bare)
            ("e"  .  sp-note-endnote-new)
            ("E"  .  sp-note-insert-endnotes-section)
            ("r"  .  sp-note-renumber)
@@ -1406,3 +1407,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =C-; L b z= (=l= dry run, =a= apply, =r= restore) for the Zotero attachment paths of a =.bib= file
 - Pull request: this one (see-also notes and endnotes)
   - ✨ Added =C-; n a= (a see-also note), =C-; n e= (an endnote), =C-; n E= (the endnotes template) and =C-; n M= (convert the old see-also footnotes of the buffer) and =C-; n r= (renumber see-also notes and endnotes in the order of the text); all five work in an Org buffer
+- Pull request: this one (bare see-also note)
+  - ✨ Added =C-; n A=: a see-also note without asking for a note to link

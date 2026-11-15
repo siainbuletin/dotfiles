@@ -1519,6 +1519,13 @@ with prefix argument BARE, do not ask and leave the definition empty."
                              (vulpea-note-id note) (vulpea-note-title note))))))
     (sp-note-new 'see-also text)))
 
+;;;###autoload
+(defun sp-see-also-note-new-bare ()
+  "Insert a see-also note at point without asking for a note to link.
+The definition is empty, for a commentary that is more than a link."
+  (interactive)
+  (sp-see-also-note-new t))
+
 (defun sp-see-also--rename-label (old new skip)
   "Rename the footnote label OLD to NEW everywhere outside the SKIP ranges."
   (let ((case-fold-search nil)
