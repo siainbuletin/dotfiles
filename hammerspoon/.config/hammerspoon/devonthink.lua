@@ -2,7 +2,7 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x                 toggle between selecting text and highlighting
+--   x                 toggle between text selection and highlighting
 --   c                 next colour (cycling), then highlight again
 --   Option+1 ... 7    pick colour N (list below), then highlight again
 --   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
@@ -28,14 +28,16 @@
 -- Toggle (Caps+x):
 --   * A PDF is shown when Tools > Annotate > Highlight Text exists and is
 --     enabled. Otherwise an alert says so and nothing else happens.
---   * Highlighting is on when that menu item has a check mark. Then the key
---     chooses the Text tool, the item of Tools > Annotate that selects text
---     (the title is "Text"; the patterns below also accept Select..., Pointer
---     and Text Selection).
---   * If there is no such item, an alert says so and nothing changes. Choosing
---     Highlight Text again does not turn highlighting off.
---   * If the menu shows no check marks at all, the last state this file set is
---     used instead; it is only a record of the last key press.
+--   * Text selection is the menu item "Text Selection" in the Mode menu. It is
+--     found by its exact title in the whole menu bar, so it does not matter
+--     which menu it is in. The cached colour paths are not involved.
+--   * Highlighting is on when Highlight Text has a check mark and Text Selection
+--     does not. Then the key chooses Text Selection. Otherwise it chooses
+--     Highlight Text.
+--   * If the menu shows no check marks, the last state this file set is used
+--     instead; it is only a record of the last key press.
+--   * If Text Selection is not found, an alert says so and nothing changes.
+--     Choosing Highlight Text again does not turn highlighting off.
 --
 -- Colours:
 --   * The colour menu items are renamed, e.g. "Red - Important point".
@@ -97,12 +99,11 @@ local redoHighlightPatterns = {
   "^Redo.*[Mm]arkup",
 }
 
--- The annotation tools submenu, the highlight tool in it, and the titles of
--- the tool that selects text (the first pattern with a match is used; "^Text$"
--- is the exact title, so it never matches "Text Note" or "Highlight Text").
+-- The annotation tools submenu and the highlight tool in it; the text selection
+-- item is searched in the whole menu bar (it is in the Mode menu).
 local annotateMenu = { "Tools", "Annotate" }
 local highlightToolPattern = "^Highlight"
-local selectToolPatterns = { "^Text$", "^Select", "^Pointer", "^Text Selection" }
+local textSelectionPattern = "^Text Selection$"
 -- Whether highlighting is on, as far as the last key press knows; used only
 -- when the menu shows no check marks.
 local highlightOn = false
@@ -126,8 +127,8 @@ local function selectMenu(path)
 end
 
 -- Depth-first search of ITEMS (from getMenuItems) for an item whose title
--- matches PATTERN. Returns the list of titles from the first one in PREFIX.
--- With ONLY_ENABLED, disabled items are skipped.
+-- matches PATTERN. Returns the list of titles from the first one in PREFIX,
+-- and the item itself. With ONLY_ENABLED, disabled items are skipped.
 local function findItem(items, pattern, prefix, onlyEnabled)
   for _, item in ipairs(items or {}) do
     local title = item.AXTitle
@@ -135,10 +136,10 @@ local function findItem(items, pattern, prefix, onlyEnabled)
       local path = { table.unpack(prefix) }
       path[#path + 1] = title
       if title:match(pattern) and not (onlyEnabled and item.AXEnabled == false) then
-        return path
+        return path, item
       end
-      local found = findItem(item.AXChildren and item.AXChildren[1], pattern, path, onlyEnabled)
-      if found then return found end
+      local found, foundItem = findItem(item.AXChildren and item.AXChildren[1], pattern, path, onlyEnabled)
+      if found then return found, foundItem end
     end
   end
   return nil
@@ -154,6 +155,19 @@ local function findInMenu(app, menu, pattern, onlyEnabled)
   return nil
 end
 
+-- Menu path and item matching PATTERN in any top-level menu of MENUBAR (the
+-- result of getMenuItems, read once by the caller).
+local function findAnywhere(menubar, pattern, onlyEnabled)
+  for _, top in ipairs(menubar or {}) do
+    if top.AXTitle and top.AXTitle ~= "" then
+      local path, item = findItem(top.AXChildren and top.AXChildren[1], pattern,
+        { top.AXTitle }, onlyEnabled)
+      if path then return path, item end
+    end
+  end
+  return nil
+end
+
 -- First enabled item in MENU matching one of PATTERNS; selects it.
 local function selectFirst(app, menu, patterns)
   for _, pattern in ipairs(patterns) do
@@ -164,8 +178,8 @@ local function selectFirst(app, menu, patterns)
 end
 
 -- The items (from getMenuItems) of the submenu at PATH, e.g. { "Tools", "Annotate" }.
-local function submenuItems(app, path)
-  local items = app:getMenuItems() or {}
+local function submenuItems(menubar, path)
+  local items = menubar or {}
   for _, title in ipairs(path) do
     local found
     for _, item in ipairs(items) do
@@ -185,13 +199,11 @@ local function isChecked(item)
   return mark ~= nil and mark ~= ""
 end
 
--- First enabled item whose title matches one of PATTERNS.
-local function firstMatching(items, patterns)
-  for _, pattern in ipairs(patterns) do
-    for _, item in ipairs(items) do
-      if item.AXTitle and item.AXTitle:match(pattern) and item.AXEnabled ~= false then
-        return item
-      end
+-- First enabled item whose title matches PATTERN.
+local function firstMatching(items, pattern)
+  for _, item in ipairs(items) do
+    if item.AXTitle and item.AXTitle:match(pattern) and item.AXEnabled ~= false then
+      return item
     end
   end
   return nil
@@ -257,36 +269,33 @@ function M.highlight()
   return ok
 end
 
--- Toggle between selecting text and highlighting. False (nothing done, no
+-- Toggle between text selection and highlighting. False (nothing done, no
 -- alert) when no PDF is shown; the caller shows the alert.
 function M.toggleHighlight()
   local app = hs.application.frontmostApplication()
   if not app then return false end
-  local items = submenuItems(app, annotateMenu) or {}
-  local tool = firstMatching(items, { highlightToolPattern })
+  local menubar = app:getMenuItems() or {}
+  local tool = firstMatching(submenuItems(menubar, annotateMenu) or {}, highlightToolPattern)
   if not tool then return false end
+  local textPath, textItem = findAnywhere(menubar, textSelectionPattern, true)
 
-  local anyChecked = false
-  for _, item in ipairs(items) do
-    if isChecked(item) then
-      anyChecked = true
-      break
-    end
-  end
+  -- Highlighting is on when Highlight Text is checked and Text Selection is
+  -- not; if neither shows a check mark, use the last known state.
   local on = highlightOn
-  if anyChecked then on = isChecked(tool) end
+  if textItem and isChecked(textItem) then
+    on = false
+  elseif isChecked(tool) then
+    on = true
+  end
 
   if on then
-    local textTool = firstMatching(items, selectToolPatterns)
-    if not textTool then
-      hs.alert.show("No Text tool in Tools > Annotate (see DEVONthink.dumpMenu(\"Tools\"))")
+    if not textPath then
+      hs.alert.show("No Text Selection item in the menus (see DEVONthink.dumpMenu(\"Mode\"))")
       return true
     end
-    if not selectMenu({ annotateMenu[1], annotateMenu[2], textTool.AXTitle }) then
-      return true
-    end
+    if not selectMenu(textPath) then return true end
     highlightOn = false
-    hs.alert.show("Text", 0.5)
+    hs.alert.show("Text Selection", 0.5)
   else
     if not selectMenu({ annotateMenu[1], annotateMenu[2], tool.AXTitle }) then
       return true
