@@ -73,27 +73,74 @@ There are several issues with editing this properly afterwards.
 
 ** Insertion command so you don't always type it out
 
-To avoid typing the full syntax, bind a small insertion command:
+=sp-org-insert-inline-comment= (bound to =C-c h= in =org-mode-map=) has two modes.
+
+- No active region: inserts =@@comment:@@= and leaves point between the colon and the closing =@@=, so you can type the note.
+- Active region: wraps the selected text in =@@comment:= ... =@@=, instead of replacing it.
+
+Rules for the region case:
+
+- Each non-blank line of the region becomes its own comment.
+  - Why: the font-lock rule above matches one line only, so a comment across lines would export fine but never be highlighted.
+  - Indentation and trailing spaces stay outside the comment markers.
+  - Blank lines stay blank, so paragraph breaks are kept (an inline object cannot cross a blank line in Org anyway).
+- Point at the start or at the end of the region gives the same result.
+- A region holding =@@= is refused with a =user-error=, because the text would end the snippet early. Nothing is changed.
+- A region with only whitespace counts as no region (the empty comment is inserted at point).
+- The region is replaced in one edit, so one =undo= restores the text.
+- The mark is deactivated and point ends after the last comment, so pressing =C-c h= again does not wrap the comment a second time.
+  - Before, the mark stayed active over the new comment, so the second press nested another =@@comment:= inside the first.
 
 #+begin_src emacs-lisp -i
+(defun sp-org--comment-lines (text)
+  "Return TEXT with each non-blank line wrapped as an inline comment.
+Leading and trailing whitespace of a line stays outside the markers."
+  (mapconcat
+   (lambda (line)
+     (if (string-blank-p line)
+         line
+       (string-match "\\`\\([ \t]*\\)\\(.*?\\)\\([ \t]*\\)\\'" line)
+       (concat (match-string 1 line)
+               "@@comment:" (match-string 2 line) "@@"
+               (match-string 3 line))))
+   (split-string text "\n")
+   "\n"))
+
 (defun sp-org-insert-inline-comment ()
+  "Wrap the active region in `@@comment:...@@', or insert an empty one.
+With a region, each non-blank line becomes its own comment, so the
+highlighting (one line only) matches the export.  Without a region,
+insert `@@comment:@@' and put point inside it."
   (interactive)
-  (if (use-region-p)
-      (let ((text (buffer-substring (region-beginning) (region-end))))
-        (delete-region (region-beginning) (region-end))
-        (insert "@@comment:" text "@@"))
-    (insert "@@comment:@@")
-    (backward-char 2)))
+  (let ((beg (and (use-region-p) (region-beginning)))
+        (end (and (use-region-p) (region-end))))
+    (if (not (and beg (string-match-p "[^ \t\n]" (buffer-substring-no-properties beg end))))
+        (progn
+          (deactivate-mark)
+          (insert "@@comment:@@")
+          (backward-char 2))
+      (let ((text (buffer-substring beg end)))
+        (when (string-search "@@" text)
+          (user-error "The region contains @@, which would end the comment early"))
+        (atomic-change-group
+          (goto-char beg)
+          (delete-region beg end)
+          (insert (sp-org--comment-lines text)))
+        (deactivate-mark)))))
 
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c h") #'sp-org-insert-inline-comment))
 #+end_src
 
-With a region selected, C-c h wraps it, which gives roughly the ==text== workflow.
-
 *** Other solution considered
 
 A {{{c(text)}}} macro with #+MACRO: c (empty expansion) also works, but the export snippet needs no setup per file, so I’d go with that.
+
+* Tests
+
+=tests/sp-org-custom-highlight-test.el= covers the command in an Org buffer.
+- Run headless, from the folder of =init.el=:
+  - =emacs -Q --batch -l tests/sp-org-custom-highlight-test.el -f ert-run-tests-batch-and-exit=
 
 * Provide
 
