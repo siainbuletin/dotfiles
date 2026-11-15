@@ -1,0 +1,118 @@
+#!/bin/bash
+# dt-pdf-grey: set the grey of DEVONthink's PDF background (its "PDFBackground"
+# preference), reversibly. macOS only.
+#
+#   dt-pdf-grey LEVEL|PRESET [options]   set the grey (LEVEL is 0 = black .. 1 = white)
+#   dt-pdf-grey --reset [options]        put the original values back
+#   dt-pdf-grey --show                   print the current and the saved values
+#
+# Presets: charcoal=0.20 dark=0.30 mid=0.425 light=0.60
+# Options:
+#   --quit                  quit DEVONthink first (asks it politely; aborts if it stays open)
+#   --relaunch              open DEVONthink again afterwards
+#   --disable-pdf-dark-mode also set DisablePDFDarkMode=true (no forced PDF inversion)
+#   --dry-run               print what would be written, change nothing
+# Without --quit the script refuses to run while DEVONthink is open, because
+# DEVONthink rewrites its preferences when it quits and would undo the change.
+# The values from before the first change are saved once in
+# ${XDG_STATE_HOME:-~/.local/state}/dt-pdf-grey/original and --reset uses them.
+set -eu
+
+domain=${DT_PDF_GREY_DOMAIN:-com.devon-technologies.think}
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dt-pdf-grey"
+state="$state_dir/original"
+
+die() { echo "dt-pdf-grey: $*" >&2; exit 1; }
+[ "$(uname)" = Darwin ] || die "macOS only."
+
+level= reset=0 show=0 quit=0 relaunch=0 nodark=0 dry=0
+while [ $# -gt 0 ]; do
+  case $1 in
+    --reset) reset=1 ;;
+    --show) show=1 ;;
+    --quit) quit=1 ;;
+    --relaunch) relaunch=1 ;;
+    --disable-pdf-dark-mode) nodark=1 ;;
+    --dry-run) dry=1 ;;
+    -h|--help) sed -n '2,/^set -eu/p' "$0" | sed '$d;s/^# \{0,1\}//'; exit 0 ;;
+    charcoal) level=0.20 ;;
+    dark) level=0.30 ;;
+    mid) level=0.425 ;;
+    light) level=0.60 ;;
+    -*) die "unknown option $1 (try --help)" ;;
+    *) level=$1 ;;
+  esac
+  shift
+done
+
+# Read one key of the exported preferences; prints nothing when it is absent.
+export_plist() { defaults export "$domain" - 2>/dev/null || true; }
+get() { printf '%s' "$1" | plutil -extract "$2" raw -o - - 2>/dev/null || true; }
+
+show_values() {
+  local p; p=$(export_plist)
+  echo "PDFBackground: red=$(get "$p" PDFBackground.red) green=$(get "$p" PDFBackground.green) blue=$(get "$p" PDFBackground.blue) alpha=$(get "$p" PDFBackground.alpha) space=$(get "$p" PDFBackground.colorSpace)"
+  echo "DisablePDFDarkMode: $(get "$p" DisablePDFDarkMode)"
+  if [ -r "$state" ]; then echo "Saved original ($state):"; sed 's/^/  /' "$state"
+  else echo "No saved original yet."; fi
+}
+[ $show = 1 ] && { show_values; exit 0; }
+
+[ $reset = 1 ] || [ -n "$level" ] || die "give a grey level (0-1) or a preset, or --reset (see --help)."
+if [ $reset = 0 ]; then
+  awk -v l="$level" 'BEGIN { exit !(l ~ /^(0(\.[0-9]+)?|1(\.0+)?|\.[0-9]+)$/) }' ||
+    die "level must be a number from 0 to 1, got '$level'."
+fi
+[ $reset = 1 ] && [ ! -r "$state" ] && die "nothing to reset: no saved original at $state."
+
+run() { if [ $dry = 1 ]; then echo "+ $*"; else "$@"; fi; }
+
+# DEVONthink must be closed while the preferences change.
+if pgrep -x DEVONthink >/dev/null 2>&1; then
+  [ $quit = 1 ] || die "DEVONthink is running. Quit it first, or pass --quit."
+  if [ $dry = 1 ]; then echo "+ quit DEVONthink"; else
+    /usr/bin/osascript -e 'tell application id "DNtp" to quit' >/dev/null
+    for _ in $(seq 1 30); do pgrep -x DEVONthink >/dev/null 2>&1 || break; sleep 1; done
+    pgrep -x DEVONthink >/dev/null 2>&1 && die "DEVONthink did not quit (unsaved prompt?). Nothing changed."
+  fi
+fi
+
+# Save the original values once, before the first change.
+if [ $reset = 0 ] && [ ! -r "$state" ]; then
+  p=$(export_plist)
+  if [ $dry = 1 ]; then echo "+ save original values to $state"; else
+    mkdir -p "$state_dir"
+    {
+      echo "red=$(get "$p" PDFBackground.red)"
+      echo "green=$(get "$p" PDFBackground.green)"
+      echo "blue=$(get "$p" PDFBackground.blue)"
+      echo "alpha=$(get "$p" PDFBackground.alpha)"
+      echo "space=$(get "$p" PDFBackground.colorSpace)"
+      echo "dark=$(get "$p" DisablePDFDarkMode)"
+    } > "$state"
+  fi
+fi
+
+write_grey() { # red green blue alpha space
+  run defaults write "$domain" PDFBackground -dict \
+    alpha -float "$4" blue -string "$3" colorSpace -string "$5" green -string "$2" red -string "$1"
+}
+
+if [ $reset = 1 ]; then
+  red= green= blue= alpha= space= dark=
+  # shellcheck disable=SC1090
+  . "$state"
+  if [ -n "$red" ]; then write_grey "$red" "$green" "$blue" "${alpha:-1}" "${space:-NSCalibratedRGBColorSpace}"
+  else run defaults delete "$domain" PDFBackground; fi
+  if [ -n "$dark" ]; then run defaults write "$domain" DisablePDFDarkMode -bool "$([ "$dark" = 1 ] || [ "$dark" = true ] && echo true || echo false)"
+  else run defaults delete "$domain" DisablePDFDarkMode 2>/dev/null || true; fi
+  [ $dry = 1 ] || rm -f "$state"
+  echo "Original PDF background restored."
+else
+  write_grey "$level" "$level" "$level" 1 NSCalibratedRGBColorSpace
+  [ $nodark = 1 ] && run defaults write "$domain" DisablePDFDarkMode -bool true
+  echo "PDF background set to grey $level."
+fi
+
+[ $relaunch = 1 ] && run open -a DEVONthink
+exit 0
