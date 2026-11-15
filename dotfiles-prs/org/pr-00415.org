@@ -1,0 +1,86 @@
+* PR #415: ✨ Browse DEVONthink records and set tags from Emacs
+:PROPERTIES:
+:PR_NUMBER: 415
+:URL: https://github.com/siainbuletin/dotfiles/pull/415
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/415][https://github.com/siainbuletin/dotfiles/pull/415]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 21:58
+- Merged :: 2026-11-14 00:25
+- Branch :: =415-devonthink-browse-tags= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/f2c58f4155ceed9b4b64450c9e3569964734c227][f2c58f4155]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK][project thread]]/
+
+Step 2 of 5. *Base: =414-devonthink-core= (#414)*; GitHub retargets to =main= when #414 merges and its branch is deleted. Stack: #414 → #415 → #418 → #419 → #420.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- =sp-devonthink-tags= (=docs/tangles/academic/sp-devonthink-tags.org=): tags are read and written only in DEVONthink via =osascript=; one prompt completes from the database's tags and accepts new ones, with a confirmation that marks =(new)= tags; =sp-devonthink-tag-note= (=C-c k d t=, =C-u= removes); =sp-devonthink-split-comma-tags= splits the comma-joined tag after showing a plan (the old tag is kept).
+- =sp-devonthink-browse= (=docs/tangles/academic/sp-devonthink-browse.org=): =C-c k d b= completes over the records grouped by DEVONthink group (cached; =sp-devonthink-browse-refresh=); Embark =o= open, =p= PDF, =n= litnote, =l= link, =t= tags (several marked records at once); =sp-devonthink-browse-query= (default =kind:pdf=).
+- Both required from =sp-academic=; README rows added.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- AppleScript not run: listing tags (=name of (children of (tags group of database …))=), =lookup records with tags {…} in root of database …=, =set tags of …=, =location of every item=, =path of=. If tag listing fails the prompt still works without completion.
+- Tested here: 16 ERT tests (merge/split/new-tag logic, parsing, de-duplication, grouping, multi-record tagging, plan text) and the tangle check.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, fish, =~/.config/emacs-modular=, DEVONthink open on =literature=. Use throw-away tags =test-tag-1=, =test-tag-2=.
+
+- [X] Check out: =cd ~/dotfiles; git fetch origin 415-devonthink-browse-tags; git checkout 415-devonthink-browse-tags=, restart Emacs.
+- [ ] Unit tests: =cd ~/.config/emacs-modular; for f in tags browse; do emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-$f-test.el -f ert-run-tests-batch-and-exit; done= → 10 and 6 tests pass.
+- [X] =C-c k d b= → list of =KEY.pdf= grouped by DEVONthink group (first call takes seconds); =RET= on one opens it in DEVONthink.
+- [X] Embark (=C-.=) on a candidate: =p= opens the PDF in Emacs; =n= goes to its litnote (or the create prompt); =l= inserts =[[devonthink:UUID][key]]= in an Org buffer.
+- [X] =t= on one record, tag =test-tag-1= → confirmation "Tags: test-tag-1 (new). Create the new ones?" → =y=; the record shows the tag in DEVONthink's inspector.
+- [ ] Several records: select 2--3 candidates (=embark-select=), =embark-act-all=, =t=, tag =test-tag-2= → "Added tags to N of N records".
+- [ ] In a litnote with =#+devonthink:= (or a citekey): =C-c k d t= with an existing tag (completes) → "Added: 1 record changed"; =C-u C-c k d t= with the same tag → "Removed: 1 record changed".
+- [ ] Typo guard: type a near-typo of an existing tag → shown as =(new)=; answer =n= → "Cancelled", nothing changed in DEVONthink.
+- [ ] Split (do last): =M-x sp-devonthink-split-comma-tags=, pick the comma tag; =*devonthink tag split*= shows tag, parts, record count. Answer =n= → nothing changes. Run again, answer =y= → records now carry =negativity=, =value form=, =New German Reading of Marx= and still the old tag; delete the old tag in DEVONthink if happy.
+- [ ] Clean up: remove =test-tag-1= and =test-tag-2= in DEVONthink.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC]]
+
+** Conversation
+
+*** @siainbuletin, 2026-11-13 00:59
+[[https://github.com/siainbuletin/dotfiles/pull/415#issuecomment-6840571639][permalink]]
+*Merge order:* merge #437 first. This branch now contains #437's commits plus one new commit: =sp-devonthink-tag-note= follows =crossref= (asks before tagging the parent's record, since that tags the whole book).
+
+*Extra manual test:*
+
+- [ ] On the litnote of a chapter with no record of its own (crossref parent has one), =C-c k d t=, add a tag: it asks =Tag the record of PARENT (the whole book)?=; =n= changes nothing, =y= tags the parent's record.
+
+*Revert:* revert the commit "Follow crossref in sp-devonthink-tag-note".
+
+--------------
+
+/Generated by [[https://claude.ai/code][Claude Code]]/
+
+** Commits (11)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/d34c45b8844c9904ce5844c60dadfa035155c21a][d34c45b884]] ✨ Browse DEVONthink records and set tags from Emacs (Claude, 2026-11-12 21:57)
+- [[https://github.com/siainbuletin/dotfiles/commit/3fefe8e82a7293f7e8c37c296ef7141194cac83b][3fefe8e82a]] 🐛 Read record fields one record at a time in the browser listing (Claude, 2026-11-12 22:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/c023767a31a4daebf65690e2a049713dbb58e7a7][c023767a31]] Merge branch '422-sp-reading-listing-script' into 415-devonthink-browse-tags (Claude, 2026-11-12 22:26)
+- [[https://github.com/siainbuletin/dotfiles/commit/7ae0316658cae6df3420b54a6112371e2301f577][7ae0316658]] 🐛 List browser records with JavaScript for Automation (AppleScript failed with -1728) (Claude, 2026-11-12 22:26)
+- [[https://github.com/siainbuletin/dotfiles/commit/cb85e8acc6b8e462a62f741f9d83d2cc2d6bd62a][cb85e8acc6]] Merge remote-tracking branch 'origin/main' into 415-devonthink-browse-tags (Claude, 2026-11-12 22:46)
+- [[https://github.com/siainbuletin/dotfiles/commit/7f17be79e7c7e9585575e3481c1758f328aa8ba2][7f17be79e7]] 🐛 Filter browser records on their file path, not on a name that may lack .pdf (Claude, 2026-11-12 23:00)
+- [[https://github.com/siainbuletin/dotfiles/commit/265612f9bfb1cab12e56de74242033c091874c87][265612f9bf]] Merge remote-tracking branch 'origin/main' into 415-devonthink-browse-tags (Claude, 2026-11-13 00:34)
+- [[https://github.com/siainbuletin/dotfiles/commit/4629c7cf7797246376b8d69209d9f5c13a759e59][4629c7cf77]] 🐛 Resolve a citekey to its DEVONthink record through crossref in every command (Claude, 2026-11-13 00:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/db3128dba06bf0346b7e39c1643824cc043cd23f][db3128dba0]] 🐛 Follow crossref in sp-reading-open and add a note-level record resolver (Claude, 2026-11-13 00:56)
+- [[https://github.com/siainbuletin/dotfiles/commit/9726382fbd4af0bd420725160519c5277b1a1ffb][9726382fbd]] Merge branch '437-devonthink-record-resolver' into 415-devonthink-browse-tags (Claude, 2026-11-13 00:56)
+- [[https://github.com/siainbuletin/dotfiles/commit/aace966ca2dd67de1e3fa74407bf43bc743226d3][aace966ca2]] 🐛 Follow crossref in sp-devonthink-tag-note, asking before tagging the parent (Claude, 2026-11-13 00:56)

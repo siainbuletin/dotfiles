@@ -52,6 +52,7 @@ Literate source for =libraries/modules/academic/sp-reading.el=. Design: [[file:.
 (require 'json)
 
 (declare-function citar-get-files "citar")
+(declare-function sp-devonthink-resolve "sp-devonthink")
 
 (defgroup sp-reading nil
   "Read cited works in DEVONthink."
@@ -264,6 +265,7 @@ end tell"
 
 * Opening
 
+- An entry with no record of its own opens its crossref parent's record at the entry's first page (through =sp-devonthink-resolve= when =sp-devonthink= is loaded), and says so.
 - =sp-reading-open= is the command; with a prefix argument it asks for the page.
 - Called from Lisp, =page= counts from 0.
 - The PDF files come from =citar=. Only files that exist and end in =.pdf= are offered.
@@ -296,9 +298,16 @@ PAGE (counted from 0) is the page to open; interactively a prefix argument asks.
   (interactive
    (list (if (fboundp 'citar-select-ref) (citar-select-ref) (read-string "Citekey: "))
          (when current-prefix-arg (1- (read-number "Page: ")))))
-  (let ((uuid (sp-reading-uuid key)))
-    (if uuid
-        (sp-reading--open-url (sp-reading--url uuid page))
+  (let* ((uuid (sp-reading-uuid key))
+         (via (and (not uuid) (fboundp 'sp-devonthink-resolve) (sp-devonthink-resolve key))))
+    (cond
+     (uuid (sp-reading--open-url (sp-reading--url uuid page)))
+     (via
+      (when (plist-get via :note) (message "%s" (plist-get via :note)))
+      (let ((chapter (plist-get via :page)))
+        (sp-reading--open-url
+         (sp-reading--url (plist-get via :uuid) (or page (and chapter (1- chapter)))))))
+     (t
       (let ((file (sp-reading--pdf key)))
         (if (not file)
             (progn (message "sp-reading: no PDF for %s (try sp-fetch-academic)" key) nil)
@@ -306,7 +315,7 @@ PAGE (counted from 0) is the page to open; interactively a prefix argument asks.
             ("Index in DEVONthink"
              (sp-reading--open-url (sp-reading--url (sp-reading-index-file key file) page)))
             ("Open in Preview"
-             (apply #'sp-reading--run (append sp-reading-preview-command (list file))))))))))
+             (apply #'sp-reading--run (append sp-reading-preview-command (list file)))))))))))
 #+end_src
 
 * Provide
@@ -330,3 +339,20 @@ The module provides =sp-reading=.
   - whether =search "kind:pdf"= returns every PDF in nested groups;
   - the exact wording of the =index path ... to= command and of =get record at=;
   - (fixed 2026-11-12) =uuid of every item of= on a search result returned object references (=content id … of database id …=), so the script now loops over the records and reads =uuid of r= and =name of r=.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/422][#422]]
+  - 🐛 Fixed =sp-reading-refresh= failing with =Can't get uuid of {content id ...}= (error -1728)
+    - the listing is JavaScript for Automation (=sp-reading--jxa=): =uuid= and =name= of all records in bulk
+- [[https://github.com/siainbuletin/dotfiles/pull/426][#426]]
+  - 🐛 Fixed =sp-reading-refresh= reporting =0 PDFs in literature=: the listing keeps records whose file path ends in =.pdf= and adds =.pdf= to a name that lacks it
+  - ✨ Added =M-x sp-reading-diagnose=: the open databases, the record count, the PDFs found by path and by name, and a sample
+- [[https://github.com/siainbuletin/dotfiles/pull/430][#430]]
+  - 🐛 Fixed the single-record lookup requiring the name =KEY.pdf=
+    - =sp-reading--lookup-script= is JXA: it searches =name:KEY= and accepts a name without =.pdf= or a file name on disk equal to KEY
+    - =sp-reading-uuid= falls back, on a miss, to one full =sp-reading-refresh= and looks again
+- [[https://github.com/siainbuletin/dotfiles/pull/437][#437]]
+  - 🔧 Changed the open command of =sp-reading=: an entry with no record of its own opens its crossref parent's record at the entry's first page, through =sp-devonthink-resolve= when =sp-devonthink= is loaded

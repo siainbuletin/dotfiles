@@ -2,6 +2,15 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-posframe.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
+*Status: archived / on the backburner (2026-11-14).*
+
+- The centred minibuffer does not work the way I want yet, so I have stopped developing it.
+- =sp-posframe-enabled= now defaults to =nil=: a fresh start has no posframe, and the minibuffer is at the bottom of the frame.
+- =M-x sp-posframe-toggle= still turns it on for the current session.
+- Nothing was deleted: the code and the notes below stay as a starting point if I come back to it.
+- The decision and its consequences: [[file:../../../../../../adr/0027-centered-miniframe-on-the-backburner.org][ADR 0027]].
+- Read everything below as history, not as the current plan.
+
 Literate source for =libraries/modules/ui/sp-posframe.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
@@ -55,6 +64,11 @@ The name now says what is used: a posframe. The file, the feature and the doc ar
 
 ;;; Commentary:
 
+;; STATUS: ON THE BACKBURNER. The centred minibuffer does not work the way I want yet, so
+;; it is off by default (`sp-posframe-enabled' is nil) and not being developed. The code is
+;; kept so it can be picked up again; see adr/0027-centered-miniframe-on-the-backburner.org.
+;; `M-x sp-posframe-toggle' still turns it on for a session.
+
 ;; The minibuffer (the prompt and Vertico's candidates) is shown in a child frame in the
 ;; centre of the screen, at a fixed share of the frame width, with some padding. Nothing
 ;; else: no prompt styling and no dimming.
@@ -73,7 +87,7 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
 
 =sp-posframe-enabled= and =sp-posframe-toggle= turn the posframe off and on.
 
-- =sp-posframe-enabled= is a =defcustom=, default =t=.
+- =sp-posframe-enabled= is a =defcustom=, default =nil= since the 2026-11-14 decision (see [[file:../../../../../../adr/0027-centered-miniframe-on-the-backburner.org][ADR 0027]]).
   - =t=: =vertico-posframe-mode= is on, the minibuffer is centred in a child frame.
   - =nil=: the mode is off, the minibuffer is in the normal place at the bottom of the frame.
 - Setting it through Customize or =setopt= applies at once: its =:set= function calls =vertico-posframe-mode= with 1 or -1. No restart.
@@ -84,9 +98,10 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
 - Prompts that are already open keep the frame they started in; the change shows from the next prompt.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-posframe-enabled t
+(defcustom sp-posframe-enabled nil
   "Non-nil shows the minibuffer in a centred posframe.
-Nil shows it in the normal place, at the bottom of the frame. Setting it
+BACKBURNER: the default is nil, because the centred minibuffer is not
+working the way I want yet (see adr/0027). Nil shows it in the normal place, at the bottom of the frame. Setting it
 through Customize or `setopt' applies at once; use `sp-posframe-toggle' to
 flip it in a running Emacs."
   :type 'boolean
@@ -322,3 +337,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - Switch to turn the posframe off (this PR)
   - ✨ Added =sp-posframe-enabled= and =sp-posframe-toggle=: with the posframe off, the minibuffer shows at the bottom of the frame, live.
   - Not run in Emacs on the Mac.
+- [[https://github.com/siainbuletin/dotfiles/pull/431][#431]]
+  - ✨ Added =sp-posframe-enabled= (default =t=): =nil= shows the minibuffer at the bottom of the frame
+    - the =:set= function turns =vertico-posframe-mode= on or off, so =setopt= and Customize need no restart
+    - start-up reads the variable
+  - ✨ Added =M-x sp-posframe-toggle= for the session

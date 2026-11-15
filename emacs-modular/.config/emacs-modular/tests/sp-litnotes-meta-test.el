@@ -33,6 +33,11 @@
 }
 ")
 
+(defun sp-litnotes-meta-test--org-report (plans overwrite)
+  "The report of PLANS as Org text (the dashboard draws the same data as sections)."
+  (let ((sp-batch-report-display 'org))
+    (sp-litnotes-meta--batch-report-text plans overwrite)))
+
 (ert-deftest sp-litnotes-meta-entry-fields ()
   (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
     (let ((entry (sp-litnotes-meta--entry "reuten2014book")))
@@ -130,6 +135,24 @@
     (should-not (sp-litnotes-meta--read-relevance)))
   (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) " 05 ")))
     (should (equal (sp-litnotes-meta--read-relevance) "05"))))
+
+(ert-deftest sp-litnotes-meta-read-project-none-skips ()
+  (let ((sp-litnotes-meta-default-project '("id-thesis" . "Thesis")))
+    (cl-letf (((symbol-function 'vulpea-db-get-by-id) (lambda (_) nil))
+              ((symbol-function 'vulpea-db-query-by-tags-some) (lambda (_) nil))
+              ((symbol-function 'sp-litnotes-meta--link)
+               (lambda (c) (format "[[id:%s][%s]]" (car c) (cdr c)))))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (_p coll _pred req _i _h def)
+                   (should (eq req t))
+                   (should (member "(none)" coll))
+                   (should (equal def "Thesis"))
+                   "(none)")))
+        (should-not (sp-litnotes-meta--read-project)))
+      (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "  ")))
+        (should-not (sp-litnotes-meta--read-project)))
+      (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Thesis")))
+        (should (equal (sp-litnotes-meta--read-project) "[[id:id-thesis][Thesis]]"))))))
 
 (ert-deftest sp-litnotes-meta-status-report-and-change ()
   (let* ((dir (make-temp-file "sp-meta-status" t))
@@ -534,7 +557,7 @@
               ((symbol-function 'pop-to-buffer) #'ignore))
       (let* ((plans (sp-litnotes-meta--batch-plans nil))
              (plan (car plans))
-             (text (sp-litnotes-meta--batch-report-text plans nil)))
+             (text (sp-litnotes-meta-test--org-report plans nil)))
         (should (equal (plist-get plan :chain) '("b" "c")))
         (should-not (assoc "bib-parent" (plist-get plan :fill)))
         (should-not (plist-get plan :new-parents))
@@ -588,7 +611,7 @@
     (cl-letf (((symbol-function 'sp-litnotes-meta--batch-files)
                (lambda () (directory-files dir t "\\.org\\'"))))
       (let* ((plans (sp-litnotes-meta--batch-plans nil))
-             (text (sp-litnotes-meta--batch-report-text plans nil)))
+             (text (sp-litnotes-meta-test--org-report plans nil)))
         (should (equal (plist-get (sp-litnotes-meta-test--plan-of plans "ch1.org") :new-parents) '("bk")))
         (should (equal (sp-litnotes-meta--planned-parents plans) '(("bk" "ch2" "ch1"))))
         (should (string-match-p "Parent notes to make: 1" text))
@@ -808,7 +831,7 @@
       ;; art has pub-title, pub-year and gets pub-author appended
       (should (plist-get art :order))
       (should (string-match-p "order the meta lines"
-                              (sp-litnotes-meta--batch-report-text plans nil)))
+                              (sp-litnotes-meta-test--org-report plans nil)))
       (let ((sp-litnotes-meta-order-meta nil))
         (should-not (plist-get (sp-litnotes-meta-test--plan-of
                                 (sp-litnotes-meta--batch-plans nil) "art.org")
@@ -829,11 +852,11 @@
 
 (ert-deftest sp-litnotes-meta-batch-report-text ()
   (sp-litnotes-meta-test--with-batch
-    (let ((text (sp-litnotes-meta--batch-report-text (sp-litnotes-meta--batch-plans nil) nil)))
+    (let ((text (sp-litnotes-meta-test--org-report (sp-litnotes-meta--batch-plans nil) nil)))
       (should (string-match-p "To change: 2" text))
-      (should (string-match-p "Skipped: no citation key\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]" text))
-      (should (string-match-p "- \\[\\[file:[^]]*noentry\\.org\\]\\[noentry\\.org\\]\\] (missing)" text))
-      (should (string-match-p "\\[art\\.org\\]\\]: has text, the entry type says journalarticle" text)))))
+      (should (string-match-p "Skipped: no citation key[^\n]*\n- \\[\\[file:[^]]*nokey\\.org\\]\\[nokey\\.org\\]\\]" text))
+      (should (string-match-p "- \\[\\[file:[^]]*noentry\\.org\\]\\[noentry\\.org\\]\\]  (missing)" text))
+      (should (string-match-p "\\[art\\.org\\]\\]  has text, the entry type says journalarticle" text)))))
 
 (ert-deftest sp-litnotes-meta-batch-dryrun-writes-nothing ()
   (sp-litnotes-meta-test--with-batch
@@ -924,7 +947,7 @@
                 ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
                 ((symbol-function 'completing-read) (lambda (&rest _) ""))
                 ((symbol-function 'pop-to-buffer) #'ignore)
-                ((symbol-function 'read-char-choice)
+                ((symbol-function 'sp-batch-report-ask)
                  (lambda (&rest _) (cl-incf asked) (if (= asked 1) ?a ?q))))
         (let ((results (sp-litnotes-meta-fill-all-convert)))
           (should (= asked 2))
@@ -996,6 +1019,7 @@
     (let ((sp-batch-report-batch-size 2) (answers (list ?a ?q)))
       (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
                 ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop answers)))
                 ((symbol-function 'read-char-choice) (lambda (&rest _) (pop answers))))
         (let ((results (sp-litnotes-meta-parent-lint-convert)))
           ;; three candidates, batches of two: the first batch is fixed, then quit
@@ -1013,6 +1037,7 @@
     (let ((sp-batch-report-batch-size 2) (answers (list ?c ?r ?f ?s)))
       (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
                 ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop answers)))
                 ((symbol-function 'read-char-choice) (lambda (&rest _) (pop answers))))
         (let ((results (sp-litnotes-meta-parent-lint-convert)))
           (should (equal (mapcar #'cdr results) '(removed fixed))))
@@ -1082,7 +1107,7 @@
       (should (equal (plist-get q :unquote) '("“Right Title”" . "Right Title")))
       (should (sp-litnotes-meta--actionable-p q))
       (should (sp-litnotes-meta--unquote-only-p q))
-      (let ((text (sp-litnotes-meta--batch-report-text plans nil)))
+      (let ((text (sp-litnotes-meta-test--org-report plans nil)))
         (should (string-match-p "Quoted pub-title: 1" text))
         (should (string-match-p "\\* Quoted pub-title (the enclosing quotes are removed)\n- \\[\\[file:[^]]*q\\.org\\]\\[q\\.org\\]\\]: “Right Title” -> Right Title" text))
         ;; listed under its own heading, not as a change
@@ -1315,7 +1340,7 @@
       (should (equal (plist-get plan :no-parent) "gone-"))
       (should-not (plist-get plan :order))
       (should-not (sp-litnotes-meta--actionable-p (append '(:status ok) plan)))
-      (should (string-match-p "gone-" (sp-litnotes-meta--batch-report-text
+      (should (string-match-p "gone-" (sp-litnotes-meta-test--org-report
                                        (list (append '(:file "/x/ch.org" :key "ch" :status ok) plan))
                                        nil))))))
 
@@ -1348,9 +1373,27 @@
         (should-not (string-match-p "bib-parent" text)))
       (should-not (buffer-modified-p (find-buffer-visiting (expand-file-name "ch1.org" dir)))))))
 
+(ert-deftest sp-litnotes-meta-batch-report-is-sections-of-items ()
+  "The dashboard gets sections; the notes to change are keyed by file and carry their lines."
+  (let* ((plan (list :file "/x/a.org" :key "a" :status 'ok
+                     :fill '(("pub-year" . "2020")) :replace nil))
+         (sp-litnotes-meta--errors nil)
+         (model (get-text-property 0 'sp-batch-report-model
+                                   (sp-litnotes-meta--batch-report-text (list plan) nil)))
+         (sections (plist-get model :sections))
+         (change (seq-find (lambda (s) (equal "To change" (plist-get s :title))) sections))
+         (item (car (plist-get change :items))))
+    (should (equal "Counts" (plist-get (car sections) :title)))
+    (should (equal "/x/a.org" (plist-get item :file)))
+    (should (equal '("fill pub-year :: 2020") (plist-get item :children)))
+    ;; a count line has no key, so it cannot be dropped
+    (let ((count (car (plist-get (car sections) :items))))
+      (should (plist-member count :key))
+      (should-not (plist-get count :key)))))
+
 (ert-deftest sp-litnotes-meta-convert-lists-failures ()
   (let ((sp-litnotes-meta--errors '("a.org: unsaved")))
-    (should (string-match-p "a\\.org: unsaved" (sp-litnotes-meta--batch-report-text nil nil)))))
+    (should (string-match-p "a\\.org: unsaved" (sp-litnotes-meta-test--org-report nil nil)))))
 
 (ert-deftest sp-litnotes-meta-add-all-tables-covers-parents-without-chapters ()
   (let* ((dir (make-temp-file "sp-meta-addtables" t))
@@ -1593,3 +1636,192 @@
               (should-not (plist-get result :inserted))
               (should-not (plist-get result :backup)))))
       (delete-directory dir t))))
+
+;;;; A batch fill never deletes anything
+
+(defconst sp-litnotes-meta-test--rich-note
+  (concat ":PROPERTIES:\n:ID: art\n:ROAM_REFS: @art2020\n:END:\n"
+          "#+title: Kept Title\n#+filetags: :litnote:text:extra:\n\n"
+          "Free text above the list.\n\n"
+          "- zz-unknown :: keep me\n"
+          "- pub-author :: [[id:a1][Jane Doe]], [[id:a2][Second Author]]\n"
+          "  continuation line of the authors\n"
+          "- pub-title :: Old Title\n"
+          "- pub-year :: 1999\n"
+          "- aa-extra :: first\n"
+          "- aa-extra :: second\n"
+          "- bib-project :: [[id:p][Thesis]]\n"
+          "- read-status :: 03-review\n"
+          "- relevance-factor ::\n"
+          "- note :: a (none) value\n\n"
+          "* Section\nBody that stays.\n")
+  "A note with unknown keys, a repeated key, a multi-value field and a continuation line.")
+
+(defun sp-litnotes-meta-test--kept-p (before after)
+  "Non-nil when every non-blank line of BEFORE is in AFTER, except lines the fill modified."
+  (let ((lost (sp-litnotes-meta--lost before after)))
+    (should-not lost)
+    t))
+
+(ert-deftest sp-litnotes-meta-batch-convert-keeps-every-field ()
+  "After a batch run (overwrite on, as by default) every field of the note is still there."
+  (sp-litnotes-meta-test--with-batch
+    (with-temp-file (expand-file-name "art.org" dir) (insert sp-litnotes-meta-test--rich-note))
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+              ;; every question answered "(none)" / empty
+              ((symbol-function 'completing-read) (lambda (&rest _) "(none)"))
+              ((symbol-function 'pop-to-buffer) #'ignore))
+      (let ((sp-litnotes-meta--preset nil)
+            (sp-litnotes-meta-update-changed t))
+        (sp-litnotes-meta-fill-all-convert)))
+    (let ((after (sp-litnotes-meta-test--read dir "art.org")))
+      (sp-litnotes-meta-test--kept-p sp-litnotes-meta-test--rich-note after)
+      ;; unknown, repeated, multi-value, empty-with-(none) fields all stay
+      (dolist (text '("- zz-unknown :: keep me" "- aa-extra :: first" "- aa-extra :: second"
+                      "- bib-project :: [[id:p][Thesis]]" "- read-status :: 03-review"
+                      "- note :: a (none) value"
+                      "  continuation line of the authors"
+                      "Free text above the list." "Body that stays."
+                      "#+title: Kept Title"))
+        (should (string-match-p (regexp-quote text) after)))
+      ;; the multi-value pub-author has a co-author BibTeX lacks: it is not replaced
+      (should (string-match-p "- pub-author :: \\[\\[id:a1\\]\\[Jane Doe\\]\\], \\[\\[id:a2\\]\\[Second Author\\]\\]\n  continuation line" after))
+      ;; the tags all remain
+      (should (string-match-p "#\\+filetags: :litnote:text:extra:" after))
+      ;; the differing values are modified, not removed
+      (should (string-match-p "- pub-title :: Right Title" after))
+      (should (string-match-p "- pub-year :: 2020" after))
+      ;; the empty relevance-factor answered (none) is left as it was
+      (should (string-match-p "- relevance-factor ::$" after))
+      ;; a backup of the text from before exists
+      (should (equal (with-temp-buffer
+                       (insert-file-contents
+                        (car (directory-files-recursively
+                              (expand-file-name "bak/" dir) "art\\.org\\'")))
+                       (buffer-string))
+                     sp-litnotes-meta-test--rich-note)))
+    (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-fill-none-and-empty-answers-add-nothing ()
+  "An empty or (none) answer neither adds a line nor empties an existing one."
+  (sp-litnotes-meta-test--with-batch
+    (let ((file (expand-file-name "bk.org" dir)))
+      (with-temp-file file
+        (insert ":PROPERTIES:\n:ID: bk\n:ROAM_REFS: @bk2014\n:END:\n#+title: x\n#+filetags: :litnote:book:\n\n- bib-project :: [[id:p][Thesis]]\n\n"))
+      (let ((sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority"))))
+        (sp-litnotes-meta-fill "bk2014" file))
+      (let ((text (sp-litnotes-meta-test--read dir "bk.org")))
+        (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text))
+        (should-not (string-match-p "relevance-factor\\|read-priority\\|read-status" text))))))
+
+(ert-deftest sp-litnotes-meta-set-and-put-ignore-blank-values ()
+  (with-temp-buffer
+    (insert "#+title: T\n\n- pub-year :: 2014\n- other ::\n")
+    (should-not (sp-litnotes-meta--set "pub-year" ""))
+    (should-not (sp-litnotes-meta--set "other" nil))
+    (should-not (sp-litnotes-meta--set "new" "  "))
+    (should-not (sp-litnotes-meta--put "pub-year" ""))
+    (should-not (sp-litnotes-meta--put "pub-year" nil))
+    (should-not (sp-litnotes-meta--put "added" ""))
+    (should (equal (buffer-string) "#+title: T\n\n- pub-year :: 2014\n- other ::\n"))
+    ;; only the lint that the user chose may empty a value
+    (let ((sp-litnotes-meta--allow-clear t))
+      (should (sp-litnotes-meta--put "pub-year" "")))
+    (should (string-match-p "- pub-year :: *$" (buffer-string)))))
+
+(ert-deftest sp-litnotes-meta-set-adds-after-continuation-lines ()
+  (with-temp-buffer
+    (insert "#+title: T\n\n- pub-author :: [[id:a][A]]\n  more authors\n\n* H\n")
+    (should (eq (sp-litnotes-meta--set "pub-year" "2014") 'added))
+    (should (equal (buffer-string)
+                   "#+title: T\n\n- pub-author :: [[id:a][A]]\n  more authors\n- pub-year :: 2014\n\n* H\n"))))
+
+(ert-deftest sp-litnotes-meta-lost-reports-only_real_losses ()
+  (let ((old "#+title: T\n#+filetags: :litnote:x:\n\n- a :: 1\n- b :: 2\n- b :: 3\n- c :: [[id:1][One]], [[id:2][Two]]\n\nText\n"))
+    ;; additions, modified values, reordering and more tags are not losses
+    (should-not (sp-litnotes-meta--lost
+                 old "#+title: T\n#+filetags: :litnote:x:y:\n\n- a :: other\n- b :: 2\n- b :: 3\n- c :: [[id:3][Three]]\n- d :: new\n\nText\n"))
+    (should-not (sp-litnotes-meta--lost old old))
+    ;; a missing line, an emptied value, a missing repeat, a lost tag and lost text are
+    (should (equal (sp-litnotes-meta--lost old "#+title: T\n#+filetags: :litnote:\n\n- a ::\n- b :: 2\n- c :: x\n\nText\n")
+                   '("the value of a" "the b line" "the tag x")))
+    (should (equal (sp-litnotes-meta--lost old (replace-regexp-in-string "Text" "" old))
+                   '("the line \"Text\"")))))
+
+(ert-deftest sp-litnotes-meta-fill-refuses-a-write-that-loses-data ()
+  "If any step deleted a line, the note is restored, nothing is saved, the error says what."
+  (sp-litnotes-meta-test--with-batch
+    (let ((file (expand-file-name "art.org" dir)))
+      (with-temp-file file (insert sp-litnotes-meta-test--rich-note))
+      (let ((sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority"))))
+        ;; a buggy step: ordering that drops the unknown key
+        (cl-letf (((symbol-function 'sp-vulpea-meta-order-buffer)
+                   (lambda ()
+                     (save-excursion
+                       (goto-char (point-min))
+                       (when (re-search-forward "^- zz-unknown :: keep me\n" nil t)
+                         (replace-match "" t t)))
+                     t)))
+          (let ((err (should-error (sp-litnotes-meta-fill "art2020" file t)
+                                   :type 'sp-litnotes-meta-lost-data)))
+            (should (string-match-p "would lose the zz-unknown line" (cadr err))))))
+      (should (equal (sp-litnotes-meta-test--read dir "art.org") sp-litnotes-meta-test--rich-note))
+      (should-not (find-buffer-visiting file)))))
+
+(ert-deftest sp-litnotes-meta-fill-refuses-a-write-that-loses-data-in-a-visited-buffer ()
+  (sp-litnotes-meta-test--with-batch
+    (let ((file (expand-file-name "art.org" dir)))
+      (with-temp-file file (insert sp-litnotes-meta-test--rich-note))
+      (let ((buf (find-file-noselect file))
+            (sp-litnotes-meta--preset '(("bib-project") ("read-status") ("relevance-factor") ("read-priority"))))
+        (unwind-protect
+            (progn
+              (cl-letf (((symbol-function 'sp-vulpea-meta-order-buffer)
+                         (lambda () (with-current-buffer buf (goto-char (point-min))
+                                           (when (re-search-forward "^#\\+filetags:.*\n" nil t)
+                                             (replace-match "" t t)))
+                           t)))
+                (should-error (sp-litnotes-meta-fill "art2020" file t)
+                              :type 'sp-litnotes-meta-lost-data))
+              (should (equal (with-current-buffer buf (buffer-string)) sp-litnotes-meta-test--rich-note))
+              (should-not (buffer-modified-p buf))
+              (should (equal (sp-litnotes-meta-test--read dir "art.org") sp-litnotes-meta-test--rich-note)))
+          (kill-buffer buf))))))
+
+(ert-deftest sp-litnotes-meta-batch-convert-lists-a-refused-note ()
+  "In a batch a refused note is an error in the results; the others are still filled."
+  (sp-litnotes-meta-test--with-batch
+    (with-temp-file (expand-file-name "art.org" dir) (insert sp-litnotes-meta-test--rich-note))
+    (let ((orig (symbol-function 'sp-vulpea-meta-order-buffer)) results)
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+                ((symbol-function 'completing-read) (lambda (&rest _) "(none)"))
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-vulpea-meta-order-buffer)
+                 (lambda ()
+                   (if (save-excursion (goto-char (point-min)) (re-search-forward "zz-unknown" nil t))
+                       (progn (goto-char (point-min))
+                              (re-search-forward "^- zz-unknown.*\n")
+                              (replace-match "" t t) t)
+                     (funcall orig)))))
+        (setq results (let ((sp-litnotes-meta--preset nil)) (sp-litnotes-meta-fill-all-convert))))
+      (should (stringp (cdr (assoc (expand-file-name "art.org" dir) results))))
+      (should (string-match-p "would lose" (cdr (assoc (expand-file-name "art.org" dir) results))))
+      (should (equal (sp-litnotes-meta-test--read dir "art.org") sp-litnotes-meta-test--rich-note))
+      (should (string-match-p "- pub-title :: The Book" (sp-litnotes-meta-test--read dir "bk.org"))))
+    (when (get-buffer sp-litnotes-meta--batch-buffer) (kill-buffer sp-litnotes-meta--batch-buffer))))
+
+(ert-deftest sp-litnotes-meta-person-line-with-more-names-is-not-updated ()
+  "A pub-author with names the entry lacks is kept; one with the same count is corrected."
+  (sp-litnotes-meta-test--with-batch
+    (let ((entry (sp-litnotes-meta--entry "art2020")))
+      (with-temp-buffer
+        (insert "#+title: T\n\n- pub-author :: [[id:a1][Jane Doe]], [[id:a2][Second Author]]\n")
+        (should-not (sp-litnotes-meta--differs-p "pub-author" entry)))
+      (with-temp-buffer
+        (insert "#+title: T\n\n- pub-author :: [[id:a1][Jane Dow]]\n")
+        (should (sp-litnotes-meta--differs-p "pub-author" entry)))
+      (with-temp-buffer
+        (insert "#+title: T\n\n- pub-author :: [[id:a1][Jane Doe]]\n")
+        (should-not (sp-litnotes-meta--differs-p "pub-author" entry))))))

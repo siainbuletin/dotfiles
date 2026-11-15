@@ -1,0 +1,91 @@
+* PR #421: ✨ Report and backfill the link between litnotes and DEVONthink records
+:PROPERTIES:
+:PR_NUMBER: 421
+:URL: https://github.com/siainbuletin/dotfiles/pull/421
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/421][https://github.com/siainbuletin/dotfiles/pull/421]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 22:08
+- Branch :: =421-devonthink-sync= → =420-devonthink-highlights=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/8106ac6ee58b5c3689b28e1e7913fd621b2149b2][8106ac6ee5]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK][project thread]]/
+
+Step 5 of 5. *Base: =420-devonthink-highlights= (#420)*. Stack: #414 → #415 → #418 → #419 → #420 → #421.
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- =sp-devonthink-sync= (=docs/tangles/academic/sp-devonthink-sync.org=; ADR 0030). A report first, writers second; nothing is written without a plan on screen and a yes.
+- =sp-devonthink-sync-report= (=C-c k d y=) compares litnotes, the PDF records and the registered =.bib= files by citekey: PDFs with no litnote, litnotes with no PDF, PDFs not in any =.bib=, litnotes with a dead =#+devonthink:= UUID, litnotes whose UUID differs from the record named after the key, and notes to backfill. Read-only.
+- =sp-devonthink-sync-backfill= writes =#+devonthink: UUID= into the notes that lack it. It shows the plan, asks, copies each changed note first to =<sp-var-dir>/devonthink-backups/<timestamp>/=, skips notes open with unsaved changes, and reverts open unchanged ones. A prefix argument is a limit (=C-u 1=).
+- Record side (ADR 0030, proposed): =sp-devonthink-sync-probe-field= tests the custom metadata field =litnote= on one record (set, read back, clear); =sp-devonthink-sync-record-links= writes ~org-protocol://devonthink-note?id=<note ID>~ into the records of notes with a live keyword (plan and a yes first, =C-u N= limit); =sp-devonthink-protocol-note= opens a note from such a URL with =org-id-open=.
+- The "Status" table and "Open questions" in =sp-devonthink.org= now name this series' PRs.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- The AppleScript was not run: =add custom meta data … for … to …=, =get custom meta data for … from …= (the field must exist in DEVONthink first: Settings > Data > Metadata, type URL, name =litnote=).
+- Whether macOS can hand an =org-protocol://= URL to Emacs is a setup step outside this repository (open question); the fallback in ADR 0030 is a file path.
+- Tested here: 7 ERT tests (comparison, scanning, keyword write plus backup, backfill asking and skipping unsaved notes, report text, scripts, protocol handler) and the tangle check. They caught a real bug: Emacs lock files (=.#note.org=) were read as notes.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, fish, =~/.config/emacs-modular=. Everything is read-only until a step says so; the vault-changing steps are a dry run first and then limited to one note.
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 421-devonthink-sync; git checkout 421-devonthink-sync=, restart Emacs. Commit or stash your =~/notes= changes first.
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-sync-test.el -f ert-run-tests-batch-and-exit= → 7 pass.
+- [ ] Report (read-only): DEVONthink open on =literature=, =C-c k d y= → =*devonthink sync*= with the six sections and counts; links in the note sections open the note with =RET=/=C-c C-o=. Check a few entries by hand. Report any wrong classification.
+- [ ] Backfill dry run: =C-u 1 M-x sp-devonthink-sync-backfill=, read the plan buffer (one note), answer =n= → "no change"; =git -C ~/notes status= shows nothing new.
+- [ ] Backfill one note: repeat and answer =y= → "Wrote the keyword into 1 note". Check =git -C ~/notes diff= shows exactly one added line =#+devonthink: <UUID>= below =#+title:=, and that a copy of the old file is under =<sp-var-dir>/devonthink-backups/<timestamp>/=. =C-c k d o= in that note opens its record.
+- [ ] Unsaved-note guard: open a to-backfill note, type a character without saving, run =C-u 1 M-x sp-devonthink-sync-backfill= on it (or a limit that includes it) → it is skipped ("skipped 1 with unsaved changes"). Undo the edit.
+- [ ] Rerun the report: the backfilled note moves out of "To backfill". Run the full backfill (=M-x sp-devonthink-sync-backfill=, no prefix) only when you are happy; =git -C ~/notes diff --stat= shows one line per note.
+- [ ] Record-side probe: create the custom metadata field =litnote= (type URL) in DEVONthink (Settings > Data > Metadata). In a litnote with a keyword: =M-x sp-devonthink-sync-probe-field= → message "ok: org-protocol://devonthink-note?id=probe". If it says =error: …=, copy the text to me.
+- [ ] Record links dry run: =C-u 1 M-x sp-devonthink-sync-record-links=, read the plan, answer =n= → nothing written.
+- [ ] Record links for one record: repeat, answer =y= → the record's =litnote= field in DEVONthink's inspector shows ~org-protocol://devonthink-note?id=…~.
+- [ ] URL handler: in fish run ~open 'org-protocol://devonthink-note?id=<an ID of a litnote>'~. If Emacs opens that note, the handler works; if nothing happens, macOS has no handler for =org-protocol= yet (expected; tell me and we use the file-path fallback of ADR 0030).
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC][Claude Code]]/
+
+** Conversation
+
+*** @siainbuletin, 2026-11-13 00:59
+[[https://github.com/siainbuletin/dotfiles/pull/421#issuecomment-6840573404][permalink]]
+*Merge order:* merge #437 first, then the stack in order. New commit here: the sync report, backfill and field probe follow =crossref=.
+
+- The report lists notes with no record of their own, whose crossref parent has one, under "Covered by the record of the crossref parent" (no longer under "Litnotes with no PDF"), and those without a keyword under "To backfill with the parent's record (asks first)".
+- =sp-devonthink-sync-backfill= asks once before also writing the parent's UUID into such notes.
+- =sp-devonthink-sync-probe-field= asks before using the parent's record.
+
+*Extra manual tests:*
+
+- [ ] =M-x sp-devonthink-sync-report=: chapter notes appear in the new sections, not under "Litnotes with no PDF".
+- [ ] =C-u 1 M-x sp-devonthink-sync-backfill= with a chapter note pending: after the plan for own-record notes it asks about the parent's UUID; =n= leaves chapter notes untouched; =y= writes the parent's UUID into the note (backup made first).
+- [ ] =M-x sp-devonthink-sync-probe-field= in a chapter note: asks before using the parent's record.
+
+*Revert:* revert the commit "Follow crossref in the sync report, backfill and field probe".
+
+--------------
+
+/Generated by [[https://claude.ai/code][Claude Code]]/
+
+** Commits (8)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/bdbfd1fa548c52d3718ae79e2b84c0469c9217ed][bdbfd1fa54]] ✨ Report and backfill the link between litnotes and DEVONthink records (Claude, 2026-11-12 22:08)
+- [[https://github.com/siainbuletin/dotfiles/commit/022fd2cb70ef3f9bafa0ad0fe574a320930fc5da][022fd2cb70]] Merge 420-devonthink-highlights into 421-devonthink-sync (Claude, 2026-11-12 22:25)
+- [[https://github.com/siainbuletin/dotfiles/commit/a8591d22995a6884f214712b03d018aed7f79e91][a8591d2299]] Merge branch '420-devonthink-highlights' into 421-devonthink-sync (Claude, 2026-11-12 22:27)
+- [[https://github.com/siainbuletin/dotfiles/commit/182926269e5d5405c90333891c55cc7b3dcfcb4d][182926269e]] Merge branch '420-devonthink-highlights' into 421-devonthink-sync (Claude, 2026-11-12 22:47)
+- [[https://github.com/siainbuletin/dotfiles/commit/c57c104846cfb2e0daaa835e23e13574782b9799][c57c104846]] Merge branch '420-devonthink-highlights' into 421-devonthink-sync (Claude, 2026-11-12 23:00)
+- [[https://github.com/siainbuletin/dotfiles/commit/b9340fdecb55604dc69e78e4e676fc3943601f2e][b9340fdecb]] Merge branch '420-devonthink-highlights' into 421-devonthink-sync (Claude, 2026-11-13 00:35)
+- [[https://github.com/siainbuletin/dotfiles/commit/4031bc200fb566be0d943d9063fe8647dacccae8][4031bc200f]] Merge branch '420-devonthink-highlights' into 421-devonthink-sync (Claude, 2026-11-13 00:58)
+- [[https://github.com/siainbuletin/dotfiles/commit/d32efb3feeb06dfed994cf838046ce2525372855][d32efb3fee]] 🐛 Follow crossref in the sync report, backfill and field probe, asking before writing the parent's record (Claude, 2026-11-13 00:58)

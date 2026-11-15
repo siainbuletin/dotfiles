@@ -1,0 +1,98 @@
+* PR #438: ✨ Write PDF page labels and use them to open chapters in a book's PDF
+:PROPERTIES:
+:PR_NUMBER: 438
+:URL: https://github.com/siainbuletin/dotfiles/pull/438
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/438][https://github.com/siainbuletin/dotfiles/pull/438]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-13 00:54
+- Branch :: =438-pdf-page-labels= → =main=
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2Lof3BCv5rxW9qPdtyr7VJs][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main=; no hard dependency.
+- *#437 (crossref resolver in every command)*: both change the "Chapters in a parent's PDF" part of =sp-devonthink.org= / =.el= and =tests/sp-devonthink-test.el=. #437 leaves the offset options and page parsing alone; this PR removes them and rewrites =sp-devonthink-resolve='s page logic. Expect a textual conflict in =sp-devonthink-resolve= and the tests whichever merges second. Resolution: keep #437's =sp-devonthink-record=, and keep this PR's label lookup in place of the offset arithmetic. The offset steps in #437's Manual testing (=sp-devonthink-parent-page-offsets=) no longer apply after this PR.
+- *#436* (merged): this PR removes =sp-devonthink-page-offset=, =sp-devonthink-parent-page-offsets= and =sp-devonthink-first-page= that #436 added.
+- *#419 (ADRs 0027 to 0031)*: this ADR is 0032. I did not add it to the =adr/README.org= table, because #419 edits the same rows; add the row after #419 merges.
+- #435, #434: not touched.
+
+**** Why
+:PROPERTIES:
+:CUSTOM_ID: why
+:END:
+- Sia: the printed-to-physical page information should live in the PDF itself, not in Emacs or the record. Page labels (=/PageLabels=) are the PDF's own way to say "physical page 1 is 360".
+- Decision and alternatives: =adr/0032-page-labels-live-in-the-pdf.org=. Nothing is implemented inside DEVONthink (no metadata, no AppleScript).
+
+**** Change
+:PROPERTIES:
+:CUSTOM_ID: change
+:END:
+- Literate doc =docs/tangles/academic/pdf-page-labels.org= tangles to =tools/pdf_page_labels.py= (library), three tools and =tests/test_pdf_page_labels.py=.
+- =tools/pdf-labels-articles.py= (batch): dry run unless =--apply=.
+  - Handles =article=, =inproceedings=, =conference=, =suppperiodical= with no =crossref=/=xref= (=--types= widens it); skips and reports =book=, =collection=, =incollection=, =inbook=, theses, reports and the rest.
+  - First page of =pages=: =360--364=, =360-364=, =e123= (label =e123=), =xii--xv= (roman), upper-case roman; anything else is skipped with the reason.
+  - Skips a PDF that already has different labels unless =--force=; reports unchanged ones; warns when the page range length differs from the PDF's page count.
+  - Options: =--only KEY=, =--bib=, =--bib-dir=, =--library=, =--backup-dir=, =--verbose=.
+- =tools/pdf-labels-book.py CITEKEY-OR-PDF --first-page N [--front-roman ...]=: one book, never reads =pages=; dry run unless =--apply=.
+- Writing is safe: save to a temp file, re-open and check page count and labels, copy the original to =~/.local/state/pdf-page-labels/backups/TIMESTAMP/...=, then replace.
+- =tools/pdf-labels-read.py FILE --resolve LABEL=: the reader Emacs calls (exit 3 no labels, 4 not found).
+- =sp-devonthink=: =sp-devonthink-first-page-label=, =sp-devonthink-pdf-page-for-label=, options =sp-devonthink-label-command= and =sp-devonthink-label-script=; the two offset options are removed. With no labels or no match, the parent opens at the start with a message saying why.
+- Needs =pikepdf= (=pip install pikepdf=); each tool also has a =uv run= inline dependency. qpdf alone is not enough for lookup.
+- No CHANGELOG edits.
+
+**** What was verified and what was not
+:PROPERTIES:
+:CUSTOM_ID: what-was-verified-and-what-was-not
+:END:
+- [X] 29 Python tests (=python3 -m unittest tests/test_pdf_page_labels.py=) on generated PDFs: parsing, BibTeX reader, round trip, backup, failed save leaves the original, both tools in dry run and =--apply=, the reader's exit codes.
+- [X] 28 ERT tests pass (one runs the real reader script on a generated PDF); tangle check passes.
+
+- *DEVONthink page counting (from documentation, not run):*
+  - [[https://discourse.devontechnologies.com/t/x-devonthink-item-link-from-pdf-expert-with-page-number/55617][DEVONtechnologies forum]]: a staff reply says the =page= parameter of an item link is zero-based.
+  - [[https://www.devontechnologies.com/blog/20220208-pdf-page-numbering][DEVONthink blog]]: copied page links point at the page number, not the folio; ~?page=12~ opens physical page 13.
+  - This matches the existing code (~?page=N-1~) and the =sp-litdb= measurement.
+- *Not checked:*
+  - whether DEVONthink shows or uses the PDF's page labels in its own page display or links (the docs I found don't say; the code assumes links stay physical);
+  - the base of =current page= in AppleScript (still =sp-devonthink-store-page-offset=);
+  - =pikepdf= on the Mac, =python3= there being one that has it, and any real PDF of yours (everything ran on generated PDFs on Linux);
+  - the =file= field forms in your real =.bib= files beyond relative paths, =JabRef= triples and name lookup; entries that only have =bdsk-file-N= are not found.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =pip install pikepdf= (or note the =uv run= route), then =tools/pdf-labels-articles.py --only KEY= for one journal article: a dry run lists =would-label KEY ... first page 360= and writes nothing.
+- [ ] Same with =--apply --only KEY=: the PDF opens in Preview or DEVONthink with pages 360 to 364 shown; a copy of the original is under =~/.local/state/pdf-page-labels/backups/=.
+- [ ] Run it again: reported =unchanged=.
+- [ ] =tools/pdf-labels-articles.py= for the whole library, dry run: read the skip reasons (no PDF, unparseable pages, several PDFs); check the warnings about page ranges that differ from the PDF length.
+- [ ] Entry with ~pages = {e123}~ and one with =xii--xv=: labels =e123, e124, ...= and =xii, xiii, ...=.
+- [ ] A =book= and an =incollection= entry are not touched.
+- [ ] Book whose printed page 1 is the 9th PDF page: =tools/pdf-labels-book.py KEY --first-page 9 --front-roman= (dry run), then =--apply=; the viewer shows i to viii and then 1.
+- [ ] A chapter of that book in citar, =embark-act= then =D=: DEVONthink opens the book at the chapter's first page; the echo area says =from the PDF's page labels=.
+- [ ] If it opens one page off, say which way: DEVONthink may be counting differently than the docs say.
+- [ ] A chapter whose parent PDF has no labels: opens at the start; the message says to run =pdf-labels-book.py=.
+- [ ] If the message says it could not read the labels, check =(setq sp-devonthink-label-command '("uv" "run" "--script"))= or a Python that has =pikepdf=.
+- [ ] Check that DEVONthink still finds and opens a PDF after it was labelled (the file's bytes changed).
+
+**** Revert guide
+:PROPERTIES:
+:CUSTOM_ID: revert-guide
+:END:
+- Restore a PDF: copy the file from =~/.local/state/pdf-page-labels/backups/TIMESTAMP/<original path>= over it. To remove the labels instead, run =tools/pdf-labels-book.py KEY --first-page 1 --apply=, which writes plain =1, 2, 3, ...=.
+- Revert the code: =git revert= the single commit of this PR. That restores the offset options and =sp-devonthink-first-page= from #436; the tools and the ADR go away. PDFs already labelled keep their labels, which are harmless to other programs.
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiBXqXW4Xbxy8r2aJtW][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/60dc2681f5843623c54c348659d9069c6d50757c][60dc2681f5]] ✨ Write PDF page labels and read them to open chapters in a book's PDF (Claude, 2026-11-13 00:53)

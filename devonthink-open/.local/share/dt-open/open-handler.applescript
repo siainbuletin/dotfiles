@@ -15,7 +15,7 @@ on open theFiles
 end open
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"", cfgLaunch:true, cfgDebug:false, cfgError:""}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgRaise:"window", cfgDebug:false, cfgError:""}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
@@ -29,6 +29,7 @@ on readConfig()
 				if theValue starts with "\"" and theValue ends with "\"" and (count theValue) > 1 then set theValue to text 2 thru -2 of theValue
 				if theKey is "DT_OPEN_FALLBACK" then set cfgFallback of cfg to theValue
 				if theKey is "DT_OPEN_LAUNCH" then set cfgLaunch of cfg to (theValue is not "0")
+				if theKey is "DT_OPEN_RAISE" and theValue is in {"window", "app", "none"} then set cfgRaise of cfg to theValue
 				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
@@ -110,14 +111,40 @@ on openInDatabases(aPath, cfg)
 			set hits to lookup records with path aPath in theDatabase
 			if cfgDebug of cfg then my logLine(cfg, "  " & aPath & " in " & (name of theDatabase) & ": " & (count of hits))
 			if class of hits is list and (count of hits) > 0 then
-				open window for record (item 1 of hits)
-				activate
+				set theWindow to open window for record (item 1 of hits)
+				set theTitle to ""
+				try
+					set theTitle to name of theWindow
+				end try
+				if cfgRaise of cfg is "app" then activate
+				if cfgRaise of cfg is "window" then my raiseWindow(theTitle, cfg)
 				return true
 			end if
 		end repeat
 	end tell
 	return false
 end openInDatabases
+
+-- Brings only the PDF's window forward, not DEVONthink's other windows.
+on raiseWindow(theTitle, cfg)
+	try
+		tell application "System Events"
+			set theProcess to first application process whose bundle identifier starts with "com.devon-technologies.think"
+			tell theProcess
+				if theTitle is "" then
+					set theWindow to window 1
+				else
+					set theWindow to first window whose name is theTitle
+				end if
+				perform action "AXRaise" of theWindow
+				if not frontmost then set frontmost to true
+			end tell
+		end tell
+	on error errMsg number errNum
+		logLine(cfg, "raising only the PDF window failed (" & errNum & "): " & errMsg & "; using activate")
+		tell application id "DNtp" to activate
+	end try
+end raiseWindow
 on logLine(cfg, msg)
 	if not (cfgDebug of cfg) and cfgError of cfg is "" then return
 	try

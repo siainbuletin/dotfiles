@@ -345,8 +345,7 @@ In the result buffer, `embark-act' offers to collect results into a note."
   (add-to-list 'embark-target-finders #'sp-tab-psearch-target-results)
   (add-to-list 'embark-target-finders #'sp-tab-psearch-target-idea))
 
-(keymap-global-set "C-c k t" #'sp-tab-psearch)
-(keymap-global-set "C-c k T" #'sp-tab-psearch-engine)
+;; C-; k t and C-; k T are bound in `sp-keys' (they were C-c k t and C-c k T).
 
 (provide 'sp-tab-psearch)
 ;; sp-tab-psearch.el ends here

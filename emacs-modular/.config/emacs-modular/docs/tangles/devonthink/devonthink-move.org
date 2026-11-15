@@ -7,7 +7,7 @@ Literate source for =tools/devonthink-move.py= and its tests, =tests/test_devont
 To tangle: =C-c C-v t= in this buffer, or from =.config/emacs-modular=:
 
 #+begin_example
-emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/devonthink-move.org")'
+emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/devonthink/devonthink-move.org")'
 #+end_example
 
 This doc is not picked up by =tools/tangle-all.el= or the =tangle= CI check, which only cover =sp-*.org= docs that write into =libraries/modules/=. Tangle it yourself after editing, and run the tests.
@@ -20,7 +20,7 @@ Most PDFs in =~/Documents/literature/= are /indexed/ by DEVONthink. Moving such 
 - =x-devonthink-item://= links and =#+devonthink:= keywords in the notes keep working, because they name the UUID
 - annotations written into the PDF travel with the file anyway
 
-It is the DEVONthink side of =sp-bibtex-files-flatten= (see [[file:sp-academic.org::*Attachment paths][Attachment paths]] in sp-academic), and also works on its own.
+It is the DEVONthink side of =sp-bibtex-files-flatten= (see [[file:../academic/sp-academic.org::*Attachment paths][Attachment paths]] in sp-academic), and also works on its own.
 
 * Using it
 
@@ -73,7 +73,7 @@ keywords that name the UUID keep working.  After every move the record is
 asked for its UUID and path; the run stops at the first one that does not
 match.  `check` lists the UUIDs in notes that DEVONthink no longer knows.
 
-Tangled from docs/tangles/academic/devonthink-move.org; edit that file.
+Tangled from docs/tangles/devonthink/devonthink-move.org; edit that file.
 """
 
 import argparse

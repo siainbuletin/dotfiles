@@ -54,7 +54,9 @@
                                         "#+title: T\n* One\n- [[file:/tmp/a.org][a.org]]\n"))))
     (unwind-protect
         (with-current-buffer buffer
-          (should (derived-mode-p 'sp-batch-report-mode))
+          ;; Plain text (no data model) is shown in the Org view.
+          (should (derived-mode-p 'sp-batch-report-org-mode))
+          (should (sp-batch-report-buffer-p))
           (should buffer-read-only)
           (should (= (point) (point-min)))
           (should (string-match-p "a\\.org" (buffer-string)))
@@ -81,15 +83,16 @@
       (kill-buffer buffer))))
 
 (ert-deftest sp-batch-report-show-mode ()
-  "A mode derived from the report mode can be passed."
+  "A mode derived from the report mode can be passed; the Org view takes its keys."
   (define-derived-mode sp-batch-report-test-mode sp-batch-report-mode "T")
   (let ((buffer (save-window-excursion
                   (sp-batch-report-show "*sp-batch-report-test*" "x\n" nil
                                         #'sp-batch-report-test-mode))))
     (unwind-protect
         (with-current-buffer buffer
-          (should (derived-mode-p 'sp-batch-report-mode))
-          (should (eq major-mode 'sp-batch-report-test-mode)))
+          (should (sp-batch-report-buffer-p))
+          (should (derived-mode-p 'sp-batch-report-org-mode))
+          (should (eq sp-batch-report--org-extra-mode 'sp-batch-report-test-mode)))
       (kill-buffer buffer))))
 
 (defun sp-batch-report-test--file (text)
@@ -204,6 +207,151 @@
             (should (equal (sp-batch-report-close-file file) "the buffer was not killed")))
           (kill-buffer buffer))
       (delete-file file))))
+
+(unless (fboundp 'org-table-widget-mode)
+  (define-minor-mode org-table-widget-mode "Stands in for the real mode in this test."))
+
+(ert-deftest sp-batch-report-hints-follow-the-functions ()
+  (with-temp-buffer
+    (sp-batch-report-mode)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should-not (member "d" keys))
+      (should-not (member "A" keys)))
+    (setq sp-batch-report-refresh-function #'ignore
+          sp-batch-report-apply-function #'ignore)
+    (let ((keys (mapcar #'car (sp-batch-report--hints))))
+      (should (member "d" keys))
+      (should (member "A" keys))
+      (should (member "g" keys)))
+    (sp-batch-report--set-hints)
+    (should (equal sp-echo-help--hints (sp-batch-report--hints)))
+    (should (equal header-line-format '(:eval (sp-batch-report-view--header-line))))))
+
+(ert-deftest sp-batch-report-open-shows-hints-in-the-real-path ()
+  "The path every batch command takes: hints shown at once, keys not in the header."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown))))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*"
+                                                 "#+title: T\n* One\n"
+                                                 :refresh #'ignore :apply #'ignore))
+              (with-current-buffer buffer
+                (should-not header-line-format)
+                (should sp-echo-help-mode)
+                (should (member #'sp-echo-help-show post-command-hook))
+                (should (equal sp-echo-help--hints (sp-batch-report--hints))))
+              (should (string-match-p "Apply" (car shown)))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-hints-survive-a-lingering-message ()
+  "A job's last message does not hide the hints for good: the idle show wins."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Author notes: done")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (with-current-buffer buffer (sp-echo-help-show))
+              (should-not shown)        ; the polite show leaves the message alone
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-no-key-lines-in-header-code ()
+  "No converted report puts its key list in the header line any more."
+  (let ((dir (file-name-directory (locate-library "sp-batch-report"))))
+    (dolist (file '("sp-author-notes.el" "sp-author-notes-bibtex.el" "sp-org-tag-lint.el"
+                    "sp-org-lint-footnotes.el"))
+      (let ((path (expand-file-name file dir)))
+        (when (file-exists-p path)
+          (with-temp-buffer
+            (insert-file-contents path)
+            (goto-char (point-min))
+            (should-not (re-search-forward "header-line-format[^\n]*\\(\\[\\|RET\\|\\bq\\b[^a-z]*\\(quit\\|Quit\\)\\)" nil t))))))))
+
+(ert-deftest sp-batch-report-redraw-keeps-the-command-message ()
+  "Dropping an entry redraws the report; its message must not be replaced by the hints."
+  (let (shown buffer)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) shown)))
+              ((symbol-function 'current-message) (lambda () "Dropped x")))
+      (save-window-excursion
+        (unwind-protect
+            (progn
+              (setq buffer (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n"))
+              (setq shown nil)
+              (puthash "*sp-batch-report-hints-test*" 1 sp-batch-report--pending-lines)
+              (sp-batch-report-open "*sp-batch-report-hints-test*" "#+title: T\n" :refresh #'ignore)
+              (should-not shown)
+              ;; younger than the hold time: idle show leaves it alone too
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 2.0)))
+                (sp-echo-help--idle-show))
+              (should-not shown)
+              (cl-letf (((symbol-function 'current-idle-time) (lambda () 6.0)))
+                (sp-echo-help--idle-show))
+              (should (string-match-p "Quit" (car shown))))
+          (when (buffer-live-p buffer) (kill-buffer buffer)))))))
+
+(ert-deftest sp-batch-report-table-section ()
+  (let* ((sp-batch-report-display 'org)
+         (text (sp-batch-report-text
+               "T"
+               (list (sp-batch-report-table-section
+                      "S" '("H1" "H2")
+                      (list (sp-batch-report-item nil :row '("a|b" "x") :key "k1" :props '(foo 1))
+                            (sp-batch-report-item nil :row '("longer" "y") :key "k2"))))
+               :excluded '("k1"))))
+    (should (string-match (regexp-quote "| H1     | H2 |\n|--------+----|\n| longer | y  |\n") text))
+    (should (string-match "^| a\\\\vert{}b | x |$" text))
+    (should (equal (get-text-property (string-match "| longer" text) 'sp-batch-report-key text) "k2"))
+    (should (get-text-property (string-match "| a" text) 'sp-batch-report-dropped text))
+    (should (= 1 (get-text-property (string-match "| a" text) 'foo text)))))
+
+(ert-deftest sp-batch-report-turns-the-table-widget-off ()
+  (let ((org-mode-hook (list #'org-table-widget-mode))
+        (name "*sp-batch-report-widget-test*"))
+    (unwind-protect
+        (progn
+          (with-current-buffer (sp-batch-report-open name "#+title: T\n\n* A\n| a |\n")
+            (should (derived-mode-p 'sp-batch-report-org-mode))
+            (should-not org-table-widget-mode))
+          (kill-buffer name)
+          (let ((sp-batch-report-table-widgets t))
+            (with-current-buffer (sp-batch-report-open name "#+title: T\n")
+              (should org-table-widget-mode))))
+      (when (get-buffer name) (kill-buffer name)))))
+
+(defvar sp-batch-report-test--runs 0)
+(defun sp-batch-report-test--count-run ()
+  (setq sp-batch-report-test--runs (1+ sp-batch-report-test--runs)))
+
+(ert-deftest sp-batch-report-redraw-does-not-start-the-mode-again ()
+  (let ((name "*sp-batch-report-redraw-test*")
+        (hook #'sp-batch-report-test--count-run))
+    (setq sp-batch-report-test--runs 0)
+    (add-hook 'sp-batch-report-org-mode-hook hook)
+    (unwind-protect
+        (progn
+          (sp-batch-report-open name "#+title: T\n\n* A\n- one\n")
+          (should (= sp-batch-report-test--runs 1))
+          (with-current-buffer name
+            (setq sp-batch-report-excluded '("kept")))
+          (sp-batch-report-open name "#+title: T\n\n* A\n- two\n" :excluded '("x"))
+          (with-current-buffer name
+            (should (= sp-batch-report-test--runs 1))
+            (should (string-match-p "two" (buffer-string)))
+            (should (equal sp-batch-report-excluded '("x")))
+            (should buffer-read-only)))
+      (remove-hook 'sp-batch-report-org-mode-hook hook)
+      (when (get-buffer name) (kill-buffer name)))))
 
 (provide 'sp-batch-report-test)
 ;;; sp-batch-report-test.el ends here

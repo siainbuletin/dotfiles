@@ -387,7 +387,7 @@ Return (HAS-FILETAGS . OCCURRENCES), OCCURRENCES being a list of
         (insert "  none\n")
       (dolist (file untagged)
         (sp-org-tag-lint--insert-location file nil nil)))
-    (insert "\nRET visit   a register the tag at point   g run again\n")))
+    (sp-echo-help-set '(("RET" "Visit") ("a" "Register tag at point" t) ("g" "Run again")))))
 
 (defvar-local sp-org-tag-lint--result nil
   "The result of the lint shown in the report buffer, for drawing it again.")

@@ -1,4 +1,4 @@
-#+title: 0032 Printed page numbers live in the PDF as page labels
+#+title: 0033 Printed page numbers live in the PDF as page labels
 #+date: 2026-11-13
 #+status: accepted
 

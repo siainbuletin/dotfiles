@@ -11,7 +11,7 @@ Literate source for four tools and their tests.
   - =tools/pdf-labels-book.py=: one-book tool, run by hand;
   - =tools/pdf-labels-read.py=: the reader that Emacs calls;
   - =tests/test_pdf_page_labels.py=: the tests.
-- Decision and reasons: [[file:../../../../../adr/0032-page-labels-live-in-the-pdf.org][ADR 0032]].
+- Decision and reasons: [[file:../../../../../adr/0033-page-labels-live-in-the-pdf.org][ADR 0033]].
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]]. This doc is not picked up by =tools/tangle-all.el= (it only covers =sp-*.org= docs that write into =libraries/modules/=), so tangle it yourself after editing:
 
 #+begin_example
@@ -26,7 +26,7 @@ emacs -Q --batch -l org --eval '(org-babel-tangle-file "docs/tangles/academic/pd
   - a journal PDF numbered 1 to 5 holds the pages 360 to 364 of the journal;
   - a book PDF has a cover and front matter, so printed page 1 is the 9th physical page.
 - =sp-devonthink= opens a chapter in its parent's PDF at the chapter's first page; it needs printed page -> physical page.
-- The information lives *in the PDF file* (ADR 0032), not in Emacs variables, not in the BibTeX file, and not in DEVONthink.
+- The information lives *in the PDF file* (ADR 0033), not in Emacs variables, not in the BibTeX file, and not in DEVONthink.
 - Nothing here touches DEVONthink. DEVONthink only sees a file whose bytes changed.
 
 * Using it

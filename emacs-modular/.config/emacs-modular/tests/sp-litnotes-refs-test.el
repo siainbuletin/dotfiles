@@ -96,11 +96,20 @@
       ":PROPERTIES:" ":ID:       abc" ":END:" "#+reference: sec-1")
     (sp-litnotes-refs-test--write (expand-file-name "b.org" dir)
       ":PROPERTIES:" ":ID:       def" ":END:" "#+reference: nowhere")
-    (let ((text (sp-litnotes-refs--report-text
-                 (sp-litnotes-refs--plans) (sp-litnotes-refs--bib-index (list bib)))))
+    (let ((text (let ((sp-batch-report-display 'org))
+                  (sp-litnotes-refs--report-text
+                   (sp-litnotes-refs--plans) (sp-litnotes-refs--bib-index (list bib))))))
       (should (string-match-p "through crossref: 1" text))
       (should (string-match-p "keys not in any registered .bib: 1" text))
-      (should (string-match-p "nowhere in \\[\\[file:[^]]*b\\.org\\]\\[b\\.org\\]\\]" text)))))
+      (should (string-match-p "\\[\\[file:[^]]*b\\.org\\]\\[b\\.org\\]\\]  nowhere" text))
+      ;; The special view draws the same data as sections.
+      (let ((model (get-text-property 0 'sp-batch-report-model
+                                      (sp-litnotes-refs--report-text
+                                       (sp-litnotes-refs--plans)
+                                       (sp-litnotes-refs--bib-index (list bib))))))
+        (should (equal "Counts" (plist-get (car (plist-get model :sections)) :title)))
+        (should (member "Keys that no registered .bib has"
+                        (mapcar (lambda (s) (plist-get s :title)) (plist-get model :sections))))))))
 
 
 (ert-deftest sp-litnotes-refs-creates-ids-and-stubs ()
@@ -160,10 +169,10 @@
                                        (sp-litnotes-refs--bib-index (list bib))))
       (with-current-buffer "*litnote refs*"
         (goto-char (point-min))
-        (re-search-forward "^- \\[\\[file:[^]]*a\\.org")
+        (re-search-forward "• a\\.org")
         (sp-batch-report-drop)
         (should (equal sp-batch-report-excluded (list file)))
-        (should (string-match-p "Dropped from the list" (buffer-string)))
+        (should (string-match-p "1 dropped" (sp-batch-report-view--header-line)))
         (cl-letf (((symbol-function 'sp-litnotes-refs-convert)
                    (lambda (&optional excl) (setq seen excl))))
           (sp-batch-report-apply))

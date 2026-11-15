@@ -1,0 +1,103 @@
+* PR #470: 🐛 Get the echo-area hints of #459 into main and show them reliably
+:PROPERTIES:
+:PR_NUMBER: 470
+:URL: https://github.com/siainbuletin/dotfiles/pull/470
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/470][https://github.com/siainbuletin/dotfiles/pull/470]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 13:09
+- Merged :: 2026-11-14 13:34
+- Branch :: =469-echo-help-reach-main= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5ab0fc471db160c7b2a0bc3c97729d82029be30f][5ab0fc471d]]
+- Labels :: bugfix, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW27wHwh6evB3MBjiu2K2XyU8][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main=; no dependency.
+- Branch is named =469-...= but this is PR #470 (469 was taken meanwhile; a cloud session cannot rename a branch).
+- *Conflicts with #468* (open): both change =sp-batch-report.el= and its =.org= (hints, =k= key). Merge this one first; the conflict is in the hints list and the =sp-batch-report-open= body, so #468 then needs a small rebase (keep its =k= hint in =sp-batch-report--hints=).
+
+**** Why the hints never appeared
+:PROPERTIES:
+:CUSTOM_ID: why-the-hints-never-appeared
+:END:
+- *Main cause:* #459 was stacked on =457-echo-area-help-hints=. #457 had already been merged into =main=, so #459 was merged into that old branch only. Its 15 changed files never reached =main=: no report buffer called =sp-echo-help-set=, and the key lines stayed in the header, the buffers and the footers.
+- *Second cause (found while testing):* even with #459 applied, the hints could stay hidden.
+  - =sp-batch-report-open= set them before =pop-to-buffer=, so the buffer was not yet in the selected window and nothing was shown at once.
+  - =sp-echo-help-show= is polite and skips when a message is in the echo area. The last message of a job ("done", "cancelled") stays there, so neither the post-command nor the idle show ever fired.
+
+**** Changes
+:PROPERTIES:
+:CUSTOM_ID: changes
+:END:
+- Cherry-picked the two commits of #459 (=a47a438=, =cb04b22=) onto =main=: batch report, footnote lint, litnote status, author notes (new and old view), tag lint, backlink check, graph view, with their docs.
+- =sp-batch-report-open= sets the hints after =pop-to-buffer=, so they show immediately.
+- =sp-echo-help--idle-show= now replaces a message that has stayed for the whole idle delay (the post-command show stays polite).
+- Docs updated as bullets (=sp-batch-report.org=, =sp-interaction.org=); no CHANGELOG edit; =when-let*= only.
+
+**** Tests (Emacs 29.3, batch)
+:PROPERTIES:
+:CUSTOM_ID: tests-emacs-293-batch
+:END:
+- =sp-batch-report-test=: 21 pass; =sp-echo-help-test=: 7 pass.
+- New tests that fail without the fix (checked):
+  - =sp-batch-report-open-shows-hints-in-the-real-path=: runs =sp-batch-report-open=, checks no =header-line-format=, hints set, mode on, hook installed, and the hints printed (=Apply=, =Quit=).
+  - =sp-batch-report-hints-survive-a-lingering-message=: with a message in the echo area the idle show still prints the hints.
+  - =sp-echo-help-idle-show-replaces-a-message=.
+  - =sp-batch-report-no-key-lines-in-header-code=: static check of the converted modules.
+
+**** Not tested by Claude
+:PROPERTIES:
+:CUSTOM_ID: not-tested-by-claude
+:END:
+- Everything in a real GUI with your theme, vault and =sp-globals= (author notes, tag lint, footnote lint, litnote status, backlink check, graph view): their tests need your environment. Only syntax (=check-parens=) was checked.
+- How the 2-row grid fits a narrow frame.
+- Whether the idle re-show feels too eager when you read a message for more than 1.5 s (=sp-echo-help-idle-delay=).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] =cd ~/dotfiles; git fetch origin 469-echo-help-reach-main; git checkout 469-echo-help-reach-main=, restart Emacs (or =M-x sp-reload-modules=)
+- [X] =M-x sp-author-notes=: no keys in the header line or at the bottom; the echo area shows the hint grid (=Apply=, =Quit= bold) once the report opens
+- [ ] Wait 2 s after the "done" message: the hints are back in the echo area
+- [ ] In the report press =d= on an entry: the "dropped" message shows, and the hints return after the idle delay or the next command
+- [X] =C-c ?= in the report shows the hints at once
+- [ ] =M-x sp-litnotes-titles-dryrun=, tag lint, BibTeX lint: same checks
+- [ ] =M-x sp-org-lint-footnotes-dryrun=: header only progress while scanning, full hints when done
+- [ ] =M-x sp-litnotes-meta-status-report=: counts in the header, hints in the echo area
+- [ ] =sp-vulpea-backlink-check= and the relationship graph view: title only, hints in the echo area
+- [X] Switch to another buffer: no stray hints there
+- [ ] Regression: =RET=, =n=, =p=, =d=, =u=, =A=, =g=, =q= still work
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= for local edits.
+- =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=, then restart Emacs or =M-x sp-reload-modules=.
+- Optionally =git -C ~/dotfiles branch -D 469-echo-help-reach-main=.
+- The dry runs only read the vault; no vault restore needed.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCsjdfwKhDG3Nkddb7]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/5f9eeabc533230ec51a1c53cd4dfb3fbdfe5faa9][5f9eeabc53]] ✨ Show the keys of the report and lint buffers as echo-area hints (Claude, 2026-11-14 11:14)
+- [[https://github.com/siainbuletin/dotfiles/commit/7ee628c540be42141627f83bfcc4b4cf8e693e1e][7ee628c540]] ✨ Use echo-area hints in the author notes, tag lint, backlink and graph views (Claude, 2026-11-14 11:19)
+- [[https://github.com/siainbuletin/dotfiles/commit/188a2f9febab01f7576b7183f2e4ae709a299ff6][188a2f9feb]] 🐛 Show the echo-area hints at once and again after a lingering message (Claude, 2026-11-14 13:08)
+- [[https://github.com/siainbuletin/dotfiles/commit/747d72e800a55243b3fa1f08021422fa1c28a2bc][747d72e800]] 🔧 Merge main into the echo-help branch, keep the k key hint (Claude, 2026-11-14 13:33)

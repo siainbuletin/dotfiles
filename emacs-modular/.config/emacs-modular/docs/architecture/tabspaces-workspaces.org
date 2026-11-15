@@ -1,0 +1,129 @@
+#+title: Tabspaces and workspaces: how they are made, and how to add one
+
+This page says how workspaces (tabspaces) are created in this configuration and how to add a new one.
+
+- It describes what exists in =sp-tabs=, =sp-workspaces= and =sp-dashboard=.
+- It ends with a step-by-step guide and a template for a new workspace.
+- Documentation only. No code in this page is tangled.
+
+* In short
+
+- A *workspace* is a =tab-bar= tab. The =tabspaces= package gives each tab its own list of buffers.
+- =sp-tabs= sets up the machinery: tab names, the =tabspaces= package, session restore, and the =C-x b= switcher.
+- =sp-workspaces= defines the named workspaces and one command per workspace, bound to leader digits.
+- =sp-dashboard= lives in the =Home= tab and opens some workspaces from its menu.
+- Every workspace command follows one pattern: switch to the tab if it exists, otherwise create it, name it, and open its buffers.
+
+* The three modules
+
+| Module          | Owns                                                                                       | Where                                         |
+|-----------------+--------------------------------------------------------------------------------------------+-----------------------------------------------|
+| =sp-tabs=       | Tab bar look, =tabspaces= package and options, session file, =C-x b= switcher, tab filter | =libraries/modules/ui/sp-tabs.el=             |
+| =sp-workspaces= | The workspace commands, their leader keys, Projectile                                      | =libraries/modules/tooling/sp-workspaces.el=  |
+| =sp-dashboard=  | The splash screen in =Home=, menu actions that call workspace commands                     | =libraries/modules/tooling/sp-dashboard.el=   |
+
+* What =sp-tabs= sets up
+
+- =tabspaces-mode= starts from =after-init-hook=, so workspaces and sessions are live after startup.
+- The default tab is called =Home= (=tabspaces-default-tab=). Removed buffers go back to it.
+- =*scratch*= is included in every tab (=tabspaces-include-buffers=). New tabs start on =*scratch*= (=tab-bar-new-tab-choice=).
+- =*Messages*= and =*Compile-Log*= are excluded from tab buffer lists (=tabspaces-exclude-buffers=).
+- The session (file-visiting buffers of each tab) is saved to =tabspaces-session.eld= in =sp-var-dir= and restored at startup.
+- Dired buffers are not saved in the session, because restoring one started Dirvish too early.
+- =C-x b= is =sp-tabs-switch-to-buffer=: all buffers by default, filtered to the tab's buffers in some tabs and modes.
+- Which tabs filter is set by =sp-tabs-filtered-tab-names= (default ="Email"=), =sp-tabs-filtered-modes= and =sp-tabs-filter-buffers=.
+- =sp-tabs-toggle-tab-filter= turns the filter on or off for the current tab, bound to =f= in =tabspaces-command-map=.
+- Tab names are numbered with circled digits, and =sp-tabs= has a do-what-I-mean tab switcher.
+
+* The workspaces that exist
+
+| Key      | Command                              | Tab name                       | What it opens                                    |
+|----------+--------------------------------------+--------------------------------+--------------------------------------------------|
+| leader 1 | =sp-go-home=                         | =Home=                         | Switches to the first tab. The Dashboard lives here. |
+| leader 2 | =sp-open-emacsd-in-workspace=        | =emacs-modular-configuration=  | The config directory, a split, then Magit.       |
+| leader 3 | =sp-open-agenda-in-workspace=        | =Agenda=                       | =*Org Agenda*=, or a custom view given as argument. |
+| leader 4 | =sp-open-notes-in-workspace=         | =Notes=                        | =sp-notes-notebook=.                             |
+| leader 5 | =sp-open-email-in-workspace=         | =Email=                        | =mail.org= and mu4e.                             |
+| none     | =sp-open-new-eshell-and-workspace=   | =Eshell=                       | An eshell buffer, renamed =eshell-workspace=.    |
+| =C-x p N= | =sp-open-new-buffer-and-workspace=  | =New project=                  | A scratch file in a throwaway Git project.       |
+| none     | =sp-open-existing-project-and-workspace= | the project name          | A project file, then Magit.                      |
+
+- The leader is the map from =sp-keys= (=lem+leader-map=); the digit keys are bound at the end of =sp-workspaces=.
+- Tab names are the identity of a workspace: the "does it exist?" check compares the name with =tabspaces--list-tabspaces=.
+
+* Home and the Dashboard
+
+- =sp--workspace-setup= runs on =after-init-hook=. It renames the first tab to =Home= and pushes =*Messages*= and =Dashboard= onto the frame buffer list if they exist.
+- The Dashboard is drawn later, from =window-setup-hook= (=sp-dashboard--setup-splash-hooks=). So at =after-init-hook= time it probably does not exist yet, and that branch likely does nothing. This was read from the code, not checked in a GUI.
+- The Dashboard needs no push anyway: a buffer displayed in a window joins the tab's list by itself.
+- The Dashboard deletes other windows at startup, because a restored session can leave a =*scratch*= window beside it.
+- The Dashboard menu reaches workspaces through =sp-dashboard--workspace-dispatch=. It calls the command if it is defined, otherwise it prints a message asking for =sp-workspaces=.
+- Today only two menu items use that: Config (=c=, =sp-open-emacsd-in-workspace=) and Notes (=n=, =sp-open-notes-in-workspace=).
+- The agenda items (=a=, =t=, =i=, =d=) do not use the Agenda workspace. They open a board over chosen files with =sp-dashboard--open-agenda=.
+- The leader =3= key still opens the Agenda workspace, so the two agendas are separate on purpose.
+
+* Guide: adding a new workspace
+
+Steps, in order:
+
+- 1. Pick a tab name. It must be unique and stable, because it is the identity used by the "exists?" check and by session restore.
+- 2. Add a command in =sp-workspaces= (both the =.org= source and the tangled =.el=). Use the template below.
+- 3. Bind it. Digits 6 to 9 are unused as far as the config shows; add one line to the =bind-keys= block under =lem+leader-map=.
+- 4. Decide on filtering. By default =C-x b= shows all buffers. To make this workspace show only its own buffers, add its name to =sp-tabs-filtered-tab-names=.
+- 5. Decide on the session. File-visiting buffers are restored with the tab. Buffers that are not files (eshell, mu4e) are not, so the command must recreate them, as the Email command does.
+- 6. If the Dashboard should open it, add a menu action (see "Dashboard hookup" below).
+- 7. Update the docs: the workspace table on this page, the =sp-workspaces.org= section for the new command, and the key list.
+- 8. Test by hand (see the checklist at the end).
+
+** Template
+
+#+begin_src emacs-lisp :tangle no
+;; Goes in sp-workspaces.el; "Reading" is the tab name.
+(defun sp-open-reading-in-workspace ()
+  "Open the reading list in its own workspace."
+  (interactive)
+  (require 'tabspaces)
+  (if (member "Reading" (tabspaces--list-tabspaces))
+      (tab-bar-switch-to-tab "Reading")
+    (tab-bar-new-tab)
+    (tab-bar-rename-tab "Reading")
+    (find-file (expand-file-name "reading.org" org-directory))
+    (delete-other-windows)))
+
+;; In the bind-keys block under lem+leader-map:
+;;   ("6" . sp-open-reading-in-workspace)
+#+end_src
+
+- Always =(require 'tabspaces)= first, as the Notes, Email and config commands do, because =tabspaces--list-tabspaces= is not loaded until then.
+- The "exists" branch can also refresh something, as the Agenda command does with =org-agenda-redo=.
+- Keep the order used by the existing commands: =tab-bar-new-tab=, then =tab-bar-rename-tab=, then open the buffers.
+
+** Dashboard hookup
+
+- The Dashboard must not call a workspace command directly, because =sp-workspaces= is optional.
+- Define a wrapper in =sp-dashboard= that goes through the dispatcher, like the existing ones:
+
+#+begin_src emacs-lisp :tangle no
+(defun sp-dashboard-open-reading ()
+  "Open the reading workspace from the splash screen."
+  (interactive)
+  (sp-dashboard--workspace-dispatch 'sp-open-reading-in-workspace))
+#+end_src
+
+- Add a row to the menu list next to Config and Notes (icon, label, key, command, help text), and a key in =sp-dashboard-mode-map=.
+- The dispatcher takes the symbol, so a missing function gives a message and never an error.
+
+* Known rough edges
+
+- =sp-open-existing-project-and-workspace= and =sp-open-emacsd-in-workspace= call =project-magit-dir=, which is not defined anywhere in the repository, so the last step fails.
+- =sp-open-new-eshell-and-workspace= has no =(require 'tabspaces)=, unlike the others.
+- Only Config and Notes are reachable from the Dashboard. Agenda, Email and Eshell have no menu item.
+- The workspace list is repeated in three places (commands, key block, this table), with no registry. A registry macro that defines the command, key and Dashboard wrapper from one entry would remove that, but it is not built.
+
+* Manual test checklist for a new workspace
+
+- [ ] Run the command twice: the second run switches to the tab instead of creating another.
+- [ ] Restart Emacs: the tab comes back by name, and the command still switches to it.
+- [ ] =C-x b= in the tab behaves as chosen in step 4.
+- [ ] The leader key works, and the Dashboard item (if added) works.
+- [ ] Disable =sp-workspaces=: the Dashboard item prints its message and does not error.

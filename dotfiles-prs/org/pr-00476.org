@@ -1,0 +1,92 @@
+* PR #476: 🐛 Keep the message of a command when the echo-area hints are set
+:PROPERTIES:
+:PR_NUMBER: 476
+:URL: https://github.com/siainbuletin/dotfiles/pull/476
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/476][https://github.com/siainbuletin/dotfiles/pull/476]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 13:53
+- Branch :: =476-echo-help-keep-messages= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c7c31bd8e28a1d93dde02c9c4d567596e4d18610][c7c31bd8e2]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW27wHwh6evB3MBjiu2K2XyU8][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main= (follow-up of #470, already merged); no other dependency.
+
+**** Problem
+:PROPERTIES:
+:CUSTOM_ID: problem
+:END:
+- After =d= (drop) in a report, the message of the command was shown for a moment and then replaced by the hints ("the echo area blinks").
+
+**** Causes
+:PROPERTIES:
+:CUSTOM_ID: causes
+:END:
+- *Duplicate forced call:* =sp-batch-report-open= had two extra =sp-echo-help-set= calls (one left over from #468 beside the one from #470). Each one forces the hints into the echo area, so every redraw (=d=, =u=, =g=) overwrote the message.
+- *Idle re-show too eager (my change in #470):* it replaced any message after the idle delay (1.5 s), so a message could not be read.
+
+**** Changes
+:PROPERTIES:
+:CUSTOM_ID: changes
+:END:
+- Removed the duplicate =sp-echo-help-set= call in =sp-batch-report-open=.
+- =sp-echo-help-set= has a new =QUIET= argument: the hints do not replace a message that is showing. A redraw (the point is put back) and the mode body set them quietly; opening a fresh report still shows them at once.
+- New =sp-echo-help-message-hold= (default 5 s): the idle re-show replaces a message only after Emacs has been idle that long. =C-c ?= still shows the hints at once.
+- Docs updated as bullets (=sp-interaction.org=, =sp-batch-report.org=); no CHANGELOG edit.
+
+**** Tests (Emacs 29.3, batch)
+:PROPERTIES:
+:CUSTOM_ID: tests-emacs-293-batch
+:END:
+- =sp-batch-report-test= 22, =sp-echo-help-test= 7, =sp-async-work-test= 10 pass.
+- New =sp-batch-report-redraw-keeps-the-command-message=: redraw does not print the hints while a message is showing (this failed with the duplicate call); idle at 2 s leaves it, idle at 6 s shows the hints.
+- =sp-echo-help-idle-show-replaces-a-message= now checks the hold time.
+
+**** Not tested by Claude
+:PROPERTIES:
+:CUSTOM_ID: not-tested-by-claude
+:END:
+- A real GUI session: I could not reproduce your exact "Dropped" message; the shared report code emits no such message itself, so it comes from the command you ran (a redraw or a =user-error=). Please check with the steps below.
+- The old (non-=sp-batch-report=) views (author notes old view, tag lint old view, graph view, litnote status) still force the hints on redraw; they were not changed.
+- The 5 s hold value is a guess; =sp-echo-help-message-hold= is a variable.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =cd ~/dotfiles; git fetch origin 476-echo-help-keep-messages; git checkout 476-echo-help-keep-messages=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] =M-x sp-author-notes=, then =d= on an entry: the message stays in the echo area (no blink); the hints return after 5 s idle or on the next command with an empty echo area
+- [ ] =d= on an already dropped entry (error message) and =u= on a non-dropped one: the message stays readable
+- [ ] =C-c ?= shows the hints at once, over any message
+- [ ] A fresh report (=M-x sp-litnotes-titles-dryrun=) shows the hints as soon as it opens
+- [ ] Other report/lint views (footnote lint, tag lint, graph view): note whether messages still get overwritten, and tell me which
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= for local edits.
+- =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=, then restart Emacs or =M-x sp-reload-modules=.
+- Optionally =git -C ~/dotfiles branch -D 476-echo-help-keep-messages=.
+- The dry runs only read the vault; no vault restore needed.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNiCsjdfwKhDG3Nkddb7][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCsjdfwKhDG3Nkddb7]]
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/19f91faac51a518a0b8c7a1a466b4ed63f8f23ec][19f91faac5]] 🐛 Keep the message of a command when the report is redrawn (Claude, 2026-11-14 13:53)
