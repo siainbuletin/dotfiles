@@ -54,7 +54,9 @@
                                         "#+title: T\n* One\n- [[file:/tmp/a.org][a.org]]\n"))))
     (unwind-protect
         (with-current-buffer buffer
-          (should (derived-mode-p 'sp-batch-report-mode))
+          ;; Plain text (no data model) is shown in the Org view.
+          (should (derived-mode-p 'sp-batch-report-org-mode))
+          (should (sp-batch-report-buffer-p))
           (should buffer-read-only)
           (should (= (point) (point-min)))
           (should (string-match-p "a\\.org" (buffer-string)))
@@ -81,15 +83,16 @@
       (kill-buffer buffer))))
 
 (ert-deftest sp-batch-report-show-mode ()
-  "A mode derived from the report mode can be passed."
+  "A mode derived from the report mode can be passed; the Org view takes its keys."
   (define-derived-mode sp-batch-report-test-mode sp-batch-report-mode "T")
   (let ((buffer (save-window-excursion
                   (sp-batch-report-show "*sp-batch-report-test*" "x\n" nil
                                         #'sp-batch-report-test-mode))))
     (unwind-protect
         (with-current-buffer buffer
-          (should (derived-mode-p 'sp-batch-report-mode))
-          (should (eq major-mode 'sp-batch-report-test-mode)))
+          (should (sp-batch-report-buffer-p))
+          (should (derived-mode-p 'sp-batch-report-org-mode))
+          (should (eq sp-batch-report--org-extra-mode 'sp-batch-report-test-mode)))
       (kill-buffer buffer))))
 
 (defun sp-batch-report-test--file (text)
@@ -222,7 +225,7 @@
       (should (member "g" keys)))
     (sp-batch-report--set-hints)
     (should (equal sp-echo-help--hints (sp-batch-report--hints)))
-    (should-not header-line-format)))
+    (should (equal header-line-format '(:eval (sp-batch-report-view--header-line))))))
 
 (ert-deftest sp-batch-report-open-shows-hints-in-the-real-path ()
   "The path every batch command takes: hints shown at once, keys not in the header."
@@ -334,7 +337,7 @@
   (let ((name "*sp-batch-report-redraw-test*")
         (hook #'sp-batch-report-test--count-run))
     (setq sp-batch-report-test--runs 0)
-    (add-hook 'sp-batch-report-mode-hook hook)
+    (add-hook 'sp-batch-report-org-mode-hook hook)
     (unwind-protect
         (progn
           (sp-batch-report-open name "#+title: T\n\n* A\n- one\n")
@@ -346,12 +349,8 @@
             (should (= sp-batch-report-test--runs 1))
             (should (string-match-p "two" (buffer-string)))
             (should (equal sp-batch-report-excluded '("x")))
-            (should buffer-read-only))
-          ;; Another mode is started.
-          (sp-batch-report-open name "#+title: T\n" :mode #'org-mode)
-          (should (= sp-batch-report-test--runs 1))
-          (should (eq (buffer-local-value 'major-mode (get-buffer name)) 'org-mode)))
-      (remove-hook 'sp-batch-report-mode-hook hook)
+            (should buffer-read-only)))
+      (remove-hook 'sp-batch-report-org-mode-hook hook)
       (when (get-buffer name) (kill-buffer name)))))
 
 (provide 'sp-batch-report-test)
