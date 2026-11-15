@@ -52,6 +52,25 @@ The docs are written to be tangled and read in Emacs, not to be one book. Export
 - *SVG figures*: Typst reads SVG natively, so the Graphviz output of the =dot= blocks needs no conversion. The files come from =make docs= (see the Makefile of the SVG work); this module only links them.
 - *Cross-links*: internal links work inside the book (the headline labels Typst needs are made by =ox-typst=). A fuzzy link such as =[[*Heading]]= resolves to the first heading of that name in the whole book, so it can land in another doc; repeat links to a doc's own headings are best written as =[[#custom-id]]=.
 
+* Notes of three kinds
+
+The convention is in [[file:sp-note-kinds.org][sp-note-kinds]]; this module renders it.
+
+- *Footnote* (any other label): =#footnote=, unchanged (ox-typst).
+- *See-also note* (=[fn:see-1]=):
+  + the text of its definition is put in the text as =#see-also[...]=
+  + with =sp-typst-see-also-style= =margin= (the default) it is a Tufte-style sidenote drawn by the package =marginalia= (=docs/typst/sidenotes.typ=)
+  + with =footnote= it is an ordinary footnote and nothing is downloaded
+- *Endnote* (=[fn:end-1]=): =#endnote[...]= leaves a bracketed number, such as =[1]=, in the text; =#endnotes()= prints the list and starts again from 1.
+  + The endnotes template of =sp-note-kinds= puts =#endnotes()= in a Notes section where the author wants it.
+  + A doc with endnotes and no =#endnotes()= gets a Notes section at its end.
+- The definitions of these two kinds print nothing where they stand (the =Footnotes= section).
+- How: while the export runs, the ox-typst functions for a footnote reference and a footnote definition are replaced (=cl-letf=, in =sp-typst--with-notes=) by ones that look at the label; plain footnotes go to the original function.
+- Labels are made unique for the book (=sp-typst--prefix-footnotes=) with the prefix kept at the front: =see-1= becomes =see-doc-x-1=.
+- =sidenotes.typ= is imported only by a doc that has see-also notes outside source blocks, so a doc that only quotes the syntax does not need the package.
+- A note cited twice is drawn twice (its text is repeated).
+- Not done: LaTeX (see "Not yet done").
+
 * Header
 
 #+begin_src emacs-lisp
@@ -69,6 +88,12 @@ The docs are written to be tangled and read in Emacs, not to be one book. Export
 
 (require 'subr-x)
 (require 'seq)
+(require 'cl-lib)
+(require 'sp-note-kinds)
+
+(declare-function org-export-data "ox")
+(declare-function org-export-get-footnote-definition "ox")
+(declare-function org-element-property "org-element-ast")
 
 (defvar org-typst-process)
 (defvar org-typst-language-mapping)
@@ -141,6 +166,16 @@ Relative to `sp-typst-root'.  The template is copied into it."
 (defcustom sp-typst-doc-directories '("docs/architecture" "docs/justifications")
   "Folders of loose docs, relative to `sp-typst-root', one book part each."
   :type '(repeat string)
+  :group 'sp-typst)
+
+(defcustom sp-typst-see-also-style 'margin
+  "How a see-also note (`[fn:see-1]') is typeset.
+`margin' draws a Tufte sidenote with the Typst package marginalia, which Typst
+downloads the first time (it needs the network once) and which widens the
+outer margin of the page.  `footnote' draws an ordinary footnote and needs no
+package."
+  :type '(choice (const :tag "Sidenote in the margin (marginalia)" margin)
+                 (const :tag "Ordinary footnote" footnote))
   :group 'sp-typst)
 
 (defcustom sp-typst-include-old nil
@@ -322,6 +357,14 @@ KNOWN is the table made by `sp-typst--known'."
           (delete-region beg end)
           (insert text))))))
 
+(defun sp-typst--note-label (slug label)
+  "The footnote LABEL made unique with SLUG.
+The prefix of a see-also note or an endnote stays at the front, so the label
+still tells the kind (`see-1' becomes `see-SLUG-1', `3' becomes `SLUG-3')."
+  (if-let* ((prefix (sp-note-prefix (sp-note-kind label))))
+      (format "%s%s-%s" prefix slug (substring label (length prefix)))
+    (format "%s-%s" slug label)))
+
 (defun sp-typst--prefix-footnotes (slug)
   "Prefix every footnote label with SLUG, so labels do not repeat across docs.
 A reference whose definition is not in the doc (usually text that
@@ -339,9 +382,39 @@ quotes the syntax) would stop the export, so it is kept as plain text."
               (beg (match-beginning 0)))
           (cond
            ((or inline (member label defined))
-            (replace-match (format "[fn:%s-%s%s" slug label (match-string 2)) t t))
+            (replace-match (format "[fn:%s%s" (sp-typst--note-label slug label)
+                                   (match-string 2))
+                           t t))
            ;; A zero-width space after "fn" stops Org reading it as a footnote.
            (t (replace-match (format "[fn\u200b:%s]" label) t t))))))))
+
+(defun sp-typst--has-notes-p (kind)
+  "Non-nil when this buffer holds a note of KIND outside source and example blocks.
+Docs that only quote the syntax in a block do not count."
+  (let ((prefix (sp-note-prefix kind))
+        (ranges (sp-typst--block-ranges))
+        (case-fold-search nil)
+        found)
+    (when (and prefix (not (string-empty-p prefix)))
+      (save-excursion
+        (goto-char (point-min))
+        (while (and (not found)
+                    (re-search-forward (format "\\[fn:%s" (regexp-quote prefix)) nil t))
+          (unless (sp-typst--in-block-p ranges (match-beginning 0))
+            (setq found t)))))
+    found))
+
+(defun sp-typst--add-endnotes-section (level)
+  "Add a Notes heading under heading LEVEL at the end of the doc, when it needs one.
+A doc that has endnotes and no `#endnotes()' of its own (the template made by
+`sp-note-insert-endnotes-section') gets the section here."
+  (when (and (sp-typst--has-notes-p 'endnote)
+             (not (save-excursion
+                    (goto-char (point-min))
+                    (search-forward "#endnotes()" nil t))))
+    (goto-char (point-max))
+    (insert "\n" (make-string (1+ level) ?*) " " sp-note-endnotes-title "\n"
+            sp-note--endnotes-block)))
 
 (defun sp-typst--prepare (file level known)
   "Text of the doc FILE (relative to the root), ready to sit under a heading.
@@ -357,6 +430,7 @@ is the table made by `sp-typst--known'."
       (sp-typst--shift-headings level)
       (sp-typst--fix-links (file-name-directory absolute) known)
       (sp-typst--prefix-footnotes slug)
+      (sp-typst--add-endnotes-section level)
       (concat (make-string level ?*) " " title "\n"
               ":PROPERTIES:\n:CUSTOM_ID: " slug "\n:END:\n\n"
               (string-trim-right (buffer-string)) "\n\n"))))
@@ -373,33 +447,48 @@ The options: =^:{}= so that =sp_x= is not a subscript (only =a_{b}= is), =d:nil=
   "Absolute name of the build folder."
   (file-name-as-directory (sp-typst--file sp-typst-build-directory)))
 
-(defun sp-typst--preamble (title)
-  "Org keywords for a document called TITLE."
+(defun sp-typst--features (text)
+  "The features of the Org TEXT that need more of Typst: a list of symbols.
+`see-also' when TEXT has see-also notes and they are drawn in the margin."
+  (and (eq sp-typst-see-also-style 'margin)
+       (with-temp-buffer
+         (insert text)
+         (sp-typst--has-notes-p 'see-also))
+       '(see-also)))
+
+(defun sp-typst--preamble (title &optional features)
+  "Org keywords for a document called TITLE; FEATURES is from `sp-typst--features'."
   (progn
     (string-join
-     (list (format "#+title: %s" title)
+     (delq nil
+      (list (format "#+title: %s" title)
            (format "#+author: %s" sp-typst-book-author)
            (format-time-string "#+date: [%Y-%m-%d %a]")
            "#+language: en"
            "#+options: toc:t num:t H:9 ^:{} d:nil broken-links:t"
            "#+macro: latest-export-date (eval (format-time-string \"%Y-%m-%d\"))"
            "#+macro: word-count (eval (format \"%d\" (count-words (point-min) (point-max))))"
-           "#+typst_header: #import \"template.typ\": book"
+           "#+typst_header: #import \"template.typ\": book, endnote, endnotes, see-also"
            "#+typst_header: #show: book"
-           "\n")
+           (when (memq 'see-also features)
+             "#+typst_header: #import \"sidenotes.typ\": see-also, sidenote-layout")
+           (when (memq 'see-also features)
+             "#+typst_header: #show: sidenote-layout")
+           "\n"))
      "\n")))
 
 (defun sp-typst-book-source ()
   "The Org text of the whole book."
   (let* ((parts (sp-typst--parts))
          (known (sp-typst--known parts)))
-    (with-temp-buffer
-      (insert (sp-typst--preamble sp-typst-book-title))
-      (dolist (part parts)
-        (insert "* " (car part) "\n\n")
-        (dolist (file (cdr part))
-          (insert (sp-typst--prepare file 2 known))))
-      (buffer-string))))
+    (let ((body (with-temp-buffer
+                  (dolist (part parts)
+                    (insert "* " (car part) "\n\n")
+                    (dolist (file (cdr part))
+                      (insert (sp-typst--prepare file 2 known))))
+                  (buffer-string))))
+      (concat (sp-typst--preamble sp-typst-book-title (sp-typst--features body))
+              body))))
 #+end_src
 
 * Exporting
@@ -424,6 +513,47 @@ guard for this."
       (concat text ";")
     text))
 
+(defun sp-typst--note-markup (kind body)
+  "The Typst markup of a note of KIND with the Typst text BODY."
+  (pcase kind
+    ('see-also (format "#see-also[%s]" body))
+    ('endnote (format "#endnote[%s]" body))))
+
+(defun sp-typst--footnote-reference (original reference contents info)
+  "Export the footnote REFERENCE by its kind; ORIGINAL is `org-typst-footnote-reference'.
+A see-also note and an endnote put their text in the text, where the Typst
+function `see-also' or `endnote' (docs/typst/template.typ) takes it.  A note
+cited twice is drawn twice."
+  (let ((kind (sp-note-kind (org-element-property :label reference))))
+    (if (eq kind 'footnote)
+        (funcall original reference contents info)
+      (sp-typst--note-markup
+       kind
+       (string-trim
+        (if (eq (org-element-property :type reference) 'inline)
+            (or contents "")
+          (org-export-data
+           (org-export-get-footnote-definition reference info) info)))))))
+
+(defun sp-typst--footnote-definition (original definition contents info)
+  "Export the footnote DEFINITION; those of see-also notes and endnotes are empty.
+ORIGINAL is `org-typst-footnote-definition'."
+  (if (eq (sp-note-kind (org-element-property :label definition)) 'footnote)
+      (funcall original definition contents info)
+    ""))
+
+(defun sp-typst--with-notes (function)
+  "Call FUNCTION with ox-typst exporting see-also notes and endnotes by kind."
+  (let ((reference (symbol-function 'org-typst-footnote-reference))
+        (definition (symbol-function 'org-typst-footnote-definition)))
+    (cl-letf (((symbol-function 'org-typst-footnote-reference)
+               (lambda (&rest args)
+                 (apply #'sp-typst--footnote-reference reference args)))
+              ((symbol-function 'org-typst-footnote-definition)
+               (lambda (&rest args)
+                 (apply #'sp-typst--footnote-definition definition args))))
+      (funcall function))))
+
 (defun sp-typst--export (text name)
   "Export the Org TEXT to a PDF called NAME in the build folder; return its path."
   (require 'org)
@@ -433,6 +563,11 @@ guard for this."
     (make-directory build t)
     (copy-file (sp-typst--file sp-typst-template-file)
                (expand-file-name "template.typ" build) t)
+    ;; The other Typst files that sit beside the template (sidenotes.typ).
+    (dolist (file (directory-files
+                   (file-name-directory (sp-typst--file sp-typst-template-file))
+                   t "\\.typ\\'"))
+      (copy-file file (expand-file-name (file-name-nondirectory file) build) t))
     (let* ((org-file (expand-file-name (concat name ".org") build))
            (buffer (progn (with-temp-file org-file (insert text))
                           (find-file-noselect org-file t t))))
@@ -455,7 +590,7 @@ guard for this."
                    (append '(("emacs-lisp" . "lisp") ("elisp" . "lisp")
                              ("sh" . "bash") ("shell" . "bash"))
                            org-typst-language-mapping)))
-              (org-typst-export-to-pdf)))
+              (sp-typst--with-notes #'org-typst-export-to-pdf)))
         (kill-buffer buffer)))))
 
 ;;;###autoload
@@ -475,8 +610,10 @@ Links to other docs become inline code, since they are not in this PDF."
   (interactive (list (or buffer-file-name (read-file-name "Org file: "))
                      current-prefix-arg))
   (let* ((relative (file-relative-name (expand-file-name file) sp-typst-root))
-         (text (concat (sp-typst--preamble (sp-typst--title (expand-file-name file)))
-                       (sp-typst--prepare relative 1 (make-hash-table :test #'equal))))
+         (body (sp-typst--prepare relative 1 (make-hash-table :test #'equal)))
+         (text (concat (sp-typst--preamble (sp-typst--title (expand-file-name file))
+                                           (sp-typst--features body))
+                       body))
          (pdf (sp-typst--export text (file-name-base file))))
     (message "Typst: wrote %s" pdf)
     (when open (org-open-file pdf))
@@ -582,6 +719,72 @@ Links to other docs become inline code, since they are not in this PDF."
 
   body
 }
+
+// Notes of three kinds (see sp-note-kinds): a footnote is `#footnote'; a
+// see-also note is `#see-also[..]', a footnote here and a sidenote when
+// sidenotes.typ is imported after this file; an endnote is `#endnote[..]',
+// collected and printed by `#endnotes()'.
+#let see-also(body) = footnote(body)
+
+#let _endnote-counter = counter("sp-endnote")
+#let _endnote-list = state("sp-endnote-list", ())
+
+#let endnote(body) = {
+  _endnote-counter.step()
+  _endnote-list.update(list => list + (body,))
+  context super[\[#_endnote-counter.display()\]]
+}
+
+// Print the endnotes collected since the last call, then start again from 1,
+// so each doc of the book has its own Notes section.
+#let endnotes() = {
+  context {
+    let notes = _endnote-list.get()
+    if notes.len() > 0 {
+      grid(
+        columns: (auto, 1fr),
+        column-gutter: 0.8em,
+        row-gutter: 0.7em,
+        ..notes.enumerate().map(((i, note)) => ([\[#(i + 1)\]], note)).flatten(),
+      )
+    }
+  }
+  _endnote-list.update(())
+  _endnote-counter.update(0)
+}
+#+end_src
+
+* The sidenotes
+
+=sidenotes.typ= is imported by a document only when it has see-also notes, and only when =sp-typst-see-also-style= is =margin=. It is a separate file because it loads a package, and a package the build cannot fetch should not stop a doc that has no sidenotes.
+
+- It loads =marginalia= from the Typst package registry; Typst downloads it on the first compile and keeps it in its cache (the network is needed once).
+- =see-also= here replaces the footnote of the same name in =template.typ=: a Tufte-style sidenote in the outer margin, numbered apart from the footnotes.
+- =sidenote-layout= is a show rule that makes the outer margin wide (45 mm) and keeps the inner one at 22 mm, as in the book template; the =show: sidenote-layout= line comes after =show: book= and so applies below the title page.
+- The version is pinned (=0.3.1=, the latest when this was written); change it in this one place.
+- With =sp-typst-see-also-style= set to =footnote= nothing here is loaded, and a see-also note is an ordinary footnote.
+
+#+begin_src typst :tangle ../../typst/sidenotes.typ :mkdirp yes :comments no :padline no
+// Sidenotes for see-also notes, with the marginalia package.  Tangled from
+// docs/tangles/text/sp-typst.org; edit it there.
+//
+// Imported by the sp-typst module after template.typ, only for a document
+// that has see-also notes.
+
+#import "@preview/marginalia:0.3.1" as marginalia
+
+#let see-also(body) = marginalia.note(body)
+
+#let sidenote-layout(body) = {
+  show: marginalia.setup.with(
+    inner: (far: 10mm, width: 0mm, sep: 12mm),
+    outer: (far: 5mm, width: 45mm, sep: 5mm),
+    top: 24mm,
+    bottom: 26mm,
+    book: false,
+  )
+  body
+}
 #+end_src
 
 * The Makefile
@@ -675,12 +878,24 @@ On 2026-10-24, in a Linux container, with Emacs 29.3, Org 9.7.11 (cloned from th
 
 Not run: Elpaca installing =ox-typst= and =typst-ts-mode= (neither is installed in the container; the recipes are written from their documentation), =typst-ts-mode= and =tinymist= themselves, anything on macOS, and the commands inside a normal interactive Emacs. The look of the PDF was checked on three pages by eye, not read through.
 
+** Notes of three kinds (2026-11-15)
+
+In a Linux container, Emacs 29.3 (Org 9.6, with a one-line stand-in for =org-element-parent-element=, which is 9.7), =ox-typst= from =main= and the Typst compiler of the =typst= Python package (0.15.2 per =typst.__version__=):
+
+- Run: an Org file with one footnote, two see-also notes, two endnotes, a Notes section with =#endnotes()=, and syntax quoted in verbatim and in a source block. It exported and compiled to a PDF: the endnotes came out as =[1]=, =[2]= in the text and the Notes section lists them; the footnote has its number; nothing from the quoted syntax became a note.
+- Run: the same with =sp-typst-see-also-style= =footnote= and without the Notes section (a Notes section is added, with =#endnotes()=); a file with no see-also notes does not import =sidenotes.typ=.
+- Run: two =#endnotes()= in one Typst file number from 1 each.
+- *Not run*: the real =marginalia= package. =packages.typst.org= is not reachable from the container, so =sidenotes.typ= was compiled against a stand-in package of my own with the same name and a made-up =setup= and =note=; that checks the wiring (imports, show rules, call shapes) and not the look. The call shapes come from the package page (version 0.3.1): =setup= with =inner=, =outer=, =top=, =bottom=, =book= and =note=. The margin values and the zero =width= of the inner margin are guesses.
+- Not run: the whole book with notes in it, Elpaca, macOS.
+
 * Not yet done
 
 - The module is in =sp-late-modules= of =init.el=, and has an entry in =README.org=, but the dependency graph in =docs/architecture/load-order.org= does not show it.
 - ADRs (=adr/=, outside the configuration folder) are not in the book. Add the folder to =sp-typst-doc-directories= once the root is the repository.
 - Citations: =ox-typst= turns =cite:= links into a Typst =#bibliography=; the book has none, and the thesis workflow that needs it (=typst-setup.org=, =passions.bib=) is not wired up.
 - A project template for a manuscript (title page, chapters in separate files, bibliography, Romanian language settings as in =typst-setup.org=) would be a second template next to =template.typ=; the book template is meant as the first of them.
+- LaTeX export of the three kinds: not done. A see-also note could be a =\\sidenote= (package =sidenotes= or =tufte-latex=) and an endnote a =\\endnote= (package =endnotes=) with an export filter on =footnote-reference=, as here; the HTML Tufte export of =sp-reading-sidenotes= still makes a sidenote of every footnote.
+- A note cited twice: a see-also note is repeated in the margin and an endnote is listed twice; Org's =[fn:see-1]= twice does not point to one note as for plain footnotes.
 - Live preview while writing: =tinymist= can serve one in the browser for a =.typ= file; an Org buffer has no =.typ= until it is exported, so the useful version is "export this file on save and let the PDF viewer reload", which is not written.
 - Inline Typst maths in Org buffers (previewing =$...$= as images) is a different package family; not looked at here.
 
@@ -688,6 +903,93 @@ Not run: Elpaca installing =ox-typst= and =typst-ts-mode= (neither is installed 
 ** TODO test the Makefile with generating a Typst document of the modifications made to Emacs
 
 Read more about [[id:c3b4eab0-c8fb-4980-87d3-412dd33f747b][GNU Make]] to understand what it does.
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-typst-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+- They need no Typst and no =ox-typst=; the export functions are tested in the container by hand (see "What was run").
+
+#+begin_src emacs-lisp -i
+;;; sp-typst-test.el --- Tests for the note handling of sp-typst -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Run headless, from the folder of init.el, with
+;;   emacs -Q --batch -L libraries/modules/text -l tests/sp-typst-test.el -f ert-run-tests-batch-and-exit
+
+;;; Code:
+
+(require 'ert)
+(require 'org)
+
+;; The module installs ox-typst with use-package; nothing is installed here.
+(defmacro use-package (&rest _))
+
+(load (expand-file-name
+       "../libraries/modules/text/sp-typst.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(ert-deftest sp-typst-test-note-label-keeps-the-prefix-first ()
+  (should (equal (sp-typst--note-label "doc-x" "see-1") "see-doc-x-1"))
+  (should (equal (sp-typst--note-label "doc-x" "end-12") "end-doc-x-12"))
+  (should (equal (sp-typst--note-label "doc-x" "3") "doc-x-3"))
+  ;; The kind survives.
+  (should (eq (sp-note-kind (sp-typst--note-label "doc-x" "see-1")) 'see-also))
+  (should (eq (sp-note-kind (sp-typst--note-label "doc-x" "end-1")) 'endnote)))
+
+(ert-deftest sp-typst-test-prefix-footnotes-keeps-the-kind ()
+  (with-temp-buffer
+    (insert "A[fn:see-1] b[fn:end-1] c[fn:1] d[fn:see-9]\n\n[fn:see-1] x\n\n[fn:end-1] y\n\n[fn:1] z\n")
+    (sp-typst--prefix-footnotes "doc-x")
+    (should (equal (buffer-string)
+                   (concat "A[fn:see-doc-x-1] b[fn:end-doc-x-1] c[fn:doc-x-1] d[fn\u200b:see-9]\n\n"
+                           "[fn:see-doc-x-1] x\n\n[fn:end-doc-x-1] y\n\n[fn:doc-x-1] z\n")))))
+
+(ert-deftest sp-typst-test-notes-in-blocks-do-not-count ()
+  (with-temp-buffer
+    (insert "Text\n#+begin_src org\nx[fn:see-1]\n#+end_src\n")
+    (should-not (sp-typst--has-notes-p 'see-also)))
+  (with-temp-buffer
+    (insert "Text[fn:see-1]\n")
+    (should (sp-typst--has-notes-p 'see-also))
+    (should-not (sp-typst--has-notes-p 'endnote))))
+
+(ert-deftest sp-typst-test-features-follow-the-style ()
+  (let ((sp-typst-see-also-style 'margin))
+    (should (equal (sp-typst--features "A[fn:see-1]\n") '(see-also)))
+    (should-not (sp-typst--features "A[fn:1]\n")))
+  (let ((sp-typst-see-also-style 'footnote))
+    (should-not (sp-typst--features "A[fn:see-1]\n"))))
+
+(ert-deftest sp-typst-test-preamble-imports-the-sidenotes-only-when-asked ()
+  (should-not (string-match-p "sidenotes.typ" (sp-typst--preamble "T")))
+  (let ((text (sp-typst--preamble "T" '(see-also))))
+    (should (string-match-p "import \"sidenotes.typ\": see-also, sidenote-layout" text))
+    ;; After the book show rule, so the title page keeps its margins.
+    (should (< (string-match "show: book" text) (string-match "show: sidenote-layout" text)))))
+
+(ert-deftest sp-typst-test-endnotes-section-is-added-once ()
+  (with-temp-buffer
+    (insert "* Doc\nText[fn:end-1]\n\n[fn:end-1] y\n")
+    (sp-typst--add-endnotes-section 1)
+    (should (string-match-p "\n\\*\\* Notes\n#\\+begin_export typst\n#endnotes()\n" (buffer-string)))
+    (let ((once (buffer-string)))
+      (sp-typst--add-endnotes-section 1)
+      (should (equal once (buffer-string))))))
+
+(ert-deftest sp-typst-test-no-endnotes-section-without-endnotes ()
+  (with-temp-buffer
+    (insert "* Doc\nText[fn:1]\n\n[fn:1] y\n")
+    (let ((before (buffer-string)))
+      (sp-typst--add-endnotes-section 1)
+      (should (equal before (buffer-string))))))
+
+(provide 'sp-typst-test)
+;;; sp-typst-test.el ends here
+#+end_src
 
 * Changes by pull request
 
@@ -699,3 +1001,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - Run in a headless Emacs 29.3 with Org 9.7.11 and Typst 0.15.1
     - not with Elpaca, =typst-ts-mode= or =tinymist=, and not on macOS.
   - See [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]].
+- Pull request: this one (see-also notes and endnotes)
+  - ✨ Added the export of see-also notes (=[fn:see-N]=, a Tufte sidenote through the package =marginalia=, or a footnote with =sp-typst-see-also-style= =footnote=) and endnotes (=[fn:end-N]=, collected by =#endnotes()= in a Notes section with its own numbering)
+    - =docs/typst/template.typ= gained =endnote=, =endnotes= and a footnote =see-also=; the new =docs/typst/sidenotes.typ= loads the package
+  - Compiled in a container with a stand-in for the =marginalia= package; the real package and its look are untried
