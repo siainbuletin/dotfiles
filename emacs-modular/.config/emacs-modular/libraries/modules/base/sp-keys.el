@@ -404,11 +404,19 @@ the line, respectively."
            ("R" . sp-bibtex-lint-abstract-restore)
            ("c" . sp-bibtex-lint-fix-crossref)
            ("C" . sp-bibtex-lint-crossref-dryrun)
+           ("d" . sp-bibtex-lint-fix-date)
+           ("D" . sp-bibtex-lint-fix-date-text)
            ("f" . sp-bibtex-lint-fix-files)
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)
            ("o" . sp-bibtex-lint-fix-order)
-           ("p" . sp-bibtex-lint-fix-prefixes))
+           ("p" . sp-bibtex-lint-fix-prefixes)
+           ("u" . sp-bibtex-lint-fix-duplicates))
+(bind-keys :prefix-map lem+lint-bibtex-zotero-keys
+           :prefix (concat sp-prefix " L b z")
+           ("l" . sp-bibtex-zotero-dryrun)
+           ("a" . sp-bibtex-zotero-convert)
+           ("r" . sp-bibtex-zotero-restore))
 
 (bind-keys :prefix-map lem+lint-meta-keys
            :prefix (concat sp-prefix " L m")
@@ -459,7 +467,7 @@ the line, respectively."
   (which-key-add-keymap-based-replacements lem+lint-keys
     "b" "bibtex" "m" "litnote metadata" "q" "litnote quotes" "t" "litnote titles"
     "r" "litnote references" "f" "footnotes" "g" "tags" "u" "author notes" "n" "filing")
-  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind")
+  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind" "z" "zotero paths")
   (which-key-add-keymap-based-replacements lem+lint-authors-keys "w" "works"))
 
 ;;;;;; Moved keys (shims)

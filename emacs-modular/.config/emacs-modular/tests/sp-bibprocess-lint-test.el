@@ -82,8 +82,22 @@ each question that was asked."
                (lambda (_file batch &rest _) (push (length batch) sizes) (pop answers)))
               ((symbol-function 'sp-bibtex-lint--confirm)
                (lambda (_file _kind count) (push count sizes) (eq ?a (pop answers)))))
-      (funcall (or command #'sp-bibtex-lint-fix-order) file))
+      (funcall (or command #'sp-bibtex-lint-fix-order) file)
+      (sp-bibprocess-lint-test--apply-report))
     (nreverse sizes)))
+
+(defun sp-bibprocess-lint-test--fix (command file)
+  "Run the fix COMMAND on FILE and press `A' in its report."
+  (funcall command file)
+  (sp-bibprocess-lint-test--apply-report))
+
+(defun sp-bibprocess-lint-test--apply-report ()
+  "Press `A' in the report of a fix command, as a user does after reading it."
+  (when-let* ((buffer (get-buffer sp-bibtex-lint--buffer))
+              ((with-current-buffer buffer (sp-batch-report-buffer-p))))
+    (with-current-buffer buffer
+      (when sp-batch-report-apply-function (sp-batch-report-apply)))
+    (kill-buffer buffer)))
 
 (ert-deftest sp-bibtex-lint-test-results ()
   (sp-bibprocess-lint-test--with-bib
@@ -165,7 +179,7 @@ each question that was asked."
                  ;; The file changes between the lint and the answer.
                  (let ((new (replace-regexp-in-string "John" "Johnny" (sp-bibprocess-lint-test--text file)))) (sleep-for 1.1) (with-temp-file file (insert new)))
                  t)))
-      (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
+      (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-order file) :type 'user-error))
     ;; Neither written nor backed up.
     (should (string-match-p "author =[ \t]+{Johnny Smith1}" (sp-bibprocess-lint-test--text file)))
     (should-not (file-exists-p sp-bibtex-lint-backup-directory))))
@@ -176,7 +190,7 @@ each question that was asked."
       (unwind-protect
           (progn
             (with-current-buffer buffer (insert "x"))
-            (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
+            (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-order file) :type 'user-error))
         (with-current-buffer buffer (set-buffer-modified-p nil))
         (kill-buffer buffer)))))
 
@@ -196,6 +210,15 @@ each question that was asked."
       (cl-letf (((symbol-function 'completing-read) (lambda (_prompt coll &rest _) (car coll))))
         (should (equal file (sp-bibtex-lint--read-file t)))))))
 
+;; The reports are `special-mode' buffers: a link is a label with the property
+;; `sp-batch-report-link', a button an entry with `sp-batch-report-action'.
+(defun sp-bibprocess-lint-test--prop-at (regexp prop)
+  "The text property PROP on the last character of the first match of REGEXP."
+  (save-excursion
+    (goto-char (point-min))
+    (re-search-forward regexp)
+    (get-text-property (1- (match-end 0)) prop)))
+
 (ert-deftest sp-bibtex-lint-test-dryrun-report ()
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
     (let ((before (sp-bibprocess-lint-test--text file)))
@@ -206,8 +229,8 @@ each question that was asked."
         (should (derived-mode-p 'sp-batch-report-mode))
         (should (string-match-p "2 entries with problems" (buffer-string)))
         ;; Each entry links to its own line.
-        (should (string-match-p (format "\\[\\[file:%s::1\\]\\[k1\\]\\]" (regexp-quote file)) (buffer-string)))
-        (should (string-match-p (format "\\[\\[file:%s::6\\]\\[k2\\]\\]" (regexp-quote file)) (buffer-string))))
+        (should (equal (format "file:%s::1" file) (sp-bibprocess-lint-test--prop-at "• k1" 'sp-batch-report-link)))
+        (should (equal (format "file:%s::6" file) (sp-bibprocess-lint-test--prop-at "• k2" 'sp-batch-report-link))))
       (kill-buffer sp-bibtex-lint--buffer))))
 
 (ert-deftest sp-bibtex-lint-test-order-only-touches-order ()
@@ -222,6 +245,65 @@ each question that was asked."
                  (string-match "year" (substring text (string-match "@article{bad" text)))))
       ;; The entry that was in order is exactly as it was.
       (should (string-prefix-p "@article{ok,\n  author = {Smith, John},\n  title = {T}\n}\n" text)))))
+
+(ert-deftest sp-bibtex-lint-test-fix-opens-a-report-first ()
+  "A fix command lists what it would change, writes nothing, and `A' applies it."
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{bad1,\n  year = {2020},\n  author = {Smith, John},\n  title = {T}\n}\n\n"
+              "@article{bad2,\n  year = {2021},\n  author = {Doe, Jane},\n  title = {U}\n}\n")
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-bibtex-lint--confirm) (lambda (&rest _) t)))
+        (sp-bibtex-lint-fix-order file)
+        (should (equal before (sp-bibprocess-lint-test--text file)))
+        (with-current-buffer sp-bibtex-lint--buffer
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (string-match-p "▼ field order +2 entries" (buffer-string)))
+          (should (functionp sp-batch-report-apply-function))
+          (should (functionp sp-batch-report-refresh-function))
+          ;; Drop one entry, refresh: it stays dropped.
+          (goto-char (point-min))
+          (re-search-forward "bad1")
+          (sp-batch-report-drop)
+          (should (string-match-p "▼ field order +1 of 2" (buffer-string)))
+          (sp-batch-report-refresh)
+          (should (string-match-p "▼ field order +1 of 2" (buffer-string)))
+          (should (equal sp-batch-report-excluded
+                         (list (sp-bibtex-lint--drop-key file "bad1" 'order))))
+          (sp-batch-report-apply))
+        (kill-buffer sp-bibtex-lint--buffer)
+        (let ((text (sp-bibprocess-lint-test--text file)))
+          ;; bad1 was dropped: its fields keep their order; bad2 got sorted.
+          (should (< (string-match "year" text) (string-match "author" text)))
+          (should (< (string-match "author" (substring text (string-match "bad2" text)))
+                     (string-match "year" (substring text (string-match "bad2" text))))))))))
+
+(ert-deftest sp-bibtex-lint-test-drop-keys-are-per-fix ()
+  (should (equal (sp-bibtex-lint--drop-key "/a.bib" "k")
+                 (sp-bibtex-lint--drop-key "/a.bib" "k" 'authors)))
+  (should-not (equal (sp-bibtex-lint--drop-key "/a.bib" "k" 'order)
+                     (sp-bibtex-lint--drop-key "/a.bib" "k" 'indent)))
+  (should (equal (sp-bibtex-lint--key-label (sp-bibtex-lint--drop-key "/a.bib" "k" 'order))
+                 (format "k in %s" (sp-batch-report-file-link "/a.bib")))))
+
+(ert-deftest sp-bibtex-lint-test-every-fix-command-opens-the-report ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (let ((sp-literature-dir (file-name-as-directory (make-temp-file "lit" t))))
+      (unwind-protect
+          (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+            (dolist (command '(sp-bibtex-lint-fix-order sp-bibtex-lint-fix-indent
+                               sp-bibtex-lint-fix-prefixes sp-bibtex-lint-fix-authors
+                               sp-bibtex-lint-fix-files sp-bibtex-lint-fix-crossref sp-bibtex-lint-fix-date
+                               sp-bibtex-lint-fix-date-text
+                               sp-bibtex-lint-fix-keys))
+              (funcall command file)
+              (with-current-buffer sp-bibtex-lint--buffer
+                (ert-info ((symbol-name command))
+                  (should (derived-mode-p 'sp-batch-report-mode))
+                  (should (functionp sp-batch-report-apply-function))
+                  (should (functionp sp-batch-report-refresh-function))))
+              (kill-buffer sp-bibtex-lint--buffer)))
+        (delete-directory sp-literature-dir t)))))
 
 (ert-deftest sp-bibtex-lint-test-indent ()
   (sp-bibprocess-lint-test--with-bib
@@ -268,8 +350,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-normalise ()
   (sp-bibprocess-lint-test--with-notes
-   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-     (sp-bibtex-lint-fix-authors file))
+   (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
+     (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should-not (string-match-p "Smyth" text))
      (should (string-match-p "author =[ \t]+{Smith, John}" text))
@@ -282,7 +364,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-notes
    (let ((before (sp-bibprocess-lint-test--text file)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
-       (sp-bibtex-lint-fix-authors file))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
      ;; An alias changes the note, not the .bib file, and needs no backup of it.
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not (file-exists-p sp-bibtex-lint-backup-directory))
@@ -290,10 +372,10 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-notes-each-case ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((answers '(?n ?l)))
+   (let ((answers '(?f ?l)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) (pop answers))))
-       (sp-bibtex-lint-fix-authors file)))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
      ;; The first entry was normalised; the second got an alias and kept its name.
      (should (string-match-p "@article{a,\n  author =[ \t]+{Smith, John}" text))
@@ -305,7 +387,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
    (let ((before (sp-bibprocess-lint-test--text file)))
      (dolist (answer '(?s ?q))
        (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) answer)))
-         (sp-bibtex-lint-fix-authors file)))
+         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not added)
      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
@@ -315,7 +397,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
    (let ((before (sp-bibprocess-lint-test--text file)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) ?q)))
-       (sp-bibtex-lint-fix-authors file))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not added))))
 
@@ -368,8 +450,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (concat "@article{a,\n  author = {TW Adorno and John Smith},\n  title = {T}\n}\n\n"
               "@article{b,\n  author = {Theodor Adorno},\n  title = {U}\n}\n")
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a))
-              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-      (sp-bibtex-lint-fix-authors file))
+              ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
+      (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
     (let ((text (sp-bibprocess-lint-test--text file)))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W. and Smith, John}" text))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W.}" text)))
@@ -380,7 +462,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       "@article{a,\n  author = {Adorno, TW},\n  title = {T}\n}\n"
     (let ((before (sp-bibprocess-lint-test--text file)))
       (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should (equal (list (cons adorno "Adorno, TW")) added)))))
 
@@ -392,8 +474,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           (cons (float-time)
                 (sp-bibtex--make-people (list "Theodor W. Adorno" "Tamara Adorno" "John Smith"))))
     (let ((before (sp-bibprocess-lint-test--text file)))
-      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-        (sp-bibtex-lint-fix-authors file))
+      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?f)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not added))))
 
@@ -406,15 +488,15 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (with-current-buffer sp-bibtex-lint--buffer
       (let ((text (buffer-string)))
         ;; The typo is in the main list; the surname match has its own section.
-        (should (string-match "\\* \\[\\[[^]]*\\]\\[b\\]\\]" text))
-        (should (string-match "^\\* Same surname as an author note (1)\n\\*\\* \\[\\[[^]]*\\]\\[a\\]\\]\n- author: Adorno, TW → Adorno, Theodor W. (same surname)" text))
-        (should (< (string-match "\\[b\\]" text) (string-match "Same surname as" text)))
+        (should (string-match "^▼ Entries with problems +2 entries$" text))
+        (should (string-match "^▼ Same surname as an author note +1 entry\n  • a\n      · author: Adorno, TW → Adorno, Theodor W. (same surname)" text))
+        (should (< (string-match "• b" text) (string-match "Same surname as" text)))
         (should-not (string-match-p "did you mean Adorno" text))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 
 (defun sp-bibprocess-lint-test--keys (&rest answers)
-  "Make `read-char-choice' give ANSWERS in turn; return the list of the answers given."
+  "Make `sp-batch-report-ask' give ANSWERS in turn; return the list of the answers given."
   (let (given)
     (cons (lambda (&rest _) (let ((a (pop answers))) (push a given) a))
           (lambda () (nreverse given)))))
@@ -424,10 +506,10 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (let* ((keys (sp-bibprocess-lint-test--keys ?d ?a))
            (shown nil))
       ;; Drop k2 for later, then apply the batch: k1 and k3 change, k2 does not.
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (_prompt candidates)
                                                                (setq shown candidates) '("k2"))))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal '("k1" "k2" "k3") shown))
       (let ((text (sp-bibprocess-lint-test--text file)))
         (should (string-match-p "author =[ \t]+{Smith1, John}" text))
@@ -442,9 +524,9 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (should (equal '(2) (sp-bibprocess-lint-test--convert file '(?s) #'sp-bibtex-lint-fix-authors)))
     ;; Bring k2 back with `u' while a batch is asked, then skip that batch.
     (let ((keys (sp-bibprocess-lint-test--keys ?u ?s)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k2"))))
-        (sp-bibtex-lint-fix-authors file)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
     (should-not sp-bibtex-lint--excluded)
     ;; The next run has all three, and k2 is fixed with the others.
     (should (equal '(3) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-authors)))
@@ -454,9 +536,9 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
     (let ((before (sp-bibprocess-lint-test--text file))
           (keys (sp-bibprocess-lint-test--keys ?d ?a)))
-      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k1" "k2"))))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
 
@@ -468,11 +550,11 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 
 (ert-deftest sp-bibtex-lint-test-drop-in-notes-batch ()
   (sp-bibprocess-lint-test--with-notes
-   (let ((keys (sp-bibprocess-lint-test--keys ?d ?n)))
+   (let ((keys (sp-bibprocess-lint-test--keys ?d ?f)))
      ;; Drop entry a; the typo of entry b is normalised.
-     (cl-letf (((symbol-function 'read-char-choice) (car keys))
+     (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("a"))))
-       (sp-bibtex-lint-fix-authors file)))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should (string-match-p "@article{a,\n  author = {Smyth, John}" text))
      (should (string-match-p "@article{b,\n  author =[ \t]+{Smith, John and Doe, Jane}" text)))))
@@ -483,25 +565,24 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (sp-bibtex-lint-dryrun file)
       (with-current-buffer sp-bibtex-lint--buffer
         (goto-char (point-min))
-        (re-search-forward "\\[k1\\]")
-        ;; `d' drops the entry at point; it moves to the dropped section.
+        (re-search-forward "• k1")
+        ;; `d' drops the entry at point, in place: it is struck through and counted.
         (sp-batch-report-drop)
-        (should (equal (list (sp-bibtex-lint--entry-key file "k1")) sp-bibtex-lint--excluded))
+        (should (equal (list (sp-bibtex-lint--entry-key file "k1")) sp-batch-report-excluded))
         (let ((text (buffer-string)))
-          (should (string-match "Dropped from the list (u brings one back) (1)" text))
-          (should (< (string-match "\\[k2\\]" text) (string-match "Dropped from the list" text)))
-          (should (string-match-p "k1 in " (substring text (string-match "Dropped from the list" text))))
-          (should (string-match-p "1 entry with problems" text))
-          ;; The order button still counts both.
+          (should (string-match "^▼ Entries with problems +1 of 2$" text))
+          (should (string-match-p "1 dropped" (sp-batch-report-view--header-line)))
+          ;; The buttons count both until a refresh (g).
           (should (string-match-p "field order (2)" text))
-          (should (string-match-p "author names (1)" text)))
-        ;; `u' on the dropped entry brings it back.
+          (should (string-match-p "author names (2)" text)))
         (goto-char (point-min))
-        (re-search-forward "k1 in ")
+        (re-search-forward "• k1")
+        (should (get-text-property (point) 'sp-batch-report-dropped))
+        ;; `u' on the dropped entry brings it back.
         (sp-batch-report-restore)
-        (should-not sp-bibtex-lint--excluded)
-        (should-not (string-match-p "Dropped from the list" (buffer-string)))
-        (should (string-match-p "2 entries with problems" (buffer-string)))))
+        (should-not sp-batch-report-excluded)
+        (should (string-match-p "^▼ Entries with problems +2 entries$" (buffer-string)))
+        (should-not (get-text-property (point) 'sp-batch-report-dropped))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-restore-command ()
@@ -544,10 +625,13 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
       (sp-bibtex-lint-dryrun file))
     (with-current-buffer sp-bibtex-lint--buffer
-      (let ((text (buffer-string)))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:order:%s\\]\\[field order (1)\\]\\]" (regexp-quote file)) text))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:indent:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:authors:%s\\]\\[author names (1)\\]\\]" (regexp-quote file)) text))))
+      (let ((text (buffer-string)) called)
+        (should (string-match-p "indentation, as in bibtex-mode (2)" text))
+        (should (string-match-p "author names (1)" text))
+        ;; RET on a fix runs it on the file.
+        (cl-letf (((symbol-function 'sp-bibtex-lint-fix-order) (lambda (f) (push f called))))
+          (funcall (sp-bibprocess-lint-test--prop-at "field order (1)" 'sp-batch-report-action)))
+        (should (equal (list file) called))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-button-runs-its-fix ()
@@ -689,9 +773,8 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
             (sp-bibtex-lint-dryrun file))
           (with-current-buffer sp-bibtex-lint--buffer
             (let ((text (buffer-string)))
-              (should (string-match-p (format "\\[\\[sp-bibtex-lint:files:%s\\]\\[attachment paths (2)\\]\\]"
-                                              (regexp-quote file))
-                                      text))
+              (should (string-match-p "attachment paths (2)" text))
+              (should (sp-bibprocess-lint-test--prop-at "attachment paths (2)" 'sp-batch-report-action))
               (should (string-match-p "bdsk-file-1 → file = {a1990x0.pdf}" text))
               (should (string-match-p "file: ~/Documents/literature/a1990x0.pdf → a1990x0.pdf" text))))
           (kill-buffer sp-bibtex-lint--buffer)
@@ -709,7 +792,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-files-test-fix-needs-library ()
   (let ((sp-literature-dir "/no/such/folder/"))
     (sp-bibprocess-lint-test--with-bib "@book{a,\n  title = {T}\n}\n"
-      (should-error (sp-bibtex-lint-fix-files file) :type 'user-error))))
+      (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-files file) :type 'user-error))))
 
 (ert-deftest sp-bibtex-files-test-flatten-fix-moves-files ()
   (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf"))
@@ -871,12 +954,14 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (sp-bibtex-lint-dryrun file))
     (with-current-buffer sp-bibtex-lint--buffer
       (let ((text (buffer-string)))
-        (should (string-match-p (format "\\[\\[sp-bibtex-lint:prefixes:%s\\]\\[[^]]*(2)\\]\\]" (regexp-quote file)) text))
+        (should (string-match-p "name prefixes (key=value, misplaced) (2)" text))
         (should (string-match-p "von Hayek, Friedrich A\\." text))
         (should (string-match-p "given= parts that do not fit" text))
         ;; Each entry is a link to its line in the file.
-        (should (string-match-p (format "\\[\\[file:%s::[0-9]+\\]" (regexp-quote file)) text))
-        (should-not (string-match-p "\\* ok" text))))
+        (should (string-match-p (format "^file:%s::[0-9]+$" (regexp-quote file))
+                                (sp-bibprocess-lint-test--prop-at "• [hg]$" 'sp-batch-report-link)))
+        ;; The entry with a fine name is only listed for its other problems.
+        (should-not (string-match-p "• ok\n      · author" text))))
     (kill-buffer sp-bibtex-lint--buffer)))
 
 (ert-deftest sp-bibtex-lint-test-prefixes-convert ()
@@ -1129,3 +1214,487 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (goto-char (point-min))
         (search-forward "@book{book1")
         (should-error (sp-bibtex-lint-crossref-entry) :type 'user-error)))))
+
+;;;; Variants of one author
+
+(defun sp-bibprocess-lint-test--forms (groups)
+  (mapcar (lambda (g) (cons (plist-get g :target) (mapcar #'car (plist-get g :forms)))) groups))
+
+(ert-deftest sp-bibtex-merge-test-groups ()
+  (let ((counts (make-hash-table :test #'equal)))
+    (dolist (n '(("Hegel, G. W. F." . 3) ("Hegel, Georg Wilhelm Friedrich" . 1)
+                 ("Müller, Hans" . 1) ("Muller, Hans" . 2) ("Smith, John" . 1) ("Smith, Jane" . 1)
+                 ("Smith, J." . 1) ("Doe, Jane" . 1)))
+      (puthash (car n) (cdr n) counts))
+    (let ((groups (sp-bibtex-merge--groups counts)))
+      (should (= 2 (length groups)))
+      ;; The fullest name is proposed, and comes first.
+      (should (equal "Hegel, Georg Wilhelm Friedrich" (plist-get (car groups) :target)))
+      (should (equal '("Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                     (mapcar #'car (plist-get (car groups) :forms))))
+      ;; Accent variants: the more used name wins unless an accent breaks the tie.
+      (should (equal "Muller, Hans" (plist-get (cadr groups) :target)))
+      ;; `Smith, J.' fits John and Jane, so nothing is merged for Smith.
+      (should-not (seq-some (lambda (g) (string-prefix-p "Smith" (plist-get g :target))) groups)))))
+
+(ert-deftest sp-bibtex-merge-test-note-name-wins ()
+  (let ((counts (make-hash-table :test #'equal))
+        (people (sp-bibtex--make-people '("Georg W. F. Hegel"))))
+    (puthash "Hegel, G. W. F." 5 counts)
+    (puthash "Hegel, Georg Wilhelm Friedrich" 1 counts)
+    (puthash "Hegel, Georg W. F." 1 counts)
+    (let ((g (car (sp-bibtex-merge--groups counts people))))
+      (should (equal "Hegel, Georg W. F." (plist-get g :target))))))
+
+(ert-deftest sp-bibtex-merge-test-apply ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{a,\n  author = {Hegel, G. W. F. and {Big Corp} and Doe, Jane},\n  title = {T}\n}\n\n"
+              "@book{b,\n  editor = {Hegel, Georg Wilhelm Friedrich},\n  author = \"Doe, J. and Hegel, G. W. F.\",\n  title = {U}\n}\n\n"
+              "@article{c,\n  % keep me\n  author = {Hegel, G. W. F.},\n  title = {V}\n}\n\n"
+              "@article{d,\n  author = {Smith, John},\n  title = {W}\n}\n")
+    (let ((bibtex-dialect 'biblatex)
+          (groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file))))
+      ;; The commented entry c is not counted, nor rewritten.
+      (should (equal '(("Hegel, Georg Wilhelm Friedrich" "Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                       ("Doe, Jane" "Doe, Jane" "Doe, J."))
+                     (sort (sp-bibprocess-lint-test--forms groups)
+                           (lambda (a b) (string> (car a) (car b))))))
+      (let ((mapping (sp-bibtex-merge--ask-for-test groups)))
+        (should (= 2 (sp-bibtex-merge--apply file mapping)))
+        (let ((text (sp-bibprocess-lint-test--text file)))
+          (should (string-match-p "author =[ \t]+{Hegel, Georg Wilhelm Friedrich and {Big Corp} and[ \n]+Doe, Jane}" text))
+          (should (string-match-p "Doe, Jane and Hegel, Georg Wilhelm Friedrich" text))
+          (should (string-match-p "% keep me\n[ \t]*author = {Hegel, G. W. F.}" text))
+          (should (string-match-p "Smith, John" text)))
+        (should (file-exists-p sp-bibtex-lint-backup-directory))))))
+
+(defun sp-bibtex-merge--ask-for-test (groups)
+  "Accept every proposed name of GROUPS, as RET does in `sp-bibtex-merge--ask'."
+  (let ((keys (make-list (length groups) ?\r)))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (sp-bibtex-merge--ask groups))))
+
+(ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    ;; Doe comes first (sorted by target): `n' leaves it; Hegel is typed.
+    (setq keys (list ?n ?e))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore)
+              ((symbol-function 'read-string) (lambda (&rest _) "Hegel, Georg Q.")))
+      (let ((mapping (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts))))
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, Georg" mapping nil nil #'equal)))
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, G." mapping nil nil #'equal)))
+        (should-not (assoc "Doe, J." mapping))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-pick-a-variant-and-step-back ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    ;; Doe: `n'; Hegel: `p' goes back to Doe, whose variant 1 is taken; then
+    ;; Hegel is left with `n', which ends the run.
+    (setq keys (list ?n ?p ?1 ?n))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (let* ((groups (sp-bibtex-merge--groups counts))
+             (first (car (car (plist-get (car groups) :forms))))
+             (mapping (sp-bibtex-merge--ask groups)))
+        (should-not keys)
+        ;; Variant 1 of the first group is its proposed name, so only the other form changes.
+        (should (= 1 (length mapping)))
+        (should (equal first (cdr (car mapping))))))))
+
+(ert-deftest sp-bibtex-merge-test-ask-finish-and-clear ()
+  (let* ((counts (make-hash-table :test #'equal)) keys)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    (setq keys (list ?\r ?p ?c ?n ?f))
+    (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) #'ignore))
+      (should-not (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts)))
+      (should-not keys))))
+
+(ert-deftest sp-bibtex-lint-test-pick-some-names-of-a-batch ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?o ?a)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k1" "k3"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      ;; k1 and k3 are fixed, k2 waits for the next run and is not dropped.
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{Smith1, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith2}" text))
+        (should (string-match-p "author =[ \t]+{Smith3, John}" text)))
+      (should-not sp-bibtex-lint--excluded)
+      (should-not sp-bibtex-lint--picked))))
+
+(ert-deftest sp-bibtex-lint-test-pick-first-option ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 3)
+    (let ((keys (sp-bibprocess-lint-test--keys ?a))
+          (sp-bibtex-lint-pick-first t))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read-multiple) (lambda (&rest _) '("k2"))))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should (string-match-p "author =[ \t]+{John Smith1}" text))
+        (should (string-match-p "author =[ \t]+{Smith2, John}" text))
+        (should (string-match-p "author =[ \t]+{John Smith3}" text))))))
+
+(ert-deftest sp-batch-report-test-ask-runs-moves-while-waiting ()
+  (let ((keys (list ?n ?x ?a)) moved shown)
+    (cl-letf (((symbol-function 'read-key) (lambda (prompt) (push prompt shown) (pop keys)))
+              ((symbol-function 'sp-batch-report--window) (lambda () (selected-window)))
+              ((symbol-function 'ding) #'ignore)
+              ((symbol-function 'key-binding)
+               (lambda (key &rest _) (and (equal key [?n]) 'sp-batch-report-next)))
+              ((symbol-function 'sp-batch-report-next) (lambda () (interactive) (setq moved t))))
+      (should (eq ?a (sp-batch-report-ask '(("a" "Apply") ("q" "Quit")) "Batch 1 of 1")))
+      ;; `n' moved in the report, `x' was refused, and the help line was the prompt each time.
+      (should moved)
+      (should (= 3 (length shown)))
+      (should (string-match-p "\\[a\\] Apply" (car shown)))
+      (should (string-match-p "Batch 1 of 1" (car shown))))))
+
+(ert-deftest sp-bibtex-merge-test-report-section ()
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  author = {Hegel, G. W. F.},\n  title = {T}\n}\n\n@article{b,\n  author = {Hegel, Georg Wilhelm Friedrich},\n  title = {U}\n}\n"
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibtex-lint-dryrun file))
+      (with-current-buffer sp-bibtex-lint--buffer
+        (should (string-match-p "^▼ Variants of one author (1)" (buffer-string)))
+        (should (string-match-p "· Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
+      (kill-buffer sp-bibtex-lint--buffer)
+      (should (equal before (sp-bibprocess-lint-test--text file))))))
+
+;;;; Date fields to year and month
+
+(defconst sp-bibprocess-lint-test--date-bib
+  (concat "@article{y,\n  title = {Year only},\n  date = {2021}}\n\n"
+          "@article{ym,\n  title = {Year and month},\n  date = {2021-05}}\n\n"
+          "@book{ymd,\n  title = {Full},\n  date = {2021-05-14}}\n\n"
+          "@misc{web,\n  title = {A page},\n  date = {2021-05-14}}\n\n"
+          "@article{range,\n  title = {Range},\n  date = {2020/2021}}\n\n"
+          "@article{words,\n  title = {Words},\n  date = {May 14, 2021}}\n\n"
+          "@article{bad,\n  title = {Impossible},\n  date = {2021-02-30}}\n\n"
+          "@article{clash,\n  title = {Year clash},\n  year = {2019},\n  date = {2021-05-14}}\n\n"
+          "@article{mclash,\n  title = {Month clash},\n  month = {jun},\n  date = {2021-05}}\n\n"
+          "@article{same,\n  title = {Same values},\n  year = {2021},\n  month = {May},\n  date = {2021-05-14}}\n\n"
+          "@article{nodate,\n  title = {Plain},\n  year = {2000}}\n\n"
+          "@book{extra,\n  title = {Extra},\n  day = {3},\n  date = {2021-05-14}}\n"))
+
+(defun sp-bibprocess-lint-test--date-results ()
+  "The lint results of the date kinds for the current file, as an alist from key to the result."
+  (let (results)
+    (sp-bibtex-lint--job "t" (list (car sp-bibtex-files)) '(date date-skipped)
+                         (lambda (r) (setq results r)))
+    results))
+
+(defun sp-bibprocess-lint-test--date-new (results key)
+  "The new text of the entry KEY in RESULTS, with the layout squeezed, or nil."
+  (when-let* ((r (sp-bibprocess-lint-test--result results key))
+              (new (plist-get (alist-get 'date (nth 4 r)) :new)))
+    (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+
+(defun sp-bibprocess-lint-test--date-skipped (results key)
+  (when-let* ((r (sp-bibprocess-lint-test--result results key)))
+    (plist-get (alist-get 'date-skipped (nth 4 r)) :desc)))
+
+(ert-deftest sp-bibtex-date-test-year-only ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "y")))
+      (should (string-match-p "year = {2021}" new))
+      (should-not (string-match-p "date\\|month" new)))))
+
+(ert-deftest sp-bibtex-date-test-month-moves-and-day-goes ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (dolist (key '("ym" "ymd"))
+        (let ((new (sp-bibprocess-lint-test--date-new results key)))
+          (should (string-match-p "year = {2021}" new))
+          (should (string-match-p "month = {5}" new))
+          (should-not (string-match-p "date\\|day" new)))))))
+
+(ert-deftest sp-bibtex-date-test-misc-keeps-the-full-date ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (should-not (sp-bibprocess-lint-test--result results "web")))
+    (let* ((sp-bibtex-date-keep-types nil)
+           (new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "web")))
+      (should (string-match-p "year = {2021}" new))
+      (should-not (string-match-p "day" new)))))
+
+(ert-deftest sp-bibtex-date-test-month-format ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((sp-bibtex-date-month-format "%02d"))
+      (should (string-match-p "month = {05}"
+                              (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "ym"))))))
+
+(ert-deftest sp-bibtex-date-test-unreadable-dates-are-reported ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (dolist (key '("range" "words" "bad"))
+        (should-not (sp-bibprocess-lint-test--date-new results key))
+        (should (= 1 (length (sp-bibprocess-lint-test--date-skipped results key)))))
+      (should (string-match-p "range" (car (sp-bibprocess-lint-test--date-skipped results "range"))))
+      (should (string-match-p "not YYYY" (car (sp-bibprocess-lint-test--date-skipped results "words"))))
+      (should (string-match-p "no day 30" (car (sp-bibprocess-lint-test--date-skipped results "bad")))))))
+
+(ert-deftest sp-bibtex-date-test-conflicts-are-reported-not-overwritten ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (should-not (sp-bibprocess-lint-test--date-new results "clash"))
+      (should (string-match-p "year = 2019 differs" (car (sp-bibprocess-lint-test--date-skipped results "clash"))))
+      (should-not (sp-bibprocess-lint-test--date-new results "mclash"))
+      (should (string-match-p "month = jun differs" (car (sp-bibprocess-lint-test--date-skipped results "mclash")))))))
+
+(ert-deftest sp-bibtex-date-test-same-values-only-drop-the-date ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "same")))
+      (should (string-match-p "year = {2021}" new))
+      (should (string-match-p "month = {May}" new))
+      (should-not (string-match-p "date" new))
+      (should (= 1 (with-temp-buffer (insert new) (goto-char (point-min))
+                                     (let ((n 0)) (while (re-search-forward "year =" nil t) (cl-incf n)) n)))))))
+
+(ert-deftest sp-bibtex-date-test-day-field-goes-with-the-date ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((new (sp-bibprocess-lint-test--date-new (sp-bibprocess-lint-test--date-results) "extra")))
+      (should (string-match-p "month = {5}" new))
+      (should-not (string-match-p "day" new)))))
+
+(ert-deftest sp-bibtex-date-test-entries-without-date-are-untouched ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (should-not (sp-bibprocess-lint-test--result (sp-bibprocess-lint-test--date-results) "nodate"))))
+
+(ert-deftest sp-bibtex-date-test-fix-writes-once-and-is-idempotent ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      ;; y, ym, ymd, same and extra are rewritten; the others are reported only.
+      (should (equal '(5) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
+      (let ((after (sp-bibprocess-lint-test--text file)))
+        (should-not (equal before after))
+        (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'"))
+        ;; The entries that are left as they are stay byte for byte.
+        (dolist (text '("@article{range,\n  title = {Range},\n  date = {2020/2021}}"
+                        "@article{words,\n  title = {Words},\n  date = {May 14, 2021}}"
+                        "@misc{web,\n  title = {A page},\n  date = {2021-05-14}}"
+                        "@article{clash,\n  title = {Year clash},\n  year = {2019},\n  date = {2021-05-14}}"))
+          (should (string-search text after)))
+        (let ((results (sp-bibprocess-lint-test--date-results)))
+          (should-not (seq-some (lambda (r) (alist-get 'date (nth 4 r))) results)))
+        (should (equal after (sp-bibprocess-lint-test--text file)))))))
+
+(ert-deftest sp-bibtex-date-test-declined-writes-nothing ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (sp-bibprocess-lint-test--convert file '(?n) #'sp-bibtex-lint-fix-date)
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-date-test-report-lists-skipped-dates ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--date-bib
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-fix-date file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (should (string-match-p "date fields to year and month" (buffer-string)))
+      (should (string-match-p "date fields left as they are" (buffer-string)))
+      (should (string-match-p "2020/2021 is a range" (buffer-string))))
+    (kill-buffer sp-bibtex-lint--buffer)))
+
+;;;; Non-ISO dates, the text fix
+
+(defconst sp-bibprocess-lint-test--datetext-bib
+  (concat "@article{a1,\n  title = {A},\n  date = {May 14, 2021}}\n\n"
+          "@article{a2,\n  title = {B},\n  date = {14th May 2021}}\n\n"
+          "@article{a3,\n  title = {C},\n  date = {May. 2021}}\n\n"
+          "@article{a4,\n  title = {D},\n  date = {2021 Mai}}\n\n"
+          "@article{a5,\n  title = {E},\n  date = {14.5.2021}}\n\n"
+          "@article{a6,\n  title = {F},\n  date = {5/14/2021}}\n\n"
+          "@article{a7,\n  title = {G},\n  date = {2021/5/14}}\n\n"
+          "@article{a8,\n  title = {H},\n  date = {3/4/2021}}\n\n"
+          "@article{a0,\n  title = {P},\n  date = {14. Mai 2021}}\n\n"
+          "@article{a9,\n  title = {I},\n  date = {Spring 2021}}\n\n"
+          "@article{b1,\n  title = {J},\n  date = {2020/2021}}\n\n"
+          "@article{b2,\n  title = {K},\n  date = {c. 1850}}\n\n"
+          "@article{b3,\n  title = {L},\n  date = {31 Feb 2021}}\n\n"
+          "@article{b4,\n  title = {M},\n  year = {2019},\n  date = {May 14, 2021}}\n\n"
+          "@misc{web,\n  title = {N},\n  date = {May 14, 2021}}\n\n"
+          "@article{iso,\n  title = {O},\n  date = {2021-05-14}}\n"))
+
+(defun sp-bibprocess-lint-test--datetext-results ()
+  (let (results)
+    (sp-bibtex-lint--job "t" (list (car sp-bibtex-files)) '(datetext datetext-skipped)
+                         (lambda (r) (setq results r)))
+    results))
+
+(defun sp-bibprocess-lint-test--datetext-new (results key)
+  (when-let* ((r (sp-bibprocess-lint-test--result results key))
+              (new (plist-get (alist-get 'datetext (nth 4 r)) :new)))
+    (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+
+(ert-deftest sp-bibtex-date-test-text-reads-the-forms ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((results (sp-bibprocess-lint-test--datetext-results)))
+      (dolist (key '("a0" "a1" "a2" "a5" "a6" "a7" "iso"))
+        (ert-info (key)
+          (let ((new (sp-bibprocess-lint-test--datetext-new results key)))
+            (should (string-match-p "year = {2021}" new))
+            (should (string-match-p "month = {5}" new))
+            (should-not (string-match-p "date\\|day" new)))))
+      (dolist (key '("a3" "a4"))
+        (ert-info (key)
+          (let ((new (sp-bibprocess-lint-test--datetext-new results key)))
+            (should (string-match-p "year = {2021}" new))
+            (should (string-match-p "month = {5}" new))))))))
+
+(ert-deftest sp-bibtex-date-test-text-reports-what-it-cannot-read ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((results (sp-bibprocess-lint-test--datetext-results)))
+      (dolist (key '("a8" "a9" "b1" "b2" "b3" "b4" "web"))
+        (ert-info (key)
+          (should-not (sp-bibprocess-lint-test--datetext-new results key))))
+      (should (string-match-p "day first or month first"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "a8")))
+                                              :desc))))
+      (should (string-match-p "a range"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b1")))
+                                              :desc))))
+      (should (string-match-p "no day 31"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b3")))
+                                              :desc))))
+      (should (string-match-p "year = 2019 differs"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b4")))
+                                              :desc)))))))
+
+(ert-deftest sp-bibtex-date-test-text-numeric-order-option ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((sp-bibtex-date-numeric-order 'day-first))
+      (should (string-match-p "month = {4}" (sp-bibprocess-lint-test--datetext-new
+                                             (sp-bibprocess-lint-test--datetext-results) "a8"))))
+    (let ((sp-bibtex-date-numeric-order 'month-first))
+      (should (string-match-p "month = {3}" (sp-bibprocess-lint-test--datetext-new
+                                             (sp-bibprocess-lint-test--datetext-results) "a8"))))))
+
+(ert-deftest sp-bibtex-date-test-text-runs-after-the-iso-fix ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    ;; The ISO fix does only `iso'; the text fix then does the others and writes once.
+    (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
+    (should (equal '(8) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date-text)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-search "date = {2020/2021}" text))
+      (should (string-search "date = {c. 1850}" text))
+      (should (string-search "date = {May 14, 2021}}" text))
+      (should-not (string-search "14.5.2021" text)))
+    (should-not (seq-some (lambda (r) (alist-get 'datetext (nth 4 r)))
+                          (sp-bibprocess-lint-test--datetext-results)))))
+
+;;;; Duplicate fields
+
+(defconst sp-bibprocess-lint-test--dup-bib
+  (concat "@article{same,\n  title = {A  title},\n  year = {2020},\n  Year = \"2020\",\n  title = {A title}}\n\n"
+          "@article{differ,\n  title = {T},\n  year = {2019},\n  year = {2020},\n  note = {x},\n  note = {x}}\n\n"
+          "@article{clean,\n  title = {T},\n  year = {2020}}\n")
+  "One entry with identical duplicates, one with differing ones, one without.")
+
+(ert-deftest sp-bibtex-dup-test-groups ()
+  (let* ((text "@article{k,\n  title = {A},\n  Year = {2019},\n  year = {2020},\n  year = {2019}\n}")
+         (groups (sp-bibtex-dup--groups text))
+         (g (car groups)))
+    (should (= 1 (length groups)))
+    (should (equal "Year" (plist-get g :name)))
+    (should (= 3 (length (plist-get g :occ))))
+    ;; Two distinct values; the copy of the first one is index 0.
+    (should (equal '(("2019" . 0) ("2020" . 1)) (plist-get g :values)))
+    (should-not (sp-bibtex-dup--identical-p g))
+    (should-not (sp-bibtex-dup--groups "@article{k,\n  title = {A},\n  year = {2019}}"))))
+
+(ert-deftest sp-bibtex-dup-test-resolve ()
+  (let* ((text "@article{k,\n  title = {A},\n  note = {x},\n  Note = {x},\n  year = {2019},\n  year = {2020}\n}")
+         (groups (sp-bibtex-dup--groups text)))
+    ;; Without a pick the identical note goes, both years stay.
+    (should (equal "@article{k,\n  title = {A},\n  note = {x},\n  year = {2019},\n  year = {2020}\n}"
+                   (sp-bibtex-dup--resolve text groups nil)))
+    ;; With a pick the other year goes, the layout is kept.
+    (should (equal "@article{k,\n  title = {A},\n  note = {x},\n  year = {2020}\n}"
+                   (sp-bibtex-dup--resolve text groups '(("year" . 1)))))))
+
+(ert-deftest sp-bibtex-dup-test-one-line-entry ()
+  (let ((text "@article{k, year = {2019}, year = {2019}, title = {A}}"))
+    (should (equal "@article{k, year = {2019}, title = {A}}"
+                   (sp-bibtex-dup--resolve text (sp-bibtex-dup--groups text) nil)))))
+
+(ert-deftest sp-bibtex-dup-test-report-writes-nothing ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibtex-lint-fix-duplicates file))
+      (with-current-buffer sp-bibtex-lint--buffer
+        (let ((text (buffer-string)))
+          (should (string-match-p "title: 2 identical copies" text))
+          (should (string-match-p "year: 2 identical copies" text))
+          (should (string-match-p "year: 2 different values, you choose: 1\\. 2019  2\\. 2020" text))
+          (should-not (string-match-p "\\[clean\\]" text))))
+      (kill-buffer sp-bibtex-lint--buffer)
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-dup-test-identical-only ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?i)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      ;; The identical copies are gone, the differing years are both still there.
+      (should (string-match-p "@article{same,\n  title = {A  title},\n  year = {2020},\n}" text))
+      (should (string-match-p "year = {2019},\n  year = {2020},\n  note = {x},\n}" text))
+      (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'")))))
+
+(ert-deftest sp-bibtex-dup-test-choose-value ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?a)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read)
+                 (lambda (_prompt candidates &rest _)
+                   (should (equal '("1. 2019" "2. 2020") (seq-take candidates 2)))
+                   "1. 2019"))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "@article{differ,\n  title = {T},\n  year = {2019},\n  note = {x},\n}" text))
+      (should-not (string-match-p "year = {2020}" (substring text (string-search "@article{differ" text) (string-search "@article{clean" text)))))))
+
+(ert-deftest sp-bibtex-dup-test-leave-keeps-every-value ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?a)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'completing-read)
+                 (lambda (_prompt candidates &rest _) (car (last candidates))))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (should (string-match-p "year = {2019},\n  year = {2020}" (sp-bibprocess-lint-test--text file)))))
+
+(ert-deftest sp-bibtex-dup-test-skip-writes-nothing ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((before (sp-bibprocess-lint-test--text file))
+          (keys (sp-bibprocess-lint-test--keys ?s)))
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (car keys))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-dup-test-in-full-lint-report ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (should (string-match-p "duplicate fields (2)" (buffer-string)))
+      (should (string-match-p "^▼ Duplicate fields" (buffer-string))))))

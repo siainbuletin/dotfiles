@@ -68,7 +68,20 @@
   (sp-keys-test--setup)
   (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "k")
               'sp-bibtex-lint-fix-keys))
-  (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys)))
+  (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys))
+  (should (eq (key-binding (kbd "C-; L b f u")) 'sp-bibtex-lint-fix-duplicates)))
+
+(ert-deftest sp-keys-bibtex-date-fix-has-a-key ()
+  (sp-keys-test--setup)
+  (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "d")
+              'sp-bibtex-lint-fix-date))
+  (should (eq (key-binding (kbd "C-; L b f d")) 'sp-bibtex-lint-fix-date)))
+
+(ert-deftest sp-keys-bibtex-zotero-group ()
+  (sp-keys-test--setup)
+  (should (eq (key-binding (kbd "C-; L b z l")) 'sp-bibtex-zotero-dryrun))
+  (should (eq (key-binding (kbd "C-; L b z a")) 'sp-bibtex-zotero-convert))
+  (should (eq (key-binding (kbd "C-; L b z r")) 'sp-bibtex-zotero-restore)))
 
 (ert-deftest sp-keys-moved-keys-are-consistent ()
   (sp-keys-test--setup)
