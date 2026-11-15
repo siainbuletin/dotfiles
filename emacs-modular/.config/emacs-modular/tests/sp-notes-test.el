@@ -381,10 +381,10 @@
             (should (eq major-mode 'sp-notes-filing-report-mode))
             (should sp-notes-filing--current-plan)
             (should (eq (key-binding (kbd "C-c C-c")) #'sp-batch-report-apply))
-            (should (string-match-p
-                     (format "\\[\\[file:%s\\]\\[a\\.org\\]\\] -> docs/a\\.org"
-                             (regexp-quote from))
-                     (buffer-string)))))
+            (should (string-match-p "• a\\.org  -> docs/a\\.org" (buffer-string)))
+            (goto-char (point-min))
+            (re-search-forward "• a\\.org")
+            (should (equal from (get-text-property (match-beginning 0) 'sp-batch-report-file)))))
       (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
       (delete-directory root t))))
 
@@ -405,12 +405,12 @@
             (sp-notes-filing-dryrun)
             (with-current-buffer "*Notes filing*"
               (goto-char (point-min))
-              (re-search-forward "^- \\[\\[file:[^]]*b\\.org")
+              (re-search-forward "• b\\.org")
               (sp-batch-report-drop)
               (should (equal sp-batch-report-excluded (list b)))
               (should (equal (mapcar (lambda (e) (plist-get e :from))
-                                     sp-notes-filing--current-plan)
+                                     (sp-notes-filing--plan-to-apply))
                              (list a)))
-              (should (string-match-p "Dropped from the list" (buffer-string))))))
+              (should (string-match-p "1 dropped" (sp-batch-report-view--header-line))))))
       (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
       (delete-directory root t))))

@@ -1,0 +1,77 @@
+* PR #474: 🐛 Never delete meta lines, values or tags in sp-litnotes-meta-fill
+:PROPERTIES:
+:PR_NUMBER: 474
+:URL: https://github.com/siainbuletin/dotfiles/pull/474
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/474][https://github.com/siainbuletin/dotfiles/pull/474]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 13:50
+- Merged :: 2026-11-14 21:30
+- Branch :: =claude/project-thread-1oploz= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5f4f5ed719b1168058962689d538a7933fe06d72][5f4f5ed719]]
+- Labels :: bugfix, needs-further-testing, check-NOW
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NHHvYc3HmHawMRAQ8ZBRyF][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Independent of other open PRs; touches only =sp-litnotes-meta.el=, its doc and its tests.
+- If merged after a PR that edits the same module (e.g. further =sp-litnotes-meta= changes), expect a conflict in =sp-litnotes-meta.org= / =.el=; resolve by keeping both.
+
+**** What and why
+:PROPERTIES:
+:CUSTOM_ID: what-and-why
+:END:
+Sia asked that =sp-litnotes-meta-fill= (single and =-fill-all-convert= batch) never deletes fields, only adds or modifies.
+
+- Audited every path in =sp-litnotes-meta.el= that removes, empties or rewrites meta (fill, =--set=, =--put=, the unquote step, the type tag, the key sort, the bib-parent/pub-title lints, the =(none)= choice from #473).
+- Found and fixed:
+  - *Real loss:* with =sp-litnotes-meta-update-changed= (default t) a =pub-author=/=pub-editor= with more names than BibTeX (a co-author added by hand) was replaced by the BibTeX list, dropping the extra name. =--differs-p= now says "no difference" when the note has more names.
+  - =--put= with nil/empty replaced a value by nothing. =--set= and =--put= now ignore blank values; only =sp-litnotes-meta--allow-clear=, bound by the /remove/ choice of =sp-litnotes-meta-parent-lint-convert= (a per-note choice with backup), empties a line.
+  - =--set= added a new line right after the last item's first line, splitting a continuation line from its item; it now goes after the continuation lines.
+- Checked, no change needed: empty and =(none)= answers (=bib-project=, =relevance-factor=, =read-priority=, =read-status=) give nil and leave the note alone; the key sort and the type tag only move or extend; =--tidy-new-note= (drops =#+print_bibliography=) runs only for newly created notes, not in a fill.
+- *Safeguard:* before saving, =sp-litnotes-meta-fill= compares the note with its text from before (=sp-litnotes-meta--lost=). A fewer lines of a key, a value now empty, a non-blank line gone, or a filetag gone refuses the write, restores the buffer and signals =sp-litnotes-meta-lost-data=. In the batch that is one failed note in the results; the rest are still filled.
+- The existing dry run (=sp-litnotes-meta-fill-all-dryrun=) already writes nothing; I did not add another one.
+- Doc: bullets under "Design choices" in =docs/tangles/academic/sp-litnotes-meta.org=.
+- No CHANGELOG edit (nightly tidy).
+
+**** How I checked
+:PROPERTIES:
+:CUSTOM_ID: how-i-checked
+:END:
+- Emacs 29.3 in batch: =sp-litnotes-meta-test.el=, 78 tests pass (69 before, 9 new). The tangle check (=tools/check-tangle.sh=) is green.
+- New tests: batch convert on a note with unknown keys, a repeated key, a multi-value =pub-author= with a continuation line, an empty value, a =(none)= value and extra tags: all remain, the differing title/year are modified, the backup equals the original; =(none)=/empty answers add nothing; blank values are ignored; new lines go after continuation lines; a deliberately buggy step that deletes a line or a filetag is refused with the note and buffer restored (file and visited buffer), and in the batch it is listed as a failure while the other note is filled.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- Not run on the real vault, real citar-vulpea or real Vulpea (all stubbed).
+- A person line with more names than BibTeX is now kept even when you wanted BibTeX to win; use the note itself to fix it.
+- Batch dry run does not preview a refusal (it only happens at write time).
+
+**** Manual testing checklist
+:PROPERTIES:
+:CUSTOM_ID: manual-testing-checklist
+:END:
+- [ ] Copy a few real litnotes (one with extra keys, one with two authors and a hand-written co-author) to a scratch folder or commit them first.
+- [ ] =M-x sp-litnotes-meta-fill-all-dryrun=: the list looks as before; a note with an extra co-author no longer lists "update pub-author".
+- [ ] =M-x sp-litnotes-meta-fill-all-convert=, answer =(none)= or empty to all questions: =git diff= on the notes shows only additions and corrected title/year/pages.
+- [ ] Diff the backup folder =litnote-meta-backups/<time>/= against the notes: no line missing except those intentionally modified.
+- [ ] A note with a multi-line =pub-author= item and a missing =pub-year=: the new line goes after the continuation line.
+- [ ] =M-x sp-litnotes-meta-parent-lint-convert=, choose remove on one note: the =bib-parent= line stays and is empty (unchanged behaviour).
+- [ ] The message line after convert says =0 failed=; if a note is refused, the error names what would have been lost.
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiAMJzQKB6duQ22aU2d][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/13d9e4a6e5a25eaa33e6791147d169be82fce0ae][13d9e4a6e5]] 🐛 Never delete meta lines, values or tags in sp-litnotes-meta-fill (Claude, 2026-11-14 13:50)

@@ -18,7 +18,7 @@
 ;;    - literature notes are made with citar-vulpea (see sp-litnotes)
 ;;    - anything pertaining to ROAM_REFS is done with vulpea-citar
 ;; - PDF processing and integration
-;;    - waiting on emacs-reader (Canvas emacs patch)
+;;    - reading PDFs in Emacs with emureader (sp-pdf-reader)
 ;;    - deep linking to PDFs
 ;;    - integration with DEVONthink
 ;;    - perhaps semantic search over PDFs
@@ -47,18 +47,25 @@
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-abstract)
+(require 'sp-bibtex-biblatex)
+(require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
 (require 'sp-litdb)
 (require 'sp-cite-match)
+(require 'sp-cite-open)
+(require 'sp-sourcerefs)
 (require 'sp-reading)
+(require 'sp-pdf-reader)
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
-(require 'sp-devonthink-search)
 (require 'sp-devonthink-highlights)
+(require 'sp-devonthink-bibsync)
+(require 'sp-fetch-inbox)
 (require 'sp-devonthink-sync)
 (require 'sp-see-also)
 

@@ -1,0 +1,303 @@
+#+TITLE: sp-cite-open.el: open the DEVONthink record of a citation selected in DEVONthink
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-cite-open.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-cite-open.el=. Design: [[file:../../architecture/citation-matching-from-selection.org][Matching a selected citation to a BibTeX or DEVONthink record]].
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- Status: first version for macOS. The Emacs Lisp parts are tested in batch with made-up text; the DEVONthink calls and the hotkey were not run on the Mac.
+
+* What it is for
+
+- You read a document in DEVONthink and select a citation: =(Smith 2017)=, =[12]=, or a whole reference entry.
+- You press =Caps Lock + r= (DEVONthink only, see =hammerspoon/.config/hammerspoon/devonthink.lua=).
+- The DEVONthink record of the cited work opens.
+- It does not write anything into a litnote; for that, use =sp-cite-match= (=Ctrl+Shift+K=).
+
+* The steps
+
+- Step 1, the reference list of the same document:
+  - Emacs asks DEVONthink for the record in front and its plain text.
+  - It finds the last =References= (or =Bibliography=) heading and splits what follows into entries.
+  - A numeric citation (=[12]=) takes entry 12.
+  - A short author-year citation (=Smith and Jones 2017=) takes the entry whose first words hold all the surnames and the year.
+  - Several entries fit (=2017a=, =2017b=): you pick one.
+  - A selection that is already a long entry is used as it is.
+- Step 2, the BibTeX files:
+  - The entry (or the selection, when no entry was found) is matched with =sp-cite-match=, with the same thresholds.
+  - A clear winner is taken, a close call is a ranked list, and "no match" goes to step 3.
+- Step 3, litdb:
+  - The entry text goes to =sp-litdb-search=; you choose a hit, which opens in DEVONthink at its page.
+  - Nothing is taken automatically: litdb is a meaning search, so it can confuse similar titles.
+- A BibTeX match opens its record with =sp-reading-open=, so the existing rules apply:
+  - the record is found by citekey, or through the crossref parent (with the page);
+  - when the PDF is not in DEVONthink, you are asked whether to index it.
+
+* What is not done
+
+- Parsing citations in running prose is not attempted beyond surnames and a year.
+  - Footnote citations (=Ibid.=, =op. cit.=) have no surname: they match nothing.
+  - Two authors with the same surname and year both fit; you choose.
+- A page jump inside the cited work is not done: the record opens at its start.
+- A scanned PDF with no text layer has no reference list; step 1 is skipped and the selection itself is matched.
+
+* Header
+
+#+begin_src emacs-lisp
+;;; sp-cite-open.el --- Open the DEVONthink record of a selected citation -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A citation selected in DEVONthink is matched against the reference list of
+;; the same document, then the BibTeX files (`sp-cite-match'), then litdb, and
+;; the record of the cited work is opened.  The text arrives through
+;; `org-protocol://sp-cite-open'.
+;; Literate source: docs/tangles/academic/sp-cite-open.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'seq)
+(require 'org-protocol)
+(require 'sp-cite-match)
+(require 'sp-reading)
+(require 'sp-devonthink)
+(require 'sp-litdb)
+
+(defgroup sp-cite-open nil
+  "Open the DEVONthink record of a selected citation."
+  :group 'convenience)
+#+end_src
+
+* Options
+
+- =sp-cite-open-heading-regexp=: a line that starts the reference list.
+  - Matched ignoring case, against one whole line.
+  - A leading number (=7.=, =VII=) is allowed.
+- =sp-cite-open-minimum-lines=: a heading counts only when at least this many lines follow it (a running page header or a table of contents entry does not).
+- =sp-cite-open-stop-words=: words of a citation that are not surnames.
+
+#+begin_src emacs-lisp
+(defcustom sp-cite-open-heading-regexp
+  (concat "\\`[ \t]*\\(?:[0-9]+\\|[IVX]+\\)?[.):]?[ \t]*"
+          "\\(?:references\\|reference list\\|bibliography\\|works cited"
+          "\\|literature cited\\|literature\\|sources\\|bibliographie\\|literatur"
+          "\\|bibliograf[ií]a\\|references and notes\\)"
+          "[ \t:.]*\\'")
+  "Regexp for a line that starts the reference list."
+  :type 'regexp)
+
+(defcustom sp-cite-open-minimum-lines 3
+  "Fewest lines that must follow a heading for it to start the reference list."
+  :type 'integer)
+
+(defcustom sp-cite-open-stop-words
+  '("and" "et" "al" "see" "cf" "also" "eg" "ie" "ibid" "vs" "pp" "chap" "ch")
+  "Words of an in-text citation that are not surnames."
+  :type '(repeat string))
+#+end_src
+
+* The reference list
+
+- =sp-cite-open-references= returns the text after the heading, or nil.
+  - It looks from the end of the text, so the last real list wins when a book has one per chapter.
+  - A heading with too few lines after it is skipped.
+
+#+begin_src emacs-lisp
+(defun sp-cite-open-references (text)
+  "The reference list at the end of TEXT, a string, or nil.
+It starts after the last line matching `sp-cite-open-heading-regexp' that
+has at least `sp-cite-open-minimum-lines' non-blank lines after it."
+  (let ((lines (split-string (replace-regexp-in-string "\r" "" (or text "")) "\n"))
+        (case-fold-search t)
+        (best nil)
+        (index 0)
+        (heads nil))
+    (dolist (line lines)
+      (when (string-match-p sp-cite-open-heading-regexp line) (push index heads))
+      (setq index (1+ index)))
+    ;; HEADS is last heading first.
+    (while (and heads (not best))
+      (let ((rest (nthcdr (1+ (car heads)) lines)))
+        (when (>= (length (seq-remove #'string-blank-p rest)) sp-cite-open-minimum-lines)
+          (setq best (string-join rest "\n"))))
+      (setq heads (cdr heads)))
+    best))
+#+end_src
+
+* Finding the entry for a citation
+
+- Three cases, in this order:
+  - numeric: the selection is only numbers, =[12]= or =(3, 4)=; the first number picks the entry that starts with it;
+  - short author-year: every surname of the citation must appear in the first 150 characters of the entry, and one of its years anywhere in the first 300;
+  - anything longer is already an entry: nil here, and the caller uses it as it is.
+- Surnames are the citation's words that are not numbers, stop words or one letter; accents and case are ignored (the =sp-cite-match= normaliser).
+
+#+begin_src emacs-lisp
+(defun sp-cite-open--numeric (text)
+  "The first number of TEXT when it only holds numbers, brackets and commas, or nil."
+  (when (string-match "\\`[ \t\n]*[[(]?\\([0-9]+\\)[0-9,;– \t-]*[])]?[ \t\n]*\\'" text)
+    (match-string 1 text)))
+
+(defun sp-cite-open--numbered-entry (number entries)
+  "The entry of ENTRIES that starts with NUMBER as =[12]=, =12.= or =12)=."
+  (let ((re (format "\\`\\(?:\\[%s\\]\\|%s[.)]\\)[ \t]" number number)))
+    (seq-find (lambda (entry) (string-match-p re entry)) entries)))
+
+(defun sp-cite-open--entries-for (text entries)
+  "The ENTRIES, a list of strings, that fit the short author-year citation TEXT."
+  (let* ((in (sp-cite-match--analyse text))
+         (years (plist-get in :years))
+         (names (seq-remove (lambda (w) (or (member w sp-cite-open-stop-words)
+                                            (string-match-p "\\`[0-9]" w)
+                                            (< (length w) 2)))
+                            (plist-get in :tokens))))
+    (when (and names years)
+      (seq-filter
+       (lambda (entry)
+         (let* ((norm (sp-cite-match-normalise entry))
+                (head (concat " " (substring norm 0 (min 150 (length norm))) " "))
+                (span (substring norm 0 (min 300 (length norm)))))
+           (and (seq-every-p (lambda (n) (string-match-p (concat " " (regexp-quote n) " ") head))
+                             names)
+                (seq-some (lambda (y) (string-match-p (format "\\b%d" y) span)) years))))
+       entries))))
+
+(defun sp-cite-open--choose-entry (entries)
+  "Ask which of ENTRIES, a list of strings, is meant; nil to skip."
+  (let ((choice (completing-read "Reference: "
+                                 (cons "skip" (mapcar (lambda (e) (truncate-string-to-width e 150 nil nil "…"))
+                                                      entries))
+                                 nil t)))
+    (unless (equal choice "skip")
+      (seq-find (lambda (e) (equal (truncate-string-to-width e 150 nil nil "…") choice)) entries))))
+
+(defun sp-cite-open-entry (text reference-text)
+  "The entry of REFERENCE-TEXT, a reference list, that TEXT, a citation, points to, or nil.
+A long TEXT is an entry already and gives nil."
+  (let ((entries (sp-cite-match-split-entries reference-text)))
+    (if-let* ((number (sp-cite-open--numeric text)))
+        (sp-cite-open--numbered-entry number entries)
+      (when (plist-get (sp-cite-match--analyse text) :short)
+        (let ((found (sp-cite-open--entries-for text entries)))
+          (if (cdr found)
+              (sp-cite-open--choose-entry found)
+            (car found)))))))
+#+end_src
+
+* Matching and opening
+
+- =sp-cite-open-text= does the three steps of the doc above.
+  - The query is the entry when there is one, else the selection.
+  - =sp-cite-match--resolve= asks only when the match is unclear.
+  - It returns a symbol for the tests and the message: =bibtex=, =litdb= or nil.
+- The litdb search signals =user-error= when it has no hit; that becomes a message.
+
+#+begin_src emacs-lisp
+(defun sp-cite-open--litdb (query)
+  "Search litdb for QUERY, open the hit you choose, and return non-nil; nil without a hit."
+  (condition-case err
+      (progn (sp-litdb-search (string-trim (replace-regexp-in-string "[\n\t ]+" " " query))) t)
+    (user-error (message "sp-cite-open: %s" (error-message-string err)) nil)))
+
+;;;###autoload
+(defun sp-cite-open-text (text &optional reference-text)
+  "Open the DEVONthink record of the work that TEXT cites.
+REFERENCE-TEXT is the reference list of the document TEXT was selected in, if known.
+The reference list is tried first, then the BibTeX files, then litdb.
+Returns `bibtex', `litdb' or nil."
+  (interactive (list (if (use-region-p)
+                         (buffer-substring-no-properties (region-beginning) (region-end))
+                       (read-string "Citation: "))))
+  (let* ((entry (and reference-text (sp-cite-open-entry text reference-text)))
+         (query (or entry text))
+         (cand (sp-cite-match--resolve query (sp-cite-match-candidates))))
+    (cond
+     (cand (sp-reading-open (plist-get cand :key)) 'bibtex)
+     ((sp-cite-open--litdb query) 'litdb)
+     (t (message "sp-cite-open: no record found for \"%s\""
+                 (truncate-string-to-width query 60))
+        nil))))
+#+end_src
+
+* Asking DEVONthink
+
+- The record in front, its selected text and its plain text come from DEVONthink's own scripting.
+  - The front record uses =sp-devonthink--front-script= of =sp-devonthink=, the one behind =sp-devonthink-store-link=.
+  - The plain text is the text DEVONthink extracted from the PDF.
+- A failed call gives nil: the selection is then matched without a reference list.
+
+#+begin_src emacs-lisp
+(defun sp-cite-open--front ()
+  "The record in front in DEVONthink as a plist (:uuid :key :page :text), or nil."
+  (ignore-errors (sp-devonthink--parse-front (sp-reading--osascript sp-devonthink--front-script))))
+
+(defun sp-cite-open--plain-text-script (uuid)
+  "The AppleScript that returns the plain text of the record UUID."
+  (format "tell application id \"DNtp\"
+  return plain text of (get record with uuid %s)
+end tell"
+          (sp-reading--quote uuid)))
+
+(defun sp-cite-open--plain-text (uuid)
+  "The plain text of the DEVONthink record UUID, or nil when it cannot be read."
+  (ignore-errors (sp-reading--osascript (sp-cite-open--plain-text-script uuid))))
+
+;;;###autoload
+(defun sp-cite-open-selection ()
+  "Open the record cited by the text selected in DEVONthink.
+The reference list of the record in front is used when it has one."
+  (interactive)
+  (let* ((front (sp-cite-open--front))
+         (text (plist-get front :text)))
+    (if (string-blank-p (or text ""))
+        (user-error "Nothing is selected in DEVONthink")
+      (sp-cite-open-text
+       text (when-let* ((uuid (plist-get front :uuid))
+                        (plain (sp-cite-open--plain-text uuid)))
+              (sp-cite-open-references plain))))))
+#+end_src
+
+* org-protocol
+
+- =org-protocol://sp-cite-open?file=NAME= is what the hotkey calls, like =sp-cite-match=.
+  - The text is in a file of =sp-cite-match-inbox=; the file reader of =sp-cite-match= is reused (it refuses a name with a slash).
+  - The file name =none= (no file) means "use the selection DEVONthink reports".
+- The front record is asked before Emacs raises its frame, while DEVONthink still has the selection.
+- The handler waits a moment so the client returns before any prompt, as in =sp-cite-match=.
+
+#+begin_src emacs-lisp
+(defun sp-cite-open-protocol (info)
+  "Handle org-protocol://sp-cite-open?file=NAME."
+  (let* ((front (sp-cite-open--front))
+         (copied (sp-cite-match--protocol-text info))
+         (text (if (string-blank-p (or copied "")) (plist-get front :text) copied)))
+    (if (string-blank-p (or text ""))
+        (message "sp-cite-open: nothing was selected")
+      (run-with-timer
+       0.1 nil
+       (lambda ()
+         (raise-frame)
+         (condition-case err
+             (sp-cite-open-text
+              text (when-let* ((uuid (plist-get front :uuid))
+                               (plain (sp-cite-open--plain-text uuid)))
+                     (sp-cite-open-references plain)))
+           (error (message "sp-cite-open: %s" (error-message-string err))))))))
+  nil)
+
+(add-to-list 'org-protocol-protocol-alist
+             '("sp-cite-open" :protocol "sp-cite-open"
+               :function sp-cite-open-protocol :kill-client t))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+;;; Provide
+
+(provide 'sp-cite-open)
+;;; sp-cite-open.el ends here
+#+end_src

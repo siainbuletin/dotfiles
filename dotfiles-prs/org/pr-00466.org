@@ -1,0 +1,84 @@
+* PR #466: ✨ Share the buffer list between frames
+:PROPERTIES:
+:PR_NUMBER: 466
+:URL: https://github.com/siainbuletin/dotfiles/pull/466
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/466][https://github.com/siainbuletin/dotfiles/pull/466]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 12:23
+- Merged :: 2026-11-14 12:46
+- Branch :: =465-share-buffer-list-between-frames= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/16a5195c904e737a4ec733c8264a0acc441d7117][16a5195c90]]
+- Labels :: new-feature, follow-up-pr-needed, does-what-it-should
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CX5zJbetBxLxSqjzM3W2XK][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main=.
+- Touches only =sp-frame= (=.el= and its literate =.org=).
+- Independent of every open PR. The =*Messages*= / =C-x b= thread may touch =sp-tabs=; no overlap in files, but both affect what =consult-buffer= shows.
+- Branch is named =465-...= but this is PR #466 (465 was taken meanwhile; a cloud session cannot rename a branch).
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- Problem: after =make-frame=, =C-x b= in the new frame shows almost nothing.
+- Cause (checked in the installed =tabspaces.el=):
+  - =tabspaces--local-buffer-p= and =tabspaces--buffer-list= read the =buffer-list= and =buried-buffer-list= frame parameters.
+  - =sp-tabs= uses =tabspaces--local-buffer-p= for the "Workspace Buffers" consult source, and hides the full source.
+  - A new frame has empty frame parameters.
+- Fix: new global minor mode =sp-frame-share-buffers-mode= in =sp-frame=, on by default.
+  - On =after-make-frame-functions= it copies =buffer-list= and =buried-buffer-list= into the new frame.
+  - =before-make-frame-hook= remembers the previously selected frame as the source.
+- Option =sp-frame-share-buffers-scope=:
+  - =selected= (default): copy from the previously selected frame, so the same workspace.
+  - =all=: every live, non-hidden buffer.
+- Command =sp-frame-share-buffers-now= does the same for an existing frame.
+
+**** Synthetic frames
+:PROPERTIES:
+:CUSTOM_ID: synthetic-frames
+:END:
+- Frames made by code (the =vulpea-ui-view= frame from #447 calls =make-frame=), =emacsclient= frames and AeroSpace-tiled frames all run the hooks, so they are treated like normal frames.
+- Skipped: child frames (=parent-frame= parameter, e.g. posframe) and any frame with the =sp-no-share-buffers= parameter.
+- Errors are caught and only print a message, so =make-frame= never fails because of this.
+
+**** Not verified
+:PROPERTIES:
+:CUSTOM_ID: not-verified
+:END:
+- Not run in Emacs: the container has no Emacs and no GUI. Parentheses balance was checked with a script; the =.org= blocks tangle to the same text as the =.el= (checked by script).
+- Not tried with tabspaces sessions, =emacsclient=, or AeroSpace.
+- Frames already open are not changed until you run =M-x sp-frame-share-buffers-now=.
+- Per-tab lists of the new frame's other tabs are not populated.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] =cd ~/dotfiles; git fetch origin 465-share-buffer-list-between-frames; git checkout 465-share-buffer-list-between-frames=, restart Emacs; no errors in =*Messages*=.
+- [X] Open a few files, =M-x make-frame=, =C-x b= in the new frame: the same "Workspace Buffers" appear.
+- [ ] Open the vulpea-ui view (=sp-vulpea-ui-view-open=): in its frame =C-x b= lists the buffers too.
+- [X] =emacsclient -c= frame shows the buffers.
+- [X] A posframe popup (e.g. completion) still works and no error appears.
+- [ ] =M-: (set-frame-parameter nil 'sp-no-share-buffers t)= then a frame made from it stays empty-listed (escape hatch), if you want to check.
+- [ ] =(setopt sp-frame-share-buffers-scope 'all)=: a new frame lists all buffers.
+- [ ] =M-x sp-frame-share-buffers-mode= off: new frames are empty again.
+- [ ] An older frame: =M-x sp-frame-share-buffers-now= fills it.
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNi8xdhv6htPzxTPgb4a][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi8xdhv6htPzxTPgb4a]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/31a750d07c3433f3ed2f86886b618df581cf4c98][31a750d07c]] ✨ Share the buffer list between frames (Claude, 2026-11-14 12:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/c5b90a24fd5fc78cbb703f2c05574930a2849ca8][c5b90a24fd]] 📝 Fix the PR number in the sp-frame doc (Claude, 2026-11-14 12:23)

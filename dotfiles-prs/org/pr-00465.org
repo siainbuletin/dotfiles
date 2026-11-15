@@ -1,0 +1,78 @@
+* PR #465: 🐛 Make C-x b regular by default, tabspaces filtering opt-in per tab
+:PROPERTIES:
+:PR_NUMBER: 465
+:URL: https://github.com/siainbuletin/dotfiles/pull/465
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/465][https://github.com/siainbuletin/dotfiles/pull/465]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 12:22
+- Merged :: 2026-11-14 12:44
+- Branch :: =claude/project-thread-zqcvvh= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/7871866f684dd3944854b034c9a542925128d206][7871866f68]]
+- Labels :: bugfix, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NNKdpkG3GKrYB8hHbRYuGq][project thread]]/
+
+**** Problem
+:PROPERTIES:
+:CUSTOM_ID: problem
+:END:
+- =C-x b= did not offer =*Messages*= right after startup.
+- Cause: =tabspaces-use-filtered-buffers-as-default= remapped =switch-to-buffer= to a command listing only the tab's buffers, and =tabspaces-exclude-buffers= removes =*Messages*= from that list.
+
+**** Change
+:PROPERTIES:
+:CUSTOM_ID: change
+:END:
+- =tabspaces-use-filtered-buffers-as-default= is now nil.
+- =C-x b= runs =sp-tabs-switch-to-buffer=, remapped in =tabspaces-mode-map=.
+- Default: the regular =switch-to-buffer= (all buffers, =*Messages*= included).
+- Filtered switcher (tab's buffers, then =*Messages*= at the end) applies when:
+  - =sp-tabs-filter-buffers= is non-nil (every tab), or
+  - the tab name is in =sp-tabs-filtered-tab-names= (default ="Email"=), or
+  - the major mode is derived from =sp-tabs-filtered-modes= (mu4e main/headers/view, =message-mode=).
+- =sp-tabs-toggle-tab-filter= toggles the current tab by name (=f= in =tabspaces-command-map=), meant for Projectile/project tabs.
+- =tabspaces-exclude-buffers= is unchanged.
+- Literate doc =docs/tangles/ui/sp-tabs.org= updated in step with the =.el=.
+
+**** Tested in batch Emacs 29.3
+:PROPERTIES:
+:CUSTOM_ID: tested-in-batch-emacs-293
+:END:
+- [X] Remap resolves to =sp-tabs-switch-to-buffer=.
+- [X] Default tab runs the regular switcher.
+- [X] Tab named =Email= runs the filtered switcher; the toggle turns it off and on.
+- [X] Filtered candidates include =*Messages*= although the tab's list lacks it.
+
+**** Not tested (no GUI)
+:PROPERTIES:
+:CUSTOM_ID: not-tested-no-gui
+:END:
+- Real startup with Vertico, Marginalia and the posframe minibuffer.
+- mu4e modes (mu4e not installed in the container).
+- Session restore interaction.
+
+**** Manual testing checklist
+:PROPERTIES:
+:CUSTOM_ID: manual-testing-checklist
+:END:
+- [ ] Fresh start, =C-x b=: every buffer is listed, =*Messages*= included.
+- [ ] In the Email workspace (or a mu4e buffer), =C-x b= lists only that tab's buffers, =*Messages*= last.
+- [ ] In a project tab, run =sp-tabs-toggle-tab-filter= (=f= after the tabspaces prefix): the message says the filter is on, and =C-x b= shows only that project's buffers.
+- [ ] Run it again: the filter is off and all buffers are listed.
+- [ ] Marginalia annotations/icons still show in both modes.
+- [ ] =tabspaces-switch-to-buffer= called directly still works as before.
+- [ ] Closing a workspace does not kill =*Messages*=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiD9ebSHChd2mUbx219]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/44750183286a29fd441584ee8b1e571086feac39][4475018328]] 🐛 Always offer *Messages* in C-x b (Claude, 2026-11-14 12:22)
+- [[https://github.com/siainbuletin/dotfiles/commit/ba5c3b97976762ed4e702383666559d509a85b07][ba5c3b9797]] ✨ Make tabspaces buffer filtering opt-in per tab (Claude, 2026-11-14 12:26)

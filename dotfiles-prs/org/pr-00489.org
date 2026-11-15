@@ -1,0 +1,124 @@
+* PR #489: ✨ Unify the academic and lint keymaps under the leader (B, k, L)
+:PROPERTIES:
+:PR_NUMBER: 489
+:URL: https://github.com/siainbuletin/dotfiles/pull/489
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/489][https://github.com/siainbuletin/dotfiles/pull/489]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 21:56
+- Merged :: 2026-11-14 21:59
+- Branch :: =489-academic-lint-keymaps= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/d5d9ab952e16dd54c040f58c3dea9913a51d18a5][d5d9ab952e]]
+- Labels :: simplifying, check-later
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21DH7fdHNhSnfhtpK1ep4if][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: independent of #410 (already merged); branch is =489-…=, based on =main=.
+- Depends on: nothing open.
+- If merged out of order: doc conflicts expected with #487 (=sp-batch-report.org=, =sp-org-lint.org=) and with the DEVONthink PRs (#420, #421, #443, #451, #452, #455) on lines that say =C-c k d=; keep their text and change the key to =C-; k d=. Their =keymap-set sp-devonthink-map= lines still work (the map is mounted at =C-; k d=).
+- After merging: none.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* =sp-bibtex-lint-fix-keys= (PR #410) had no usable key; simplify the academic keymaps; unify the lint keymaps; then remove the shims. #410 is merged, so this is a new PR.
+- *Cause of the missing key:* =C-c w b k= was bound twice: =sp-bibtex-lint-fix-keys= globally and =citar-vulpea-add-reference= in =org-mode-map=. In an Org note the key added a citekey, so the fix looked unbound. (The command is =-fix-keys=, there is no =-fix-key=.)
+- *Three leader groups* in =sp-keys= (leader =C-;=):
+  - =B= bibliography, from =C-c w b=;
+  - =k= knowledge search, from =C-c k=;
+  - =L= lint, new: one sub-letter per module, the same verbs everywhere: =l= list (dry run), =a= apply (convert), =r= restore.
+- *Reports:* the footnote report applied with =a=; it is now =A= like every other report. Rule written in =sp-batch-report.org=: lower-case acts on the entry at point, upper-case on the whole list.
+- *No shims for the moved keys* (removed on request): the old =C-c w b …=, =C-c k …= and footnote =a= are unbound. The older shims in =sp-keys-moved= (easysession, =C-c e b b=) are untouched.
+- Docs are bullet lists (=sp-keys.org=, =sp-academic.org=, =sp-batch-report.org=, =sp-org-lint.org=, the design doc status); =.el= files tangled from them. No CHANGELOG edit, =when-let*= only, GUI-only keys, no =C-z=/=C-x=/=C-c=/=C-v= root.
+- Left alone: =C-c w= keys outside =b= (reading, olivetti, elfeed, collection query, Denote), =n b=, and =sp-org-normalise=/=sp-vulpea-meta-order= lints (no key before, none now).
+
+**** Old to new keys
+:PROPERTIES:
+:CUSTOM_ID: old-to-new-keys
+:END:
+| Old (now unbound)                                                 | New                                   |
+|-------------------------------------------------------------------+---------------------------------------|
+| =C-c w b r= register                                              | =C-; B r=                             |
+| =C-c w b o= / =e= / =n= / =c= citar open / entry / notes / create | =C-; B o= / =e= / =n= / =c=           |
+| =C-c w b d= / =k= / =K= (Org only)                                | =C-; B d= / =k= / =K= (now global)    |
+| =C-c w b b= / =i= / =u= / =s= / =a= fetch                         | =C-; B b= / =i= / =u= / =s= / =a=     |
+| =C-c w b l= / =L= lint report / convert                           | =C-; L b l= / =C-; L b a=             |
+| =C-c w b k= (key fix, shadowed)                                   | =C-; L b f k=                         |
+| =C-c k l= =I= =s= =S= =.= =R= =t= =T=                             | =C-; k l= =I= =s= =S= =.= =R= =t= =T= |
+| =C-c k d …= DEVONthink map                                        | =C-; k d …=                           |
+| footnote report =a=                                               | =A=                                   |
+
+New =L= groups (=l= list, =a= apply unless noted):
+
+| Keys                                      | Command pair                                                                 |
+|-------------------------------------------+------------------------------------------------------------------------------|
+| =L b=                                     | BibTeX =sp-bibtex-lint-dryrun= / =-convert=; =r= restore dropped             |
+| =L b f= + =n= =c= =C= =f= =i= =k= =o= =p= | fix authors, crossref (=C= its report), files, indent, keys, order, prefixes |
+| =L m=                                     | litnote metadata fill (=sp-litnotes-meta-fill-all-*=)                        |
+| =L q=                                     | litnote titles in quotes (=sp-litnotes-meta-title-lint-*=)                   |
+| =L t= / =L r=                             | litnote titles, authors and year / litnote references                        |
+| =L f=                                     | footnotes                                                                    |
+| =L g=                                     | tags: =l= =sp-org-tag-lint=, =b= current buffer                              |
+| =L u=, =L u w=                            | author notes, their Works tables                                             |
+| =L n=                                     | notes filing; =r= restore, =s= schedule                                      |
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+- New =tests/sp-keys-test.el=: 4 pass (Emacs 29.3 batch): each lint group is =-dryrun= on =l= and =-convert= on =a=, the key fix is =C-; L b f k=, the old academic keys are not in the shim table.
+- Still pass: =sp-batch-report-test= 21, =sp-org-lint-test= 17, =sp-org-tag-lint-test= 13, =sp-author-notes-bibtex-test= 16.
+- Not run: a real Emacs with the full config, the GUI, Alfred or the real vault.
+- Not done: which-key labels are untested (=which-key-add-keymap-based-replacements=).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Pull this branch, restart Emacs (or =M-x sp-reload-modules=) (untested by Claude)
+- [X] =C-; = then =C-h=: which-key lists =B=, =k=, =L= with names (untested by Claude)
+- [X] =C-; L= then =C-h=: lists =b m q t r f g u n=; =C-; L b f= lists the seven fixes
+- [ ] On a scratch =.bib=: =C-; L b l= shows the lint report, =C-; L b f k= runs the key fix, =C-; L b a= asks which fixes to run
+- [ ] In an Org note and in a =.bib= buffer: =C-; B k= / =K= add and remove a citekey of the note (untested by Claude)
+- [ ] Per module, =l= shows a dry run and writes nothing: =C-; L m l=, =L q l=, =L t l=, =L r l=, =L f l=, =L g l=, =L u l=, =L u w l=, =L n l=
+- [ ] =a= applies after a question: =C-; L f a= on a scratch vault (backup made)
+- [X] =C-; B b= =i= =u= =s= =a= start the fetch commands; =C-; B o= opens citar
+- [ ] =C-; k l= litdb, =k s= semantic, =k t= tab p-search; =C-; k d= then =o= opens a record
+- [ ] Edge: footnote report =A= applies and =a= does nothing; tag report =a= still registers the tag at point
+- [X] Old keys are unbound: =C-c w b l=, =C-c w b k=, =C-c k s=, =C-c k d= say "undefined"
+- [X] =M-x sp-keys-audit=: no void command among the new groups
+- [ ] Regression: =C-; b b=, =C-; g s=, =C-; E a= (embark), =C-c a=, =C-c c=, and the old easysession shim =C-c s s= still work
+- [ ] Keys reach Emacs on the Mac with Alfred running (=C-;= then =L=) (untested by Claude)
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch: =git -C ~/dotfiles branch -D 489-academic-lint-keymaps=.
+- Restart Emacs (or =M-x sp-reload-modules=).
+- Apply keys (=a=) write to the vault or =.bib=: restore from the backup folder the command reported, or =git -C ~/notes restore .=.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCzaeJZR142mh9L4AR]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/6d31298996419a92851bba76784d732136382656][6d31298996]] ✨ Unify the academic and lint keymaps under the leader (B, k, L) (Claude, 2026-11-14 21:55)
+- [[https://github.com/siainbuletin/dotfiles/commit/7b556699229ef0e75a9fa6d0d0ce4f1960ccd87c][7b55669922]] 🔧 Remove the shims for the academic and footnote keys (Claude, 2026-11-14 21:57)

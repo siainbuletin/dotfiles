@@ -9,5 +9,11 @@
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
 
+# How the PDF's window is brought forward.
+# window: raise only that window (needs Accessibility permission for the app).
+# app: activate DEVONthink, which brings all its windows forward (old behaviour).
+# none: never activate or raise; the PDF window may open behind other apps.
+DT_OPEN_RAISE=window
+
 # 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
 DT_OPEN_DEBUG=1

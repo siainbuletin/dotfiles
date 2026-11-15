@@ -2,7 +2,7 @@
 #+date: 2026-11-09
 #+status: partly implemented (macOS: matcher, Cited works section, org-protocol, DEVONthink lookup; see the module docs)
 
-This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match= and =sp-reading= (see their module docs); the Linux script, the DEVONthink selection/UUID return and the item-link backfill are not built. Nothing here has been run on the Mac. It builds on [[file:../tangles/academic/sp-devonthink.org][DEVONthink and Emacs (sp-devonthink.org)]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
+This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match= and =sp-reading= (see their module docs); the Linux script, the DEVONthink selection/UUID return and the item-link backfill are not built. Nothing here has been run on the Mac. It builds on [[file:../tangles/devonthink/sp-devonthink.org][DEVONthink and Emacs (sp-devonthink.org)]] and the =sp-academic= pipeline (=citar=, =citar-vulpea=, =sp-litdb=).
 
 * Goal
 
@@ -230,6 +230,13 @@ This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match
 - Data needed: all =Cited works= tables of the litnotes with =read-status= current or preparing, read in one pass (the tables are plain Org text, so no extra index is required).
 - Open points: whether to count cross-references only inside the current project or the whole vault, and how to treat works cited twice in one source.
 
+** SOURCEREFS lines (first version, built)
+
+- A line =SOURCEREFS text= in a litnote marks a reference met in the PDF being read.
+- =sp-sourcerefs-convert= (=C-c o s=) matches those lines (reference list of the PDF from =sp-cite-open=, then =sp-cite-match=) and turns the matches into =[cite:@key]= links.
+- Lines that match nothing stay, and become =TODO unmatched= rows of the table: the works to read next.
+- See =docs/tangles/academic/sp-sourcerefs.org=.
+
 * Part 4: backfilling item links in DEVONthink
 
 - Goal: the works a source cites become DEVONthink item links, so they show in its graph and Info inspector.
@@ -267,6 +274,15 @@ This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match
 - Match inside DEVONthink with its search/"See also": rejected for citations; non-deterministic and slow for lists.
 - Match inside =litdb= only: rejected as primary; semantic, so it confuses similar titles by different authors.
 - Keep =print_bibliography=: rejected, see #338.
+
+* Jump to the record (sp-cite-open)
+
+- Added 2026-11-15: a second hotkey, =Caps Lock + r= in DEVONthink, opens the record of the cited work instead of writing the Cited works section.
+- Order of the lookup:
+  - the reference list at the end of the same document (numeric =[12]= or author-year);
+  - the BibTeX files, with the scoring above;
+  - litdb, as a list to choose from (never automatic).
+- Module doc: [[file:../tangles/academic/sp-cite-open.org][sp-cite-open.org]].
 
 * Order of work
 

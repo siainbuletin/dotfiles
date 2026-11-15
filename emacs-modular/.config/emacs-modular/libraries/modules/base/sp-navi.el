@@ -23,6 +23,9 @@ directory."
   "When opening a file, always follow symlinks."
   (setq vc-follow-symlinks t))
 
+;; Called here: nothing calls `sensible-defaults/use-all-settings'.
+(sp-auto-follow-symlinks)
+
 ;;;; Imenu list outline
 ;; Make a useful outline buffer
 ;; Binding set to toggle "o"

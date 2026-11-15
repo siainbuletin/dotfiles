@@ -1,6 +1,9 @@
 -- cite-match.lua: send the selected citation to Emacs (sp-cite-match).
 --
--- The hotkey copies the selection, saves it in a file in the inbox directory
+-- Two hotkeys use it: Ctrl+Shift+K (match, write Cited works) and, in DEVONthink,
+-- Caps+r (devonthink.lua, M.open: open the cited record).
+--
+-- A hotkey copies the selection, saves it in a file in the inbox directory
 -- and calls emacsclient with org-protocol://sp-cite-match?file=NAME.  All the
 -- matching is done in Emacs Lisp (libraries/modules/academic/sp-cite-match.el).
 -- The text goes through a file, not the URL, so there is no quoting problem and
@@ -33,8 +36,9 @@ local function write_file(path, text)
   return true
 end
 
--- Send TEXT to Emacs.  Returns true if emacsclient was started.
-function M.send(text)
+-- Send TEXT to Emacs through org-protocol://PROTOCOL (default sp-cite-match).
+-- Returns true if emacsclient was started.
+function M.send(text, protocol)
   local client = find_emacsclient()
   if not client then
     hs.alert.show("cite-match: emacsclient not found")
@@ -46,12 +50,13 @@ function M.send(text)
     hs.alert.show("cite-match: cannot write " .. M.inbox)
     return false
   end
-  hs.task.new(client, nil, { "-n", "org-protocol://sp-cite-match?file=" .. name }):start()
+  hs.task.new(client, nil, { "-n", "org-protocol://" .. (protocol or "sp-cite-match") .. "?file=" .. name }):start()
   return true
 end
 
--- Copy the selection of the front app and send it.
-function M.run()
+-- Copy the selection of the front app and call ACTION with its text (nil when
+-- nothing was selected).  The clipboard is put back first.
+local function withSelection(action)
   local old = hs.pasteboard.getContents()
   local marker = "sp-cite-match-" .. tostring(os.time())
   hs.pasteboard.setContents(marker)
@@ -59,11 +64,32 @@ function M.run()
   hs.timer.doAfter(0.2, function()
     local text = hs.pasteboard.getContents()
     if old then hs.pasteboard.setContents(old) else hs.pasteboard.clearContents() end
-    if not text or text == marker or text:match("^%s*$") then
-      hs.alert.show("cite-match: nothing selected")
-      return
+    if not text or text == marker or text:match("^%s*$") then text = nil end
+    action(text)
+  end)
+end
+
+-- Send the selection to sp-cite-match (match, write the Cited works section).
+function M.run()
+  withSelection(function(text)
+    if text then M.send(text) else hs.alert.show("cite-match: nothing selected") end
+  end)
+end
+
+-- Open the DEVONthink record of the selected citation (sp-cite-open).
+-- With no copied text, Emacs reads the selection from DEVONthink itself.
+function M.open()
+  withSelection(function(text)
+    if text then
+      M.send(text, "sp-cite-open")
+    else
+      local client = find_emacsclient()
+      if not client then
+        hs.alert.show("cite-open: emacsclient not found")
+        return
+      end
+      hs.task.new(client, nil, { "-n", "org-protocol://sp-cite-open?file=none" }):start()
     end
-    M.send(text)
   end)
 end
 

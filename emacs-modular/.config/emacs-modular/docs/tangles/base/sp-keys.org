@@ -703,6 +703,160 @@ Notes:
            ("." . flyspell-correct-at-point))
 #+end_src
 
+** Bibliography (B)
+
+- =lem+biblio-keys= is new and replaces the =C-c w b= prefix of the academic modules (=sp-bibprocess=, =sp-litnotes=, =sp-citations=, =sp-fetch-academic=, =sp-fetch-inbox=).
+- Letters by kind of action:
+  + register and open: =r= register the =.bib= files, =o= =citar-open=, =e= open the entry, =n= open the notes, =c= create a note;
+  + litnote in the current buffer: =d= do-what-I-mean, =k= add a citekey, =K= remove one;
+  + get new entries: =b= biblio look-up, =i= by DOI, =u= PDF from a URL, =s= scholarly search, =a= the DEVONthink inbox.
+- =k=, =K=, =d= and =e= were bound in =org-mode-map= only, and =k= was also the key of =sp-bibtex-lint-fix-keys= everywhere else. So in an Org note =C-c w b k= added a citekey and in any other buffer it fixed long keys, and the fix looked unbound. The lint commands now live under =L b=.
+- The old =C-c w b= keys are gone, with no shims.
+
+#+begin_src emacs-lisp -i
+;;;;;; Bibliography Keybindings
+(bind-keys :prefix-map lem+biblio-keys
+           :prefix (concat sp-prefix " B")
+           ("r" . sp-bibtex-register)
+           ("o" . citar-open)
+           ("e" . citar-open-entry)
+           ("n" . citar-open-notes)
+           ("c" . citar-create-note)
+           ("d" . citar-vulpea-dwim)
+           ("k" . citar-vulpea-add-reference)
+           ("K" . citar-vulpea-remove-reference)
+           ("b" . sp-fetch-academic-biblio-lookup)
+           ("i" . sp-fetch-academic-doi)
+           ("u" . sp-fetch-academic-download)
+           ("s" . sp-fetch-academic-omni)
+           ("a" . sp-fetch-inbox))
+#+end_src
+
+** Knowledge search (k)
+
+- =lem+knowledge-keys= is new and replaces the =C-c k= prefix: the same letters, below the leader.
+- =l= litdb (the literature), =I= litdb index, =s= =S= =.= =R= org-semantic (the notes), =t= =T= the tab inbox.
+- =d= is the DEVONthink map =sp-devonthink-map=. =sp-devonthink= mounts it here, because it defines the map.
+
+#+begin_src emacs-lisp -i
+;;;;;; Knowledge Search Keybindings
+(bind-keys :prefix-map lem+knowledge-keys
+           :prefix (concat sp-prefix " k")
+           ("l" . sp-litdb-search)
+           ("I" . sp-litdb-index)
+           ("s" . org-semantic-find)
+           ("S" . org-semantic-find-in-directory)
+           ("." . org-semantic-find-at-point)
+           ("R" . org-semantic-reindex)
+           ("t" . sp-tab-psearch)
+           ("T" . sp-tab-psearch-engine))
+#+end_src
+
+** Lint (L)
+
+- =lem+lint-keys= is new: every batch lint of the configuration under one letter, one sub-letter per module.
+- The same letters mean the same thing in every module:
+  + =l= *list*: the dry run or report, writes nothing;
+  + =a= *apply*: the convert command, which asks first and keeps a backup;
+  + =r= *restore*: bring back what was dropped or moved (where the module has it);
+  + a prefix argument means the same as on the command (=C-u= asks for the file or the source).
+- The report buffers use the matching keys: =g= list again, =A= apply, =d= drop, =u= restore, =k= stop the job, =q= quit (see =sp-batch-report=).
+- Modules: =b= BibTeX files, =m= litnote metadata fill, =q= litnote titles with quotes around all of them, =t= litnote authors, year and title, =r= litnote references, =f= footnotes, =g= org tags, =u= author notes, =n= notes filing.
+- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =b= abstracts moved to the litnotes (=B= its report, =e= the entry at point, =R= restore a run; see [[file:../academic/sp-bibtex-abstract.org][sp-bibtex-abstract]]), =c= crossref (=C= its report), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =l= BibLaTeX field names and Unicode accents (=L= its report, =r= restore a run; see [[file:../academic/sp-bibtex-biblatex.org][sp-bibtex-biblatex]]), =o= field order, =p= name prefixes.
+- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =d= date fields to year and month (=D= the non-ISO ones, after it), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes, =u= duplicate fields (flagged first, removed on apply).
+- =L b z= moves the Zotero attachments of a =.bib= file into the literature folder (=sp-bibtex-zotero=): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
+- =L u w= is the same pair of commands for the Works tables of the author notes.
+
+#+begin_src emacs-lisp -i
+;;;;;; Lint Keybindings
+;; Verbs shared by every group: l list (dry run), a apply (convert), r restore.
+(bind-keys :prefix-map lem+lint-keys
+           :prefix (concat sp-prefix " L"))
+
+(bind-keys :prefix-map lem+lint-bibtex-keys
+           :prefix (concat sp-prefix " L b")
+           ("l" . sp-bibtex-lint-dryrun)
+           ("a" . sp-bibtex-lint-convert)
+           ("r" . sp-bibtex-lint-restore-dropped))
+(bind-keys :prefix-map lem+lint-bibtex-fix-keys
+           :prefix (concat sp-prefix " L b f")
+           ("n" . sp-bibtex-lint-fix-authors)
+           ("b" . sp-bibtex-lint-fix-abstract)
+           ("B" . sp-bibtex-lint-abstract-dryrun)
+           ("e" . sp-bibtex-lint-abstract-entry)
+           ("R" . sp-bibtex-lint-abstract-restore)
+           ("c" . sp-bibtex-lint-fix-crossref)
+           ("C" . sp-bibtex-lint-crossref-dryrun)
+           ("d" . sp-bibtex-lint-fix-date)
+           ("D" . sp-bibtex-lint-fix-date-text)
+           ("f" . sp-bibtex-lint-fix-files)
+           ("i" . sp-bibtex-lint-fix-indent)
+           ("k" . sp-bibtex-lint-fix-keys)
+           ("l" . sp-bibtex-lint-fix-biblatex)
+           ("L" . sp-bibtex-lint-biblatex-dryrun)
+           ("r" . sp-bibtex-lint-biblatex-restore)
+           ("o" . sp-bibtex-lint-fix-order)
+           ("p" . sp-bibtex-lint-fix-prefixes)
+           ("u" . sp-bibtex-lint-fix-duplicates))
+(bind-keys :prefix-map lem+lint-bibtex-zotero-keys
+           :prefix (concat sp-prefix " L b z")
+           ("l" . sp-bibtex-zotero-dryrun)
+           ("a" . sp-bibtex-zotero-convert)
+           ("r" . sp-bibtex-zotero-restore))
+
+(bind-keys :prefix-map lem+lint-meta-keys
+           :prefix (concat sp-prefix " L m")
+           ("l" . sp-litnotes-meta-fill-all-dryrun)
+           ("a" . sp-litnotes-meta-fill-all-convert))
+(bind-keys :prefix-map lem+lint-quotes-keys
+           :prefix (concat sp-prefix " L q")
+           ("l" . sp-litnotes-meta-title-lint-dryrun)
+           ("a" . sp-litnotes-meta-title-lint-convert))
+(bind-keys :prefix-map lem+lint-titles-keys
+           :prefix (concat sp-prefix " L t")
+           ("l" . sp-litnotes-titles-dryrun)
+           ("a" . sp-litnotes-titles-convert))
+(bind-keys :prefix-map lem+lint-refs-keys
+           :prefix (concat sp-prefix " L r")
+           ("l" . sp-litnotes-refs-dryrun)
+           ("a" . sp-litnotes-refs-convert))
+
+(bind-keys :prefix-map lem+lint-footnotes-keys
+           :prefix (concat sp-prefix " L f")
+           ("l" . sp-org-lint-footnotes-dryrun)
+           ("a" . sp-org-lint-footnotes-convert))
+(bind-keys :prefix-map lem+lint-tags-keys
+           :prefix (concat sp-prefix " L g")
+           ("l" . sp-org-tag-lint)
+           ("b" . sp-org-tag-lint-buffer))
+
+(bind-keys :prefix-map lem+lint-authors-keys
+           :prefix (concat sp-prefix " L u")
+           ("l" . sp-author-notes-dryrun)
+           ("a" . sp-author-notes-convert))
+(bind-keys :prefix-map lem+lint-authors-works-keys
+           :prefix (concat sp-prefix " L u w")
+           ("l" . sp-author-notes-works-dryrun)
+           ("a" . sp-author-notes-works-convert))
+
+(bind-keys :prefix-map lem+lint-filing-keys
+           :prefix (concat sp-prefix " L n")
+           ("l" . sp-notes-filing-dryrun)
+           ("a" . sp-notes-filing-convert)
+           ("r" . sp-notes-filing-restore)
+           ("s" . sp-notes-filing-schedule))
+
+;; Names for which-key (the bind-keys forms above give the maps no label).
+(with-eval-after-load 'which-key
+  (which-key-add-keymap-based-replacements lem+leader-map
+    "B" "bibliography" "k" "knowledge" "L" "lint")
+  (which-key-add-keymap-based-replacements lem+lint-keys
+    "b" "bibtex" "m" "litnote metadata" "q" "litnote quotes" "t" "litnote titles"
+    "r" "litnote references" "f" "footnotes" "g" "tags" "u" "author notes" "n" "filing")
+  (which-key-add-keymap-based-replacements lem+lint-bibtex-keys "f" "fix a kind" "z" "zotero paths")
+  (which-key-add-keymap-based-replacements lem+lint-authors-keys "w" "works"))
+#+end_src
+
 ** Moved keys (shims)
 
 - =sp-keys-moved= lists each key that moved: old key, new key (below =sp-prefix=) and command.
@@ -714,6 +868,7 @@ Notes:
   + =C-c m= (now =supersonic=; the minibuffer jump is =w M=),
   + =<f6>= (now =projectile-run-project=; redraw is =w D=),
   + =C-c f= (now only the Org footnote prefix; dirvish is =f d=, the focus HUD =a f=).
+- The old academic keys have no shims (removed on request): =C-c w b ...= is now =B ...= (BibTeX lint: =L b ...=, the key fix =L b f k=), =C-c k ...= is now =k ...=. They are unbound.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Moved keys (shims)
@@ -1007,8 +1162,7 @@ This =use-package= block configures which-key again, on top of the =setq= settin
 ;; READING MORE ABOUT KEYBINDINGS AND GETTING TO USE THEM
 
 (use-package which-key
-    :ensure t
-    :demand t
+    :ensure nil
 
     :config
     (which-key-mode 1)
@@ -1099,6 +1253,126 @@ Provides the =sp-keys= feature and closes the file.
 ;;; sp-keys.el ends here
 #+end_src
 
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../tests/sp-keys-test.el
+:END:
+
+- The tests read =sp-keys.el= and evaluate only the =B=, =k= and =L= groups, the shim table and the shim function, so they need no package.
+- Checked:
+  + every lint group lists with =l= (a =-dryrun= command) and applies with =a= (a =-convert= command);
+  + the BibTeX key fix has its key, =L b f k=, and the date fix =L b f d=;
+  + every old key of =sp-keys-moved= is unique, is not below the leader, and its new key is bound to the same command;
+  + (the shim table only holds keys that still have a shim).
+
+#+begin_src emacs-lisp -i
+;;; sp-keys-test.el --- Tests for the academic and lint groups of sp-keys -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'bind-key)
+(require 'cl-lib)
+(require 'subr-x)
+
+(defconst sp-keys-test--file
+  (expand-file-name "../libraries/modules/base/sp-keys.el"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "The module under test.")
+
+(defvar sp-prefix)
+(defvar lem+leader-map)
+
+(defun sp-keys-test--forms ()
+  "The top-level forms of `sp-keys-test--file'."
+  (with-temp-buffer
+    (insert-file-contents sp-keys-test--file)
+    (goto-char (point-min))
+    (let (forms)
+      (condition-case nil
+          (while t (push (read (current-buffer)) forms))
+        (end-of-file nil))
+      (nreverse forms))))
+
+(defun sp-keys-test--prefix (form)
+  "The key string of the :prefix of a `bind-keys' FORM, with `sp-prefix' bound."
+  (eval (plist-get (cdr form) :prefix) t))
+
+(defun sp-keys-test--setup ()
+  "Evaluate the groups B, k and L, the shim table and the shim function."
+  (setq sp-prefix "C-;"
+        lem+leader-map (make-sparse-keymap))
+  (bind-keys :prefix-map lem+leader-map :prefix sp-prefix)
+  (let (maps)
+    (dolist (form (sp-keys-test--forms))
+      (pcase form
+        (`(bind-keys . ,_)
+         (when (string-match-p "\\`C-; [BkL]\\(?: \\|\\'\\)" (sp-keys-test--prefix form))
+           (eval form t)
+           (push (plist-get (cdr form) :prefix-map) maps)))
+        (`(defconst sp-keys-moved . ,_) (eval form t))
+        (`(defun sp-keys--shim . ,_) (eval form t))))
+    (nreverse maps)))
+
+(defun sp-keys-test--command (map key)
+  "The command KEY runs in the keymap variable MAP."
+  (let ((binding (keymap-lookup (symbol-value map) key)))
+    (and (symbolp binding) binding)))
+
+(ert-deftest sp-keys-lint-verbs-are-the-same-everywhere ()
+  (let ((maps (sp-keys-test--setup)) (groups 0))
+    (dolist (map maps)
+      (when (string-prefix-p "lem+lint-" (symbol-name map))
+        (let ((list-cmd (sp-keys-test--command map "l"))
+              (apply-cmd (sp-keys-test--command map "a")))
+          (when apply-cmd
+            (cl-incf groups)
+            (should list-cmd)
+            (should (string-suffix-p "-dryrun" (symbol-name list-cmd)))
+            (should (string-suffix-p "-convert" (symbol-name apply-cmd)))
+            (should (equal (string-remove-suffix "-dryrun" (symbol-name list-cmd))
+                           (string-remove-suffix "-convert" (symbol-name apply-cmd))))))))
+    (should (>= groups 8))))
+
+(ert-deftest sp-keys-bibtex-key-fix-has-a-key ()
+  (sp-keys-test--setup)
+  (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "k")
+              'sp-bibtex-lint-fix-keys))
+  (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys))
+  (should (eq (key-binding (kbd "C-; L b f u")) 'sp-bibtex-lint-fix-duplicates)))
+
+(ert-deftest sp-keys-bibtex-date-fix-has-a-key ()
+  (sp-keys-test--setup)
+  (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "d")
+              'sp-bibtex-lint-fix-date))
+  (should (eq (key-binding (kbd "C-; L b f d")) 'sp-bibtex-lint-fix-date)))
+
+(ert-deftest sp-keys-bibtex-zotero-group ()
+  (sp-keys-test--setup)
+  (should (eq (key-binding (kbd "C-; L b z l")) 'sp-bibtex-zotero-dryrun))
+  (should (eq (key-binding (kbd "C-; L b z a")) 'sp-bibtex-zotero-convert))
+  (should (eq (key-binding (kbd "C-; L b z r")) 'sp-bibtex-zotero-restore)))
+
+(ert-deftest sp-keys-moved-keys-are-consistent ()
+  (sp-keys-test--setup)
+  (let ((olds (mapcar #'car sp-keys-moved)))
+    (should (= (length olds) (length (delete-dups (copy-sequence olds)))))
+    (dolist (entry sp-keys-moved)
+      (pcase-let ((`(,old ,new ,command) entry))
+        (should (key-valid-p old))
+        (should-not (string-prefix-p sp-prefix old))
+        ;; Only the groups this test loads; a map is mounted by its own module, later.
+        (when (and (string-match-p "\\`[BkL] " new)
+                   (not (string-suffix-p "-map" (symbol-name command))))
+          (should (eq (key-binding (kbd (concat sp-prefix " " new))) command)))))))
+
+(ert-deftest sp-keys-academic-old-keys-are-gone ()
+  (sp-keys-test--setup)
+  (dolist (old '("C-c w b r" "C-c w b l" "C-c w b k" "C-c w b a" "C-c k l" "C-c k s" "C-c k d"))
+    (should-not (assoc old sp-keys-moved))))
+
+(provide 'sp-keys-test)
+;;; sp-keys-test.el ends here
+#+end_src
+
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
@@ -1115,3 +1389,11 @@ What each pull request changed in this module, newest last; the one-line summary
   - The design doc has new sections "Keys freed by CUA", "Replacing CUA" and "Same keys on macOS, Linux and Windows".
   - Not done, for later pull requests: one =defvar-keymap= per module and the registry, moving =C-c w=, =C-c k= and =C-c d=, an Org local leader, the batch test and the 11 undefined leader commands.
   - Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/489][#489]]
+  - ✨ Added three leader groups for the academic part: =C-; B= (bibliography, was =C-c w b=), =C-; k= (knowledge search, was =C-c k=) and =C-; L= (every batch lint, one sub-letter per module)
+    - =L= uses the same verbs everywhere: =l= list (dry run), =a= apply (convert), =r= restore; =L b f= has one key per BibTeX fix, so =sp-bibtex-lint-fix-keys= is =C-; L b f k=
+    - the old =C-c w b= and =C-c k= keys are removed, with no shims
+  - 🐛 Fixed =C-c w b k= meaning two commands: =citar-vulpea-add-reference= in Org (local) and =sp-bibtex-lint-fix-keys= elsewhere, so the key fix looked unbound
+  - Tests in =tests/sp-keys-test.el=; the keys are not tried in a GUI.
+- [[https://github.com/siainbuletin/dotfiles/pull/490][#490]]
+  - ✨ Added =C-; L b z= (=l= dry run, =a= apply, =r= restore) for the Zotero attachment paths of a =.bib= file

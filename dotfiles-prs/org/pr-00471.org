@@ -1,0 +1,105 @@
+* PR #471: ✨ Preload the citar bibliography while Emacs is idle
+:PROPERTIES:
+:PR_NUMBER: 471
+:URL: https://github.com/siainbuletin/dotfiles/pull/471
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/471][https://github.com/siainbuletin/dotfiles/pull/471]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 13:24
+- Merged :: 2026-11-14 13:26
+- Branch :: =claude/project-thread-d7whd6= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/b77f4365e93b4bd46f52a5c3e2f6e50a3d87f094][b77f4365e9]]
+- Labels :: enhancement, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main=; no dependency on other open PRs.
+- Touches =sp-citations= only (=.el=, its section in =sp-academic.org=, a new test file).
+- Branch is =claude/project-thread-d7whd6=, not number-prefixed: a cloud session cannot rename a branch after the PR number is known.
+
+**** Answer
+:PROPERTIES:
+:CUSTOM_ID: answer
+:END:
+- *Yes*, the =.bib= files can be read after startup, in idle time, so the first =citar= call finds them parsed.
+- *Yes*, a cache on disk avoids re-reading unchanged files across Emacs sessions.
+- *No git needed*: =citar= already compares size, modification time and a hash of the contents, and only parses a file whose content changed. Asking git would only repeat that (and spawn a process).
+
+**** How citar caches (read from =citar-cache.el=)
+:PROPERTIES:
+:CUSTOM_ID: how-citar-caches-read-from-citar-cacheel
+:END:
+- Parsed files live in =citar-cache--bibliographies= (memory only, hence the slow first call of every session).
+- Every call checks each file: same size and mtime, nothing is read; changed mtime, the file is hashed and parsed only if the hash differs.
+- A bibliography tied to no buffer is dropped the next time citar releases unused ones, so the preload ties each file to =global=.
+
+**** Changes
+:PROPERTIES:
+:CUSTOM_ID: changes
+:END:
+- Idle preload in =sp-citations= (loaded through =sp-late-modules=): an idle timer loads =citar= (retries if Elpaca has not installed it yet) and reads one file per idle slice (0.3 s idle between files).
+- =C-g= while a file is parsed stops the preload; citar reads the rest when called.
+- Refresh: saving a =.bib= buffer schedules a new pass (covers =sp-fetch-inbox=, which saves the buffer); =sp-bibtex-register= does the same. A pass only checks files that did not change.
+- Disk cache =citar-bibliography.eld= in =sp-cache-dir=: entries plus the size/hash/fields plist, written only after a pass that parsed something. On the next start citar still validates it, so a changed file or changed template fields is parsed again; candidates are formatted again from the entries. A damaged or missing file is ignored.
+- Options: =sp-citations-preload= (t), =sp-citations-preload-delay= (3 s), =sp-citations-preload-refresh-on-save= (t), =sp-citations-preload-persist= (t), =sp-citations-preload-cache-file=.
+- I did not use =sp-async-work= (#468): its slices are timer based, not idle based, and a "wait until the user is idle" step would spin. Plain idle timers fit better; the cost is no mode-line progress.
+- Docs: new section in =sp-academic.org= as bullets; no CHANGELOG edit; no =when-let=.
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+- =tests/sp-citations-preload-test.el=, 6 tests on Emacs 29.3 with a stand-in for =citar-cache= (all pass): all files read and tied to =global=; second pass reads nothing; new session uses the disk cache without parsing; a changed file is parsed again; damaged cache ignored; an error stops quietly.
+- =tools/check-tangle.sh=: the =.el= is what the doc tangles to.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- Nothing ran against the real =citar=, =parsebib= and your =~/Documents/bibliography=: the container has no citar. The internal functions (=citar-cache--get-bibliography=, =--make-bibliography=, struct accessors) were read from citar's =main= branch, so check them against your installed version.
+- No timings were measured: how long the preload takes, and how long the first =citar= call takes with and without the disk cache, are unknown. The log line =Updating bibliography ...done (N seconds)= will show per-file parse times.
+- Whether a parse of a large file feels like a freeze when you start typing (a file cannot be split).
+- Cache read time on disk for your whole library.
+- External changes (=git pull= in =bibliography/=) are found at the next =citar= call, not in the background.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] =emacs -Q --batch -l tests/sp-citations-preload-test.el -f ert-run-tests-batch-and-exit= passes
+- [ ] Restart Emacs, wait about 5 s idle: =*Messages*= shows =Updating bibliography ...= for each file, then nothing more
+- [ ] =M-x citar-open= right after: opens with no =Updating bibliography= message and no wait
+- [ ] Quit Emacs, check =citar-bibliography.eld= exists in your cache dir; restart: the idle pass should not parse (no =Updating= lines)
+- [ ] Edit and save one =.bib= file: after the idle delay only that file is read again; =citar-open= shows the change
+- [ ] File an article with =sp-fetch-inbox=: the new entry is found by =citar-open= without delay
+- [ ] =git pull= or edit a =.bib= outside Emacs: =citar-open= still shows the new entries (parses just that file)
+- [ ] Press =C-g= during a long file parse: preload stops, =citar-open= still works
+- [ ] =(setopt sp-citations-preload nil)= and restart: no preload
+- [ ] =M-x sp-citations-fit-layout=: candidates still look right
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- =git -C ~/dotfiles restore .= for local edits, then =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=; restart Emacs.
+- Delete =citar-bibliography.eld= in your cache dir if you want a cold start again.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/60eb51410c06a6e3d6c93b664fb21bbdd7f40707][60eb51410c]] ✨ Preload the citar bibliography while Emacs is idle (Claude, 2026-11-14 13:24)

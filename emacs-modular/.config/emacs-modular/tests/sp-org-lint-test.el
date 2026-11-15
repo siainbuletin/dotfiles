@@ -246,5 +246,27 @@
       (should (null sp-batch-report-excluded))
       (should (string-match-p "Files with footnotes to look at (1)" (buffer-string))))))
 
+;; The worker is a bare `emacs -Q --batch', as in a real session: it must find the
+;; modules of other folders (sp-interaction in base/) by itself.
+(ert-deftest sp-org-lint-footnote-worker-command-loads-in-a-bare-emacs ()
+  "Run the worker command as `sp-org-lint-fn--start' does, on no files."
+  (let ((ctl (make-temp-file "sp-org-lint-test-" nil ".eld"))
+        (process-environment (cons "EMACSLOADPATH=" process-environment)))
+    (unwind-protect
+        (progn
+          (with-temp-file ctl (prin1 (list :mode 'plan :files nil) (current-buffer)))
+          (let* ((cmd (sp-org-lint-fn--worker-command ctl))
+                 (out (with-temp-buffer
+                        (let ((status (apply #'call-process (car cmd) nil t nil (cdr cmd))))
+                          (list status (buffer-string))))))
+            (should (equal (car out) 0))
+            (should (string-match-p "(:done t)" (cadr out)))))
+      (delete-file ctl))))
+
+(ert-deftest sp-org-lint-footnote-worker-load-path-has-the-shared-modules ()
+  (let ((dirs (sp-org-lint-fn--worker-load-dirs)))
+    (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-interaction.el" d))) dirs))
+    (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-batch-report.el" d))) dirs))))
+
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here

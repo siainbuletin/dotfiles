@@ -5,7 +5,7 @@
 ;; A report of what is out of step between the litnotes, the DEVONthink PDF
 ;; records and the BibTeX files, a guarded backfill of the `#+devonthink:'
 ;; keyword, and the record-side link to the litnote.  macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-sync.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-sync.org.
 
 ;;; Code:
 

@@ -1,0 +1,86 @@
+#+title: BibLaTeX, bibtex-mode, citar and Typst: what reads the .bib files
+#+date: 2026-11-15
+#+status: investigated; the converter is in =sp-bibtex-biblatex= (see its module doc)
+
+The question: the =.bib= files should keep Unicode instead of BibTeX escapes, and the export goes through =org-export= to Typst (=sp-typst=). Is BibLaTeX the right form, and can Emacs, citar and Typst read it? Written from a Linux container; sources are the code of each project on GitHub (main branch, 2026-11-15) and Emacs 29.3. Nothing was compiled with Typst, and nothing was run on the real library.
+
+* Short answer
+
+- Use BibLaTeX names (=journaltitle=, =location=, =institution=) and Unicode text; keep =year= and =month= (Sia's decision).
+- =bibtex-mode= handles BibLaTeX well with =bibtex-dialect= set to =biblatex=, which =sp-bibprocess= already does.
+- Typst reads the =.bib= files as BibLaTeX through Hayagriva, accepts both name sets for most fields, and misses two things in this library: the field =place= and the entry type =@webpage=.
+- =sp-bibtex-lint-fix-biblatex= (=C-; L b f l=) converts the files; its dry run is =C-; L b f L=.
+
+* Which backend the documents use
+
+- Evidence in the repositories:
+  - =bibliography= repo: 80 =.bib= files (one is a macOS alias, not text), about 15000 entries counting repeats across files. They are mostly BibLaTeX already:
+    - types: =@online= (930), =@collection= (335), =@video= (249), =@inreference= (128), =@thesis= (57), =@mvbook=, =@dataset=;
+    - fields: =crossref=, =date= (5000 fields), =entrysubtype=, =eprint=, =file=, =location= (341), =journaltitle= (106).
+  - BibTeX names are still the common ones: =journal= (4252 fields against 106 =journaltitle=), =school=, =address=, and =place= (1524 fields).
+  - =sp-bibprocess= sets =bibtex-dialect= to =biblatex=.
+  - =sp-citations= has =org-cite-export-processors= =((beamer csl) (latex csl) (t csl))=: every back end uses CSL (citeproc), not biber. No LaTeX preamble, biber or CI step reads the =.bib= files.
+  - =sp-latex= (AUCTeX) only sets =-bibtex-cond= for latexmk, and a =bibtex-mode= alignment.
+  - =sp-typst= exports through =ox-typst=; the book has no citations, and the thesis workflow (=typst-setup.org=, =passions.bib=) is not wired up ([[file:../tangles/text/sp-typst.org][sp-typst.org]]).
+- So no document depends on a BibTeX-only feature. Citations are rendered by citeproc from the =.bib= fields.
+
+* bibtex-mode and BibLaTeX
+
+- Tested in Emacs 29.3 (Sia's Emacs is 31; not checked there).
+- =bibtex-dialect= =biblatex= gives:
+  - the entries =article=, =book=, =inbook=, =incollection=, =online=, =collection=, =thesis=, =inreference=, =mvbook=, =dataset=, =report=, =booklet=, =misc=, =unpublished=, =proceedings= and =inproceedings=;
+  - for =article=, =journaltitle= with =journal= as the alternative, and =date= with =year= as the alternative;
+  - fields such as =location=, =institution=, =eprint=, =eprinttype=, =pubstate=, =doi=, =issue=, =pagetotal=.
+- Gaps of the dialect:
+  - =video=, =audio=, =review=, =standard= are not in its list, although BibLaTeX has them as non-standard types. =bibtex-mode= then cannot find the bounds of such an entry (the lint reports "could not be read").
+  - The converter adds each type of the buffer to the dialect while it works, so these entries are converted too.
+- The mode is only an editor: it never changes a field name by itself. Moving =journal= to =journaltitle= is the job of the converter.
+
+* citar and parsebib
+
+- citar's default templates already name both forms: =${date year issued}= and =${journal journaltitle publisher ...}= (checked in =citar.el=, main branch). So both name sets show in the completion list.
+- parsebib is a generic parser of =@type{key, field = value}=; I believe it does not care about the type or the field names (from memory, not checked against its source).
+- =place= is read by neither as a place of publication; it is only an unknown field.
+
+* Typst and the .bib files
+
+- Typst loads a =.bib= file with =hayagriva::io::from_biblatex_str= (=typst-library/src/model/bibliography.rs=). The parser is the =biblatex= crate, converted by Hayagriva's =interop.rs=.
+- Names, from the =biblatex= crate (=src/lib.rs=):
+  - =journaltitle= falls back to =journal=, and =location= to =address=; =institution= falls back to =school=; =eprinttype= to =archiveprefix=.
+  - =date= is read first; without it, =year=, =month= and =day= are read. So Typst has no preference between =date= and =year= with =month=.
+  - A =year= that is not a number (for example =n.d.=) is kept as text.
+- Not read:
+  - =place= is not an alias of anything: the place of publication is lost in the Typst PDF. The converter renames it to =location=.
+  - =@webpage=, =@news=, =@film=, =@interview= are unknown types; Hayagriva reads them as =@misc=, so a web page loses its URL layout. =@electronic= and =@webpage= become =@online=; the others are only reported.
+  - =date= with a time (=2022-02-07T09:40:19+00:00=, 237 entries): the crate parses plain dates only, so the value is kept as text. Not changed; reported.
+- Types: Hayagriva has a row for =@phdthesis=, =@mastersthesis= and =@techreport=, and sets the label of a thesis from the old name ("Doctoral dissertation"). So they stay.
+- Unicode: the files are read as UTF-8, so =ü= needs no escape. The crate has no decoder of BibTeX accents (=f{\"u}r=); I found no code for it, and have not seen a compiled PDF. Plain Unicode is therefore the safe form for Typst.
+- LaTeX markup that stays in the library (not checked in Typst):
+  - =\&= (720 lines), =\_= (1950), =\#=, =\%=, =\emph=, =\enquote= (443), =\url=;
+  - biber needs =\&=; Typst may show the backslash. Test with the checklist of the PR before removing any of it.
+
+* Org export to Typst
+
+- =ox-typst= turns a citation into =#cite(label("key"))= and a bibliography keyword into =#bibliography("file.bib")= (=org-typst-export-citation= and =org-typst-export-bibliography=).
+- It only does this when the citation processor is =typst=. =org-cite-export-processors= in =sp-citations= says =(t csl)=, so a Typst export is rendered by citeproc and arrives in Typst as plain text.
+- To let Typst do the bibliography, add =(typst typst)= to =org-cite-export-processors= (not changed here; a one-line follow-up, to decide together with the thesis template).
+- =#bibliography= passes the file names of the =#+bibliography:= keywords; Typst reads all of them, so no =.bib= has to be merged.
+
+* Citekeys and PDF file names stay ASCII
+
+- A citekey also names the PDF; Unicode in a file name is unsafe on the file system (normalisation differs between macOS and Linux). So the converter never touches keys or =file= fields.
+- Found in the library: 11 citekeys with a non-ASCII letter and 284 =file= fields with a non-ASCII character (some with LaTeX escapes in the name). The dry run lists them; renaming a PDF is the attachment fix's job, because the file has to move too.
+- =sp-bibtex-ascii-key= gives the ASCII form of a key.
+
+* Decisions
+
+- Dates: =year= and =month= stay, =date= is not merged (Sia, 2026-11-15). The existing date lint (=C-; L b f d=) goes the same way.
+- BibLaTeX names and Unicode text: yes, by =sp-bibtex-lint-fix-biblatex=; the escapes =\&=, =\%=, =\_= stay because LaTeX still needs them.
+- Entry types: only =@electronic= and =@webpage= change.
+
+* Open points
+
+- Compile a small Typst file against a converted copy of one =.bib= file and look at the PDF (the checklist of the PR).
+- =(typst typst)= in =org-cite-export-processors=.
+- The 11 non-ASCII citekeys and 284 =file= names (a separate fix, with the move of the PDF).
+- =@news=, =@film=, =@interview= by hand.

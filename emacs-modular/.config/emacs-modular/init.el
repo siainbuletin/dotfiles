@@ -76,6 +76,11 @@
     (require 'elpaca)
     (elpaca-generate-autoloads "elpaca" repo)
     (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+;; TEMPORARY: MELPA renamed `master' to `main', which breaks Elpaca's MELPA menu
+;; (elpaca issue 585, PR 586). Loaded here, before the first `elpaca' call, because
+;; Elpaca may refresh the menu while it installs elpaca-use-package. Delete this
+;; line and sp-elpaca-melpa-fix.el once Elpaca is fixed.
+(sp-load "libraries/modules/base/sp-elpaca-melpa-fix.el")
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 

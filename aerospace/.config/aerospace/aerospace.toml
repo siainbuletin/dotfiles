@@ -63,6 +63,30 @@ outer.bottom =     8
 outer.top =        8
 outer.right =      8
 
+# DEVONthink windows (DT Open PDF makes one per PDF) must be tiled. They are not
+# always detected as standard windows, so AeroSpace left them floating.
+# The first id is DEVONthink 3, the second is DEVONthink 4.
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think3'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think'
+run = 'layout tiling'
+
+# Emacs frames are undecorated (`sp-frame.el`), so AeroSpace does not always see
+# them as standard windows and leaves them floating (small frame after relaunch).
+# Only the first matching rule runs, so the floating exception goes first.
+# The quick capture frame (`sp-quick-capture-frame-name`) stays a floating popup.
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^quick-capture$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+run = 'layout tiling'
+
 ####################################
 ######## MAIN BINDING MODE #########
 ####################################
