@@ -64,6 +64,51 @@ class HighlightsTest(unittest.TestCase):
             self.assertEqual(dh.highlights_of(path),
                              [{"page": 2, "highlights": ["exchange abstraction"]}])
 
+    @unittest.skipIf(pymupdf is None, "PyMuPDF is not installed")
+    def test_real_pdf_annotations_have_dates_and_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "k.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page()
+            page.insert_text((72, 72), "exchange abstraction matters")
+            annot = page.add_highlight_annot(page.search_for("exchange abstraction"))
+            annot.set_info(content="my comment", creationDate="D:20261110143000+02'00'")
+            annot.update()
+            doc.save(path)
+            doc.close()
+            found = dh.annotations_of(path)
+            self.assertEqual(len(found), 1)
+            self.assertEqual(found[0]["page"], 1)
+            self.assertEqual(found[0]["text"], "exchange abstraction")
+            self.assertEqual(found[0]["note"], "my comment")
+            self.assertEqual(found[0]["created"], "2026-11-10T12:30:00Z")
+
+    def test_main_annotations_flag(self):
+        with mock.patch.object(dh, "annotations_of", return_value=[{"page": 2, "text": "é"}]), \
+                tempfile.NamedTemporaryFile(suffix=".pdf") as f, \
+                mock.patch("builtins.print") as out:
+            self.assertEqual(dh.main(["x", "--annotations", f.name]), 0)
+        self.assertEqual(json.loads(out.call_args[0][0]), [{"page": 2, "text": "é"}])
+
+
+class PdfDateTest(unittest.TestCase):
+    def setUp(self):
+        self.indexer = dh.load_indexer()
+
+    def test_formats(self):
+        d = self.indexer.pdf_date
+        self.assertEqual(d("D:20261110143000Z"), "2026-11-10T14:30:00Z")
+        self.assertEqual(d("D:20261110143000-05'00'"), "2026-11-10T19:30:00Z")
+        self.assertEqual(d("D:20261110"), "2026-11-10T00:00:00Z")
+        self.assertEqual(d("D:20261110143000"), "2026-11-10T14:30:00Z")
+
+    def test_bad_values(self):
+        d = self.indexer.pdf_date
+        self.assertIsNone(d(None))
+        self.assertIsNone(d(""))
+        self.assertIsNone(d("garbage"))
+        self.assertIsNone(d("D:20261340"))
+
 
 if __name__ == "__main__":
     unittest.main()

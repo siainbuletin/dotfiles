@@ -179,6 +179,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 | 3 | search front end, similar records, preview | #418 |
 | 4 | highlights into the litnote | #420 (=sp-devonthink-highlights=) |
 | 5 | sync report, guarded backfill, record-side link | #421 (=sp-devonthink-sync=); the record-side link is written but needs the probes below |
+| 6 | link to a single highlight (latest, or chosen from a list) | #451 (=sp-devonthink-highlights=, "Links to single annotations") |
 
 ** Open questions
 
@@ -274,6 +275,8 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 | =C-; k d c= | show this chapter's keywords at the bottom of the litnote | here |
 | =C-; k d C= | store this chapter's keywords in its parent's record | here |
 | =C-; k d r= | refresh the citekey to UUID cache | here |
+| =C-; k d A= | insert a link to one highlight: pick from a list, or the latest with a prefix argument (see =sp-devonthink-annotation-default=) | highlights doc |
+| =C-; k d L= | insert a link to the most recently created highlight | highlights doc |
 | =C-; k d t= | tag the record of this litnote (=C-u= removes) | tags doc |
 | =C-; k d f= | browse (empty query) or search (=C-u= chooses the engine) | browse doc |
 | =C-; k d a= | records similar to this litnote's record | browse doc |
@@ -339,7 +342,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - None of this is on =main=, so none of it is described as existing above:
   - #420: highlights of a litnote's PDF into the note (=sp-devonthink-highlights-import=, =tools/devonthink-highlights.py=).
   - #421: report and backfill of the litnote and record link (=sp-devonthink-sync=, field =litnote=, org-protocol URL).
-  - #451: link to one highlight, the latest or one chosen (stacked on #421).
+  - #451: link to one highlight, the latest or one chosen (based on =main=, since #421 is merged).
   - #443: DEVONthink tags mirrored into a litnote =keywords= meta line.
   - #455: browser-added tags mirrored into the litnote and the BibTeX =keywords= (stacked on #443); the bibsync doc mentions it, but it is not on =main= yet.
 - These PRs still use the old key =C-c k d= in their text; =C-c k d= is now =C-; k d=.
@@ -356,7 +359,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Tags are not mirrored to the litnote or to BibTeX on =main=; bibsync copies BibTeX to DEVONthink only.
 - Bibsync overwrites author and title each run; no tag is ever removed.
 - Chapter keywords in a comment may be hard to find in DEVONthink; prefixed tags are the fallback.
-- The =litnote= metadata field and the record-side link do not exist on =main= (#421 is open).
+- The =litnote= metadata field and the record-side link are on =main= (#421 is merged); the probes in "Open questions" are still to run.
 - =DT Open PDF= needs DEVONthink installed to build, and Accessibility permission for =DT_OPEN_RAISE=window=.
 
 ** What is untested
@@ -1065,6 +1068,8 @@ collection it sits in.  The buffer is left unsaved."
 | =C-; k d c= | show this chapter's keywords at the bottom of the note |
 | =C-; k d C= | store this chapter's keywords in its parent's record |
 | =C-; k d r= | refresh the citekey to UUID cache |
+| =C-; k d A= | insert a link to one highlight (list, or the latest with a prefix argument) |
+| =C-; k d L= | insert a link to the most recently created highlight |
 
 - In the =citar= Embark menu, =D= opens the record of the reference.
 

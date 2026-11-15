@@ -9,7 +9,15 @@ The output is a JSON list with one object per page that has highlights:
 
     [{"page": 6, "highlights": ["exchange abstraction", "value form"]}]
 
-Pages are counted from 1, as printed.  The reading is done by
+With --annotations the output is one object per highlight instead, in file
+order, for `sp-devonthink-insert-annotation-link':
+
+    [{"page": 6, "text": "value form", "note": "", "created": "2026-11-10T14:30:00Z",
+      "modified": "2026-11-10T14:30:00Z"}]
+
+created and modified are ISO 8601 UTC, or null when the PDF has no date.
+
+Pages are counted from 1 (physical PDF pages).  The reading is done by
 tools/devonthink-to-litdb.py (record_pages), so the highlights are the same
 ones litdb indexes.  Nothing is written, to the PDF or to DEVONthink.
 """
@@ -36,14 +44,31 @@ def highlights_of(path, indexer=None):
             for index, _text, highlights in indexer.record_pages({"path": str(path)})]
 
 
+def annotations_of(path, indexer=None):
+    """Every highlight of the PDF at PATH as a dict, in file order (see the module doc)."""
+    import pymupdf
+    indexer = indexer or load_indexer()
+    pymupdf.TOOLS.mupdf_display_errors(False)
+    found = []
+    with pymupdf.open(str(path)) as doc:
+        for index, page in enumerate(doc):
+            for detail in indexer.page_highlight_details(page):
+                found.append(dict(detail, page=index + 1))
+    return found
+
+
 def main(argv):
-    if len(argv) != 2:
-        print("usage: devonthink-highlights.py FILE.pdf", file=sys.stderr)
+    args = argv[1:]
+    detailed = "--annotations" in args
+    args = [a for a in args if a != "--annotations"]
+    if len(args) != 1:
+        print("usage: devonthink-highlights.py [--annotations] FILE.pdf", file=sys.stderr)
         return 2
-    if not Path(argv[1]).is_file():
-        print("no such file: %s" % argv[1], file=sys.stderr)
+    if not Path(args[0]).is_file():
+        print("no such file: %s" % args[0], file=sys.stderr)
         return 1
-    print(json.dumps(highlights_of(argv[1]), ensure_ascii=False))
+    result = annotations_of(args[0]) if detailed else highlights_of(args[0])
+    print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
