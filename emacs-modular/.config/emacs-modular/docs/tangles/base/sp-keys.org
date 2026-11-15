@@ -762,7 +762,7 @@ Notes:
   + a prefix argument means the same as on the command (=C-u= asks for the file or the source).
 - The report buffers use the matching keys: =g= list again, =A= apply, =d= drop, =u= restore, =k= stop the job, =q= quit (see =sp-batch-report=).
 - Modules: =b= BibTeX files, =m= litnote metadata fill, =q= litnote titles with quotes around all of them, =t= litnote authors, year and title, =r= litnote references, =f= footnotes, =g= org tags, =u= author notes, =n= notes filing.
-- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =b= abstracts moved to the litnotes (=B= its report, =e= the entry at point, =R= restore a run; see [[file:../academic/sp-bibtex-abstract.org][sp-bibtex-abstract]]), =c= crossref (=C= its report), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
+- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =b= abstracts moved to the litnotes (=B= its report, =e= the entry at point, =R= restore a run; see [[file:../academic/sp-bibtex-abstract.org][sp-bibtex-abstract]]), =c= crossref (=C= its report), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =l= BibLaTeX field names and Unicode accents (=L= its report, =r= restore a run; see [[file:../academic/sp-bibtex-biblatex.org][sp-bibtex-biblatex]]), =o= field order, =p= name prefixes.
 - =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =d= date fields to year and month (=D= the non-ISO ones, after it), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes, =u= duplicate fields (flagged first, removed on apply).
 - =L b z= moves the Zotero attachments of a =.bib= file into the literature folder (=sp-bibtex-zotero=): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
 - =L u w= is the same pair of commands for the Works tables of the author notes.
@@ -792,6 +792,9 @@ Notes:
            ("f" . sp-bibtex-lint-fix-files)
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)
+           ("l" . sp-bibtex-lint-fix-biblatex)
+           ("L" . sp-bibtex-lint-biblatex-dryrun)
+           ("r" . sp-bibtex-lint-biblatex-restore)
            ("o" . sp-bibtex-lint-fix-order)
            ("p" . sp-bibtex-lint-fix-prefixes)
            ("u" . sp-bibtex-lint-fix-duplicates))

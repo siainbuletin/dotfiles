@@ -48,6 +48,7 @@
 
 (require 'sp-bibprocess)
 (require 'sp-bibtex-abstract)
+(require 'sp-bibtex-biblatex)
 (require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
