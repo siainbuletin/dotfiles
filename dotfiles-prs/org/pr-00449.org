@@ -2,15 +2,17 @@
 :PROPERTIES:
 :PR_NUMBER: 449
 :URL: https://github.com/siainbuletin/dotfiles/pull/449
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/449][https://github.com/siainbuletin/dotfiles/pull/449]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-13 13:44
+- Merged :: 2026-11-14 13:33
 - Branch :: =449-dt-open-pdf-window-only= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/5015b720fc25b2324c5ebaa52771d7d89de88670][5015b720fc]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/0348de06d646a2eff4c1d83a2fa3e8d99226accc][0348de06d6]]
+- Labels :: enhancement, needs-further-testing
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2UhN1xQTPrFt9LAV1iuJfnY][project thread]]/

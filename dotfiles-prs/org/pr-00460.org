@@ -60,7 +60,7 @@
 :END:
 Mac, DEVONthink open on =literature=; use a record named like a citekey with a BibTeX entry that has =author=, =title= and =keywords=. Back up the =.bib= first (not changed by this PR, only read).
 
-- [ ] Check out: =cd ~/dotfiles; git fetch origin 460-devonthink-bibtex-sync; git checkout 460-devonthink-bibtex-sync=, restart Emacs (or =M-x sp-reload-modules=)
+- [X] Check out: =cd ~/dotfiles; git fetch origin 460-devonthink-bibtex-sync; git checkout 460-devonthink-bibtex-sync=, restart Emacs (or =M-x sp-reload-modules=)
 - [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L libraries/modules/vulpea -l ert -l tests/sp-devonthink-bibsync-test.el -f ert-run-tests-batch-and-exit= → 8 pass
 - [ ] =M-x sp-devonthink-bibsync= (or =C-c k d y=), choose the citekey → "1 record synced, tags changed on N"
 - [ ] If the message says it failed for the custom field: define =bibauthor= and =bibtitle= in DEVONthink (Settings > Data > Custom Metadata), or set the two options to the identifiers DEVONthink shows, then repeat

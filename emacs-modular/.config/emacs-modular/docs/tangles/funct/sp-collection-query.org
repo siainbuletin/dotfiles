@@ -3672,3 +3672,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
   - ✨ Renamed the module from =sp-collection-query-tables= to =sp-collection-query= (files, features, doc, tests; the =sp-collec-query-= symbols are unchanged). A views file saved under the old name is still read.
   - ✨ New =sp-collection-query-templates=: every view is a template of =sp-org-dblock-insert-template=, in the group Academic (literature notes) or Collections (everything else). =sp-collec-query-insert-view-dblock= is an obsolete alias of that command.
+- [[https://github.com/siainbuletin/dotfiles/pull/399][#399]]
+  - 🐛 Fixed =sp-org-ext= failing with =Recursive require for feature sp-collection-query-book=
+    - =sp-collection-query-book.el= ran =(with-eval-after-load 'vulpea-ui (require 'sp-collection-query-book-widget))= before its own =provide=
+    - the widget file requires =sp-collection-query-book=, so the require recursed
+    - =(provide 'sp-collection-query-book)= now comes first

@@ -131,10 +131,10 @@ The package is installed under the name =org-semantic= but configured through it
   - Before, it was =org-semantic/= at the top of the config, and the 40 MB binary was committed to the dotfiles repo and symlinked by Stow.
 
 Keybindings:
-- ~C-c k s~ runs =org-semantic-find=, a semantic query across the vault.
-- ~C-c k S~ runs =org-semantic-find-in-directory=, limited to one directory.
-- ~C-c k .~ runs =org-semantic-find-at-point=, searching for what is under point.
-- ~C-c k R~ runs =org-semantic-reindex= to rebuild the index manually.
+- ~C-; k s~ runs =org-semantic-find=, a semantic query across the vault.
+- ~C-; k S~ runs =org-semantic-find-in-directory=, limited to one directory.
+- ~C-; k .~ runs =org-semantic-find-at-point=, searching for what is under point.
+- ~C-; k R~ runs =org-semantic-reindex= to rebuild the index manually.
 
 In every results buffer =next-error-follow-minor-mode= is turned on, so moving over a result shows the matching note in another window. =org-semantic-auto-reindex-mode= is enabled in =:init= so the index is refreshed as notes are saved; because it runs in =:init=, it relies on that function being autoloaded.
 
@@ -148,10 +148,9 @@ In every results buffer =next-error-follow-minor-mode= is turned on, so moving o
   (org-semantic-install-directory
    (expand-file-name "var/org-semantic/" user-emacs-directory))
 
-  :bind (("C-c k s" . org-semantic-find)
-         ("C-c k S" . org-semantic-find-in-directory)
-         ("C-c k ." . org-semantic-find-at-point)
-         ("C-c k R" . org-semantic-reindex))
+  ;; Keys: C-; k s, S, . and R (sp-keys); the commands load the package.
+  :commands (org-semantic-find org-semantic-find-in-directory
+             org-semantic-find-at-point org-semantic-reindex)
 
   ;; Follow mode, on for every results buffer.
   :hook

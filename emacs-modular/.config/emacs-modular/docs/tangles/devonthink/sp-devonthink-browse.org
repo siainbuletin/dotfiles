@@ -1,17 +1,21 @@
-#+TITLE: sp-devonthink-browse.el: browse the DEVONthink database from Emacs
+#+TITLE: sp-devonthink-browse.el: browse and search DEVONthink from Emacs, find similar records
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-browse.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "Browsing the database and setting tags").
+Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "Browsing and tags").
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
-- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-browse-test.el=; the AppleScript was not run (see the end of this file).
+- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-browse-test.el= (the former search tests are in it); the AppleScript was not run (see the end of this file).
+- Overview of the whole DEVONthink integration (keys, options, limitations): "Current state" in [[file:sp-devonthink.org][sp-devonthink.org]].
 
 * What it is for
 
-- =sp-devonthink-browse= is a =completing-read= over the records of the database.
+- One command, =sp-devonthink-browse= (=C-; k d f=), browses and searches DEVONthink.
+  - Empty query: a =completing-read= over the records of the database.
+  - Otherwise: the query is searched in DEVONthink or in litdb (see "Searching" below).
+  - It replaces the former =sp-devonthink-search= module and the key =C-; k d b=; both are gone (no shims).
   - The records are grouped by the DEVONthink group they are in, so the list reads as the group tree.
   - One =osascript= call fills the list; it is cached for the session (=sp-devonthink-browse-refresh= reloads it).
 - Each record is a candidate of the category =sp-devonthink-record=, so Embark can act on it.
@@ -27,6 +31,8 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 * Header and options
 
+- =sp-devonthink-browse-limit= is how many hits a search lists (the first ones DEVONthink ranks).
+- =sp-devonthink-browse-preview-chars= is how much text =v= shows.
 - =sp-devonthink-browse-path-regexp= says which records are listed: a JavaScript regular expression tested on the record's file path (DEVONthink often keeps names without the extension).
   - The default =\\.pdf$= lists the PDFs, which is what =sp-reading= uses.
   - Another expression, for example =/okane[^/]*[.]pdf$=, narrows the browser.
@@ -36,9 +42,11 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 ;;; Commentary:
 
-;; A completion over the records of a DEVONthink database, grouped by their
-;; DEVONthink group, with Embark actions: open, PDF, note, link and tags.
-;; macOS only.
+;; One command, `sp-devonthink-browse', to browse and search DEVONthink: an
+;; empty query lists the records of the database, grouped by their DEVONthink
+;; group; a query searches DEVONthink or litdb.  Hits and records are Embark
+;; candidates (open, PDF, note, link, tags, similar, preview); see also for a
+;; record, and a text preview.  macOS only.
 ;; Literate source: docs/tangles/devonthink/sp-devonthink-browse.org.
 
 ;;; Code:
@@ -53,6 +61,8 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 (require 'sp-pdf-reader)
 
 (declare-function citar-open-notes "citar")
+(declare-function sp-litdb-search "sp-litdb")
+(defvar sp-litdb-default-mode)
 
 (defvar embark-keymap-alist)
 (defvar embark-multitarget-actions)
@@ -66,12 +76,20 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
   "JavaScript regular expression (case-insensitive) that a record's file path must match.
 The default lists the PDFs; their names are citekeys."
   :type 'string :group 'sp-devonthink-browse)
+
+(defcustom sp-devonthink-browse-limit 50
+  "How many hits `sp-devonthink-browse' lists."
+  :type 'integer :group 'sp-devonthink-browse)
+
+(defcustom sp-devonthink-browse-preview-chars 3000
+  "How many characters of a record's text the preview shows."
+  :type 'integer :group 'sp-devonthink-browse)
 #+end_src
 
 * The record list
 
 - A record is a plist: =:uuid=, =:location= (its DEVONthink group, such as =/Inbox/=) and =:name=.
-  - Search results (=sp-devonthink-search=) also carry =:kind= and =:pages=.
+  - Search results also carry =:kind= and =:pages=.
 - The script is JavaScript for Automation and reads each field of all records in one call (a loop over a search result failed with error -1728 in AppleScript).
 - The script prints one line per record: UUID, location, name, separated by tabs.
   - A line may carry two more fields, kind and page count; they are optional.
@@ -226,17 +244,187 @@ end tell"
              (sp-devonthink-apply-tags (mapcar (lambda (r) (plist-get r :uuid)) records) tags 'add)
              (length records))))
 
+#+end_src
+
+* Searching
+
+- The scripts are JavaScript for Automation (AppleScript failed with error -1728 on lists of records).
+- The script runs =search= over the whole database and keeps the first =sp-devonthink-browse-limit= records.
+- Each line is: UUID, group, name, kind, page count (tabs between), so the browser's parser reads it.
+- The label of a hit is its name; the annotation (after the name, in the completion list) is the kind and the page count.
+
+#+begin_src emacs-lisp
+;;;; DEVONthink search
+
+(defconst sp-devonthink-browse--hit-jxa
+  "const lines = records.slice(0, LIMIT).map(r => [r.uuid(), r.location(), r.name(), r.kind(), r.pageCount()].join(\"\\t\"));
+lines.join(\"\\n\");"
+  "JavaScript that prints one line for each record of `records'; LIMIT is replaced.")
+
+(defun sp-devonthink-browse--hit-lines ()
+  "The JavaScript lines that print the first records of `records'."
+  (replace-regexp-in-string "LIMIT" (number-to-string sp-devonthink-browse-limit)
+                            sp-devonthink-browse--hit-jxa t t))
+
+(defun sp-devonthink-browse--search-script (query)
+  "The JavaScript for Automation that searches the database for QUERY."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const records = app.search(%s, {in: db.root()});
+%s"
+          (json-encode-string sp-reading-database) (json-encode-string query)
+          (sp-devonthink-browse--hit-lines)))
+
+(defun sp-devonthink-browse--annotate (candidate)
+  "Kind and page count of CANDIDATE, for the completion list."
+  (when-let* ((record (gethash (substring-no-properties candidate)
+                               sp-devonthink-browse--candidates)))
+    (let ((kind (plist-get record :kind)) (pages (plist-get record :pages)))
+      (concat "  "
+              (string-join (delq nil (list (and kind (not (string-empty-p kind)) kind)
+                                           (and pages (not (member pages '("" "0" "missing value")))
+                                                (format "%s pages" pages))))
+                           ", ")))))
+
+(defun sp-devonthink-browse--ranked-table (candidates)
+  "A completion table for CANDIDATES in rank order, of category `sp-devonthink-record'."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        '(metadata (category . sp-devonthink-record)
+                   (display-sort-function . identity)
+                   (cycle-sort-function . identity)
+                   (annotation-function . sp-devonthink-browse--annotate))
+      (complete-with-action action candidates string pred))))
+
+(defun sp-devonthink-browse--choose (script prompt)
+  "Run SCRIPT, list its records with PROMPT and open the one you choose."
+  (let ((records (sp-devonthink-browse--parse (sp-reading--jxa script))))
+    (unless records (user-error "No records found"))
+    (sp-devonthink-record-open
+     (completing-read prompt
+                      (sp-devonthink-browse--ranked-table
+                       (sp-devonthink-browse--make-candidates records))
+                      nil t))))
+#+end_src
+
+* The front end
+
+- =M-x sp-devonthink-browse= (=C-; k d f=) asks for the query and lists DEVONthink hits.
+- With =C-u= it first asks for the engine:
+  - =devonthink=;
+  - =litdb: meaning= (vector), =litdb: words= (full text), =litdb: both= (hybrid) -- run through =sp-litdb-search= with that mode.
+- An empty query (just =RET=) browses all the records; with a litdb engine an empty query is an error.
+- A region, when active, is the default query.
+
+#+begin_src emacs-lisp
+;;;; The front end
+
+(defconst sp-devonthink-browse--engines
+  '(("devonthink" . devonthink)
+    ("litdb: meaning" . vector)
+    ("litdb: words" . fulltext)
+    ("litdb: both" . hybrid))
+  "Engine names for the prompt, with the litdb mode or `devonthink'.")
+
 ;;;###autoload
-(defun sp-devonthink-browse ()
-  "Browse the DEVONthink records, grouped by group; choosing one opens it.
-Use Embark on a candidate for the other actions."
+(defun sp-devonthink-browse (query &optional choose-engine)
+  "Browse the records, or search for QUERY, and open the one you choose.
+An empty QUERY browses all the records, grouped by DEVONthink group.
+With a prefix argument CHOOSE-ENGINE, choose the engine first (DEVONthink or litdb)."
+  (interactive
+   (let ((engine (when current-prefix-arg
+                   (cdr (assoc (completing-read "Engine: " sp-devonthink-browse--engines nil t)
+                               sp-devonthink-browse--engines)))))
+     (list (read-string (format "%s (empty: browse): "
+                                (if (memq engine '(vector fulltext hybrid)) engine "DEVONthink"))
+                        (when (use-region-p)
+                          (buffer-substring-no-properties (region-beginning) (region-end))))
+           (or engine (and current-prefix-arg 'devonthink)))))
+  (cond
+   ((memq choose-engine '(vector fulltext hybrid))
+    (when (string-empty-p (string-trim query))
+      (user-error "litdb needs a query"))
+    (let ((sp-litdb-default-mode choose-engine))
+      (require 'sp-litdb)
+      (sp-litdb-search query)))
+   ((string-empty-p (string-trim query))
+    (sp-devonthink-record-open (sp-devonthink-browse--read)))
+   (t
+    (sp-devonthink-browse--choose (sp-devonthink-browse--search-script query)
+                                  (format "DEVONthink %s: " query)))))
+#+end_src
+
+* Similar records ("see also")
+
+- DEVONthink's =compare= returns the records most like a given one.
+- =sp-devonthink-similar= lists them as hits (the same list, annotations and actions).
+- =sp-devonthink-similar-to-note= does it for the record of the current litnote.
+  - Without a record of its own, the note's crossref parent's record is used, and the echo area says so (nothing is written, so it does not ask).
+
+#+begin_src emacs-lisp
+;;;; Similar records
+
+(defun sp-devonthink-browse--similar-script (uuid)
+  "The JavaScript for Automation that lists the records similar to the record UUID."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const records = app.compare({record: app.getRecordWithUuid(%s), to: db});
+%s"
+          (json-encode-string sp-reading-database) (json-encode-string uuid)
+          (sp-devonthink-browse--hit-lines)))
+
+(defun sp-devonthink-similar (candidate)
+  "List the records similar to the record CANDIDATE, and open the one you choose."
+  (interactive (list (sp-devonthink-browse--read)))
+  (let ((record (sp-devonthink-browse--record candidate)))
+    (sp-devonthink-browse--choose
+     (sp-devonthink-browse--similar-script (plist-get record :uuid))
+     (format "Similar to %s: " (plist-get record :name)))))
+
+;;;###autoload
+(defun sp-devonthink-similar-to-note ()
+  "List the records similar to the record of the current litnote."
   (interactive)
-  (sp-devonthink-record-open (sp-devonthink-browse--read)))
+  (let ((uuid (or (sp-devonthink-note-record-uuid)
+                  (user-error "No DEVONthink record for this note (nor for its crossref)"))))
+    (sp-devonthink-browse--choose (sp-devonthink-browse--similar-script uuid)
+                                  "Similar records: ")))
+#+end_src
+
+* Preview
+
+- =sp-devonthink-preview= (Embark =v=) shows the start of the record's text in a buffer.
+- The text is cut inside DEVONthink, so a whole book is not sent through =osascript=.
+- DEVONthink's text has no page breaks; the preview is for deciding whether a hit is worth opening.
+
+#+begin_src emacs-lisp
+;;;; Preview
+
+(defun sp-devonthink-browse--preview-script (uuid)
+  "The JavaScript for Automation that returns the start of the text of the record UUID."
+  (format "const app = Application(\"DEVONthink\");
+app.getRecordWithUuid(%s).plainText().slice(0, %d);"
+          (json-encode-string uuid) sp-devonthink-browse-preview-chars))
+
+(defun sp-devonthink-preview (candidate)
+  "Show the start of the text of the record CANDIDATE in a buffer."
+  (interactive (list (sp-devonthink-browse--read)))
+  (let* ((record (sp-devonthink-browse--record candidate))
+         (text (sp-reading--jxa
+                (sp-devonthink-browse--preview-script (plist-get record :uuid))))
+         (buffer (get-buffer-create "*devonthink preview*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (plist-get record :name) "\n\n" text)
+        (goto-char (point-min))
+        (special-mode)
+        (visual-line-mode 1)))
+    (display-buffer buffer)))
 #+end_src
 
 * Keys and Embark
 
-- =C-c k d b= browses.
 - The Embark map is registered when Embark loads; =RET= on a record opens it.
 
 #+begin_src emacs-lisp
@@ -256,7 +444,10 @@ Use Embark on a candidate for the other actions."
   (add-to-list 'embark-default-action-overrides
                '(sp-devonthink-record . sp-devonthink-record-open)))
 
-(keymap-set sp-devonthink-map "b" #'sp-devonthink-browse)
+(keymap-set sp-devonthink-map "f" #'sp-devonthink-browse)
+(keymap-set sp-devonthink-map "a" #'sp-devonthink-similar-to-note)
+(keymap-set sp-devonthink-record-map "s" #'sp-devonthink-similar)
+(keymap-set sp-devonthink-record-map "v" #'sp-devonthink-preview)
 
 (provide 'sp-devonthink-browse)
 ;;; sp-devonthink-browse.el ends here
@@ -267,4 +458,27 @@ Use Embark on a candidate for the other actions."
 - See the testing steps in the pull request that added this file.
 - Unknown until tried:
   - whether =c.location()= (bulk read) and =path of= work as written;
-  - the time of the first listing of 15,000 records.
+  - the time of the first listing of 15,000 records;
+  - =r.pageCount()= and =r.kind()= on a search result, and whether =kind= is the readable kind ("PDF Document");
+  - =app.compare({record, to})= as written;
+  - =plain text of= and =text 1 thru N of= on a large record.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/415][#415]]
+  - ✨ Added the module: =C-c k d b= completes over the records grouped by DEVONthink group (cached; =sp-devonthink-browse-refresh=)
+    - Embark: =o= open, =p= PDF, =n= litnote, =l= link, =t= tags (several marked records at once)
+    - =sp-devonthink-browse-query= (default =kind:pdf=)
+- [[https://github.com/siainbuletin/dotfiles/pull/418][#418]]
+  - ✨ Added the module =sp-devonthink-search= (merged into this one in #500): search, similar records, preview
+- [[https://github.com/siainbuletin/dotfiles/pull/453][#453]]
+  - 🔧 Changed the Embark action =p= (=sp-devonthink-record-pdf=) to open the PDF with =sp-pdf-open=
+- [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
+  - ✨ Added the Embark action =f= on a DEVONthink record: file it with =sp-fetch-inbox=
+- [[https://github.com/siainbuletin/dotfiles/pull/500][#500]]
+  - 🔧 Merged the module =sp-devonthink-search= into this one; the command is =sp-devonthink-browse=, =C-; k d f=
+    - an empty query browses the record list; a query searches
+    - options renamed: =sp-devonthink-browse-limit=, =sp-devonthink-browse-preview-chars=
+  - 🔥 Removed the module =sp-devonthink-search=, its doc and the key =C-; k d b= (no shims)

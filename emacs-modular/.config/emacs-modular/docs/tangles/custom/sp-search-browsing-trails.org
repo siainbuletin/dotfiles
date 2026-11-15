@@ -760,8 +760,8 @@ The commands, by group (see the table below).
 | =S= | =org-semantic-find-in-directory=         | Semantic search limited to a directory.                                                 |
 | =.= | =org-semantic-find-at-point=             | Semantic search using the text at point as the query.                                   |
 | =p= | =p-search=                               | Rank files by combining evidence (text, file names, Git history).                       |
-| =t= | =sp-tab-psearch=                      | Semantic search over the tab inbox (also =C-c k t=).                                    |
-| =P= | =sp-tab-psearch-engine=                  | Tab inbox p-search with a search box (also =C-c k T=).                                  |
+| =t= | =sp-tab-psearch=                      | Semantic search over the tab inbox (also =C-; k t=).                                    |
+| =P= | =sp-tab-psearch-engine=                  | Tab inbox p-search with a search box (also =C-; k T=).                                  |
 | =X= | =org-semantic-reindex=                   | Rebuild the semantic index (it also reindexes automatically).                           |
 | =o= | =consult-omni=                           | One query across web and local sources (shown only if installed).                       |
 
@@ -1483,7 +1483,7 @@ See `consult-omni-multi' for more details."
 
 ****** Integrate this with [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]]
 
-Done as =sp-fetch-academic-omni= (=C-c w b s=): it runs =consult-omni-scholar= and passes the DOI of the chosen result to =sp-fetch-academic-doi=, or its PDF address to =sp-fetch-academic-download=. The sources are the free ones first: OpenAlex needs no key, the others only skip themselves until their key is in the secrets file.
+Done as =sp-fetch-academic-omni= (=C-; B s=): it runs =consult-omni-scholar= and passes the DOI of the chosen result to =sp-fetch-academic-doi=, or its PDF address to =sp-fetch-academic-download=. The sources are the free ones first: OpenAlex needs no key, the others only skip themselves until their key is in the secrets file.
 
 ****** Actual code
 

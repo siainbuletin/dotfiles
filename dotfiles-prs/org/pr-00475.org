@@ -1,0 +1,97 @@
+* PR #475: ✨ Backfill missing BibTeX fields from the crossref parent
+:PROPERTIES:
+:PR_NUMBER: 475
+:URL: https://github.com/siainbuletin/dotfiles/pull/475
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/475][https://github.com/siainbuletin/dotfiles/pull/475]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 13:52
+- Branch :: =claude/project-thread-bnuc36= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c0d7a4096ae478771584924758ace7426bbaa143][c0d7a4096a]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2DYU7KiCLiPEkFZ1XxgUh76][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Independent: no other open PR touches the =sp-bibtex-lint= code of =sp-bibprocess= / =sp-academic.org=.
+- #474 changes =sp-litnotes-meta-fill=; either order works, the two do not share code.
+
+**** What and why
+:PROPERTIES:
+:CUSTOM_ID: what-and-why
+:END:
+- A child BibTeX entry with ~crossref = {parent}~ now gets the fields it lacks from the parent, so =sp-litnotes-meta-fill= and the litnote autofill (pub-author / pub-editor / pub-title / pub-year) find =year=, =booktitle=, =publisher=, =editor=... in the child itself.
+- It is a new =crossref= kind of =sp-bibtex-lint=, built on the same machinery as the other fixes.
+
+**** Commands
+:PROPERTIES:
+:CUSTOM_ID: commands
+:END:
+- =M-x sp-bibtex-lint-crossref-entry=: the entry at point; lists what it would add and asks first; =C-u= is a dry run; one undo step.
+- =M-x sp-bibtex-lint-crossref-dryrun=: report for the whole file; writes nothing.
+- =M-x sp-bibtex-lint-fix-crossref=: whole file after one question and a backup, like =sp-bibtex-lint-fix-files=.
+- The full =sp-bibtex-lint-dryrun= report has a section and a button; =sp-bibtex-lint-convert= has an entry.
+- The buffer-wide commands are =sp-async-work= jobs: parents are indexed first in slices, and =M-x sp-batch-cancel= (#468) stops them; the report uses the echo-area hints of #470.
+- No key binding was added (the leader keys are being redesigned); say if you want one.
+
+**** Rules
+:PROPERTIES:
+:CUSTOM_ID: rules
+:END:
+- A field is added only when the child lacks it and the parent has it (non-empty); nothing is overwritten.
+- =sp-bibtex-crossref-fields=: groups of equivalent names (=year=/=date=/=month=, =location=/=address=), plus =publisher series volume number edition isbn editor organization eventtitle venue=. A child with its own =year= or =date= gets no =month=.
+- =sp-bibtex-crossref-renames=: type-aware renames, first rule wins:
+  - mv* parent: =title= → =maintitle=, =subtitle= → =mainsubtitle=, =titleaddon= → =maintitleaddon=
+  - =inbook= / =incollection= / =inproceedings= / =conference= / ...: =title= → =booktitle=, =subtitle= → =booksubtitle=, =titleaddon= → =booktitleaddon=
+  - =inbook= / =bookinbook= / =suppbook=: =author= → =bookauthor=
+  - =@periodical= parent, =@article= child: =title= → =journaltitle=, =subtitle= → =journalsubtitle=
+- =pages=, =doi=, =url=, =file=, =keywords=, =abstract=, =note=, =author= and =title= are never copied under their own name.
+- New fields are appended after the last field; =sp-bibtex-lint-fix-order= puts them in place. An entry laid out like =bibtex-mode= stays so.
+- Documented, bullet-pointed, in =docs/tangles/academic/sp-academic.org= ("Fields from the crossref parent"); =sp-bibprocess.el= is tangled from it (=tools/check-tangle.sh= passes).
+
+**** Not done / limits
+:PROPERTIES:
+:CUSTOM_ID: not-done--limits
+:END:
+- A parent's own parent is not followed (reported); a run does not see its own changes, so in a chain the second run passes the fields on.
+- =xref= is not used (biblatex does not inherit from it).
+- The default field list and renames follow my recollection of the biblatex manual's default inheritance setup; I could not open the manual from the cloud container, so please compare them with section 3.15.3 of the manual.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- 12 new ERT tests with sample entries in =tests/sp-bibprocess-lint-test.el= (inproceedings/proceedings, inbook/book, book/mvbook, article/periodical, never overwrites, parent in another file, missing parent, apply + backup + second run, declined, dry-run report, full lint report, custom field and rename lists, entry command). The whole file runs: 73/73 in Emacs 29.3 batch.
+- Not tested: on the real =.bib= files (about 1300 entries), in a GUI Emacs 31, the report buttons by hand, or with the real litnote autofill afterwards.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =M-x sp-bibtex-lint-crossref-dryrun= on your main =.bib= file: the report opens, lists entries with the fields they would get, and does not change the file
+- [ ] The report lists a crossref key that does not exist as a problem, and shows a note for a parent with a crossref of its own
+- [ ] In a =.bib= buffer with point in an =@inproceedings= that has =crossref=, =C-u M-x sp-bibtex-lint-crossref-entry= only prints what it would add
+- [ ] Same without =C-u=: answer =n= (nothing changes), then =y= (fields added, one =C-/= undoes it)
+- [ ] An entry that already has =publisher=, =year= or =booktitle= keeps its own values
+- [ ] =inbook= child of a =@book=: gets =booktitle=, =bookauthor=, =year=, =publisher=; not =author=, =pages= or =doi=
+- [ ] =@article= child of a =@periodical=: gets =journaltitle=
+- [ ] =M-x sp-bibtex-lint-fix-crossref= asks once, writes a backup copy in =sp-bibtex-lint-backup-directory=, and the =.bib= file diff shows only added lines
+- [ ] A second =M-x sp-bibtex-lint-fix-crossref= finds nothing more (apart from chains)
+- [ ] =M-x sp-bibtex-lint-dryrun= shows the new "fields from the crossref parent" button and section; =M-x sp-bibtex-lint-convert= lists the new fix
+- [ ] =M-x sp-batch-cancel= stops the job while it indexes a big library
+- [ ] After the fix, =M-x sp-litnotes-meta-fill= on a litnote of a child entry fills =pub-year= and =pub-editor=
+- [ ] Parent in a different registered =.bib= file is found
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiDVJ3YPpntR9CMdUMJ][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/9dc015648bbfa4405399201c6c1a30de999f1004][9dc015648b]] ✨ Backfill missing BibTeX fields from the crossref parent (Claude, 2026-11-14 13:51)

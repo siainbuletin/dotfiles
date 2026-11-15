@@ -59,6 +59,51 @@ Notes:
   (setq prefix-help-command #'embark-prefix-help-command))
 #+end_src
 
+** Embark keys under the leader
+
+Keys:
+
+- The map is =lem+embark-keys=, mounted on =sp-prefix= =E= (=C-; E=) with =bind-keys=, like the group maps in =sp-keys=.
+- =a= is =embark-act=.
+- =A= is =embark-act-all= (run one action on every candidate).
+- =s= is =embark-select= (mark or unmark the candidate or target).
+- =c= is =embark-collect= (keep the candidates in a buffer).
+- =l= is =embark-live= (a collect buffer that follows the minibuffer).
+- =e= is =embark-export= (open the candidates in a mode-specific buffer, e.g. =grep-mode=).
+- =b= is =embark-become= (turn the current command into another one).
+- =d= is =embark-dwim= (run the default action).
+- =B= is =embark-bindings=.
+- =C-,= in the minibuffer (=minibuffer-local-map=) is =embark-select=, for marking several candidates fast.
+
+Why these keys:
+
+- =E= is free under the leader (=e= is eval) and stands for Embark.
+- The leader works in the minibuffer too, so the same keys serve =embark-act-all=, =embark-collect= and =embark-export= while a prompt is open.
+- No =C-z=, =C-x=, =C-c=, =C-v=, no =C-SPC= and no =s-SPC=: those are clipboard keys, the input-source switch and Alfred.
+- The commands are autoloaded, so the keys need no =:after embark=.
+- =sp-prefix= is defined in =sp-keys=, which loads before this module.
+
+#+begin_src emacs-lisp -i
+(defvar sp-prefix)
+
+;; Leader submenu: every Embark entry point under `sp-prefix' E.
+;; The commands are autoloaded, so the keys work before Embark is loaded.
+(bind-keys :prefix-map lem+embark-keys
+           :prefix (concat sp-prefix " E")
+           ("a" . embark-act)
+           ("A" . embark-act-all)
+           ("s" . embark-select)
+           ("c" . embark-collect)
+           ("l" . embark-live)
+           ("e" . embark-export)
+           ("b" . embark-become)
+           ("d" . embark-dwim)
+           ("B" . embark-bindings))
+
+;; Quick toggle for marking candidates in the minibuffer.
+(keymap-set minibuffer-local-map "C-," #'embark-select)
+#+end_src
+
 ** embark-consult
 
 Loads the glue between Embark and Consult once both are present, which adds actions such as exporting Consult results to a collect or occur buffer.
