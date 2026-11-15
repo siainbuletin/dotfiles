@@ -1275,6 +1275,24 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
               ((symbol-function 'sp-batch-report--window) #'ignore))
       (sp-bibtex-merge--ask groups))))
 
+(ert-deftest sp-bibtex-merge-test-fix-merge-end-to-end ()
+  "The command shows the groups (the prompt text), asks, confirms and rewrites."
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  author = {Hegel, G. W. F.},\n  title = {T}\n}\n\n@article{b,\n  author = {Hegel, Georg Wilhelm Friedrich},\n  title = {U}\n}\n"
+    (let ((bibtex-dialect 'biblatex) (keys (list ?\r)) shown done)
+      (cl-letf (((symbol-function 'sp-batch-report-ask) (lambda (&rest _) (pop keys)))
+                ((symbol-function 'sp-batch-report--window) #'ignore)
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (sp-bibtex-lint-fix-merge file (lambda () (setq done t)))
+        (setq shown (with-current-buffer sp-bibtex-lint--batch-buffer (buffer-string))))
+      (should done)
+      (should (string-match-p "^\\*\\* Hegel, Georg Wilhelm Friedrich$" shown))
+      (should (string-match-p "- Hegel, G. W. F. (1)" shown))
+      (should (string-match-p "← proposed" shown))
+      (let ((text (sp-bibprocess-lint-test--text file)))
+        (should-not (string-match-p "G\\. W\\. F\\." text))))))
+
 (ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
   (let* ((counts (make-hash-table :test #'equal)) keys)
     (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
