@@ -12,7 +12,8 @@ Literate source for =libraries/modules/academic/sp-devonthink-browse.el=. Design
 
 * What it is for
 
-- =sp-devonthink-browse= is a =completing-read= over the records of the database.
+- This module is the record list that =sp-devonthink-search= shows when the query is empty: a =completing-read= over the records of the database.
+  - The command is =sp-devonthink-search= (=C-; k d f=); the old =sp-devonthink-browse= command and its =C-; k d b= key were merged into it.
   - The records are grouped by the DEVONthink group they are in, so the list reads as the group tree.
   - One =osascript= call fills the list; it is cached for the session (=sp-devonthink-browse-refresh= reloads it).
 - Each record is a candidate of the category =sp-devonthink-record=, so Embark can act on it.
@@ -227,17 +228,11 @@ end tell"
              (sp-devonthink-apply-tags (mapcar (lambda (r) (plist-get r :uuid)) records) tags 'add)
              (length records))))
 
-;;;###autoload
-(defun sp-devonthink-browse ()
-  "Browse the DEVONthink records, grouped by group; choosing one opens it.
-Use Embark on a candidate for the other actions."
-  (interactive)
-  (sp-devonthink-record-open (sp-devonthink-browse--read)))
 #+end_src
 
 * Keys and Embark
 
-- =C-; k d b= browses.
+- There is no browse key or command of its own: =C-; k d f= (=sp-devonthink-search=) with an empty query lists these records.
 - The Embark map is registered when Embark loads; =RET= on a record opens it.
 
 #+begin_src emacs-lisp
@@ -256,8 +251,6 @@ Use Embark on a candidate for the other actions."
   (add-to-list 'embark-multitarget-actions 'sp-devonthink-record-tag)
   (add-to-list 'embark-default-action-overrides
                '(sp-devonthink-record . sp-devonthink-record-open)))
-
-(keymap-set sp-devonthink-map "b" #'sp-devonthink-browse)
 
 (provide 'sp-devonthink-browse)
 ;;; sp-devonthink-browse.el ends here
@@ -282,3 +275,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🔧 Changed the Embark action =p= (=sp-devonthink-record-pdf=) to open the PDF with =sp-pdf-open=
 - [[https://github.com/siainbuletin/dotfiles/pull/454][#454]]
   - ✨ Added the Embark action =f= on a DEVONthink record: file it with =sp-fetch-inbox=
+- [[https://github.com/siainbuletin/dotfiles/pull/500][#500]]
+  - 🔥 Removed the command =sp-devonthink-browse= and the key =C-; k d b=; =sp-devonthink-search= with an empty query lists the records (no shim)

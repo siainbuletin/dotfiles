@@ -12,9 +12,11 @@ Literate source for =libraries/modules/academic/sp-devonthink-search.el=. Design
 
 * What it is for
 
-- One command, =sp-devonthink-search=, is the front end for two engines.
-  - DEVONthink search (the default): exact words, phrases and DEVONthink's search operators.
-  - =litdb= (=C-u=): by meaning, over the pages with highlights; it is =sp-litdb-search= and needs its index.
+- One command, =sp-devonthink-search=, browses and searches (it replaces the former =sp-devonthink-browse= command and its =C-; k d b= key).
+  - Empty query: the whole record list, grouped by DEVONthink group (cached; =sp-devonthink-browse-refresh= reloads it).
+  - Otherwise it is the front end for two engines:
+    - DEVONthink search (the default): exact words, phrases and DEVONthink's search operators.
+    - =litdb= (=C-u=): by meaning, over the pages with highlights; it is =sp-litdb-search= and needs its index.
 - DEVONthink search needs nothing indexed.
 - The query is passed to DEVONthink as typed, so its operators work (=name:=, =kind:=, =tags:=, quotes, =AND=, =OR=, =NOT=).
 - Hits are candidates of the same category as the browser (=sp-devonthink-record=).
@@ -130,6 +132,7 @@ const records = app.search(%s, {in: db.root()});
 - With =C-u= it first asks for the engine:
   - =devonthink=;
   - =litdb: meaning= (vector), =litdb: words= (full text), =litdb: both= (hybrid) -- run through =sp-litdb-search= with that mode.
+- An empty query (just =RET=) browses all the records; with a litdb engine an empty query is an error.
 - A region, when active, is the default query.
 
 #+begin_src emacs-lisp
@@ -145,21 +148,29 @@ const records = app.search(%s, {in: db.root()});
 ;;;###autoload
 (defun sp-devonthink-search (query &optional choose-engine)
   "Search for QUERY in DEVONthink and open the hit you choose.
+An empty QUERY browses all the records, grouped by DEVONthink group.
 With a prefix argument CHOOSE-ENGINE, choose the engine first (DEVONthink or litdb)."
   (interactive
    (let ((engine (when current-prefix-arg
                    (cdr (assoc (completing-read "Engine: " sp-devonthink-search--engines nil t)
                                sp-devonthink-search--engines)))))
-     (list (read-string (format "%s: " (if engine (if (eq engine 'devonthink) "DEVONthink" engine) "DEVONthink"))
+     (list (read-string (format "%s (empty: browse): "
+                                (if (memq engine '(vector fulltext hybrid)) engine "DEVONthink"))
                         (when (use-region-p)
                           (buffer-substring-no-properties (region-beginning) (region-end))))
            (or engine (and current-prefix-arg 'devonthink)))))
-  (if (memq choose-engine '(vector fulltext hybrid))
-      (let ((sp-litdb-default-mode choose-engine))
-        (require 'sp-litdb)
-        (sp-litdb-search query))
+  (cond
+   ((memq choose-engine '(vector fulltext hybrid))
+    (when (string-empty-p (string-trim query))
+      (user-error "litdb needs a query"))
+    (let ((sp-litdb-default-mode choose-engine))
+      (require 'sp-litdb)
+      (sp-litdb-search query)))
+   ((string-empty-p (string-trim query))
+    (sp-devonthink-record-open (sp-devonthink-browse--read)))
+   (t
     (sp-devonthink-search--choose (sp-devonthink-search--script query)
-                                  (format "DEVONthink %s: " query))))
+                                  (format "DEVONthink %s: " query)))))
 #+end_src
 
 * Similar records ("see also")
@@ -233,7 +244,7 @@ app.getRecordWithUuid(%s).plainText().slice(0, %d);"
 
 * Keys
 
-- =C-; k d f= searches (=C-u= chooses the engine).
+- =C-; k d f= browses (empty query) or searches (=C-u= chooses the engine).
 - =C-; k d a= lists records similar to the litnote's record.
 - Embark on a hit: =s= similar, =v= preview.
 
@@ -256,3 +267,11 @@ app.getRecordWithUuid(%s).plainText().slice(0, %d);"
   - =r.pageCount()= and =r.kind()= on a search result, and whether =kind= is the readable kind ("PDF Document");
   - =app.compare({record, to})= as written;
   - =plain text of= and =text 1 thru N of= on a large record.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/500][#500]]
+  - 🔧 Merged =sp-devonthink-browse= into =sp-devonthink-search=: an empty query browses the record list
+  - 🔥 Removed the command =sp-devonthink-browse= and the key =C-; k d b= (no shim)

@@ -171,13 +171,6 @@ end tell"
              (sp-devonthink-apply-tags (mapcar (lambda (r) (plist-get r :uuid)) records) tags 'add)
              (length records))))
 
-;;;###autoload
-(defun sp-devonthink-browse ()
-  "Browse the DEVONthink records, grouped by group; choosing one opens it.
-Use Embark on a candidate for the other actions."
-  (interactive)
-  (sp-devonthink-record-open (sp-devonthink-browse--read)))
-
 ;;;; Keys and Embark
 
 (defvar-keymap sp-devonthink-record-map
@@ -193,8 +186,6 @@ Use Embark on a candidate for the other actions."
   (add-to-list 'embark-multitarget-actions 'sp-devonthink-record-tag)
   (add-to-list 'embark-default-action-overrides
                '(sp-devonthink-record . sp-devonthink-record-open)))
-
-(keymap-set sp-devonthink-map "b" #'sp-devonthink-browse)
 
 (provide 'sp-devonthink-browse)
 ;;; sp-devonthink-browse.el ends here

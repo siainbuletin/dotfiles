@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; One search command over DEVONthink's own search and litdb, hits that
-;; Embark can act on, "see also" for a record, and a text preview.  macOS only.
+;; One command to browse and search: an empty query browses all records,
+;; otherwise it searches DEVONthink or litdb, hits that Embark can act on, "see also" for a record, and a text preview.  macOS only.
 ;; Literate source: docs/tangles/academic/sp-devonthink-search.org.
 
 ;;; Code:
@@ -95,21 +95,29 @@ const records = app.search(%s, {in: db.root()});
 ;;;###autoload
 (defun sp-devonthink-search (query &optional choose-engine)
   "Search for QUERY in DEVONthink and open the hit you choose.
+An empty QUERY browses all the records, grouped by DEVONthink group.
 With a prefix argument CHOOSE-ENGINE, choose the engine first (DEVONthink or litdb)."
   (interactive
    (let ((engine (when current-prefix-arg
                    (cdr (assoc (completing-read "Engine: " sp-devonthink-search--engines nil t)
                                sp-devonthink-search--engines)))))
-     (list (read-string (format "%s: " (if engine (if (eq engine 'devonthink) "DEVONthink" engine) "DEVONthink"))
+     (list (read-string (format "%s (empty: browse): "
+                                (if (memq engine '(vector fulltext hybrid)) engine "DEVONthink"))
                         (when (use-region-p)
                           (buffer-substring-no-properties (region-beginning) (region-end))))
            (or engine (and current-prefix-arg 'devonthink)))))
-  (if (memq choose-engine '(vector fulltext hybrid))
-      (let ((sp-litdb-default-mode choose-engine))
-        (require 'sp-litdb)
-        (sp-litdb-search query))
+  (cond
+   ((memq choose-engine '(vector fulltext hybrid))
+    (when (string-empty-p (string-trim query))
+      (user-error "litdb needs a query"))
+    (let ((sp-litdb-default-mode choose-engine))
+      (require 'sp-litdb)
+      (sp-litdb-search query)))
+   ((string-empty-p (string-trim query))
+    (sp-devonthink-record-open (sp-devonthink-browse--read)))
+   (t
     (sp-devonthink-search--choose (sp-devonthink-search--script query)
-                                  (format "DEVONthink %s: " query))))
+                                  (format "DEVONthink %s: " query)))))
 
 ;;;; Similar records
 
