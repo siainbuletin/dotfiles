@@ -1465,9 +1465,12 @@ files are moved to the top of the library."
   (unless (and (boundp 'sp-literature-dir) (stringp sp-literature-dir)
                (file-directory-p sp-literature-dir))
     (user-error "`sp-literature-dir' is not a folder"))
-  (when (or (not sp-bibtex-files-flatten)
-            (sp-bibtex-files--confirm-flatten))
-    (sp-bibtex-lint--fix file 'files)))
+  (sp-bibtex-lint--fix-command
+   file 'files
+   (lambda ()
+     (when (or (not sp-bibtex-files-flatten)
+               (sp-bibtex-files--confirm-flatten))
+       (sp-bibtex-lint--fix file 'files)))))
 
 ;;;; Fields from the crossref parent
 
@@ -1660,7 +1663,7 @@ the buffer is not a .bib file, it is read with completion.  Nothing is
 overwritten.  All entries are fixed at once, after one question and a backup.
 See `sp-bibtex-crossref-fields' and `sp-bibtex-crossref-renames'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'crossref))
+  (sp-bibtex-lint--fix-command file 'crossref))
 
 (defun sp-bibtex-lint--render-crossref (file results)
   "Show RESULTS of the crossref lint of FILE as a report."
@@ -1837,6 +1840,7 @@ Each position is the start of a line."
       ("order" (sp-bibtex-lint-fix-order file))
       ("indent" (sp-bibtex-lint-fix-indent file))
       ("authors" (sp-bibtex-lint-fix-authors file))
+      ("merge" (sp-bibtex-lint-fix-merge file))
       ("prefixes" (sp-bibtex-lint-fix-prefixes file))
       ("files" (sp-bibtex-lint-fix-files file))
       ("crossref" (sp-bibtex-lint-fix-crossref file))
@@ -1867,18 +1871,29 @@ reports.  `u' in the report, or in the batch question, brings an entry back.")
   (let ((prefix (concat (expand-file-name file) "::")))
     (seq-filter (lambda (k) (string-prefix-p prefix k)) sp-bibtex-lint--excluded)))
 
-(defun sp-bibtex-lint--dropped-p (file result)
-  "Non-nil when the entry of the lint RESULT of FILE was dropped."
-  (member (sp-bibtex-lint--entry-key file (nth 1 result)) sp-bibtex-lint--excluded))
+(defun sp-bibtex-lint--drop-key (file key &optional kind)
+  "The key that drops the entry KEY of FILE from the fix KIND.
+The author fixes (and the lint report, which has no kind) share the key of the
+entry; every other fix has a key of its own, so dropping an entry from the field
+order does not drop it from the indentation."
+  (if (memq kind '(nil authors prefixes notes surnames ambiguous))
+      (sp-bibtex-lint--entry-key file key)
+    (format "%s#%s" (sp-bibtex-lint--entry-key file key) kind)))
 
-(defun sp-bibtex-lint--undropped (file batch)
-  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE."
-  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item))) batch))
+(defun sp-bibtex-lint--dropped-p (file result &optional kind)
+  "Non-nil when the entry of the lint RESULT of FILE was dropped from the fix KIND."
+  (member (sp-bibtex-lint--drop-key file (nth 1 result) kind) sp-bibtex-lint--excluded))
+
+(defun sp-bibtex-lint--undropped (file batch &optional kind)
+  "The items of BATCH, (RESULT BEG END), whose entries were not dropped in FILE.
+KIND is the fix."
+  (seq-remove (lambda (item) (sp-bibtex-lint--dropped-p file (car item) kind)) batch))
 
 (defun sp-bibtex-lint--key-label (key)
   "The text of the dropped KEY in the report."
-  (let ((file (substring key 0 (string-search "::" key))))
-    (format "%s in %s" (sp-bibtex-lint--key-entry key) (sp-batch-report-file-link file))))
+  (let ((file (substring key 0 (string-search "::" key)))
+        (entry (sp-bibtex-lint--key-entry key)))
+    (format "%s in %s" (car (split-string entry "#")) (sp-batch-report-file-link file))))
 
 (defun sp-bibtex-lint--choose (prompt candidates)
   "Read several of CANDIDATES, separated by commas, with PROMPT."
@@ -1982,6 +1997,7 @@ back; the dropped ones are listed at the end."
       (sp-bibtex-lint--section "Long citation keys" 'keys shown pairs file)
       (sp-bibtex-lint--section "Same surname as an author note" 'surnames shown pairs file)
       (sp-bibtex-lint--section "Same surname, several author notes" 'ambiguous shown pairs file)
+      (sp-bibtex-merge--section file)
       (and dropped
            (concat "\n" (sp-batch-report-dropped-section dropped nil #'sp-bibtex-lint--key-label))))
      :refresh (lambda (excluded)
@@ -1991,6 +2007,54 @@ back; the dropped ones are listed at the end."
      :apply (lambda (excluded)
               (setq sp-bibtex-lint--excluded excluded)
               (sp-bibtex-lint-fix-authors file)))))
+
+;;;; The report of one fix
+
+(defun sp-bibtex-lint--fix-section (file kind results pairs)
+  "The report section of the fix KIND for FILE: the RESULTS that have a rewrite of it.
+PAIRS says the line of each result."
+  (sp-batch-report-section
+   (or (alist-get kind sp-bibtex-lint--kinds) (symbol-name kind))
+   (cl-loop for r in results
+            for rewrite = (alist-get kind (nth 4 r))
+            when rewrite
+            collect (sp-batch-report-item
+                     nil :file file :line (alist-get r pairs nil nil #'eq) :label (nth 1 r)
+                     :key (sp-bibtex-lint--drop-key file (nth 1 r) kind)
+                     :children (or (plist-get rewrite :desc) (nth 3 r))))
+   "nothing to fix"))
+
+(defun sp-bibtex-lint--fix-report (file kinds title apply)
+  "Lint FILE for the fix KINDS and show what they would change, as the report TITLE.
+`d' drops an entry from the fix and `u' brings it back, `g' lints again and `A'
+calls APPLY, which runs the fix on the entries that are left."
+  (sp-bibtex-lint--unsaved-check file)
+  (sp-bibtex-lint--job
+   "BibTeX lint" (list file) kinds
+   (lambda (results)
+     (sp-bibtex-lint--render-fix file kinds title apply results))))
+
+(defun sp-bibtex-lint--render-fix (file kinds title apply results)
+  "Show RESULTS of the lint of FILE for the fix KINDS, as the report TITLE.
+APPLY is called by `A'; see `sp-bibtex-lint--fix-report'."
+  (let ((pairs (cl-mapcar #'cons results
+                          (sp-bibtex-lint--lines file (mapcar (lambda (r) (nth 2 r)) results)))))
+    (sp-batch-report-open
+     sp-bibtex-lint--buffer
+     (sp-batch-report-text
+      (format "%s of %s" title (file-name-nondirectory file))
+      (mapcar (lambda (kind) (sp-bibtex-lint--fix-section file kind results pairs)) kinds)
+      :intro (format "Nothing is written until you press A; the file is copied first.  %s"
+                     (sp-batch-report-file-link file))
+      :excluded sp-bibtex-lint--excluded
+      :key-label #'sp-bibtex-lint--key-label)
+     :excluded sp-bibtex-lint--excluded
+     :refresh (lambda (excluded)
+                (setq sp-bibtex-lint--excluded excluded)
+                (sp-bibtex-lint--fix-report file kinds title apply))
+     :apply (lambda (excluded)
+              (setq sp-bibtex-lint--excluded excluded)
+              (funcall apply)))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-dryrun (file)
@@ -2013,7 +2077,7 @@ prefixes (`Hayek, Friedrich von') are checked too.  Notes for authors are never 
 (defun sp-bibtex-lint--show-batch (file kind batch index total all)
   "Show BATCH, number INDEX of TOTAL batches (ALL entries) of the fix KIND for FILE.
 Entries dropped from the author fixes are left out."
-  (let* ((batch (if (memq kind '(authors prefixes notes surnames)) (sp-bibtex-lint--undropped file batch) batch))
+  (let* ((batch (sp-bibtex-lint--undropped file batch kind))
          (lines (sp-bibtex-lint--lines file (mapcar (lambda (item) (nth 2 (car item))) batch))))
     (sp-batch-report-show
      sp-bibtex-lint--batch-buffer
@@ -2096,9 +2160,8 @@ every later batch, which are then not asked) or an answer for APPLY-FN, which is
 called with (WORK BATCH ANSWER) and returns (CHANGED STALE WROTE).  When WROTE,
 FILE is copied to `sp-bibtex-lint-backup-directory' (once) and written; nothing
 is written without an answer.  THEN is called when the run was not quit."
-  (let* ((authorial (memq kind '(authors prefixes notes surnames)))
-         (fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
-                                               (not (and authorial (sp-bibtex-lint--dropped-p file r)))))
+  (let* ((fixable (seq-filter (lambda (r) (and (alist-get kind (nth 4 r))
+                                               (not (sp-bibtex-lint--dropped-p file r kind))))
                               results))
          (what (alist-get kind sp-bibtex-lint--kinds))
          (work (generate-new-buffer " *sp-bibtex-lint-work*"))
@@ -2128,8 +2191,8 @@ is written without an answer.  THEN is called when the run was not quit."
                                  (funcall ask batch index total (length items))))))
                 (when (eq answer 'apply-all) (setq global t answer 'apply))
                 ;; Entries dropped while the batch was asked are not touched.
-                (when authorial (setq batch (sp-bibtex-lint--undropped file batch)))
-                (pcase (if (and authorial (null batch)) 'skip answer)
+                (setq batch (sp-bibtex-lint--undropped file batch kind))
+                (pcase (if (null batch) 'skip answer)
                   ('quit (setq stop t) (cl-incf skipped (length batch)))
                   ('skip (cl-incf skipped (length batch)))
                   (_
@@ -2190,6 +2253,14 @@ Each batch is applied, skipped or quit; see `sp-bibtex-lint--run'."
    (lambda (work batch _answer) (sp-bibtex-lint--apply-batch work batch kind))
    nil t))
 
+(defun sp-bibtex-lint--fix-command (file kind &optional apply)
+  "Show the report of the fix KIND for FILE; `A' in it applies the fix.
+APPLY is what `A' calls; the default is `sp-bibtex-lint--fix'."
+  (sp-bibtex-lint--fix-report
+   file (list kind)
+   (capitalize (alist-get kind sp-bibtex-lint--kinds))
+   (or apply (lambda () (sp-bibtex-lint--fix file kind)))))
+
 (defun sp-bibtex-lint--fix (file kind)
   "Lint FILE and apply the fix KIND to all of it after one question."
   (sp-bibtex-lint--unsaved-check file)
@@ -2205,14 +2276,14 @@ fixed at once, after one yes-or-no question; FILE is copied to
 `sp-bibtex-lint-backup-directory' before it is written.  An entry with a
 comment inside is left alone."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'order))
+  (sp-bibtex-lint--fix-command file 'order))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-indent (file)
   "Indent every entry of the .bib FILE the way `bibtex-mode' does (`bibtex-fill-entry').
 All entries at once, after one question and a backup, as `sp-bibtex-lint-fix-order' does."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--fix file 'indent))
+  (sp-bibtex-lint--fix-command file 'indent))
 
 ;;;###autoload
 (defun sp-bibtex-lint-fix-prefixes (file)
@@ -2227,9 +2298,12 @@ Names that cannot be read are reported and left alone.  Batches of
 ones (`g'), skipped, dropped for later or quit; FILE is copied to
 `sp-bibtex-lint-backup-directory' before the first write."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
-                       (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))
+  (sp-bibtex-lint--fix-command
+   file 'prefixes
+   (lambda ()
+     (sp-bibtex-lint--unsaved-check file)
+     (sp-bibtex-lint--job "BibTeX lint" (list file) '(prefixes)
+                          (lambda (results) (sp-bibtex-lint--review file 'prefixes results))))))
 
 ;;;; Author names
 
@@ -2358,9 +2432,264 @@ normalised in the BibTeX field, or added as an alias of the note."
    (lambda (work batch decisions) (sp-bibtex-lint--apply-notes work batch decisions kind))
    then))
 
+;;;; Variants of one author
+
+(defun sp-bibtex-merge--entries (buffer fn)
+  "Call FN with (BEG END FIELDS) for each entry of BUFFER that can be rewritten.
+Entries with a comment inside, and the ones that cannot be read, are left out.
+FIELDS is the alist of name and raw value of the entry."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
+        (let ((beg (match-beginning 0)))
+          (goto-char beg)
+          (let* ((entry (ignore-errors (bibtex-parse-entry)))
+                 (type (cdr (assoc "=type=" entry)))
+                 (end (and entry (ignore-errors (bibtex-end-of-entry)))))
+            (if (not (and entry end (cdr (assoc "=key=" entry))
+                          (not (member (downcase type) '("string" "preamble" "comment")))))
+                (goto-char (min (point-max) (1+ beg)))
+              (unless (save-excursion (goto-char beg) (re-search-forward "^[ \t]*%" end t))
+                (funcall fn beg end (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry)))
+              (goto-char end))))))))
+
+(defun sp-bibtex-merge--field-names (fields)
+  "The names, canonical, in the author and editor FIELDS (an alist of name and raw value).
+Corporate names, `others' and names without given names are left out."
+  (let (names)
+    (dolist (field fields)
+      (when (member (downcase (car field)) '("author" "editor"))
+        (when-let* ((unwrapped (sp-bibtex--unwrap (cdr field))))
+          (dolist (n (sp-bibtex-split-names (car unwrapped)))
+            (let ((canonical (sp-bibtex-canonical-name n)))
+              (when (cdr (sp-bibtex--name-parts canonical))
+                (unless (string-prefix-p "{" canonical)
+                  (push canonical names))))))))
+    (nreverse names)))
+
+(defun sp-bibtex-merge--count (file)
+  "A hash table from each canonical name in the .bib FILE to the number of its uses."
+  (let ((counts (make-hash-table :test #'equal))
+        (buffer (generate-new-buffer " *sp-bibtex-merge*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer buffer
+            (insert-file-contents file)
+            (delay-mode-hooks (bibtex-mode)))
+          (sp-bibtex-merge--entries
+           buffer
+           (lambda (_beg _end fields)
+             (dolist (n (sp-bibtex-merge--field-names fields))
+               (puthash n (1+ (gethash n counts 0)) counts)))))
+      (kill-buffer buffer))
+    counts))
+
+(defun sp-bibtex-merge--rank (name count)
+  "A sort key for NAME, used COUNT times: the fuller and more used name is larger."
+  (let ((units (sp-bibtex--given-units (cdr (sp-bibtex--name-parts name)))))
+    (list (length (seq-filter #'cdr units)) (length units) count
+          (if (equal name (sp-bibtex--fold name)) 0 1))))
+
+(defun sp-bibtex-merge--rank> (a b)
+  "Non-nil when the rank A is larger than the rank B."
+  (cl-loop for x in a for y in b
+           when (> x y) return t
+           when (< x y) return nil))
+
+(defun sp-bibtex-merge--groups (counts &optional people)
+  "The groups of names in COUNTS that are variants of one person.
+COUNTS is a hash table from canonical name to uses.  Names are in a group when
+they have the same surname (accents, case and dots ignored) and given names that
+fit, see `sp-bibtex--initials-compatible-p'.  A name that fits two names that do
+not fit each other (`Hegel, G.' for `Georg' and `Gottfried') joins no group.
+Return a list of plists with :target (the proposed name: the name of an author
+note in PEOPLE when a variant is one, else the fullest and most used), :forms
+\(an alist from name to uses, the target first) and :ambiguous (the names left
+out, for the report), sorted by target."
+  (let ((buckets (make-hash-table :test #'equal)) groups)
+    (maphash (lambda (n _c) (push n (gethash (sp-bibtex--surname-key n) buckets))) counts)
+    (maphash
+     (lambda (_surname names)
+       (let* ((fits (lambda (a b) (and (not (equal a b))
+                                       (sp-bibtex--initials-compatible-p
+                                        (cdr (sp-bibtex--name-parts a)) (cdr (sp-bibtex--name-parts b))))))
+              (near (mapcar (lambda (n) (cons n (seq-filter (lambda (m) (funcall fits n m)) names)))
+                            names))
+              (ambiguous (seq-filter
+                          (lambda (n)
+                            (let ((c (cdr (assoc n near))))
+                              (seq-some (lambda (a) (seq-some (lambda (b) (and (not (equal a b))
+                                                                               (not (funcall fits a b))))
+                                                              c))
+                                        c)))
+                          names))
+              (rest (seq-difference names ambiguous))
+              (seen (make-hash-table :test #'equal)))
+         (dolist (start (sort (copy-sequence rest) #'string<))
+           (unless (gethash start seen)
+             (let ((queue (list start)) cluster)
+               (puthash start t seen)
+               (while queue
+                 (let ((n (pop queue)))
+                   (push n cluster)
+                   (dolist (m (cdr (assoc n near)))
+                     (when (and (member m rest) (not (gethash m seen)))
+                       (puthash m t seen)
+                       (push m queue)))))
+               (when (cdr cluster)
+                 (let* ((noted (and people
+                                    (seq-find (lambda (n) (gethash (sp-bibtex--name-key n)
+                                                                   (plist-get people :keys)))
+                                              cluster)))
+                        (target (if noted
+                                    (gethash (sp-bibtex--name-key noted) (plist-get people :keys))
+                                  (car (sort (copy-sequence cluster)
+                                             (lambda (a b)
+                                               (sp-bibtex-merge--rank>
+                                                (sp-bibtex-merge--rank a (gethash a counts))
+                                                (sp-bibtex-merge--rank b (gethash b counts))))))))
+                        (forms (mapcar (lambda (n) (cons n (gethash n counts)))
+                                       (sort (copy-sequence cluster) #'string<))))
+                   (push (list :target target
+                               :forms (cons (or (assoc target forms) (cons target 0))
+                                            (remove (assoc target forms) forms))
+                               :ambiguous (seq-filter (lambda (a) (seq-some (lambda (n) (funcall fits a n))
+                                                                           cluster))
+                                                      ambiguous))
+                         groups))))))))
+     buckets)
+    (sort groups (lambda (a b) (string< (plist-get a :target) (plist-get b :target))))))
+
+(defun sp-bibtex-merge--text (groups)
+  "The Org text that lists GROUPS of variants, with the proposed name of each."
+  (mapconcat
+   (lambda (g)
+     (concat (format "** %s\n" (plist-get g :target))
+             (mapconcat (lambda (f) (format "- %s (%d)%s\n" (car f) (cdr f)
+                                            (if (equal (car f) (plist-get g :target)) " ← proposed" "")))
+                        (plist-get g :forms) "")
+             (and (plist-get g :ambiguous)
+                  (format "- not merged, it fits several names: %s\n"
+                          (string-join (plist-get g :ambiguous) "; ")))))
+   groups ""))
+
+(defun sp-bibtex-merge--section (file)
+  "The report section for the variants of one author in FILE, or nil when there are none."
+  (when-let* ((groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file)
+                                               (condition-case nil (sp-bibtex-people) (error nil)))))
+    (format "\n* Variants of one author (%d)\n- =M-x sp-bibtex-lint-fix-merge= (step 4 of =sp-bibtex-lint-fix-authors=) lets you choose the name of each group.\n%s"
+            (length groups) (sp-bibtex-merge--text groups))))
+
+(defun sp-bibtex-merge--ask (groups)
+  "Ask for the name of each of GROUPS; return an alist from variant to chosen name.
+RET takes the proposed name, you can edit it or pick another variant, `-' skips
+the group and \\[keyboard-quit] stops without changing anything."
+  (let (mapping)
+    (dolist (g groups)
+      (let ((chosen (string-trim
+                     (completing-read
+                      (format "Name for %s (RET proposed, edit, - skips): "
+                              (string-join (mapcar #'car (plist-get g :forms)) " | "))
+                      (mapcar #'car (plist-get g :forms)) nil nil nil nil (plist-get g :target)))))
+        (unless (member chosen '("" "-"))
+          (let ((target (sp-bibtex-canonical-name chosen)))
+            (dolist (f (plist-get g :forms))
+              (unless (equal (car f) target)
+                (push (cons (car f) target) mapping)))))))
+    (nreverse mapping)))
+
+(defun sp-bibtex-merge--rewrite (work mapping)
+  "Replace the names in the keys of MAPPING by their values in every entry of WORK.
+Only the names change: the order, the `and' separators and the braces of the
+other names stay.  Return the number of entries rewritten."
+  (let ((changed 0) edits)
+    (sp-bibtex-merge--entries
+     work
+     (lambda (beg end fields)
+       (let (cases)
+         (dolist (field fields)
+           (when (member (downcase (car field)) '("author" "editor"))
+             (dolist (n (sp-bibtex-merge--field-names (list field)))
+               (when-let* ((new (cdr (assoc n mapping))))
+                 (push (list (car field) n new) cases)))))
+         (when cases
+           (push (list beg end cases) edits)))))
+    ;; From the end of the buffer, so the positions of the others stay right.
+    (with-current-buffer work
+      (dolist (e (sort edits (lambda (a b) (> (car a) (car b)))))
+        (pcase-let ((`(,beg ,end ,cases) e))
+          (goto-char beg)
+          (let* ((entry (bibtex-parse-entry))
+                 (fields (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry)))
+            (delete-region beg end)
+            (insert (sp-bibtex--fill-text
+                     (sp-bibtex--entry-text (cdr (assoc "=type=" entry)) (cdr (assoc "=key=" entry))
+                                            (sp-bibtex--rename-names fields cases))))
+            (cl-incf changed)))))
+    changed))
+
+(defun sp-bibtex-merge--apply (file mapping)
+  "Write FILE with the names of MAPPING replaced, after a backup; return the entries changed."
+  (let ((work (generate-new-buffer " *sp-bibtex-merge-work*"))
+        (signature (sp-bibtex-lint--signature file)))
+    (unwind-protect
+        (let ((changed (progn
+                         (with-current-buffer work
+                           (insert-file-contents file)
+                           (delay-mode-hooks (bibtex-mode)))
+                         (sp-bibtex-merge--rewrite work mapping))))
+          (when (> changed 0)
+            (unless (equal signature (sp-bibtex-lint--signature file))
+              (user-error "%s changed on disk since it was linted; run the command again"
+                          (file-name-nondirectory file)))
+            (sp-bibtex-lint--backup file (format-time-string "%Y%m%dT%H%M%S"))
+            (sp-bibtex-lint--save work file))
+          changed)
+      (kill-buffer work))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-merge (file &optional then)
+  "Merge the variants of one author in the .bib FILE into one name each.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Names are variants
+when they have the same surname (accents, case and dots ignored) and given
+names that fit: `Hegel, G. W. F.' and `Hegel, Georg Wilhelm Friedrich'.  A
+name that fits two names that do not fit each other is never merged.  The
+groups are shown, then you choose the name of each (the proposed one is the name
+of an author note, else the fullest and most used).  After one confirmation the
+author and editor fields are rewritten, after a backup: only the names change,
+never the order of the authors, the `and' separators or the braces of other names.
+Entries with a comment inside are left alone.  Notes for authors are not changed.
+THEN is called when the run was not stopped."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (let ((groups (sp-bibtex-merge--groups
+                 (sp-bibtex-merge--count file)
+                 (condition-case nil (sp-bibtex-people) (error nil)))))
+    (if (null groups)
+        (message "BibTeX lint: no variants of one author in %s" (file-name-nondirectory file))
+      (sp-batch-report-show
+       sp-bibtex-lint--batch-buffer
+       (format "#+title: Variants of one author in %s\n\n- %d group%s; the proposed name comes first.\n\n%s"
+               (file-name-nondirectory file) (length groups) (if (= 1 (length groups)) "" "s")
+               (sp-bibtex-merge--text groups)))
+      (let ((mapping (sp-bibtex-merge--ask groups)))
+        (cond
+         ((null mapping) (message "BibTeX lint: nothing to merge in %s" (file-name-nondirectory file)))
+         ((not (yes-or-no-p (format "Rewrite %d name form%s in %s (a backup is made first)? "
+                                    (length mapping) (if (= 1 (length mapping)) "" "s")
+                                    (file-name-nondirectory file))))
+          (message "BibTeX lint: nothing written"))
+         (t (let ((changed (sp-bibtex-merge--apply file mapping)))
+              (message "BibTeX merge of %s: %d entr%s rewritten; backup in %s"
+                       (file-name-nondirectory file) changed (if (= 1 changed) "y" "ies")
+                       (abbreviate-file-name sp-bibtex-lint-backup-directory))
+              (when then (funcall then)))))))))
+
 ;;;###autoload
 (defun sp-bibtex-lint-fix-authors (file)
-  "Normalise the author and editor names of the .bib FILE, in four steps.
+  "Normalise the author and editor names of the .bib FILE, in five steps.
 FILE is the .bib file of the current buffer; with a prefix argument, or when
 the buffer is not a .bib file, it is read with completion.  All steps go in
 batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
@@ -2375,30 +2704,39 @@ batches of `sp-bibtex-lint-batch-size', with a backup before the first write.
    note's (`TW Adorno' and `Theodor Adorno' for `Theodor W. Adorno'; not
    `Michael Smith' for `John Smith'): the same choices.  A name that fits
    several notes is reported, never changed.
+4. Variants of one author in the file (`Hegel, G. W. F.' and `Hegel, Georg
+   Wilhelm Friedrich') are merged into one name you choose for each group, as
+   `sp-bibtex-lint-fix-merge' does it.
 Notes for authors are never made."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job
-   "BibTeX lint" (list file) '(prefixes)
-   (lambda (results)
-     (sp-bibtex-lint--review
-      file 'prefixes results
-      (lambda ()
-        (sp-bibtex-lint--job
-         "BibTeX lint" (list file) '(authors)
-         (lambda (results)
-           (sp-bibtex-lint--review
-            file 'authors results
-            (lambda ()
-              (sp-bibtex-lint--job
-               "BibTeX lint" (list file) '(notes)
-               (lambda (results)
-                 (sp-bibtex-lint--review-notes
-                  file 'notes results
-                  (lambda ()
-                    (sp-bibtex-lint--job
-                     "BibTeX lint" (list file) '(surnames)
-                     (lambda (results) (sp-bibtex-lint--review-notes file 'surnames results))))))))))))))))
+  (sp-bibtex-lint--fix-report
+   file '(prefixes authors notes surnames ambiguous) "Author names"
+   (lambda ()
+    (sp-bibtex-lint--unsaved-check file)
+    (sp-bibtex-lint--job
+     "BibTeX lint" (list file) '(prefixes)
+     (lambda (results)
+       (sp-bibtex-lint--review
+        file 'prefixes results
+        (lambda ()
+          (sp-bibtex-lint--job
+           "BibTeX lint" (list file) '(authors)
+           (lambda (results)
+             (sp-bibtex-lint--review
+              file 'authors results
+              (lambda ()
+                (sp-bibtex-lint--job
+                 "BibTeX lint" (list file) '(notes)
+                 (lambda (results)
+                   (sp-bibtex-lint--review-notes
+                    file 'notes results
+                    (lambda ()
+                      (sp-bibtex-lint--job
+                       "BibTeX lint" (list file) '(surnames)
+                       (lambda (results)
+                         (sp-bibtex-lint--review-notes
+                          file 'surnames results
+                          (lambda () (sp-bibtex-lint-fix-merge file))))))))))))))))))))
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert (file)
@@ -2409,13 +2747,14 @@ See `sp-bibtex-lint-fix-order', `sp-bibtex-lint-fix-indent',
 `sp-bibtex-lint-fix-prefixes', `sp-bibtex-lint-fix-authors', `sp-bibtex-lint-fix-files',
 `sp-bibtex-lint-fix-crossref' and `sp-bibtex-lint-fix-keys'."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "attachment paths"
+  (pcase (completing-read "Fix: " '("field order" "indentation" "name prefixes" "author names" "merge author names" "attachment paths"
                                          "fields from the crossref parent" "long citation keys")
                           nil t)
     ("field order" (sp-bibtex-lint-fix-order file))
     ("indentation" (sp-bibtex-lint-fix-indent file))
     ("name prefixes" (sp-bibtex-lint-fix-prefixes file))
     ("author names" (sp-bibtex-lint-fix-authors file))
+    ("merge author names" (sp-bibtex-lint-fix-merge file))
     ("attachment paths" (sp-bibtex-lint-fix-files file))
     ("fields from the crossref parent" (sp-bibtex-lint-fix-crossref file))
     ("long citation keys" (sp-bibtex-lint-fix-keys file))))
@@ -2546,9 +2885,12 @@ the cross references of the registered files, and the PDFs of
 renamed through DEVONthink when `sp-bibtex-files-devonthink-tool' is set.  The files
 that are changed are copied to `sp-bibtex-lint-backup-directory' first."
   (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
-  (sp-bibtex-lint--unsaved-check file)
-  (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
-                       (lambda (results) (sp-bibtex-lint--review-keys file results))))
+  (sp-bibtex-lint--fix-command
+   file 'keys
+   (lambda ()
+     (sp-bibtex-lint--unsaved-check file)
+     (sp-bibtex-lint--job "BibTeX lint" (list file) '(keys)
+                          (lambda (results) (sp-bibtex-lint--review-keys file results))))))
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.

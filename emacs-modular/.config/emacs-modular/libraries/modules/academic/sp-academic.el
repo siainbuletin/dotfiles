@@ -47,6 +47,7 @@
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
@@ -58,7 +59,7 @@
 (require 'sp-devonthink)
 (require 'sp-devonthink-tags)
 (require 'sp-devonthink-browse)
-(require 'sp-devonthink-search)
+(require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
 (require 'sp-fetch-inbox)
 (require 'sp-see-also)

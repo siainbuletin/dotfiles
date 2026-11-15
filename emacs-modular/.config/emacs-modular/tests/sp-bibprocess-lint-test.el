@@ -82,8 +82,22 @@ each question that was asked."
                (lambda (_file batch &rest _) (push (length batch) sizes) (pop answers)))
               ((symbol-function 'sp-bibtex-lint--confirm)
                (lambda (_file _kind count) (push count sizes) (eq ?a (pop answers)))))
-      (funcall (or command #'sp-bibtex-lint-fix-order) file))
+      (funcall (or command #'sp-bibtex-lint-fix-order) file)
+      (sp-bibprocess-lint-test--apply-report))
     (nreverse sizes)))
+
+(defun sp-bibprocess-lint-test--fix (command file)
+  "Run the fix COMMAND on FILE and press `A' in its report."
+  (funcall command file)
+  (sp-bibprocess-lint-test--apply-report))
+
+(defun sp-bibprocess-lint-test--apply-report ()
+  "Press `A' in the report of a fix command, as a user does after reading it."
+  (when-let* ((buffer (get-buffer sp-bibtex-lint--buffer))
+              ((with-current-buffer buffer (sp-batch-report-buffer-p))))
+    (with-current-buffer buffer
+      (when sp-batch-report-apply-function (sp-batch-report-apply)))
+    (kill-buffer buffer)))
 
 (ert-deftest sp-bibtex-lint-test-results ()
   (sp-bibprocess-lint-test--with-bib
@@ -165,7 +179,7 @@ each question that was asked."
                  ;; The file changes between the lint and the answer.
                  (let ((new (replace-regexp-in-string "John" "Johnny" (sp-bibprocess-lint-test--text file)))) (sleep-for 1.1) (with-temp-file file (insert new)))
                  t)))
-      (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
+      (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-order file) :type 'user-error))
     ;; Neither written nor backed up.
     (should (string-match-p "author =[ \t]+{Johnny Smith1}" (sp-bibprocess-lint-test--text file)))
     (should-not (file-exists-p sp-bibtex-lint-backup-directory))))
@@ -176,7 +190,7 @@ each question that was asked."
       (unwind-protect
           (progn
             (with-current-buffer buffer (insert "x"))
-            (should-error (sp-bibtex-lint-fix-order file) :type 'user-error))
+            (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-order file) :type 'user-error))
         (with-current-buffer buffer (set-buffer-modified-p nil))
         (kill-buffer buffer)))))
 
@@ -222,6 +236,64 @@ each question that was asked."
                  (string-match "year" (substring text (string-match "@article{bad" text)))))
       ;; The entry that was in order is exactly as it was.
       (should (string-prefix-p "@article{ok,\n  author = {Smith, John},\n  title = {T}\n}\n" text)))))
+
+(ert-deftest sp-bibtex-lint-test-fix-opens-a-report-first ()
+  "A fix command lists what it would change, writes nothing, and `A' applies it."
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{bad1,\n  year = {2020},\n  author = {Smith, John},\n  title = {T}\n}\n\n"
+              "@article{bad2,\n  year = {2021},\n  author = {Doe, Jane},\n  title = {U}\n}\n")
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'sp-bibtex-lint--confirm) (lambda (&rest _) t)))
+        (sp-bibtex-lint-fix-order file)
+        (should (equal before (sp-bibprocess-lint-test--text file)))
+        (with-current-buffer sp-bibtex-lint--buffer
+          (should (derived-mode-p 'sp-batch-report-mode))
+          (should (string-match-p "▼ field order +2 entries" (buffer-string)))
+          (should (functionp sp-batch-report-apply-function))
+          (should (functionp sp-batch-report-refresh-function))
+          ;; Drop one entry, refresh: it stays dropped.
+          (goto-char (point-min))
+          (re-search-forward "bad1")
+          (sp-batch-report-drop)
+          (should (string-match-p "▼ field order +1 of 2" (buffer-string)))
+          (sp-batch-report-refresh)
+          (should (string-match-p "▼ field order +1 of 2" (buffer-string)))
+          (should (equal sp-batch-report-excluded
+                         (list (sp-bibtex-lint--drop-key file "bad1" 'order))))
+          (sp-batch-report-apply))
+        (kill-buffer sp-bibtex-lint--buffer)
+        (let ((text (sp-bibprocess-lint-test--text file)))
+          ;; bad1 was dropped: its fields keep their order; bad2 got sorted.
+          (should (< (string-match "year" text) (string-match "author" text)))
+          (should (< (string-match "author" (substring text (string-match "bad2" text)))
+                     (string-match "year" (substring text (string-match "bad2" text))))))))))
+
+(ert-deftest sp-bibtex-lint-test-drop-keys-are-per-fix ()
+  (should (equal (sp-bibtex-lint--drop-key "/a.bib" "k")
+                 (sp-bibtex-lint--drop-key "/a.bib" "k" 'authors)))
+  (should-not (equal (sp-bibtex-lint--drop-key "/a.bib" "k" 'order)
+                     (sp-bibtex-lint--drop-key "/a.bib" "k" 'indent)))
+  (should (equal (sp-bibtex-lint--key-label (sp-bibtex-lint--drop-key "/a.bib" "k" 'order))
+                 (format "k in %s" (sp-batch-report-file-link "/a.bib")))))
+
+(ert-deftest sp-bibtex-lint-test-every-fix-command-opens-the-report ()
+  (sp-bibprocess-lint-test--with-bib (sp-bibprocess-lint-test--entries 2)
+    (let ((sp-literature-dir (file-name-as-directory (make-temp-file "lit" t))))
+      (unwind-protect
+          (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+            (dolist (command '(sp-bibtex-lint-fix-order sp-bibtex-lint-fix-indent
+                               sp-bibtex-lint-fix-prefixes sp-bibtex-lint-fix-authors
+                               sp-bibtex-lint-fix-files sp-bibtex-lint-fix-crossref
+                               sp-bibtex-lint-fix-keys))
+              (funcall command file)
+              (with-current-buffer sp-bibtex-lint--buffer
+                (ert-info ((symbol-name command))
+                  (should (derived-mode-p 'sp-batch-report-mode))
+                  (should (functionp sp-batch-report-apply-function))
+                  (should (functionp sp-batch-report-refresh-function))))
+              (kill-buffer sp-bibtex-lint--buffer)))
+        (delete-directory sp-literature-dir t)))))
 
 (ert-deftest sp-bibtex-lint-test-indent ()
   (sp-bibprocess-lint-test--with-bib
@@ -269,7 +341,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-lint-test-notes-normalise ()
   (sp-bibprocess-lint-test--with-notes
    (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-     (sp-bibtex-lint-fix-authors file))
+     (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should-not (string-match-p "Smyth" text))
      (should (string-match-p "author =[ \t]+{Smith, John}" text))
@@ -282,7 +354,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-notes
    (let ((before (sp-bibprocess-lint-test--text file)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
-       (sp-bibtex-lint-fix-authors file))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
      ;; An alias changes the note, not the .bib file, and needs no backup of it.
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not (file-exists-p sp-bibtex-lint-backup-directory))
@@ -293,7 +365,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
    (let ((answers '(?n ?l)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) (pop answers))))
-       (sp-bibtex-lint-fix-authors file)))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
      ;; The first entry was normalised; the second got an alias and kept its name.
      (should (string-match-p "@article{a,\n  author =[ \t]+{Smith, John}" text))
@@ -305,7 +377,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
    (let ((before (sp-bibprocess-lint-test--text file)))
      (dolist (answer '(?s ?q))
        (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) answer)))
-         (sp-bibtex-lint-fix-authors file)))
+         (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not added)
      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
@@ -315,7 +387,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
    (let ((before (sp-bibprocess-lint-test--text file)))
      (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?e))
                ((symbol-function 'sp-bibtex-lint--ask-case) (lambda (_case) ?q)))
-       (sp-bibtex-lint-fix-authors file))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
      (should (equal before (sp-bibprocess-lint-test--text file)))
      (should-not added))))
 
@@ -369,7 +441,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
               "@article{b,\n  author = {Theodor Adorno},\n  title = {U}\n}\n")
     (cl-letf (((symbol-function 'sp-bibtex-lint--ask-batch) (lambda (&rest _) ?a))
               ((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-      (sp-bibtex-lint-fix-authors file))
+      (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
     (let ((text (sp-bibprocess-lint-test--text file)))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W. and Smith, John}" text))
       (should (string-match-p "author =[ \t]+{Adorno, Theodor W.}" text)))
@@ -380,7 +452,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       "@article{a,\n  author = {Adorno, TW},\n  title = {T}\n}\n"
     (let ((before (sp-bibprocess-lint-test--text file)))
       (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?l)))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should (equal (list (cons adorno "Adorno, TW")) added)))))
 
@@ -393,7 +465,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
                 (sp-bibtex--make-people (list "Theodor W. Adorno" "Tamara Adorno" "John Smith"))))
     (let ((before (sp-bibprocess-lint-test--text file)))
       (cl-letf (((symbol-function 'sp-bibtex-lint--ask-notes) (lambda (&rest _) ?n)))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not added))))
 
@@ -427,7 +499,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (cl-letf (((symbol-function 'read-char-choice) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (_prompt candidates)
                                                                (setq shown candidates) '("k2"))))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal '("k1" "k2" "k3") shown))
       (let ((text (sp-bibprocess-lint-test--text file)))
         (should (string-match-p "author =[ \t]+{Smith1, John}" text))
@@ -444,7 +516,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (let ((keys (sp-bibprocess-lint-test--keys ?u ?s)))
       (cl-letf (((symbol-function 'read-char-choice) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k2"))))
-        (sp-bibtex-lint-fix-authors file)))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
     (should-not sp-bibtex-lint--excluded)
     ;; The next run has all three, and k2 is fixed with the others.
     (should (equal '(3) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-authors)))
@@ -456,7 +528,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           (keys (sp-bibprocess-lint-test--keys ?d ?a)))
       (cl-letf (((symbol-function 'read-char-choice) (car keys))
                 ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("k1" "k2"))))
-        (sp-bibtex-lint-fix-authors file))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file))
       (should (equal before (sp-bibprocess-lint-test--text file)))
       (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
 
@@ -472,7 +544,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
      ;; Drop entry a; the typo of entry b is normalised.
      (cl-letf (((symbol-function 'read-char-choice) (car keys))
                ((symbol-function 'sp-bibtex-lint--choose) (lambda (&rest _) '("a"))))
-       (sp-bibtex-lint-fix-authors file)))
+       (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-authors file)))
    (let ((text (sp-bibprocess-lint-test--text file)))
      (should (string-match-p "@article{a,\n  author = {Smyth, John}" text))
      (should (string-match-p "@article{b,\n  author =[ \t]+{Smith, John and Doe, Jane}" text)))))
@@ -709,7 +781,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-files-test-fix-needs-library ()
   (let ((sp-literature-dir "/no/such/folder/"))
     (sp-bibprocess-lint-test--with-bib "@book{a,\n  title = {T}\n}\n"
-      (should-error (sp-bibtex-lint-fix-files file) :type 'user-error))))
+      (should-error (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-files file) :type 'user-error))))
 
 (ert-deftest sp-bibtex-files-test-flatten-fix-moves-files ()
   (let* ((lib (sp-bibtex-files-test--library "lit/inbox/a1990x0.pdf"))
@@ -1129,3 +1201,86 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (goto-char (point-min))
         (search-forward "@book{book1")
         (should-error (sp-bibtex-lint-crossref-entry) :type 'user-error)))))
+
+;;;; Variants of one author
+
+(defun sp-bibprocess-lint-test--forms (groups)
+  (mapcar (lambda (g) (cons (plist-get g :target) (mapcar #'car (plist-get g :forms)))) groups))
+
+(ert-deftest sp-bibtex-merge-test-groups ()
+  (let ((counts (make-hash-table :test #'equal)))
+    (dolist (n '(("Hegel, G. W. F." . 3) ("Hegel, Georg Wilhelm Friedrich" . 1)
+                 ("Müller, Hans" . 1) ("Muller, Hans" . 2) ("Smith, John" . 1) ("Smith, Jane" . 1)
+                 ("Smith, J." . 1) ("Doe, Jane" . 1)))
+      (puthash (car n) (cdr n) counts))
+    (let ((groups (sp-bibtex-merge--groups counts)))
+      (should (= 2 (length groups)))
+      ;; The fullest name is proposed, and comes first.
+      (should (equal "Hegel, Georg Wilhelm Friedrich" (plist-get (car groups) :target)))
+      (should (equal '("Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                     (mapcar #'car (plist-get (car groups) :forms))))
+      ;; Accent variants: the more used name wins unless an accent breaks the tie.
+      (should (equal "Muller, Hans" (plist-get (cadr groups) :target)))
+      ;; `Smith, J.' fits John and Jane, so nothing is merged for Smith.
+      (should-not (seq-some (lambda (g) (string-prefix-p "Smith" (plist-get g :target))) groups)))))
+
+(ert-deftest sp-bibtex-merge-test-note-name-wins ()
+  (let ((counts (make-hash-table :test #'equal))
+        (people (sp-bibtex--make-people '("Georg W. F. Hegel"))))
+    (puthash "Hegel, G. W. F." 5 counts)
+    (puthash "Hegel, Georg Wilhelm Friedrich" 1 counts)
+    (puthash "Hegel, Georg W. F." 1 counts)
+    (let ((g (car (sp-bibtex-merge--groups counts people))))
+      (should (equal "Hegel, Georg W. F." (plist-get g :target))))))
+
+(ert-deftest sp-bibtex-merge-test-apply ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{a,\n  author = {Hegel, G. W. F. and {Big Corp} and Doe, Jane},\n  title = {T}\n}\n\n"
+              "@book{b,\n  editor = {Hegel, Georg Wilhelm Friedrich},\n  author = \"Doe, J. and Hegel, G. W. F.\",\n  title = {U}\n}\n\n"
+              "@article{c,\n  % keep me\n  author = {Hegel, G. W. F.},\n  title = {V}\n}\n\n"
+              "@article{d,\n  author = {Smith, John},\n  title = {W}\n}\n")
+    (let ((bibtex-dialect 'biblatex)
+          (groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file))))
+      ;; The commented entry c is not counted, nor rewritten.
+      (should (equal '(("Hegel, Georg Wilhelm Friedrich" "Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                       ("Doe, Jane" "Doe, Jane" "Doe, J."))
+                     (sort (sp-bibprocess-lint-test--forms groups)
+                           (lambda (a b) (string> (car a) (car b))))))
+      (let ((mapping (sp-bibtex-merge--ask-for-test groups)))
+        (should (= 2 (sp-bibtex-merge--apply file mapping)))
+        (let ((text (sp-bibprocess-lint-test--text file)))
+          (should (string-match-p "author =[ \t]+{Hegel, Georg Wilhelm Friedrich and {Big Corp} and[ \n]+Doe, Jane}" text))
+          (should (string-match-p "Doe, Jane and Hegel, Georg Wilhelm Friedrich" text))
+          (should (string-match-p "% keep me\n[ \t]*author = {Hegel, G. W. F.}" text))
+          (should (string-match-p "Smith, John" text)))
+        (should (file-exists-p sp-bibtex-lint-backup-directory))))))
+
+(defun sp-bibtex-merge--ask-for-test (groups)
+  "Accept every proposed name of GROUPS, as RET does in `sp-bibtex-merge--ask'."
+  (cl-letf (((symbol-function 'completing-read)
+             (lambda (_p _c _a _r _i _h def) def)))
+    (sp-bibtex-merge--ask groups)))
+
+(ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
+  (let* ((counts (make-hash-table :test #'equal)) answers)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    (setq answers (list "-" "Hegel, Georg Q."))
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (pop answers))))
+      (let ((mapping (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts))))
+        ;; Doe comes first (sorted by target), skipped; Hegel is edited.
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, Georg" mapping nil nil #'equal)))
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, G." mapping nil nil #'equal)))
+        (should-not (assoc "Doe, J." mapping))))))
+
+(ert-deftest sp-bibtex-merge-test-report-section ()
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  author = {Hegel, G. W. F.},\n  title = {T}\n}\n\n@article{b,\n  author = {Hegel, Georg Wilhelm Friedrich},\n  title = {U}\n}\n"
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibtex-lint-dryrun file))
+      (with-current-buffer sp-bibtex-lint--buffer
+        (should (string-match-p "^\\* Variants of one author (1)" (buffer-string)))
+        (should (string-match-p "- Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
+      (kill-buffer sp-bibtex-lint--buffer)
+      (should (equal before (sp-bibprocess-lint-test--text file))))))
