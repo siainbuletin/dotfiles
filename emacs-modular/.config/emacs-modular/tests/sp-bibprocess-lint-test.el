@@ -1129,3 +1129,86 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
         (goto-char (point-min))
         (search-forward "@book{book1")
         (should-error (sp-bibtex-lint-crossref-entry) :type 'user-error)))))
+
+;;;; Variants of one author
+
+(defun sp-bibprocess-lint-test--forms (groups)
+  (mapcar (lambda (g) (cons (plist-get g :target) (mapcar #'car (plist-get g :forms)))) groups))
+
+(ert-deftest sp-bibtex-merge-test-groups ()
+  (let ((counts (make-hash-table :test #'equal)))
+    (dolist (n '(("Hegel, G. W. F." . 3) ("Hegel, Georg Wilhelm Friedrich" . 1)
+                 ("Müller, Hans" . 1) ("Muller, Hans" . 2) ("Smith, John" . 1) ("Smith, Jane" . 1)
+                 ("Smith, J." . 1) ("Doe, Jane" . 1)))
+      (puthash (car n) (cdr n) counts))
+    (let ((groups (sp-bibtex-merge--groups counts)))
+      (should (= 2 (length groups)))
+      ;; The fullest name is proposed, and comes first.
+      (should (equal "Hegel, Georg Wilhelm Friedrich" (plist-get (car groups) :target)))
+      (should (equal '("Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                     (mapcar #'car (plist-get (car groups) :forms))))
+      ;; Accent variants: the more used name wins unless an accent breaks the tie.
+      (should (equal "Muller, Hans" (plist-get (cadr groups) :target)))
+      ;; `Smith, J.' fits John and Jane, so nothing is merged for Smith.
+      (should-not (seq-some (lambda (g) (string-prefix-p "Smith" (plist-get g :target))) groups)))))
+
+(ert-deftest sp-bibtex-merge-test-note-name-wins ()
+  (let ((counts (make-hash-table :test #'equal))
+        (people (sp-bibtex--make-people '("Georg W. F. Hegel"))))
+    (puthash "Hegel, G. W. F." 5 counts)
+    (puthash "Hegel, Georg Wilhelm Friedrich" 1 counts)
+    (puthash "Hegel, Georg W. F." 1 counts)
+    (let ((g (car (sp-bibtex-merge--groups counts people))))
+      (should (equal "Hegel, Georg W. F." (plist-get g :target))))))
+
+(ert-deftest sp-bibtex-merge-test-apply ()
+  (sp-bibprocess-lint-test--with-bib
+      (concat "@article{a,\n  author = {Hegel, G. W. F. and {Big Corp} and Doe, Jane},\n  title = {T}\n}\n\n"
+              "@book{b,\n  editor = {Hegel, Georg Wilhelm Friedrich},\n  author = \"Doe, J. and Hegel, G. W. F.\",\n  title = {U}\n}\n\n"
+              "@article{c,\n  % keep me\n  author = {Hegel, G. W. F.},\n  title = {V}\n}\n\n"
+              "@article{d,\n  author = {Smith, John},\n  title = {W}\n}\n")
+    (let ((bibtex-dialect 'biblatex)
+          (groups (sp-bibtex-merge--groups (sp-bibtex-merge--count file))))
+      ;; The commented entry c is not counted, nor rewritten.
+      (should (equal '(("Hegel, Georg Wilhelm Friedrich" "Hegel, Georg Wilhelm Friedrich" "Hegel, G. W. F.")
+                       ("Doe, Jane" "Doe, Jane" "Doe, J."))
+                     (sort (sp-bibprocess-lint-test--forms groups)
+                           (lambda (a b) (string> (car a) (car b))))))
+      (let ((mapping (sp-bibtex-merge--ask-for-test groups)))
+        (should (= 2 (sp-bibtex-merge--apply file mapping)))
+        (let ((text (sp-bibprocess-lint-test--text file)))
+          (should (string-match-p "author =[ \t]+{Hegel, Georg Wilhelm Friedrich and {Big Corp} and[ \n]+Doe, Jane}" text))
+          (should (string-match-p "Doe, Jane and Hegel, Georg Wilhelm Friedrich" text))
+          (should (string-match-p "% keep me\n[ \t]*author = {Hegel, G. W. F.}" text))
+          (should (string-match-p "Smith, John" text)))
+        (should (file-exists-p sp-bibtex-lint-backup-directory))))))
+
+(defun sp-bibtex-merge--ask-for-test (groups)
+  "Accept every proposed name of GROUPS, as RET does in `sp-bibtex-merge--ask'."
+  (cl-letf (((symbol-function 'completing-read)
+             (lambda (_p _c _a _r _i _h def) def)))
+    (sp-bibtex-merge--ask groups)))
+
+(ert-deftest sp-bibtex-merge-test-ask-skip-and-edit ()
+  (let* ((counts (make-hash-table :test #'equal)) answers)
+    (puthash "Hegel, G." 1 counts) (puthash "Hegel, Georg" 1 counts)
+    (puthash "Doe, J." 1 counts) (puthash "Doe, Jane" 1 counts)
+    (setq answers (list "-" "Hegel, Georg Q."))
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (pop answers))))
+      (let ((mapping (sp-bibtex-merge--ask (sp-bibtex-merge--groups counts))))
+        ;; Doe comes first (sorted by target), skipped; Hegel is edited.
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, Georg" mapping nil nil #'equal)))
+        (should (equal "Hegel, Georg Q." (alist-get "Hegel, G." mapping nil nil #'equal)))
+        (should-not (assoc "Doe, J." mapping))))))
+
+(ert-deftest sp-bibtex-merge-test-report-section ()
+  (sp-bibprocess-lint-test--with-bib
+      "@article{a,\n  author = {Hegel, G. W. F.},\n  title = {T}\n}\n\n@article{b,\n  author = {Hegel, Georg Wilhelm Friedrich},\n  title = {U}\n}\n"
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibtex-lint-dryrun file))
+      (with-current-buffer sp-bibtex-lint--buffer
+        (should (string-match-p "^\\* Variants of one author (1)" (buffer-string)))
+        (should (string-match-p "- Hegel, Georg Wilhelm Friedrich (1) ← proposed" (buffer-string))))
+      (kill-buffer sp-bibtex-lint--buffer)
+      (should (equal before (sp-bibprocess-lint-test--text file))))))
