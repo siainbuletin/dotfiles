@@ -122,7 +122,8 @@ be linked, or nil when there is no litnote."
   (save-excursion
     (goto-char start)
     (let (fields)
-      (while (re-search-forward "\\([[:alpha:]-]+\\)[ \t\n]*=[ \t\n]*" end t)
+      (while (and (< (point) end)
+                  (re-search-forward "\\([[:alpha:]-]+\\)[ \t\n]*=[ \t\n]*" end t))
         (let ((name (downcase (match-string 1))))
           (push (cons name (sp-cite-match--read-value)) fields)))
       fields)))
@@ -179,18 +180,35 @@ be linked, or nil when there is no litnote."
           :container (when container (sp-cite-match-normalise container))
           :label (sp-cite-match--label names year title))))
 
+(defun sp-cite-match--entry-end (open)
+  "The end of the BibTeX entry whose opening delimiter is at OPEN.
+For a brace entry it is the matching closing brace, so a field value with a
+line that starts with =@= (an abstract with a handle) does not end the entry.
+Otherwise, or when the braces do not balance, it is the line of the next
+=@=, or the end of the buffer."
+  (save-excursion
+    (goto-char open)
+    (or (when (eq (char-after) ?{)
+          (let ((depth 0) (close nil))
+            (while (and (not close) (re-search-forward "[{}]" nil t))
+              (setq depth (+ depth (if (eq (char-before) ?{) 1 -1)))
+              (when (zerop depth) (setq close (1- (point)))))
+            close))
+        (progn (goto-char (1+ open))
+               (if (re-search-forward "^@" nil t)
+                   (line-beginning-position)
+                 (point-max))))))
+
 (defun sp-cite-match--parse-buffer ()
   "The candidates for the BibTeX entries in the current buffer."
   (let (result)
     (goto-char (point-min))
     (while (re-search-forward
-            "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
+            "^@\\([[:alpha:]]+\\)[ \t]*\\([{(]\\)[ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
       (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
-        (let* ((key (match-string 2))
+        (let* ((key (match-string 3))
                (start (point))
-               (end (save-excursion (if (re-search-forward "^@" nil t)
-                                        (line-beginning-position)
-                                      (point-max)))))
+               (end (max start (sp-cite-match--entry-end (match-beginning 2)))))
           (push (sp-cite-match--candidate key (sp-cite-match--fields start end)) result)
           (goto-char end))))
     (nreverse result)))
