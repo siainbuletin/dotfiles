@@ -55,6 +55,7 @@
 (require 'sp-litdb)
 (require 'sp-cite-match)
 (require 'sp-cite-open)
+(require 'sp-sourcerefs)
 (require 'sp-reading)
 (require 'sp-pdf-reader)
 (require 'sp-devonthink)
