@@ -266,23 +266,56 @@
     (should (cl-every (lambda (l) (eq (get-text-property 0 'face l) 'bold)) lines))))
 
 (ert-deftest sp-batch-report-view-column-widths-fit-the-window ()
-  (let ((header '("Key" "Title" "File"))
-        (cells '(("k" "a title that is rather long indeed" "file.bib")
-                 ("kkkkkkkk" "short" "another-file.bib"))))
+  (let ((tables (list (cons '("Key" "Title" "File")
+                            '(("k" "a title that is rather long indeed" "file.bib")
+                              ("kkkkkkkk" "short" "another-file.bib"))))))
+    ;; the Title column takes what the others leave, so the row fills the window
     (sp-batch-report-view-test--with-width 200
-      (should (equal (sp-batch-report-view--column-widths header cells) '(8 34 16))))
+      (should (equal (sp-batch-report-view--shared-widths tables) '(8 169 16))))
     ;; a column is never wider than the maximum
     (sp-batch-report-view-test--with-width 200
       (let ((sp-batch-report-column-max-width 12))
-        (should (equal (sp-batch-report-view--column-widths header cells) '(8 12 12)))))
-    ;; in a narrow window the widest columns give way first, down to the minimum
+        (should (equal (sp-batch-report-view--shared-widths tables) '(8 173 12)))))
+    ;; in a narrow window the Title gives way first, down to the minimum
     (sp-batch-report-view-test--with-width 40
-      (let ((widths (sp-batch-report-view--column-widths header cells)))
-        (should (<= (+ (apply #'+ widths) 2 4) 40))
-        (should (cl-every (lambda (w) (>= w 3)) widths))
-        (should (> (nth 1 widths) (nth 0 widths)))))
+      (let ((widths (sp-batch-report-view--shared-widths tables)))
+        (should (= (+ (apply #'+ widths) 2 4 1) 40))
+        (should (equal widths '(8 9 16)))))
     (sp-batch-report-view-test--with-width 5
-      (should (equal (sp-batch-report-view--column-widths header cells) '(3 5 4))))))
+      (should (equal (sp-batch-report-view--shared-widths tables) '(8 8 8))))))
+
+(ert-deftest sp-batch-report-view-tables-share-their-columns ()
+  "Every table has the same column widths, whatever its heading."
+  (let ((tables (list (cons '("Match" "Key" "Year" "Title" "BibTeX file")
+                            '(("exact" "adorno1970" "1970" "Aesthetic theory" "a-very-long-name.bib")))
+                      (cons '("Match" "Key" "Year" "Title" "BibTeX file")
+                            '(("possible" "k" "2001" "A much longer title than the other table has" "b.bib"))))))
+    (sp-batch-report-view-test--with-width 120
+      (let ((widths (sp-batch-report-view--shared-widths tables)))
+        (should (equal '(8 10 4) (seq-take widths 3)))
+        ;; the Title is the widest column and the row fills the window
+        (should (= (nth 3 widths) (apply #'max widths)))
+        (should (= (+ (apply #'+ widths) 2 (* 2 4) 1) 120))))))
+
+(ert-deftest sp-batch-report-view-keys-and-files-are-cut-not-wrapped ()
+  (sp-batch-report-view-test--with-width 160
+    (let ((long (make-string 60 ?k)))
+      (sp-batch-report-open
+       sp-batch-report-view-test--name
+       (sp-batch-report-text
+        "R"
+        (list (sp-batch-report-table-section
+               "T" '("Key" "Title" "BibTeX file")
+               (list (sp-batch-report-item nil :row (list long "A title" "a-rather-long-file-name-for-a-bibtex-library.bib"))
+                     (sp-batch-report-item nil :row (list "short" "B" "f.bib")))))))
+      (with-current-buffer sp-batch-report-view-test--name
+        (let ((text (buffer-string)) (case-fold-search nil))
+          ;; 45 characters of the key, then the ellipsis, on one line
+          (should (string-match-p (concat "^  " (make-string 44 ?k) "…  ") text))
+          (should-not (string-match-p (make-string 46 ?k) text))
+          ;; the file name is one line too: no wrapped rest on another row
+          (should (= 2 (length (seq-filter (lambda (l) (string-match-p "^  \\(k\\|short\\)" l))
+                                           (split-string text "\n"))))))))))
 
 (defun sp-batch-report-view-test--table-report (width)
   (sp-batch-report-view-test--with-width width

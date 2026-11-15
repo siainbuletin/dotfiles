@@ -167,34 +167,80 @@ The characters are those of the default face of the buffer, so zooming the text
           (window-body-width window)))
     fill-column))
 
-(defun sp-batch-report-view--column-widths (header cells)
-  "The widths of the columns named HEADER, with the rows CELLS, for this window.
-Each column is as wide as its widest cell, at most `sp-batch-report-column-max-width'.
-When the columns do not fit the window, the widest are made narrower, one
-character at a time, down to `sp-batch-report-column-min-width' (or the name of
-the column when that is shorter)."
-  (let* ((n (length header))
-         (widths (apply #'cl-mapcar
-                        (lambda (&rest column)
-                          (min sp-batch-report-column-max-width
-                               (apply #'max (mapcar #'string-width column))))
-                        header cells))
-         (minimum (mapcar (lambda (name)
-                            (min (string-width name) sp-batch-report-column-min-width))
-                          header))
-         (room (- (sp-batch-report-view--window-width) 2 (* 2 (1- n)) 1))
-         (excess (- (apply #'+ widths) room)))
-    (while (and (> excess 0)
-                (let ((best nil) (i 0))
-                  (dolist (width widths)
-                    (when (and (> width (nth i minimum))
-                               (or (null best) (> width (nth best widths))))
-                      (setq best i))
-                    (setq i (1+ i)))
-                  (when best
-                    (setcar (nthcdr best widths) (1- (nth best widths)))
-                    (setq excess (1- excess))
-                    t))))
+(defcustom sp-batch-report-truncated-columns '(("Key" . 45) ("BibTeX file"))
+  "The columns, by name, whose cells are cut off instead of wrapped.
+Each element is (NAME . LIMIT): the cells of the columns called NAME are cut to
+LIMIT characters (45 for a BibTeX key, which is the lint limit) or, without a
+LIMIT, to the width of the column, and end in an ellipsis when they were cut."
+  :type '(alist :key-type string :value-type (choice (const nil) integer))
+  :group 'sp-batch-report)
+
+(defcustom sp-batch-report-flexible-column "Title"
+  "The name of the column that gets the room the other columns leave.
+When no table has a column of this name, the column with the longest cells
+is the one."
+  :type 'string
+  :group 'sp-batch-report)
+
+(defun sp-batch-report-view--truncation (name)
+  "The element of `sp-batch-report-truncated-columns' for the column NAME, or nil."
+  (assoc name sp-batch-report-truncated-columns))
+
+(defun sp-batch-report-view--shared-widths (tables)
+  "The column widths that every table of TABLES shares, for this window.
+TABLES is a list of (HEADER . CELLS), CELLS being the rows of the table.  The
+columns line up from one heading to the next, and together they fill the window.
+- A column is as wide as its widest cell in any table, at most
+  `sp-batch-report-column-max-width' (the limit of a truncated column instead).
+- The flexible column (`sp-batch-report-flexible-column') takes what is left of
+  the window, so it is the widest.
+- When the columns do not fit, the flexible one is narrowed first, then the
+  widest ones, one character at a time, down to `sp-batch-report-column-min-width'
+  (or the width of the column when it is smaller)."
+  (let* ((n (apply #'max 0 (mapcar (lambda (table) (length (car table))) tables)))
+         (natural (make-list n 0))
+         (names (make-list n nil))
+         widths minimum flex)
+    (dolist (table tables)
+      (cl-loop for name in (car table) for i from 0
+               do (push name (nth i names))
+               (setcar (nthcdr i natural) (max (nth i natural) (string-width name))))
+      (dolist (row (cdr table))
+        (cl-loop for cell in row for i from 0 below n
+                 do (setcar (nthcdr i natural) (max (nth i natural) (string-width cell))))))
+    (setq flex
+          (or (cl-position-if (lambda (column) (member sp-batch-report-flexible-column column)) names)
+              (cl-position (apply #'max 0 natural) natural)
+              0))
+    (setq widths
+          (cl-loop for width in natural for column in names for i from 0
+                   collect (if (= i flex)
+                               width
+                             (let ((limit (cl-some (lambda (name)
+                                                     (when-let* ((entry (sp-batch-report-view--truncation name)))
+                                                       (or (cdr entry) sp-batch-report-column-max-width)))
+                                                   column)))
+                               (min width (or limit sp-batch-report-column-max-width)))))
+          minimum (mapcar (lambda (width) (min width sp-batch-report-column-min-width)) natural))
+    (when (> n 0)
+      (let* ((room (- (sp-batch-report-view--window-width) 2 (* 2 (1- n)) 1))
+             (excess (- (apply #'+ widths) room)))
+        (if (< excess 0)
+            (setcar (nthcdr flex widths) (- (nth flex widths) excess))
+          (while (and (> excess 0)
+                      (let ((best (if (> (nth flex widths) (nth flex minimum))
+                                      flex
+                                    (let ((found nil) (i 0))
+                                      (dolist (width widths)
+                                        (when (and (> width (nth i minimum))
+                                                   (or (null found) (> width (nth found widths))))
+                                          (setq found i))
+                                        (setq i (1+ i)))
+                                      found))))
+                        (when best
+                          (setcar (nthcdr best widths) (1- (nth best widths)))
+                          (setq excess (1- excess))
+                          t)))))))
     widths))
 
 (defun sp-batch-report-view--wrap (cell width)
@@ -218,15 +264,18 @@ A word longer than WIDTH is cut.  The text properties of CELL are kept."
         (setq rest (string-trim-left (substring rest cut)))))
     (nreverse (cons rest lines))))
 
-(defun sp-batch-report-view--table-line (cells widths face)
+(defun sp-batch-report-view--table-line (cells widths face &optional cut)
   "The lines of the row CELLS, each wrapped to its column in WIDTHS.
-FACE, when given, is the face of the row.  The row ends with a newline."
+FACE, when given, is the face of the row.  CUT is a list that says, per column,
+whether its cell is cut off at the width instead of wrapped.  The row ends with
+a newline."
   (let* ((columns (cl-mapcar
-                   (lambda (cell width)
-                     (sp-batch-report-view--wrap
-                      (if face (propertize (substring-no-properties cell) 'face face) cell)
-                      width))
-                   cells widths))
+                   (lambda (cell width cut)
+                     (let ((cell (if face (propertize (substring-no-properties cell) 'face face) cell)))
+                       (if cut
+                           (list (truncate-string-to-width (string-trim cell) width nil nil "…"))
+                         (sp-batch-report-view--wrap cell width))))
+                   cells widths (append cut (make-list (length cells) nil))))
          (height (apply #'max (mapcar #'length columns)))
          (n (length columns)))
     (mapconcat
@@ -265,7 +314,8 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
          (by-key (make-hash-table :test #'equal))
          (rows nil) (nrows 0) (sections nil) (nsections 0) (ndropped 0)
          (known (make-hash-table :test #'equal))
-         (all (plist-get model :sections)))
+         (all (plist-get model :sections))
+         (shared nil))
     (when-let* ((key-label (plist-get model :key-label))
                 (_ excluded))
       (ignore key-label))
@@ -285,6 +335,14 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
                                                    key)
                                           :key key))
                                        stale))))))
+    (setq shared (sp-batch-report-view--shared-widths
+                  (cl-loop for section in all
+                           when (plist-get section :header)
+                           collect (cons (plist-get section :header)
+                                         (mapcar (lambda (item)
+                                                   (mapcar #'sp-batch-report-view--cell
+                                                           (plist-get item :row)))
+                                                 (plist-get section :items))))))
     (erase-buffer)
     (remove-overlays)
     (insert (propertize (or (plist-get model :title) "Report") 'face 'sp-batch-report-title) "\n")
@@ -296,7 +354,7 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
              (header (plist-get section :header))
              (items (plist-get section :items))
              (hs (point))
-             arrow count-pos body-beg (total 0) (dropped 0) widths cells)
+             arrow count-pos body-beg (total 0) (dropped 0) widths cut cells)
         (setq arrow (point))
         (insert (propertize "▼" 'face 'sp-batch-report-section) " "
                 (propertize (plist-get section :title) 'face 'sp-batch-report-section)
@@ -309,7 +367,8 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
         (when header
           (setq cells (mapcar (lambda (item) (mapcar #'sp-batch-report-view--cell (plist-get item :row)))
                               items))
-          (setq widths (sp-batch-report-view--column-widths header cells))
+          (setq widths shared
+                cut (mapcar (lambda (name) (and (sp-batch-report-view--truncation name) t)) header))
           (let ((line-start (point)))
             (insert (sp-batch-report-view--table-line header widths 'sp-batch-report-column))
             (put-text-property line-start (point) 'sp-batch-report-section sec)))
@@ -323,7 +382,7 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
                    (beg (point))
                    (action (plist-get item :action)))
               (insert (if header
-                          (sp-batch-report-view--table-line (pop cells) widths nil)
+                          (sp-batch-report-view--table-line (pop cells) widths nil cut)
                         (sp-batch-report-view--list-row item)))
               (add-text-properties
                beg (point)

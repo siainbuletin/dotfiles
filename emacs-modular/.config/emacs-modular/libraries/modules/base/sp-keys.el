@@ -400,6 +400,8 @@ the line, respectively."
            ("n" . sp-bibtex-lint-fix-authors)
            ("c" . sp-bibtex-lint-fix-crossref)
            ("C" . sp-bibtex-lint-crossref-dryrun)
+           ("d" . sp-bibtex-lint-fix-date)
+           ("D" . sp-bibtex-lint-fix-date-text)
            ("f" . sp-bibtex-lint-fix-files)
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)
