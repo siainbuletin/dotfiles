@@ -247,5 +247,129 @@
       (when (get-buffer sp-batch-report-view-test--name)
         (kill-buffer sp-batch-report-view-test--name)))))
 
+(defmacro sp-batch-report-view-test--with-width (width &rest body)
+  "Run BODY as if the window were WIDTH characters wide."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'sp-batch-report-view--window-width) (lambda () ,width)))
+     ,@body))
+
+(ert-deftest sp-batch-report-view-wraps-at-spaces ()
+  (should (equal (sp-batch-report-view--wrap "one two three four" 9)
+                 '("one two" "three" "four")))
+  (should (equal (sp-batch-report-view--wrap "short" 9) '("short")))
+  (should (equal (sp-batch-report-view--wrap "" 9) '("")))
+  ;; a word longer than the column is cut
+  (should (equal (sp-batch-report-view--wrap "abcdefghijkl" 5) '("abcde" "fghij" "kl")))
+  ;; the text properties stay
+  (let ((lines (sp-batch-report-view--wrap (propertize "aaa bbb ccc" 'face 'bold) 4)))
+    (should (equal lines '("aaa" "bbb" "ccc")))
+    (should (cl-every (lambda (l) (eq (get-text-property 0 'face l) 'bold)) lines))))
+
+(ert-deftest sp-batch-report-view-column-widths-fit-the-window ()
+  (let ((header '("Key" "Title" "File"))
+        (cells '(("k" "a title that is rather long indeed" "file.bib")
+                 ("kkkkkkkk" "short" "another-file.bib"))))
+    (sp-batch-report-view-test--with-width 200
+      (should (equal (sp-batch-report-view--column-widths header cells) '(8 34 16))))
+    ;; a column is never wider than the maximum
+    (sp-batch-report-view-test--with-width 200
+      (let ((sp-batch-report-column-max-width 12))
+        (should (equal (sp-batch-report-view--column-widths header cells) '(8 12 12)))))
+    ;; in a narrow window the widest columns give way first, down to the minimum
+    (sp-batch-report-view-test--with-width 40
+      (let ((widths (sp-batch-report-view--column-widths header cells)))
+        (should (<= (+ (apply #'+ widths) 2 4) 40))
+        (should (cl-every (lambda (w) (>= w 3)) widths))
+        (should (> (nth 1 widths) (nth 0 widths)))))
+    (sp-batch-report-view-test--with-width 5
+      (should (equal (sp-batch-report-view--column-widths header cells) '(3 5 4))))))
+
+(defun sp-batch-report-view-test--table-report (width)
+  (sp-batch-report-view-test--with-width width
+    (sp-batch-report-open
+     sp-batch-report-view-test--name
+     (sp-batch-report-text
+      "T" (list (sp-batch-report-table-section
+                 "Works" '("Key" "Title")
+                 (list (sp-batch-report-item
+                        nil :row '("a" "a title that is rather long and has many words in it")
+                        :key "1")
+                       (sp-batch-report-item nil :row '("b" "short") :key "2"))))))))
+
+(ert-deftest sp-batch-report-view-table-cells-wrap ()
+  (let ((sp-batch-report-display 'special))
+    (unwind-protect
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+          (with-current-buffer (sp-batch-report-view-test--table-report 30)
+            (let ((lines (split-string (buffer-string) "\n")))
+              (should (cl-every (lambda (l) (<= (string-width l) 30)) lines))
+              ;; the title is on several lines, and the second column lines up
+              (should (cl-find-if (lambda (l) (string-match-p "^       words in it$" l)) lines))
+              (should (equal (list 7 7 7 7)
+                             (mapcar (lambda (re)
+                                       (string-match re (cl-find-if (lambda (l) (string-match-p re l)) lines)))
+                                     '("a title" "long and" "words in" "short")))))
+            ;; one row is still one entry for n/p and for drop
+            (should (= 2 (length sp-batch-report-view--rows)))))
+      (when (get-buffer sp-batch-report-view-test--name)
+        (kill-buffer sp-batch-report-view-test--name)))))
+
+(ert-deftest sp-batch-report-view-relayout-keeps-state ()
+  (let ((sp-batch-report-display 'special))
+    (unwind-protect
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+          (with-current-buffer (sp-batch-report-view-test--table-report 80)
+            (let ((size (buffer-size)))
+              (sp-batch-report-view-test--goto "short")
+              (sp-batch-report-drop)
+              (sp-batch-report-view-test--goto "▼ Works")
+              (sp-batch-report-toggle-section)
+              (sp-batch-report-toggle-section)
+              (sp-batch-report-view-test--goto "rather")
+              (sp-batch-report-view-test--with-width 30
+                (should-not (eql sp-batch-report-view--width 30))
+                (sp-batch-report-view--relayout))
+              (should (= 30 sp-batch-report-view--width))
+              (should (> (buffer-size) size))
+              ;; the drop, and the point on the same row, are still there
+              (should (equal sp-batch-report-excluded '("2")))
+              (should (= 1 sp-batch-report-view--dropped))
+              (should (= (get-text-property (point) 'sp-batch-report-row) 0))
+              (sp-batch-report-view-test--goto "short")
+              (should (get-text-property (point) 'sp-batch-report-dropped)))))
+      (when (get-buffer sp-batch-report-view-test--name)
+        (kill-buffer sp-batch-report-view-test--name)))))
+
+(ert-deftest sp-batch-report-view-schedules-a-layout-when-the-width-changes ()
+  (let ((sp-batch-report-display 'special) scheduled)
+    (unwind-protect
+        (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+                  ((symbol-function 'run-with-idle-timer)
+                   (lambda (_secs _repeat function &rest _) (push function scheduled) 'timer)))
+          (with-current-buffer (sp-batch-report-view-test--table-report 80)
+            ;; the same width: nothing to do
+            (sp-batch-report-view-test--with-width 80 (sp-batch-report-view--schedule))
+            (should-not scheduled)
+            (sp-batch-report-view-test--with-width 50
+              (sp-batch-report-view--schedule)
+              (sp-batch-report-view--schedule)
+              (should (= 1 (length scheduled)))
+              (funcall (car scheduled)))
+            (should (= 50 sp-batch-report-view--width))
+            (should-not sp-batch-report-view--timer)
+            ;; the frame hook and the buffer hooks are in place
+            (should (memq 'sp-batch-report-view--frame-resized window-size-change-functions))
+            (should (memq 'sp-batch-report-view--schedule window-configuration-change-hook))
+            (should (memq 'sp-batch-report-view--schedule text-scale-mode-hook))))
+      (when (get-buffer sp-batch-report-view-test--name)
+        (kill-buffer sp-batch-report-view-test--name)))))
+
+(ert-deftest sp-batch-report-view-lists-need-no-layout ()
+  (sp-batch-report-view-test--with-report
+      (list (sp-batch-report-section "A" (sp-batch-report-view-test--items 2)))
+    (should-not sp-batch-report-view--has-tables)
+    (sp-batch-report-view--schedule)
+    (should-not sp-batch-report-view--timer)))
+
 (provide 'sp-batch-report-view-test)
 ;;; sp-batch-report-view-test.el ends here
