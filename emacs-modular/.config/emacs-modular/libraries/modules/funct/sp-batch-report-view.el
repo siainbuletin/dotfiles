@@ -167,7 +167,7 @@ The characters are those of the default face of the buffer, so zooming the text
           (window-body-width window)))
     fill-column))
 
-(defcustom sp-batch-report-truncated-columns '(("Key" . 45) ("BibTeX file"))
+(defcustom sp-batch-report-truncated-columns '(("Key" . 20) ("BibTeX file" . 10))
   "The columns, by name, whose cells are cut off instead of wrapped.
 Each element is (NAME . LIMIT): the cells of the columns called NAME are cut to
 LIMIT characters (45 for a BibTeX key, which is the lint limit) or, without a
@@ -182,6 +182,13 @@ is the one."
   :type 'string
   :group 'sp-batch-report)
 
+(defcustom sp-batch-report-flexible-share 0.6
+  "The least share of the window width that the flexible column gets, from 0 to 1.
+The other columns are narrowed, down to `sp-batch-report-column-min-width', to
+make room for it."
+  :type 'number
+  :group 'sp-batch-report)
+
 (defun sp-batch-report-view--truncation (name)
   "The element of `sp-batch-report-truncated-columns' for the column NAME, or nil."
   (assoc name sp-batch-report-truncated-columns))
@@ -193,10 +200,10 @@ columns line up from one heading to the next, and together they fill the window.
 - A column is as wide as its widest cell in any table, at most
   `sp-batch-report-column-max-width' (the limit of a truncated column instead).
 - The flexible column (`sp-batch-report-flexible-column') takes what is left of
-  the window, so it is the widest.
-- When the columns do not fit, the flexible one is narrowed first, then the
-  widest ones, one character at a time, down to `sp-batch-report-column-min-width'
-  (or the width of the column when it is smaller)."
+  the window, and at least `sp-batch-report-flexible-share' of it.
+- The other columns are narrowed for that, the widest first, one character at a
+  time, down to `sp-batch-report-column-min-width' (or the width of the column
+  when it is smaller)."
   (let* ((n (apply #'max 0 (mapcar (lambda (table) (length (car table))) tables)))
          (natural (make-list n 0))
          (names (make-list n nil))
@@ -224,23 +231,21 @@ columns line up from one heading to the next, and together they fill the window.
           minimum (mapcar (lambda (width) (min width sp-batch-report-column-min-width)) natural))
     (when (> n 0)
       (let* ((room (- (sp-batch-report-view--window-width) 2 (* 2 (1- n)) 1))
-             (excess (- (apply #'+ widths) room)))
-        (if (< excess 0)
-            (setcar (nthcdr flex widths) (- (nth flex widths) excess))
-          (while (and (> excess 0)
-                      (let ((best (if (> (nth flex widths) (nth flex minimum))
-                                      flex
-                                    (let ((found nil) (i 0))
-                                      (dolist (width widths)
-                                        (when (and (> width (nth i minimum))
-                                                   (or (null found) (> width (nth found widths))))
-                                          (setq found i))
-                                        (setq i (1+ i)))
-                                      found))))
+             (share (max (nth flex minimum) (ceiling (* sp-batch-report-flexible-share room))))
+             (budget (max 0 (- room share))))
+        ;; The other columns give way, widest first, so the flexible one gets its share.
+        (cl-flet ((others () (- (apply #'+ widths) (nth flex widths))))
+          (while (and (> (others) budget)
+                      (let ((best nil) (i 0))
+                        (dolist (width widths)
+                          (when (and (/= i flex) (> width (nth i minimum))
+                                     (or (null best) (> width (nth best widths))))
+                            (setq best i))
+                          (setq i (1+ i)))
                         (when best
                           (setcar (nthcdr best widths) (1- (nth best widths)))
-                          (setq excess (1- excess))
-                          t)))))))
+                          t))))
+          (setcar (nthcdr flex widths) (max (nth flex minimum) (- room (others)))))))
     widths))
 
 (defun sp-batch-report-view--wrap (cell width)

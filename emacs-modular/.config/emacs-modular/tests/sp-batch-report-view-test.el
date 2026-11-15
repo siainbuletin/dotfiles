@@ -280,7 +280,7 @@
     (sp-batch-report-view-test--with-width 40
       (let ((widths (sp-batch-report-view--shared-widths tables)))
         (should (= (+ (apply #'+ widths) 2 4 1) 40))
-        (should (equal widths '(8 9 16)))))
+        (should (equal widths '(8 17 8)))))
     (sp-batch-report-view-test--with-width 5
       (should (equal (sp-batch-report-view--shared-widths tables) '(8 8 8))))))
 
@@ -297,6 +297,19 @@
         (should (= (nth 3 widths) (apply #'max widths)))
         (should (= (+ (apply #'+ widths) 2 (* 2 4) 1) 120))))))
 
+(ert-deftest sp-batch-report-view-title-gets-most-of-the-frame ()
+  "Title has at least 60% of the width, however long the other cells are."
+  (let ((tables (list (cons '("Match" "Key" "Year" "Title" "BibTeX file")
+                            (list (list "possible" (make-string 30 ?k) "2001" "A title"
+                                        (make-string 40 ?f)))))))
+    (dolist (width '(100 160 240))
+      (sp-batch-report-view-test--with-width width
+        (let ((widths (sp-batch-report-view--shared-widths tables)))
+          (should (>= (nth 3 widths) (* 0.6 (- width 11))))
+          (should (<= (nth 4 widths) 10))
+          (should (<= (nth 1 widths) 20))
+          (should (= (+ (apply #'+ widths) 2 8 1) width)))))))
+
 (ert-deftest sp-batch-report-view-keys-and-files-are-cut-not-wrapped ()
   (sp-batch-report-view-test--with-width 160
     (let ((long (make-string 60 ?k)))
@@ -310,9 +323,9 @@
                      (sp-batch-report-item nil :row (list "short" "B" "f.bib")))))))
       (with-current-buffer sp-batch-report-view-test--name
         (let ((text (buffer-string)) (case-fold-search nil))
-          ;; 45 characters of the key, then the ellipsis, on one line
-          (should (string-match-p (concat "^  " (make-string 44 ?k) "…  ") text))
-          (should-not (string-match-p (make-string 46 ?k) text))
+          ;; 20 characters of the key, the last one the ellipsis, on one line
+          (should (string-match-p (concat "^  " (make-string 19 ?k) "…  ") text))
+          (should-not (string-match-p (make-string 21 ?k) text))
           ;; the file name is one line too: no wrapped rest on another row
           (should (= 2 (length (seq-filter (lambda (l) (string-match-p "^  \\(k\\|short\\)" l))
                                            (split-string text "\n"))))))))))
