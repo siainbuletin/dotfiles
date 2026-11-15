@@ -101,5 +101,12 @@
   (dolist (old '("C-c w b r" "C-c w b l" "C-c w b k" "C-c w b a" "C-c k l" "C-c k s" "C-c k d"))
     (should-not (assoc old sp-keys-moved))))
 
+(ert-deftest sp-keys-quote-block-key ()
+  (sp-keys-test--setup)
+  (dolist (form (sp-keys-test--forms))
+    (pcase form
+      (`(bind-key ,_ (function sp-org-insert-quote-from-kill)) (eval form t))))
+  (should (eq (key-binding (kbd "C-; \"")) 'sp-org-insert-quote-from-kill)))
+
 (provide 'sp-keys-test)
 ;;; sp-keys-test.el ends here

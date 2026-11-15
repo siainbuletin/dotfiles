@@ -420,6 +420,13 @@ Keep the 17 existing groups; move what is scattered into them where it fits and 
 
 (Letters are a proposal: they change nothing until the registry is written.)
 
+*Root keys.* Most leader keys are group letters; a few commands sit directly on the root because they are used often.
+- =C-; .= is =transpose-words=.
+- =C-; "= is =sp-org-insert-quote-from-kill=: it inserts an Org quote block holding the latest kill ring item (or the region; =C-u= for an empty block).
+   + It is two keys, instead of =C-c C-,= then =q= and a paste.
+   + Punctuation keys are free at the root; letters stay reserved for groups.
+   + Code: [[file:../tangles/text/sp-org-base.org][sp-org-base]]; binding: [[file:../tangles/base/sp-keys.org][sp-keys]].
+
 ** Steps
 
 Each is a pull request that can be merged on its own; none touches the others' keys.

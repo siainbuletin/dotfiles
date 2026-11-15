@@ -605,6 +605,10 @@ the line, respectively."
 ;; history for the prior dispatch macro.
 (bind-key (concat sp-prefix " .") #'transpose-words)
 
+;;;;;; Quote block from the kill ring
+(autoload 'sp-org-insert-quote-from-kill "sp-org-base" "Insert a quote block holding the latest kill." t)
+(bind-key (concat sp-prefix " \"") #'sp-org-insert-quote-from-kill)
+
 ;;;;;; Rectangle transient
 ;; Suffixes stay on press; "g" exits. Setup/teardown:
 ;; `rectangle-mark-mode' is enabled on entry, `deactivate-mark' fires

@@ -492,6 +492,27 @@ one week to the next, unchecking them at the same time"
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
 
+;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-insert-quote-from-kill (&optional arg)
+  "Insert an Org quote block holding the latest kill ring item.
+With an active region, put the region (cut from the buffer) in the block instead.
+With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+The kill ring is neither changed nor rotated by this command."
+  (interactive "P")
+  (let* ((region (and (use-region-p)
+                      (prog1 (buffer-substring-no-properties (region-beginning) (region-end))
+                        (delete-region (region-beginning) (region-end)))))
+         (text (cond (region region)
+                     (arg nil)
+                     (kill-ring (substring-no-properties (current-kill 0 t)))))
+         (text (and text (string-trim-right text "\n+")))
+         (text (and text (not (string-empty-p text)) (org-escape-code-in-string text))))
+    (unless (bolp) (insert "\n"))
+    (insert "#+begin_quote\n")
+    (if text
+        (insert text "\n#+end_quote\n")
+      (save-excursion (insert "\n#+end_quote\n")))))
+
 ;;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
 (defun sp-org-point-strictly-in-link-p ()
   "Non-nil if point is inside a link, not at its edges or trailing blanks."

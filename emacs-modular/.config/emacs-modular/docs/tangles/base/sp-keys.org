@@ -1065,6 +1065,24 @@ The comment records that this was adapted from the hydra wiki and ported to tran
 (bind-key (concat sp-prefix " .") #'transpose-words)
 #+end_src
 
+** Quote block
+
+=<leader> "= (=C-; "=) runs =sp-org-insert-quote-from-kill= from [[file:../text/sp-org-base.org][sp-org-base]].
+
+- It inserts an Org quote block holding the latest kill ring item, or the region when one is active.
+- A prefix argument (=C-u C-; "=) gives an empty block.
+- It replaces =C-c C-,= then =q= followed by a paste: two keys instead of four chords.
+- It sits on the leader root, not under a group, because it is meant to be fast.
+- The key is free in the leader tree: the neighbours are the group letters, =.= (transpose) and nothing on punctuation.
+- =C-; "= needs a GUI frame (a terminal cannot send =C-;=), like the rest of the leader.
+- The command is autoloaded from =sp-org-base=, which is loaded with the Org modules; =org-block-wrap= (=C-; c o=) stays for the other block types.
+
+#+begin_src emacs-lisp -i
+;;;;;; Quote block from the kill ring
+(autoload 'sp-org-insert-quote-from-kill "sp-org-base" "Insert a quote block holding the latest kill." t)
+(bind-key (concat sp-prefix " \"") #'sp-org-insert-quote-from-kill)
+#+end_src
+
 ** Rectangle region toggle
 
 The comment describes the rectangle transient's lifecycle. =sp-rectangle-toggle-region= is a helper for that menu: if a region is active it deactivates the mark, otherwise it turns on =rectangle-mark-mode=.
@@ -1272,6 +1290,7 @@ Provides the =sp-keys= feature and closes the file.
   + the BibTeX key fix has its key, =L b f k=, and the date fix =L b f d=;
   + every old key of =sp-keys-moved= is unique, is not below the leader, and its new key is bound to the same command;
   + (the shim table only holds keys that still have a shim).
+  + the quote block command is on =C-; "=.
 
 #+begin_src emacs-lisp -i
 ;;; sp-keys-test.el --- Tests for the academic and lint groups of sp-keys -*- lexical-binding: t; -*-
@@ -1376,6 +1395,13 @@ Provides the =sp-keys= feature and closes the file.
   (sp-keys-test--setup)
   (dolist (old '("C-c w b r" "C-c w b l" "C-c w b k" "C-c w b a" "C-c k l" "C-c k s" "C-c k d"))
     (should-not (assoc old sp-keys-moved))))
+
+(ert-deftest sp-keys-quote-block-key ()
+  (sp-keys-test--setup)
+  (dolist (form (sp-keys-test--forms))
+    (pcase form
+      (`(bind-key ,_ (function sp-org-insert-quote-from-kill)) (eval form t))))
+  (should (eq (key-binding (kbd "C-; \"")) 'sp-org-insert-quote-from-kill)))
 
 (provide 'sp-keys-test)
 ;;; sp-keys-test.el ends here
