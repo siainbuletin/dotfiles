@@ -17,6 +17,7 @@
 (require 'org-element)
 (require 'subr-x)
 (require 'sp-batch-report)
+(require 'sp-note-kinds)
 
 ;; The worker sets this: it needs no settings of the config, and `sp-globals'
 ;; cannot load without early-init.el.
@@ -192,6 +193,8 @@ check afterwards."
          (fn-defs (seq-filter
                    (lambda (d)
                      (and (not (plist-get d :inline))
+                          ;; See-also notes and endnotes stay where they are.
+                          (eq (sp-note-kind (plist-get d :label)) 'footnote)
                           (sp-org-lint-fn--footnotes-section-p
                            (sp-org-lint-fn--section (plist-get d :begin)
                                                     heads)

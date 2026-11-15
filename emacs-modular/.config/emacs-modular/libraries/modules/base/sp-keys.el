@@ -197,7 +197,14 @@ the line, respectively."
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
            ("s"  .  sp-search-in-notes)
-           ("f"  .  sp-notes-filing-dryrun))
+           ("f"  .  sp-notes-filing-dryrun)
+           ;; The three kinds of note (sp-note-kinds): a see-also note is a
+           ;; sidenote, an endnote goes to the Notes section.
+           ("a"  .  sp-see-also-note-new)
+           ("e"  .  sp-note-endnote-new)
+           ("E"  .  sp-note-insert-endnotes-section)
+           ("r"  .  sp-note-renumber)
+           ("M"  .  sp-see-also-convert-footnotes))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")
