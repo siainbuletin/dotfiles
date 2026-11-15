@@ -406,7 +406,7 @@ Keep the 17 existing groups; move what is scattered into them where it fits and 
 | =k*= | knowledge search | =C-c k l/I= (litdb), =C-c k t/T= (tab-psearch), =C-c k s/S/./R= (semantic) |
 | =m= | mail | unchanged |
 | =M= | compile | unchanged |
-| =n= | notes | =n= vulpea (=M-o ...=), =n b= bibliography, =n d= Denote only until it is removed |
+| =n= | notes | =n= vulpea (=M-o ...=), =n b= bibliography, =n d= trash the current note (=sp-notes-trash=; was Denote, now removed) |
 | =p*= | projects | =C-c p= Projectile, project prefix =C-x p= stays |
 | =q= | quit | unchanged |
 | =r*= | reading and writing views | =C-c w r= reading mode, =C-c w o= olivetti, =C-c w e= elfeed |
@@ -460,6 +460,7 @@ Applied in the pull request that follows #283, so the design can be tried:
 - Spelling: =C-; z p/n/.= (=C-;= is unbound in =flyspell-mode-map=).
 - =C-z= is not the leader. The two =C-z= unbinds in =sp-keys= and =sp-prog-misc= moved to =sp-text-manipulation=: unbound on the Mac, =undo= elsewhere.
 - =M-x sp-keys-audit= lists leader keys whose command is not defined, and the shims still alive.
+- Notes: =C-; n d= is =sp-notes-trash= (current note, or with =C-u= a picked file, to the system trash; the Denote use of =n d= is gone).
 
 Applied in [[https://github.com/siainbuletin/dotfiles/pull/489][#489]] (academic part):
 - Groups =B= (bibliography, from =C-c w b=), =k= (knowledge search, from =C-c k=) and =L= (lint, new).

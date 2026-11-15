@@ -426,6 +426,7 @@ Notes:
   - =n=: =sp-notes-notebook=, the vulpea note picker
   - =s=: =sp-search-in-notes=, ripgrep over the notes
   - =f=: =sp-notes-filing-dryrun=, the dry run of the tag filing
+  - =d=: =sp-notes-trash=, moves the current note (or, with =C-u=, a picked file) to the system trash
 - =lem+bib-keys= under =n b= binds the =citar= commands for creating or opening literature notes.
 
 #+begin_src emacs-lisp -i
@@ -436,6 +437,7 @@ Notes:
            ("n"  .  sp-notes-notebook)
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
+           ("d"  .  sp-notes-trash)
            ("s"  .  sp-search-in-notes)
            ("f"  .  sp-notes-filing-dryrun)
            ;; The three kinds of note (sp-note-kinds): a see-also note is a
