@@ -68,7 +68,8 @@
   (sp-keys-test--setup)
   (should (eq (sp-keys-test--command 'lem+lint-bibtex-fix-keys "k")
               'sp-bibtex-lint-fix-keys))
-  (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys)))
+  (should (eq (key-binding (kbd "C-; L b f k")) 'sp-bibtex-lint-fix-keys))
+  (should (eq (key-binding (kbd "C-; L b f u")) 'sp-bibtex-lint-fix-duplicates)))
 
 (ert-deftest sp-keys-bibtex-date-fix-has-a-key ()
   (sp-keys-test--setup)

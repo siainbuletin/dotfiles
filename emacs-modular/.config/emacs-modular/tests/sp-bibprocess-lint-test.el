@@ -1511,3 +1511,107 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (should-not (string-search "14.5.2021" text)))
     (should-not (seq-some (lambda (r) (alist-get 'datetext (nth 4 r)))
                           (sp-bibprocess-lint-test--datetext-results)))))
+
+;;;; Duplicate fields
+
+(defconst sp-bibprocess-lint-test--dup-bib
+  (concat "@article{same,\n  title = {A  title},\n  year = {2020},\n  Year = \"2020\",\n  title = {A title}}\n\n"
+          "@article{differ,\n  title = {T},\n  year = {2019},\n  year = {2020},\n  note = {x},\n  note = {x}}\n\n"
+          "@article{clean,\n  title = {T},\n  year = {2020}}\n")
+  "One entry with identical duplicates, one with differing ones, one without.")
+
+(ert-deftest sp-bibtex-dup-test-groups ()
+  (let* ((text "@article{k,\n  title = {A},\n  Year = {2019},\n  year = {2020},\n  year = {2019}\n}")
+         (groups (sp-bibtex-dup--groups text))
+         (g (car groups)))
+    (should (= 1 (length groups)))
+    (should (equal "Year" (plist-get g :name)))
+    (should (= 3 (length (plist-get g :occ))))
+    ;; Two distinct values; the copy of the first one is index 0.
+    (should (equal '(("2019" . 0) ("2020" . 1)) (plist-get g :values)))
+    (should-not (sp-bibtex-dup--identical-p g))
+    (should-not (sp-bibtex-dup--groups "@article{k,\n  title = {A},\n  year = {2019}}"))))
+
+(ert-deftest sp-bibtex-dup-test-resolve ()
+  (let* ((text "@article{k,\n  title = {A},\n  note = {x},\n  Note = {x},\n  year = {2019},\n  year = {2020}\n}")
+         (groups (sp-bibtex-dup--groups text)))
+    ;; Without a pick the identical note goes, both years stay.
+    (should (equal "@article{k,\n  title = {A},\n  note = {x},\n  year = {2019},\n  year = {2020}\n}"
+                   (sp-bibtex-dup--resolve text groups nil)))
+    ;; With a pick the other year goes, the layout is kept.
+    (should (equal "@article{k,\n  title = {A},\n  note = {x},\n  year = {2020}\n}"
+                   (sp-bibtex-dup--resolve text groups '(("year" . 1)))))))
+
+(ert-deftest sp-bibtex-dup-test-one-line-entry ()
+  (let ((text "@article{k, year = {2019}, year = {2019}, title = {A}}"))
+    (should (equal "@article{k, year = {2019}, title = {A}}"
+                   (sp-bibtex-dup--resolve text (sp-bibtex-dup--groups text) nil)))))
+
+(ert-deftest sp-bibtex-dup-test-report-writes-nothing ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((before (sp-bibprocess-lint-test--text file)))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibtex-lint-fix-duplicates file))
+      (with-current-buffer sp-bibtex-lint--buffer
+        (let ((text (buffer-string)))
+          (should (string-match-p "title: 2 identical copies" text))
+          (should (string-match-p "year: 2 identical copies" text))
+          (should (string-match-p "year: 2 different values, you choose: 1\\. 2019  2\\. 2020" text))
+          (should-not (string-match-p "\\[clean\\]" text))))
+      (kill-buffer sp-bibtex-lint--buffer)
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-dup-test-identical-only ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?i)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      ;; The identical copies are gone, the differing years are both still there.
+      (should (string-match-p "@article{same,\n  title = {A  title},\n  year = {2020},\n}" text))
+      (should (string-match-p "year = {2019},\n  year = {2020},\n  note = {x},\n}" text))
+      (should (directory-files-recursively sp-bibtex-lint-backup-directory "a\\.bib\\'")))))
+
+(ert-deftest sp-bibtex-dup-test-choose-value ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?a)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'completing-read)
+                 (lambda (_prompt candidates &rest _)
+                   (should (equal '("1. 2019" "2. 2020") (seq-take candidates 2)))
+                   "1. 2019"))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-match-p "@article{differ,\n  title = {T},\n  year = {2019},\n  note = {x},\n}" text))
+      (should-not (string-match-p "year = {2020}" (substring text (string-search "@article{differ" text) (string-search "@article{clean" text)))))))
+
+(ert-deftest sp-bibtex-dup-test-leave-keeps-every-value ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((keys (sp-bibprocess-lint-test--keys ?a)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'completing-read)
+                 (lambda (_prompt candidates &rest _) (car (last candidates))))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file)))
+    (should (string-match-p "year = {2019},\n  year = {2020}" (sp-bibprocess-lint-test--text file)))))
+
+(ert-deftest sp-bibtex-dup-test-skip-writes-nothing ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (let ((before (sp-bibprocess-lint-test--text file))
+          (keys (sp-bibprocess-lint-test--keys ?s)))
+      (cl-letf (((symbol-function 'read-char-choice) (car keys))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-bibprocess-lint-test--fix #'sp-bibtex-lint-fix-duplicates file))
+      (should (equal before (sp-bibprocess-lint-test--text file)))
+      (should-not (file-exists-p sp-bibtex-lint-backup-directory)))))
+
+(ert-deftest sp-bibtex-dup-test-in-full-lint-report ()
+  (sp-bibprocess-lint-test--with-bib sp-bibprocess-lint-test--dup-bib
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+      (sp-bibtex-lint-dryrun file))
+    (with-current-buffer sp-bibtex-lint--buffer
+      (should (string-match-p "duplicate fields (2)" (buffer-string)))
+      (should (string-match-p "^\\* Duplicate fields" (buffer-string))))))

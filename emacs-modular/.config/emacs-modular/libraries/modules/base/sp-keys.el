@@ -406,7 +406,8 @@ the line, respectively."
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)
            ("o" . sp-bibtex-lint-fix-order)
-           ("p" . sp-bibtex-lint-fix-prefixes))
+           ("p" . sp-bibtex-lint-fix-prefixes)
+           ("u" . sp-bibtex-lint-fix-duplicates))
 (bind-keys :prefix-map lem+lint-bibtex-zotero-keys
            :prefix (concat sp-prefix " L b z")
            ("l" . sp-bibtex-zotero-dryrun)
