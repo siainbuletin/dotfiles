@@ -9,6 +9,7 @@
 
 (require 'ert)
 (require 'org)
+(require (quote cl-lib))
 (load (expand-file-name "libraries/modules/text/sp-org-custom-highlight.el")
       nil t)
 
@@ -88,6 +89,70 @@
 (ert-deftest sp-och-bound-to-c-c-h ()
   (should (eq (lookup-key org-mode-map (kbd "C-c h"))
               #'sp-org-insert-inline-comment)))
+
+;;;; Links inside @@comment:@@
+
+(defmacro sp-och-test--opening (text search &rest body)
+  "In an Org buffer with TEXT and point inside SEARCH, run BODY.
+Return the list of what was opened, as (link RAW) or (cite KEY)."
+  (declare (indent 2))
+  `(let (opened)
+     (cl-letf (((symbol-function 'org-link-open)
+                (lambda (l &rest _)
+                  (push (list 'link (org-element-property :raw-link l)) opened)))
+               ((symbol-function 'org-cite-follow)
+                (lambda (d &rest _)
+                  (push (list 'cite (org-element-property :key d)) opened))))
+       (sp-och-test--with-buffer ,text
+         (goto-char (point-min))
+         (search-forward ,search)
+         ,@body))
+     (nreverse opened)))
+
+(ert-deftest sp-och-link-in-comment-opens ()
+  (should (equal (sp-och-test--opening
+                     "[[id:aaa][first]]\nx @@comment:see [[id:bbb][second]] ok@@\n"
+                     "seco"
+                   (should (sp-org-open-comment-link)))
+                 '((link "id:bbb")))))
+
+(ert-deftest sp-och-open-at-point-uses-the-comment-link ()
+  (should (equal (sp-och-test--opening
+                     "[[id:aaa][first]]\n@@comment:[[id:bbb][second]]@@\n"
+                     "seco"
+                   (org-open-at-point))
+                 '((link "id:bbb")))))
+
+(ert-deftest sp-och-citation-in-comment-opens ()
+  (should (equal (sp-och-test--opening "@@comment:read [cite:@smith2020] soon@@\n"
+                     "smi"
+                   (should (sp-org-open-comment-link)))
+                 '((cite "smith2020")))))
+
+(ert-deftest sp-och-comment-text-and-edges-do-not-open ()
+  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "see "
+                (should-not (sp-org-open-comment-link))))
+  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "[[id:b][s]]"
+                (should-not (sp-org-open-comment-link))))
+  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "@@comment:"
+                (should-not (sp-org-open-comment-link)))))
+
+(ert-deftest sp-och-other-snippet-and-plain-link-untouched ()
+  (should-not (sp-och-test--opening "@@html:[[id:b][s]]@@" "[[id:b"
+                (should-not (sp-org-open-comment-link))))
+  (should-not (sp-och-test--opening "[[id:b][s]]" "[[id:b"
+                (should-not (sp-org-open-comment-link)))))
+
+(ert-deftest sp-och-ret-follows-link-in-comment ()
+  (should (equal (sp-och-test--opening "[[id:a][f]]\n@@comment:[[id:b][second]]@@\n"
+                     "seco"
+                   (let ((org-return-follows-link t))
+                     (org-return)))
+                 '((link "id:b"))))
+  (should-not (sp-och-test--opening "@@comment:[[id:b][second]]@@"
+                  "seco"
+                (let ((org-return-follows-link nil))
+                  (org-return)))))
 
 (provide 'sp-org-custom-highlight-test)
 ;;; sp-org-custom-highlight-test.el ends here

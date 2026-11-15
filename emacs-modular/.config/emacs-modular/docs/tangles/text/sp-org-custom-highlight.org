@@ -136,9 +136,81 @@ insert `@@comment:@@' and put point inside it."
 
 A {{{c(text)}}} macro with #+MACRO: c (empty expansion) also works, but the export snippet needs no setup per file, so I’d go with that.
 
+** Following links inside a comment
+
+Org reads =@@comment:...@@= as one export snippet, whose text is opaque, so a link written inside it is not a link for Org.
+- Symptom: =RET= or a click on =[[id:...][text]]= inside a comment did not open it.
+  - =org-element-context= returns the snippet, not the link.
+  - =org-open-at-point= then falls through and offers the links of the entry, which are not the one at point.
+- Wrapping a region with =C-c h= produces exactly these snippets, so it hit any region holding a link or a citation.
+
+The fix looks inside the snippet, only when point is inside one with the backend =comment=.
+- =sp-org--comment-inner-bounds= returns the start and end of the text between the markers, or nil.
+- =sp-org--comment-datum-at-point= parses that text again with =org-element-parse-secondary-string=.
+  - Narrowing does not work: =org-element-context= widens the buffer, so it would return the snippet again.
+  - The text is parsed as ordinary Org, so links and citations are found with the usual parser.
+  - The positions of the result are relative to the text, so point is converted to the same scale.
+  - The link is opened from its parsed data, not from its position, so the detached copy is enough.
+  - It returns a =link= or a =citation-reference= (=[cite:@key]=), else nil.
+- =sp-org-open-comment-link= opens that datum and returns non-nil; with nothing to open it returns nil.
+  - A link goes to =org-link-open=; a citation reference goes to =org-cite-follow=.
+- It is added to =org-open-at-point-functions=, so =C-c C-o=, a click (=org-open-at-mouse=) and any other caller of =org-open-at-point= use it.
+- =RET= needs its own step: =org-return= only follows links when the context is a =link=.
+  - An advice (=:before-until=) on =org-return= calls =sp-org-open-comment-link= when =org-return-follows-link= is non-nil.
+  - It follows the same rule as =sp-org-point-strictly-in-link-p=: point at the edges of the link does not follow it, it inserts a newline as before.
+- Links outside comments are not touched: the functions return nil there.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--comment-inner-bounds ()
+  "Bounds (BEG . END) of the text of the `@@comment:@@' snippet at point, or nil."
+  (let ((ctx (org-element-context)))
+    (when (and (eq (org-element-type ctx) 'export-snippet)
+               (equal (org-element-property :back-end ctx) "comment"))
+      (let ((beg (+ (org-element-property :begin ctx) (length "@@comment:")))
+            (end (- (org-element-property :end ctx)
+                    (org-element-property :post-blank ctx)
+                    (length "@@"))))
+        (and (<= beg (point) end) (cons beg end))))))
+
+(defun sp-org--comment-datum-at-point ()
+  "Link or citation reference at point inside a `@@comment:@@', or nil.
+Point must be strictly inside the object, not at its edges."
+  (when-let* ((bounds (sp-org--comment-inner-bounds)))
+    (let ((pos (1+ (- (point) (car bounds))))
+          (tree (org-element-parse-secondary-string
+                 (buffer-substring-no-properties (car bounds) (cdr bounds))
+                 '(link citation))))
+      (catch 'found
+        (org-element-map tree '(link citation-reference)
+          (lambda (datum)
+            (when (and (> pos (org-element-property :begin datum))
+                       (< pos (- (org-element-property :end datum)
+                                 (org-element-property :post-blank datum))))
+              (throw 'found datum))))
+        nil))))
+
+(defun sp-org-open-comment-link ()
+  "Open the link or citation inside the `@@comment:@@' at point.
+Return non-nil if one was opened, nil otherwise, so it can be an
+`org-open-at-point-functions' member."
+  (when-let* ((datum (sp-org--comment-datum-at-point)))
+    (if (eq (org-element-type datum) 'link)
+        (org-link-open datum)
+      (org-cite-follow datum nil))
+    t))
+
+(add-hook 'org-open-at-point-functions #'sp-org-open-comment-link)
+
+(define-advice org-return (:before-until (&rest _) sp-org-comment-link)
+  "Follow a link inside a `@@comment:@@' when `org-return-follows-link' is set."
+  (and org-return-follows-link
+       (sp-org-open-comment-link)))
+#+end_src
+
 * Tests
 
 =tests/sp-org-custom-highlight-test.el= covers the command in an Org buffer.
+- The link tests cover: a link and a citation inside a comment, link outside unaffected, edges of the link, other snippet backends, and =RET=.
 - Run headless, from the folder of =init.el=:
   - =emacs -Q --batch -l tests/sp-org-custom-highlight-test.el -f ert-run-tests-batch-and-exit=
 

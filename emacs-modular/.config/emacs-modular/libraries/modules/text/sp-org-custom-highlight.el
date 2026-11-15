@@ -62,4 +62,49 @@ insert `@@comment:@@' and put point inside it."
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c h") #'sp-org-insert-inline-comment))
 
+(defun sp-org--comment-inner-bounds ()
+  "Bounds (BEG . END) of the text of the `@@comment:@@' snippet at point, or nil."
+  (let ((ctx (org-element-context)))
+    (when (and (eq (org-element-type ctx) 'export-snippet)
+               (equal (org-element-property :back-end ctx) "comment"))
+      (let ((beg (+ (org-element-property :begin ctx) (length "@@comment:")))
+            (end (- (org-element-property :end ctx)
+                    (org-element-property :post-blank ctx)
+                    (length "@@"))))
+        (and (<= beg (point) end) (cons beg end))))))
+
+(defun sp-org--comment-datum-at-point ()
+  "Link or citation reference at point inside a `@@comment:@@', or nil.
+Point must be strictly inside the object, not at its edges."
+  (when-let* ((bounds (sp-org--comment-inner-bounds)))
+    (let ((pos (1+ (- (point) (car bounds))))
+          (tree (org-element-parse-secondary-string
+                 (buffer-substring-no-properties (car bounds) (cdr bounds))
+                 '(link citation))))
+      (catch 'found
+        (org-element-map tree '(link citation-reference)
+          (lambda (datum)
+            (when (and (> pos (org-element-property :begin datum))
+                       (< pos (- (org-element-property :end datum)
+                                 (org-element-property :post-blank datum))))
+              (throw 'found datum))))
+        nil))))
+
+(defun sp-org-open-comment-link ()
+  "Open the link or citation inside the `@@comment:@@' at point.
+Return non-nil if one was opened, nil otherwise, so it can be an
+`org-open-at-point-functions' member."
+  (when-let* ((datum (sp-org--comment-datum-at-point)))
+    (if (eq (org-element-type datum) 'link)
+        (org-link-open datum)
+      (org-cite-follow datum nil))
+    t))
+
+(add-hook 'org-open-at-point-functions #'sp-org-open-comment-link)
+
+(define-advice org-return (:before-until (&rest _) sp-org-comment-link)
+  "Follow a link inside a `@@comment:@@' when `org-return-follows-link' is set."
+  (and org-return-follows-link
+       (sp-org-open-comment-link)))
+
 (provide 'sp-org-custom-highlight)
