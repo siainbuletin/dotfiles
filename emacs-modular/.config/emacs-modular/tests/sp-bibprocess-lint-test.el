@@ -1698,3 +1698,12 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
     (with-current-buffer sp-bibtex-lint--buffer
       (should (string-match-p "duplicate fields (2)" (buffer-string)))
       (should (string-match-p "^▼ Duplicate fields" (buffer-string))))))
+
+(ert-deftest sp-bibtex-date-test-bare-number-is-read ()
+  (sp-bibprocess-lint-test--with-biblatex
+      "@article{bare,\n  title = {Q},\n  date = 2002}\n\n@article{mac,\n  title = {R},\n  date = mydate}\n"
+    (let ((results (sp-bibprocess-lint-test--date-results)))
+      (let ((new (sp-bibprocess-lint-test--date-new results "bare")))
+        (should (string-match-p "year = {2002}" new))
+        (should-not (string-match-p "date" new)))
+      (should (string-match-p "macro" (car (sp-bibprocess-lint-test--date-skipped results "mac")))))))

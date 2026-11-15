@@ -1,0 +1,772 @@
+;;; sp-bibtex-abstract.el --- Move the BibTeX abstract into the litnote -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-bibtex-lint-fix-abstract' moves the abstract field of the entries of a
+;; .bib file into the litnotes, under a "* Abstract" heading.  The note is
+;; written and read back before the field leaves the .bib file.  See the doc
+;; docs/tangles/academic/sp-bibtex-abstract.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'sp-batch-report)
+(require 'sp-author-notes)
+(require 'sp-author-notes-bibtex)
+(require 'sp-litnotes-meta)
+
+(defvar sp-var-dir)
+(defvar sp-bibtex-lint-backup-directory)
+(declare-function sp-bibtex--unwrap "sp-bibprocess")
+(declare-function sp-bibtex-lint--read-file "sp-bibprocess")
+(declare-function sp-bibtex-lint--lines "sp-bibprocess")
+(declare-function sp-bibtex-lint--entry-key "sp-bibprocess")
+(declare-function sp-bibtex-lint--unsaved-check "sp-bibprocess")
+(declare-function sp-bibtex-lint--signature "sp-bibprocess")
+(declare-function sp-bibtex-lint--save "sp-bibprocess")
+(declare-function vulpea-db-update-file "vulpea-db")
+
+(defgroup sp-bibtex-abstract nil
+  "Move the BibTeX abstract into the litnote."
+  :group 'sp-bibtex
+  :prefix "sp-bibtex-abstract-")
+
+(defcustom sp-bibtex-abstract-heading "Abstract"
+  "The title of the level 1 heading of a litnote that holds the abstract."
+  :type 'string
+  :group 'sp-bibtex-abstract)
+
+(defcustom sp-bibtex-abstract-backup-directory
+  (expand-file-name "bibtex-abstract-backups/"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "Folder where the commands keep what they change, one sub-folder for each run.
+A sub-folder holds the .bib file and the notes as they were before the run, and
+`manifest.eld'; `sp-bibtex-lint-abstract-restore' reads it."
+  :type 'directory
+  :group 'sp-bibtex-abstract)
+
+(defvar sp-bibtex-abstract--excluded nil
+  "Entries dropped from the report with `d', as keys \"FILE::ENTRY-KEY\".
+The list lasts for the Emacs session.")
+
+(defconst sp-bibtex-abstract--buffer "*BibTeX abstracts*")
+
+(defun sp-bibtex-abstract--skip-space (text i)
+  "The index of the first character of TEXT at or after I that is not white space."
+  (while (and (< i (length text)) (memq (aref text i) '(?\s ?\t ?\n ?\r)))
+    (cl-incf i))
+  i)
+
+(defun sp-bibtex-abstract--value-end (text i)
+  "The index after the BibTeX value of TEXT that starts at I, or nil when it is broken.
+A value is braced text, quoted text or a macro or number, joined by `#'."
+  (catch 'done
+    (while t
+      (setq i (sp-bibtex-abstract--skip-space text i))
+      (when (>= i (length text)) (throw 'done nil))
+      (pcase (aref text i)
+        (?{ (let ((depth 0))
+              (while (progn
+                       (pcase (aref text i)
+                         (?{ (cl-incf depth))
+                         (?} (cl-decf depth)))
+                       (cl-incf i)
+                       (when (and (> depth 0) (>= i (length text))) (throw 'done nil))
+                       (> depth 0)))))
+        (?\" (let ((depth 0) (open t))
+               (cl-incf i)
+               (while (and open (< i (length text)))
+                 (pcase (aref text i)
+                   (?{ (cl-incf depth))
+                   (?} (cl-decf depth))
+                   (?\" (when (<= depth 0) (setq open nil))))
+                 (cl-incf i))
+               (when open (throw 'done nil))))
+        (_ (let ((start i))
+             (while (and (< i (length text))
+                         (not (memq (aref text i) '(?, ?# ?\s ?\t ?\n ?\r ?} ?\)))))
+               (cl-incf i))
+             (when (= i start) (throw 'done nil)))))
+      (let ((next (sp-bibtex-abstract--skip-space text i)))
+        (if (and (< next (length text)) (eq (aref text next) ?#))
+            (setq i (1+ next))
+          (throw 'done i))))))
+
+(defun sp-bibtex-abstract--fields (text)
+  "The fields of the entry TEXT, as a list of (NAME NAME-START VALUE-START VALUE-END).
+The indexes are in TEXT; the value includes its braces or quotes.  A field that
+cannot be read ends the list."
+  (when (string-match "\\`[ \t\n]*@[[:alpha:]]+[ \t\n]*[{(][^,]*," text)
+    (let ((i (match-end 0)) fields)
+      (catch 'stop
+        (while t
+          (setq i (sp-bibtex-abstract--skip-space text i))
+          (while (and (< i (length text)) (eq (aref text i) ?,))
+            (setq i (sp-bibtex-abstract--skip-space text (1+ i))))
+          (unless (string-match "\\([[:alnum:]_:.-]+\\)[ \t\n]*=" text i)
+            (throw 'stop nil))
+          (unless (= (match-beginning 0) i) (throw 'stop nil))
+          (let* ((name (match-string 1 text))
+                 (name-start i)
+                 (value-start (sp-bibtex-abstract--skip-space text (match-end 0)))
+                 (value-end (sp-bibtex-abstract--value-end text value-start)))
+            (unless value-end (throw 'stop nil))
+            (push (list name name-start value-start value-end) fields)
+            (setq i value-end))))
+      (nreverse fields))))
+
+(defun sp-bibtex-abstract--field (text name)
+  "The field NAME of the entry TEXT (see `sp-bibtex-abstract--fields'), ignoring case, or nil."
+  (seq-find (lambda (f) (string-equal-ignore-case (car f) name))
+            (sp-bibtex-abstract--fields text)))
+
+(defun sp-bibtex-abstract--value (text field)
+  "The raw value, with its braces, of FIELD in the entry TEXT."
+  (substring text (nth 2 field) (nth 3 field)))
+
+(defun sp-bibtex-abstract--other-fields (text)
+  "The fields of the entry TEXT except the abstract, as (NAME . VALUE) pairs."
+  (mapcar (lambda (f) (cons (downcase (car f)) (sp-bibtex-abstract--value text f)))
+          (seq-remove (lambda (f) (string-equal-ignore-case (car f) "abstract"))
+                      (sp-bibtex-abstract--fields text))))
+
+(defun sp-bibtex-abstract--remove (text)
+  "The entry TEXT without its abstract field.
+Signal an error when the field is not there or when another field would change."
+  (let* ((field (or (sp-bibtex-abstract--field text "abstract")
+                    (error "No abstract field")))
+         (line-start (let ((p (nth 1 field)))
+                       (while (and (> p 0) (/= (aref text (1- p)) ?\n)) (cl-decf p))
+                       p))
+         (alone (and (> line-start 0)
+                     (string-blank-p (substring text line-start (nth 1 field)))))
+         (beg (if alone line-start (nth 1 field)))
+         (end (let ((i (nth 3 field)))
+                (while (and (< i (length text)) (memq (aref text i) '(?\s ?\t))) (cl-incf i))
+                (when (and (< i (length text)) (eq (aref text i) ?,)) (cl-incf i))
+                (while (and (< i (length text)) (memq (aref text i) '(?\s ?\t))) (cl-incf i))
+                (if (and (< i (length text)) (eq (aref text i) ?\n)) (1+ i) i)))
+         (new (concat (substring text 0 beg) (substring text end))))
+    (unless (and (equal (sp-bibtex-abstract--other-fields text)
+                        (sp-bibtex-abstract--other-fields new))
+                 (null (sp-bibtex-abstract--field new "abstract")))
+      (error "Removing the abstract would change another field"))
+    new))
+
+(defconst sp-bibtex-abstract--commands
+  '(("emph" . "/%s/") ("textit" . "/%s/") ("textsl" . "/%s/") ("textbf" . "*%s*")
+    ("texttt" . "~%s~") ("url" . "%s") ("textsc" . "%s") ("textrm" . "%s")
+    ("textsf" . "%s") ("mbox" . "%s") ("text" . "%s") ("bibstring" . "%s"))
+  "LaTeX commands with one argument and the Org text they become (%s is the argument).")
+
+(defun sp-bibtex-abstract--convert-text (text)
+  "The LaTeX TEXT, with no math in it, as Org text; return (ORG . LEFT).
+LEFT lists the commands that stayed."
+  (let ((s (sp-author-notes-latex-to-unicode text))
+        (case-fold-search nil)
+        left)
+    (dolist (pair '(("\\\\\\$" . "") ("\\\\{" . "") ("\\\\}" . "")
+                    ("\\\\&" . "&") ("\\\\%" . "%") ("\\\\_" . "_") ("\\\\#" . "#")))
+      (setq s (replace-regexp-in-string (car pair) (cdr pair) s t t)))
+    (let ((changed t))
+      (while changed
+        (setq changed nil)
+        (setq s (replace-regexp-in-string
+                 "\\\\\\([[:alpha:]]+\\)[ \t\n]*{\\([^{}]*\\)}"
+                 (lambda (m)
+                   (save-match-data
+                     (string-match "\\\\\\([[:alpha:]]+\\)[ \t\n]*{\\(.*\\)}" m)
+                     (if-let* ((rule (assoc (match-string 1 m) sp-bibtex-abstract--commands)))
+                         (progn (setq changed t)
+                                (format (cdr rule) (match-string 2 m)))
+                       ;; Unknown: it stays as written, braces included.
+                       (replace-regexp-in-string
+                        "}" "\ue002" (replace-regexp-in-string "{" "\ue001" m t t) t t))))
+                 s t t))))
+    (setq s (replace-regexp-in-string "---" "—" s t t))
+    (setq s (replace-regexp-in-string "--" "–" s t t))
+    (setq s (replace-regexp-in-string "``" "“" s t t))
+    (setq s (replace-regexp-in-string "''" "”" s t t))
+    (setq s (replace-regexp-in-string "\\\\\\\\\\|\\\\ \\|~" " " s t t))
+    (setq s (replace-regexp-in-string "[{}]" "" s t t))
+    (let ((start 0))
+      (while (string-match "\\\\[[:alpha:]]+" s start)
+        (cl-pushnew (match-string 0 s) left :test #'equal)
+        (setq start (match-end 0))))
+    (dolist (pair '(("" . "$") ("" . "{") ("" . "}")))
+      (setq s (replace-regexp-in-string (car pair) (cdr pair) s t t)))
+    (cons s (nreverse left))))
+
+(defun sp-bibtex-abstract--convert-paragraph (text)
+  "The paragraph TEXT as one line of Org text; return (ORG . LEFT).
+Text between dollar signs is math and stays as written."
+  (let ((start 0) (pieces nil) left)
+    (while (string-match "\\$\\$[^$]*\\$\\$\\|\\$[^$\n]+\\$" text start)
+      (when (> (match-beginning 0) start)
+        (push (substring text start (match-beginning 0)) pieces))
+      (push (cons 'math (match-string 0 text)) pieces)
+      (setq start (match-end 0)))
+    (when (< start (length text)) (push (substring text start) pieces))
+    (let ((org (mapconcat
+                (lambda (piece)
+                  (if (consp piece)
+                      (cdr piece)
+                    (let ((done (sp-bibtex-abstract--convert-text piece)))
+                      (setq left (append left (cdr done)))
+                      (car done))))
+                (nreverse pieces) "")))
+      (cons (string-trim (replace-regexp-in-string "[ \t\n]+" " " org)) left))))
+
+(defun sp-bibtex-abstract--convert (raw)
+  "The BibTeX value RAW of an abstract as Org text; return (ORG . LEFT), or nil.
+LEFT lists the LaTeX commands that were not converted.  The result is nil for
+a value that is a macro or a concatenation, which has no text to move."
+  (when-let* ((unwrapped (sp-bibtex--unwrap raw)))
+    (let* ((paragraphs (split-string (car unwrapped) "\n[ \t]*\n[ \t\n]*" t "[ \t\n]+"))
+           (left nil)
+           (converted (mapcar (lambda (p)
+                                   (let ((done (sp-bibtex-abstract--convert-paragraph p)))
+                                     (setq left (append left (cdr done)))
+                                     (let ((line (car done)))
+                                       (if (string-match-p "\\`\\(\\*\\|#\\+\\)" line)
+                                           (concat "," line)
+                                         line))))
+                                 paragraphs))
+           (kept (seq-remove #'string-empty-p converted)))
+      (cons (string-join kept "\n\n") (delete-dups left)))))
+
+(defun sp-bibtex-abstract--norm (text)
+  "TEXT with each run of white space as one space, and no space at the ends."
+  (string-trim (replace-regexp-in-string "[ \t\n\r]+" " " (or text ""))))
+
+(defun sp-bibtex-abstract--section ()
+  "The abstract section of the current buffer, or nil.
+Return a plist: :heading (start of the heading line), :content (after the
+heading line and its property drawer) and :end (start of the next heading, or the
+end of the buffer)."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (when (re-search-forward
+               (format "^\\* %s[ \t]*\\(?::[[:alnum:]_@#%%:]+:\\)?[ \t]*$"
+                       (regexp-quote sp-bibtex-abstract-heading))
+               nil t)
+          (let* ((heading (match-beginning 0))
+                 (content (progn (forward-line 1) (point)))
+                 (case-fold-search t))
+            (when (looking-at "[ \t]*:PROPERTIES:[ \t]*\n\\(?:.*\n\\)*?[ \t]*:END:[ \t]*\n")
+              (setq content (match-end 0)))
+            (goto-char content)
+            (list :heading heading :content content
+                  :end (if (re-search-forward "^\\*+[ \t]" nil t)
+                           (match-beginning 0)
+                         (point-max)))))))))
+
+(defun sp-bibtex-abstract--note-state (text)
+  "What the note in the current buffer holds about the abstract TEXT.
+Return (STATE . EXISTING): `create' (no heading), `fill' (an empty heading),
+`same' (the heading has TEXT) or `conflict' (it has another text, which is EXISTING)."
+  (if-let* ((section (sp-bibtex-abstract--section)))
+      (let ((body (sp-bibtex-abstract--norm
+                   (buffer-substring-no-properties (plist-get section :content)
+                                                   (plist-get section :end)))))
+        (cond ((string-empty-p body) (cons 'fill nil))
+              ((equal body (sp-bibtex-abstract--norm text)) (cons 'same body))
+              (t (cons 'conflict body))))
+    (cons 'create nil)))
+
+(defun sp-bibtex-abstract--file-state (file text)
+  "The state of the abstract TEXT in the note FILE as it is on disk, see `sp-bibtex-abstract--note-state'."
+  (with-temp-buffer
+    (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+    (sp-bibtex-abstract--note-state text)))
+
+(defun sp-bibtex-abstract--put (text)
+  "Put the abstract TEXT under its heading in the current buffer.
+Return `added' (a new heading), `filled' (an empty heading), or `same' (it is
+there already, nothing is changed).  Signal an error for another text."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (pcase (sp-bibtex-abstract--note-state text)
+        (`(same . ,_) 'same)
+        (`(conflict . ,_)
+         (error "The note has a different %s" sp-bibtex-abstract-heading))
+        (`(fill . ,_)
+         (let ((section (sp-bibtex-abstract--section)))
+           (delete-region (plist-get section :content) (plist-get section :end))
+           (goto-char (plist-get section :content))
+           (insert "\n" text "\n" (if (eobp) "" "\n"))
+           'filled))
+        (_
+         (goto-char (sp-author-notes--first-heading))
+         (when (and (eobp) (not (bolp))) (insert "\n"))
+         (unless (or (bobp) (looking-back "\n\n" 2))
+           (insert (if (bolp) "\n" "\n\n")))
+         (insert (format "* %s\n\n%s\n" sp-bibtex-abstract-heading text))
+         (unless (eobp) (insert "\n"))
+         'added)))))
+
+(defun sp-bibtex-abstract--backup (file dir)
+  "Copy FILE into the folder DIR, once: the first copy is the text from before the run."
+  (make-directory dir t)
+  (let ((target (expand-file-name (file-name-nondirectory file) dir)))
+    (unless (file-exists-p target) (copy-file file target nil t))))
+
+(defun sp-bibtex-abstract--write-note (file text dir)
+  "Write the abstract TEXT into the note FILE, after a copy of it in DIR; read it back.
+Return `added', `filled' or `same'.  Signal an error when the note has unsaved
+changes that cannot be saved, has a different abstract, would lose a line, or
+does not hold TEXT when read again from disk."
+  (let ((buf (progn (sp-batch-report-flush-file
+                     ;; Unsaved changes of a buffer are saved; the disk text goes to `before-save/'.
+                     file (lambda (f) (sp-bibtex-abstract--backup f (expand-file-name "before-save/" dir))))
+                    (find-buffer-visiting file)))
+        result)
+    (when (and buf (buffer-modified-p buf))
+      (user-error "%s has unsaved changes" (file-name-nondirectory file)))
+    (sp-bibtex-abstract--backup file dir)
+    (with-current-buffer (or buf (find-file-noselect file))
+      (let ((before (buffer-substring-no-properties (point-min) (point-max))))
+        (setq result (sp-bibtex-abstract--put text))
+        (unless (eq result 'same)
+          (sp-litnotes-meta--verify-kept before file buf)
+          (save-buffer))))
+    (if sp-batch-report-save-and-kill
+        (sp-batch-report-close-file file)
+      (unless buf (when-let* ((b (find-buffer-visiting file))) (kill-buffer b))))
+    (unless (eq result 'same)
+      (when (fboundp 'vulpea-db-update-file)
+        (ignore-errors (vulpea-db-update-file file))))
+    (unless (eq (car (sp-bibtex-abstract--file-state file text)) 'same)
+      (error "%s does not hold the abstract when read again; the abstract stays in BibTeX"
+             (file-name-nondirectory file)))
+    result))
+
+(defun sp-bibtex-abstract--excerpt (text &optional width)
+  "TEXT on one line, cut to WIDTH (default 60) characters."
+  (truncate-string-to-width (sp-bibtex-abstract--norm text) (or width 60) nil nil "…"))
+
+(defun sp-bibtex-abstract--classify (item covered)
+  "ITEM, a plan item without a state, with :state and the rest filled in.
+COVERED is the hash table of `sp-author-notes-bibtex--covered'."
+  (let* ((raw (plist-get item :raw))
+         (converted (sp-bibtex-abstract--convert raw))
+         (note (gethash (plist-get item :key) covered)))
+    (cond
+     ((null converted)
+      (append item (list :state 'problem
+                         :problems (list "the abstract is a string macro or a concatenation, left as it is"))))
+     ((string-empty-p (car converted))
+      (append item (list :state 'problem :problems (list "the abstract is empty, left as it is"))))
+     ((null note)
+      (append item (list :state 'no-note :text (car converted) :left (cdr converted))))
+     (t
+      (let ((state (sp-bibtex-abstract--file-state note (car converted))))
+        (append item (list :state (car state) :existing (cdr state) :note note
+                           :text (car converted) :left (cdr converted))))))))
+
+(defun sp-bibtex-abstract--entry-items (file)
+  "The entries of the .bib FILE that have an abstract field, as plan items without a state.
+Each is a plist: :file :key :start :end :old :raw.  An entry that cannot be
+read but seems to have an abstract is a `problem' item."
+  (let (items)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (delay-mode-hooks (bibtex-mode))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
+        (let ((beg (match-beginning 0)))
+          (goto-char beg)
+          (let* ((entry (ignore-errors (bibtex-parse-entry)))
+                 (type (cdr (assoc "=type=" entry)))
+                 (key (cdr (assoc "=key=" entry)))
+                 (end (and entry (ignore-errors (bibtex-end-of-entry)))))
+            (if (not (and entry key end (not (member (downcase type) '("string" "preamble" "comment")))))
+                (goto-char (min (point-max) (1+ beg)))
+              (let* ((start (save-excursion (goto-char beg) (skip-chars-forward " \t") (point)))
+                     (old (buffer-substring-no-properties start end))
+                     (field (sp-bibtex-abstract--field old "abstract")))
+                (when field
+                  (push (list :file file :key key :start start :end end :old old
+                              :raw (sp-bibtex-abstract--value old field))
+                        items)))
+              (goto-char end))))))
+    (nreverse items)))
+
+(defun sp-bibtex-abstract--plans (file)
+  "The plan of the abstracts of the .bib FILE: a list of items, see `sp-bibtex-abstract--classify'."
+  (let* ((items (sp-bibtex-abstract--entry-items file))
+         (covered (sp-author-notes-bibtex--covered))
+         (lines (sp-bibtex-lint--lines file (mapcar (lambda (i) (plist-get i :start)) items))))
+    (cl-mapcar (lambda (item line)
+                 (sp-bibtex-abstract--classify (append item (list :line line)) covered))
+               items lines)))
+
+(defun sp-bibtex-abstract--movable-p (plan)
+  "Non-nil when the abstract of PLAN can move to its note."
+  (memq (plist-get plan :state) '(create fill same)))
+
+(defun sp-bibtex-abstract--excluded-p (plan)
+  "Non-nil when the entry of PLAN was dropped from the report."
+  (member (sp-bibtex-lint--entry-key (plist-get plan :file) (plist-get plan :key))
+          sp-bibtex-abstract--excluded))
+
+(defun sp-bibtex-abstract--action (plan)
+  "What the fix does for PLAN, as text for the report."
+  (concat (pcase (plist-get plan :state)
+            ('create (format "new %s heading" sp-bibtex-abstract-heading))
+            ('fill (format "fills the empty %s heading" sp-bibtex-abstract-heading))
+            ('same "already in the note; only the field goes"))
+          (when-let* ((left (plist-get plan :left)))
+            (format "; LaTeX kept: %s" (string-join left " ")))))
+
+(defun sp-bibtex-abstract--entry-link (plan)
+  "The Org link to the entry of PLAN."
+  (sp-batch-report-file-link (plist-get plan :file) (plist-get plan :key) (plist-get plan :line)))
+
+(defun sp-bibtex-abstract--note-link (plan)
+  "The Org link to the note of PLAN."
+  (sp-batch-report-file-link (plist-get plan :note)))
+
+(defun sp-bibtex-abstract--item (plan row)
+  "The report item of PLAN with the table ROW."
+  (sp-batch-report-item nil :row row
+                        :file (plist-get plan :file) :line (plist-get plan :line)
+                        :key (sp-bibtex-lint--entry-key (plist-get plan :file) (plist-get plan :key))))
+
+(defun sp-bibtex-abstract--sections (plans)
+  "The report sections for PLANS."
+  (let ((of (lambda (state) (seq-filter (lambda (p) (eq (plist-get p :state) state)) plans))))
+    (list
+     (sp-batch-report-table-section
+      "Abstracts to move" '("Entry" "Note" "What happens" "Abstract")
+      (mapcar (lambda (p)
+                (sp-bibtex-abstract--item
+                 p (list (sp-bibtex-abstract--entry-link p) (sp-bibtex-abstract--note-link p)
+                         (sp-bibtex-abstract--action p)
+                         (sp-bibtex-abstract--excerpt (plist-get p :text)))))
+              (seq-filter #'sp-bibtex-abstract--movable-p plans))
+      "no entry has an abstract that can move")
+     (sp-batch-report-table-section
+      "Different abstract in the note (not touched)" '("Entry" "Note" "In BibTeX" "In the note")
+      (mapcar (lambda (p)
+                (sp-bibtex-abstract--item
+                 p (list (sp-bibtex-abstract--entry-link p) (sp-bibtex-abstract--note-link p)
+                         (sp-bibtex-abstract--excerpt (plist-get p :text) 80)
+                         (sp-bibtex-abstract--excerpt (plist-get p :existing) 80))))
+              (funcall of 'conflict))
+      "none")
+     (sp-batch-report-table-section
+      "No litnote (skipped)" '("Entry" "Abstract")
+      (mapcar (lambda (p)
+                (sp-bibtex-abstract--item
+                 p (list (sp-bibtex-abstract--entry-link p)
+                         (sp-bibtex-abstract--excerpt (plist-get p :text)))))
+              (funcall of 'no-note))
+      "none")
+     (sp-batch-report-table-section
+      "Problems" '("Entry" "Problem")
+      (mapcar (lambda (p)
+                (sp-bibtex-abstract--item
+                 p (list (sp-bibtex-abstract--entry-link p)
+                         (string-join (plist-get p :problems) "; "))))
+              (funcall of 'problem))
+      "none"))))
+
+(defun sp-bibtex-abstract--report-text (file plans excluded)
+  "The text of the report for the PLANS of FILE, without the dropped entries EXCLUDED."
+  (let ((movable (seq-count #'sp-bibtex-abstract--movable-p plans)))
+    (sp-batch-report-text
+     (format "BibTeX abstracts of %s" (file-name-nondirectory file))
+     (sp-bibtex-abstract--sections plans)
+     :excluded excluded
+     :intro (concat
+             (format "- %d entr%s with an abstract in %s; %d can move to its litnote.\n"
+                     (length plans) (if (= 1 (length plans)) "y" "ies")
+                     (sp-batch-report-file-link file) movable)
+             "- Nothing is written by this report.  The fix writes the note first, reads it back, and only then removes the field from the .bib file (a copy of both is kept).\n"
+             "- The abstract is converted to Org: LaTeX accents and simple commands become text, math between dollar signs stays as written.\n"
+             (format "- =d= drops an entry for later, =u= brings it back, =A= moves the rest (%d at a time), =g= refreshes.\n"
+                     (or sp-batch-report-batch-size (max 1 movable)))))))
+
+(defun sp-bibtex-abstract--show (file plans)
+  "Show the report of PLANS for the .bib FILE."
+  (sp-batch-report-open
+   sp-bibtex-abstract--buffer
+   (sp-bibtex-abstract--report-text file plans sp-bibtex-abstract--excluded)
+   :refresh (lambda (excluded) (sp-bibtex-lint-abstract-dryrun file excluded))
+   :apply (lambda (excluded)
+            (setq sp-bibtex-abstract--excluded excluded)
+            (sp-bibtex-lint-fix-abstract file))
+   :excluded sp-bibtex-abstract--excluded))
+
+;;;###autoload
+(defun sp-bibtex-lint-abstract-dryrun (file &optional excluded)
+  "List what moving the abstracts of the .bib FILE to the litnotes would do; write nothing.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  The report lists the
+abstracts that can move, those whose note has another abstract, the entries
+without a litnote and the abstracts that cannot be converted.  EXCLUDED lists
+the entries dropped with \\`d' in the report.  Return the plans."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (setq sp-bibtex-abstract--excluded excluded)
+  (let ((plans (sp-bibtex-abstract--plans file)))
+    (sp-bibtex-abstract--show file plans)
+    plans))
+
+(defun sp-bibtex-abstract--sha (file)
+  "The SHA-1 of the bytes of FILE."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (secure-hash 'sha1 (current-buffer))))
+
+(defun sp-bibtex-abstract--manifest-file (dir)
+  "The manifest of the run folder DIR."
+  (expand-file-name "manifest.eld" dir))
+
+(defun sp-bibtex-abstract--write-manifest (dir manifest)
+  "Write MANIFEST, a plist, to the run folder DIR."
+  (with-temp-file (sp-bibtex-abstract--manifest-file dir)
+    (let ((print-length nil) (print-level nil))
+      (prin1 manifest (current-buffer)))))
+
+(defun sp-bibtex-abstract--remove-from-bib (file verified dir manifest)
+  "Remove the abstract field of the plans VERIFIED from the .bib FILE.
+DIR is the run folder and MANIFEST its manifest, completed here.  Return (REMOVED
+. STALE): the keys removed, and how many entries changed since the plan."
+  (sp-bibtex-lint--unsaved-check file)
+  (let ((work (generate-new-buffer " *sp-bibtex-abstract-work*"))
+        removed (stale 0))
+    (unwind-protect
+        (progn
+          (with-current-buffer work
+            (insert-file-contents file)
+            (dolist (plan (sort (copy-sequence verified)
+                                (lambda (a b) (> (plist-get a :start) (plist-get b :start)))))
+              (let ((start (plist-get plan :start)) (end (plist-get plan :end)))
+                (if (or (> end (point-max))
+                        (not (equal (plist-get plan :old)
+                                    (buffer-substring-no-properties start end))))
+                    (cl-incf stale)
+                  (let ((new (condition-case nil
+                                 (sp-bibtex-abstract--remove (plist-get plan :old))
+                               (error nil))))
+                    (if (null new)
+                        (cl-incf stale)
+                      (goto-char start)
+                      (delete-region start end)
+                      (insert new)
+                      (push (plist-get plan :key) removed)))))))
+          (when removed
+            (sp-bibtex-abstract--write-manifest dir (plist-put (copy-sequence manifest) :keys removed))
+            (sp-bibtex-lint--save work file)
+            (sp-bibtex-abstract--write-manifest
+             dir (plist-put (plist-put (copy-sequence manifest) :keys removed)
+                            :bib-sha (sp-bibtex-abstract--sha file)))))
+      (kill-buffer work))
+    (cons removed stale)))
+
+(defun sp-bibtex-abstract--move-one (plan dir)
+  "Write the abstract of PLAN into its note, kept in DIR; return the SHA-1 of the note, or nil.
+Nil means nothing was written (the note had the abstract already)."
+  (let ((done (sp-bibtex-abstract--write-note (plist-get plan :note) (plist-get plan :text) dir)))
+    (unless (eq done 'same) (sp-bibtex-abstract--sha (plist-get plan :note)))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-abstract (file)
+  "Move the abstracts of the .bib FILE into the litnotes of their entries.
+FILE is the .bib file of the current buffer; with a prefix argument, or when
+the buffer is not a .bib file, it is read with completion.  Run
+`sp-bibtex-lint-abstract-dryrun' first to see the plan.
+
+- Asks once, then goes through the entries in batches of
+  `sp-batch-report-batch-size'.
+- Each abstract goes under the `* Abstract' heading of its note (made when
+  missing); the note is saved and read again.  Only then the field is removed
+  from the .bib file, which is written once at the end.
+- A note that has another abstract, an entry without a note and an abstract
+  that cannot be converted are left alone; the report lists them.
+- The .bib file and the changed notes are copied first to a folder of
+  `sp-bibtex-abstract-backup-directory'; `sp-bibtex-lint-abstract-restore'
+  puts them back."
+  (interactive (list (sp-bibtex-lint--read-file current-prefix-arg)))
+  (sp-bibtex-lint--unsaved-check file)
+  (let* ((plans (sp-bibtex-abstract--plans file))
+         (todo (seq-remove #'sp-bibtex-abstract--excluded-p
+                           (seq-filter #'sp-bibtex-abstract--movable-p plans))))
+    (sp-bibtex-abstract--show file plans)
+    (cond
+     ((null todo) (message "No abstract to move in %s" (file-name-nondirectory file)) nil)
+     ((yes-or-no-p (format "Move the abstract of %d entr%s of %s to the litnotes (backups in %s)? "
+                           (length todo) (if (= 1 (length todo)) "y" "ies")
+                           (file-name-nondirectory file)
+                           (abbreviate-file-name sp-bibtex-abstract-backup-directory)))
+      (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
+             (dir (expand-file-name (concat stamp "/") sp-bibtex-abstract-backup-directory))
+             (signature (sp-bibtex-lint--signature file))
+             verified failed notes run)
+        (sp-bibtex-abstract--backup file dir)
+        (setq run (sp-batch-report-run-batches
+                   todo
+                   (lambda (plan _decision)
+                     (condition-case err
+                         (let ((sha (sp-bibtex-abstract--move-one plan dir)))
+                           (when sha (push (cons (plist-get plan :note) sha) notes))
+                           (push plan verified))
+                       (error (push (format "%s: %s" (plist-get plan :key) (error-message-string err))
+                                    failed))))
+                   :label "Move abstracts"
+                   :describe (lambda (p) (format "%s: %s" (plist-get p :key)
+                                                 (sp-bibtex-abstract--action p)))))
+        (let ((result (if (null verified)
+                          (cons nil 0)
+                        (unless (equal signature (sp-bibtex-lint--signature file))
+                          (user-error "%s changed on disk during the run; the abstracts are in the notes, run the command again to remove them from BibTeX"
+                                      (file-name-nondirectory file)))
+                        (sp-bibtex-abstract--remove-from-bib
+                         file verified dir
+                         (list :bib file :bib-name (file-name-nondirectory file)
+                               :notes (nreverse notes) :time stamp)))))
+          (message "BibTeX abstracts of %s: %d moved%s%s%s; backups in %s"
+                   (file-name-nondirectory file) (length (car result))
+                   (if (> (cdr result) 0) (format ", %d changed since the plan, left" (cdr result)) "")
+                   (if failed (format ", %d failed (%s)" (length failed) (string-join (reverse failed) "; ")) "")
+                   (sp-batch-report-batches-note run)
+                   (abbreviate-file-name dir))
+          (sp-bibtex-abstract--show file (sp-bibtex-abstract--plans file))
+          (car result)))))))
+
+(defun sp-bibtex-abstract--entry-at-point ()
+  "The plan of the entry at point in the current BibTeX buffer."
+  (save-excursion
+    (bibtex-beginning-of-entry)
+    (let* ((beg (point))
+           (entry (or (ignore-errors (bibtex-parse-entry)) (user-error "Cannot read the entry at point")))
+           (end (progn (bibtex-end-of-entry) (point)))
+           (key (cdr (assoc "=key=" entry)))
+           (old (buffer-substring-no-properties beg end))
+           (field (sp-bibtex-abstract--field old "abstract")))
+      (unless field (user-error "%s has no abstract field" key))
+      (sp-bibtex-abstract--classify
+       (list :file buffer-file-name :key key :start beg :end end :old old
+             :raw (sp-bibtex-abstract--value old field))
+       (sp-author-notes-bibtex--covered)))))
+
+;;;###autoload
+(defun sp-bibtex-lint-abstract-entry (&optional dry-run)
+  "Move the abstract of the entry at point to its litnote.
+It says what it would do and asks first.  With a prefix argument DRY-RUN it
+only says.  The note is written and read back before the field leaves the
+buffer; the buffer is not saved, so \\[undo] brings the field back."
+  (interactive "P")
+  (unless (derived-mode-p 'bibtex-mode)
+    (user-error "Not in a BibTeX buffer"))
+  (let* ((plan (sp-bibtex-abstract--entry-at-point))
+         (key (plist-get plan :key)))
+    (pcase (plist-get plan :state)
+      ('problem (user-error "%s: %s" key (string-join (plist-get plan :problems) "; ")))
+      ('no-note (user-error "%s has no litnote; make it first" key))
+      ('conflict (user-error "%s: the note already has a different %s (%s); nothing changed"
+                             key sp-bibtex-abstract-heading
+                             (abbreviate-file-name (plist-get plan :note))))
+      (_
+       (cond
+        (dry-run (message "%s: %s in %s" key (sp-bibtex-abstract--action plan)
+                          (file-name-nondirectory (plist-get plan :note))))
+        ((y-or-n-p (format "Move the abstract of %s to %s (%s)? " key
+                           (file-name-nondirectory (plist-get plan :note))
+                           (sp-bibtex-abstract--action plan)))
+         (let* ((dir (expand-file-name (concat (format-time-string "%Y%m%dT%H%M%S") "/")
+                                       sp-bibtex-abstract-backup-directory))
+                (new (sp-bibtex-abstract--remove (plist-get plan :old))))
+           (sp-bibtex-abstract--move-one plan dir)
+           (save-excursion
+             (bibtex-beginning-of-entry)
+             (let ((beg (point)))
+               (unless (equal (plist-get plan :old)
+                              (buffer-substring-no-properties beg (min (point-max) (+ beg (length (plist-get plan :old))))))
+                 (user-error "The entry changed meanwhile; the abstract is in the note and stays in BibTeX"))
+               (delete-region beg (+ beg (length (plist-get plan :old))))
+               (insert new)))
+           (message "%s: abstract moved to %s (not saved; undo brings it back)"
+                    key (file-name-nondirectory (plist-get plan :note))))))))))
+
+(defun sp-bibtex-abstract--runs ()
+  "The run folders of `sp-bibtex-abstract-backup-directory' that have a manifest, newest first."
+  (when (file-directory-p sp-bibtex-abstract-backup-directory)
+    (seq-filter (lambda (d) (file-exists-p (sp-bibtex-abstract--manifest-file d)))
+                (sort (seq-filter #'file-directory-p
+                                  (directory-files sp-bibtex-abstract-backup-directory t "\\`[0-9]"))
+                      (lambda (a b) (string> a b))))))
+
+(defun sp-bibtex-abstract--read-manifest (dir)
+  "The manifest, a plist, of the run folder DIR."
+  (with-temp-buffer
+    (insert-file-contents (sp-bibtex-abstract--manifest-file dir))
+    (read (current-buffer))))
+
+(defun sp-bibtex-abstract--refresh-buffer (file)
+  "Bring the buffer that visits FILE up to date after the file was restored."
+  (when-let* ((buf (find-buffer-visiting file)))
+    (with-current-buffer buf (revert-buffer t t t)))
+  (when (fboundp 'vulpea-db-update-file)
+    (ignore-errors (vulpea-db-update-file file))))
+
+;;;###autoload
+(defun sp-bibtex-lint-abstract-restore (&optional dir)
+  "Put back the .bib file and the notes of a run of `sp-bibtex-lint-fix-abstract'.
+DIR is the run folder; it is read with completion (newest first) when nil.
+The .bib file is copied back from the run; if it changed after the run, the
+current text is kept in `before-restore/' of the run folder first.  A note is
+copied back only when it is still as the run left it; the others are listed."
+  (interactive)
+  (let* ((runs (or (sp-bibtex-abstract--runs) (user-error "No run to restore")))
+         (dir (or dir (completing-read "Restore the run: "
+                                       (mapcar #'file-name-nondirectory runs) nil t nil nil
+                                       (file-name-nondirectory (car runs)))))
+         (dir (file-name-as-directory (if (file-name-absolute-p dir) dir
+                                        (expand-file-name dir sp-bibtex-abstract-backup-directory))))
+         (manifest (sp-bibtex-abstract--read-manifest dir))
+         (bib (plist-get manifest :bib))
+         (saved (expand-file-name (plist-get manifest :bib-name) dir))
+         (changed (not (equal (plist-get manifest :bib-sha) (sp-bibtex-abstract--sha bib))))
+         restored left)
+    (unless (file-exists-p saved) (user-error "The backup %s is gone" saved))
+    (dolist (f (cons bib (mapcar #'car (plist-get manifest :notes))))
+      (when-let* ((b (find-buffer-visiting f))
+                  ((buffer-modified-p b)))
+        (user-error "Save or close %s first" (file-name-nondirectory f))))
+    (when (yes-or-no-p (format "Put back %s and %d note%s from %s%s? "
+                               (file-name-nondirectory bib)
+                               (length (plist-get manifest :notes))
+                               (if (= 1 (length (plist-get manifest :notes))) "" "s")
+                               (file-name-nondirectory (directory-file-name dir))
+                               (if changed "; the .bib file changed since, its current text is kept" "")))
+      (when changed
+        (make-directory (expand-file-name "before-restore/" dir) t)
+        (copy-file bib (expand-file-name (file-name-nondirectory bib) (expand-file-name "before-restore/" dir)) t))
+      (copy-file saved bib t)
+      (sp-bibtex-abstract--refresh-buffer bib)
+      (push bib restored)
+      (pcase-dolist (`(,note . ,sha) (plist-get manifest :notes))
+        (let ((copy (expand-file-name (file-name-nondirectory note) dir)))
+          (if (and (file-exists-p note) (file-exists-p copy)
+                   (equal sha (sp-bibtex-abstract--sha note)))
+              (progn (copy-file copy note t)
+                     (sp-bibtex-abstract--refresh-buffer note)
+                     (push note restored))
+            (push note left))))
+      (message "Restored %d file%s%s" (length restored) (if (= 1 (length restored)) "" "s")
+               (if left (format "; left as they are (changed since the run): %s"
+                                (mapconcat #'file-name-nondirectory (nreverse left) ", "))
+                 ""))
+      (nreverse restored))))
+
+(provide 'sp-bibtex-abstract)
+;;; sp-bibtex-abstract.el ends here
