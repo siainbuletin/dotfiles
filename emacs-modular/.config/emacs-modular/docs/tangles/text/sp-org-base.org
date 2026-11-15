@@ -1168,3 +1168,7 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
   - ✨ =sp-org-dblock-insert-template= is the one command for inserting dynamic blocks: its candidates are grouped by =:category= (=sp-org-dblock-category-order=), modules add templates through =sp-org-dblock-template-functions=, and =sp-org-dblock-disabled-names= (default =vulpea-collection=) hides blocks from Org's own insert menu.
+- [[https://github.com/siainbuletin/dotfiles/pull/543][#543]]
+  - ✨ Added =C-; "=, which inserts an Org quote block holding the latest kill ring item (=sp-org-insert-quote-from-kill=).
+    - an active region is wrapped instead, =C-u= gives an empty block, and the kill ring is not rotated.
+  - Details: [[*Quote block from the kill ring][Quote block from the kill ring]].

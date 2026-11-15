@@ -1435,3 +1435,7 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =C-; n a= (a see-also note), =C-; n e= (an endnote), =C-; n E= (the endnotes template) and =C-; n M= (convert the old see-also footnotes of the buffer) and =C-; n r= (renumber see-also notes and endnotes in the order of the text); all five work in an Org buffer
 - Pull request: this one (bare see-also note)
   - ✨ Added =C-; n A=: a see-also note without asking for a note to link
+- [[https://github.com/siainbuletin/dotfiles/pull/543][#543]]
+  - ✨ Added =C-; "=, which inserts an Org quote block holding the latest kill ring item (=sp-org-insert-quote-from-kill=).
+    - an active region is wrapped instead, =C-u= gives an empty block, and the kill ring is not rotated.
+  - Details: [[*Quote block][Quote block]].
