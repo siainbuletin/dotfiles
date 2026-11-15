@@ -2599,13 +2599,43 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
   (let ((attributes (file-attributes file)))
     (list (file-attribute-modification-time attributes) (file-attribute-size attributes))))
 
+(defun sp-bibtex-lint--refresh (file)
+  "Bring what depends on the .bib FILE up to date after it was written.
+The buffer that visits FILE is reverted without a question, and point stays where
+it was, unless it has unsaved changes: those are never discarded and the
+buffer is left alone, with a warning.  The citar cache is refreshed too."
+  (when-let* ((visiting (find-buffer-visiting file)))
+    (if (buffer-modified-p visiting)
+        (display-warning 'sp-bibtex-lint
+                         (format "%s has unsaved changes and was not reloaded; save it elsewhere and use `revert-buffer'"
+                                 (buffer-name visiting)))
+      (with-current-buffer visiting (revert-buffer t t t))))
+  (when (fboundp 'citar-refresh) (ignore-errors (citar-refresh))))
+
 (defun sp-bibtex-lint--save (work file)
   "Write the buffer WORK to FILE and bring the buffer that visits FILE up to date."
   (with-current-buffer work
     (write-region (point-min) (point-max) file nil 'silent))
-  (when-let* ((visiting (find-buffer-visiting file)))
-    (unless (buffer-modified-p visiting)
-      (with-current-buffer visiting (revert-buffer t t t)))))
+  (sp-bibtex-lint--refresh file))
+
+(defun sp-bibtex-lint--unsaved-resolve (file)
+  "Ask what to do when the buffer that visits FILE has unsaved changes; return non-nil to go on.
+`d' shows the unsaved changes as a diff, `r' checks again (after you saved the
+buffer), `s' skips: nothing is written and the buffer keeps its changes."
+  (let ((visiting (find-buffer-visiting file)) (go nil) (done nil))
+    (while (and (not done) visiting (buffer-modified-p visiting))
+      (pcase (car (read-multiple-choice
+                   (format "%s has unsaved changes. Writing would make it stale:"
+                           (file-name-nondirectory file))
+                   '((?d "diff" "show the unsaved changes")
+                     (?r "recheck" "I saved the buffer, check again")
+                     (?s "skip" "write nothing"))))
+        (?d (diff-buffer-with-file visiting))
+        (?r nil)
+        (?s (setq done t))))
+    (unless (and visiting (buffer-modified-p visiting))
+      (setq go t))
+    go))
 
 (defun sp-bibtex-lint--run (file kind results ask apply-fn &optional then whole)
   "Go through the entries of RESULTS with a fix of KIND for FILE, in batches.
@@ -3159,6 +3189,10 @@ other names stay.  Return the number of entries rewritten."
                            (insert-file-contents file)
                            (delay-mode-hooks (bibtex-mode)))
                          (sp-bibtex-merge--rewrite work mapping))))
+          (when (and (> changed 0) (not (sp-bibtex-lint--unsaved-resolve file)))
+            (message "BibTeX merge: %s has unsaved changes, nothing written"
+                     (file-name-nondirectory file))
+            (setq changed 0))
           (when (> changed 0)
             (unless (equal signature (sp-bibtex-lint--signature file))
               (user-error "%s changed on disk since it was linted; run the command again"
