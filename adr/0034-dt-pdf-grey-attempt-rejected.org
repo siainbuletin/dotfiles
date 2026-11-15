@@ -1,0 +1,43 @@
+#+title: 0034 A grey PDF background for DEVONthink through preferences (attempt, rejected)
+#+date: 2026-11-15
+#+status: rejected
+
+* Context
+- In dark mode DEVONthink 4 shows PDFs with a near-black page. I wanted a greyer one, and there is no setting for it in DEVONthink.
+- Observed on my Mac:
+  - bundle ID =com.devon-technologies.think=;
+  - =PDFBackground= already held a mid grey (red = green = blue = 0.4246723651885986, alpha 1, =NSCalibratedRGBColorSpace=);
+  - related keys: =FormViewBackground=, =FormViewBackgroundDark=, =FullScreenBackgroundColor=, =ImageBackground=;
+  - the known hidden key =DisablePDFDarkMode= (from a public note) turns off forced PDF dark mode.
+
+* What was tried
+- PR #520 added =dt-pdf-grey= (Stow package =devonthink-pdf-grey=, merged 2026-11-15, reverted in PR #522).
+  - It wrote =PDFBackground= as a grey (0 to 1, or a preset) with =defaults write=, with DEVONthink closed.
+  - It saved the original values once and had =--reset=, =--quit=, =--relaunch=, =--dry-run=.
+  - It had an optional =--disable-pdf-dark-mode=.
+- It was only tested on Linux with stubbed =defaults=, =plutil= and =pgrep=; the first real test was on my Mac.
+
+* What was found
+- Setting =PDFBackground= (0.2 and others) changed nothing visible in the PDF.
+- Only =--disable-pdf-dark-mode= had an effect: the PDF switches to the light appearance. It does not give a grey.
+- The stored value had the same types DEVONthink itself uses (=real= alpha, =string= components), so the write was well formed.
+- =strings= on the DEVONthink binary found only =PDFBackground=, =PDFBackgroundColor=, =setPDFBackgroundColor:= and =DisablePDFDarkMode= for PDF colour. There is no dark-specific or inversion-tint key.
+- =sdef /Applications/DEVONthink.app= has no PDF background property: every =background= match is text formatting or the imprint command.
+
+* Why it failed
+- Probably DEVONthink inverts the page itself in dark mode, and nothing exposes the tint.
+- =PDFBackground= is either unused or colours only something small, such as the margin around the page. That was not confirmed.
+- No documented route sets the colour: not a preference, not AppleScript.
+
+* Decision
+- The attempt is rejected and removed (PR #522). Nothing in the config sets a PDF background colour.
+- =DisablePDFDarkMode= works if the light appearance is wanted. It is a plain =defaults write com.devon-technologies.think DisablePDFDarkMode -bool true= with DEVONthink closed; no script.
+
+* Alternatives considered
+- *A Hammerspoon overlay* (=hs.canvas=, semi-transparent grey over the PDF window): tints the whole window, shifts the highlight colours, shows in screenshots. Not built, declined.
+- *A system-wide display tint*: not per application. Not tried.
+- *Another attempt with a new key*: only if a later DEVONthink version adds a setting; check its release notes first.
+
+* Consequences
+- Do not retry =PDFBackground= through =defaults= or AppleScript.
+- Anything left on the Mac: run =dt-pdf-grey --reset --quit --relaunch= before the revert is merged, and delete =~/.local/state/dt-pdf-grey=.

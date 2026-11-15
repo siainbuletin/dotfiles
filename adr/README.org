@@ -42,3 +42,5 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0030-litdb-indexes-only-highlighted-pages.org][0030]] | litdb indexes only the highlighted pages; DEVONthink search is the default | accepted |
 | [[file:0031-litnote-and-record-link-both-ways.org][0031]] | Link a litnote and its DEVONthink record in both directions | proposed, Emacs side done |
 | [[file:0032-reading-database-for-sync.org][0032]] | A small =reading= database syncs; =literature= stays on the Mac | accepted |
+| [[file:0033-page-labels-live-in-the-pdf.org][0033]] | Printed page numbers live in the PDF as page labels | accepted |
+| [[file:0034-dt-pdf-grey-attempt-rejected.org][0034]] | A grey PDF background for DEVONthink through preferences (attempt) | rejected |

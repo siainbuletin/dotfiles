@@ -2,15 +2,16 @@
 :PROPERTIES:
 :PR_NUMBER: 475
 :URL: https://github.com/siainbuletin/dotfiles/pull/475
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/475][https://github.com/siainbuletin/dotfiles/pull/475]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-14 13:52
+- Merged :: 2026-11-14 21:28
 - Branch :: =claude/project-thread-bnuc36= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c0d7a4096ae478771584924758ace7426bbaa143][c0d7a4096a]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/df1f28873c1d186c5e293b7e485eac3aee897fa7][df1f28873c]]
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2DYU7KiCLiPEkFZ1XxgUh76][project thread]]/

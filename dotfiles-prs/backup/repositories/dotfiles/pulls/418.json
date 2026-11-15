@@ -22,11 +22,11 @@
             "href": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/418"
         },
         "statuses": {
-            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/95360b34d231cbda939171b53ec76d4e8595b6d2"
+            "href": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e"
         }
     },
     "active_lock_reason": null,
-    "additions": 522,
+    "additions": 520,
     "assignee": {
         "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
         "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -132,8 +132,8 @@
             "name": "dotfiles",
             "node_id": "R_kgDOQOHyyA",
             "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
-            "open_issues": 19,
-            "open_issues_count": 19,
+            "open_issues": 17,
+            "open_issues_count": 17,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
                 "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -158,9 +158,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
-            "pushed_at": "2026-11-14T12:10:30Z",
+            "pushed_at": "2026-11-15T10:03:38Z",
             "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
-            "size": 115104,
+            "size": 117579,
             "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
@@ -179,7 +179,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "f2c58f4155ceed9b4b64450c9e3569964734c227",
+        "sha": "d39a9ff931642b8059dcb73efef1259077395cb4",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
             "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -203,8 +203,8 @@
         }
     },
     "body": "<!-- claude-projects-attribution: {\"github_login\":\"siainbuletin\"} -->\n_Requested by **Sia** · [project thread](https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK)_\n\nStep 3 of 5. **Base: `415-devonthink-browse-tags` (#415)**. Stack: #414 → #415 → #418 → #419 → #420. (Replaces #417, whose branch name did not match its number.)\n\n## What\n- `sp-devonthink-search` (`C-c k d f`): one front end over two engines. DEVONthink search by default (query passed as typed: `name:`, `kind:`, `tags:`, quotes, `AND`/`OR`/`NOT`; first 50 hits with kind and page count). `C-u` asks for the engine: `devonthink`, `litdb: meaning`, `litdb: words`, `litdb: both` (run through the existing `sp-litdb-search`).\n- Hits share the browser's category, so its Embark actions work, plus `s` similar records (DEVONthink \"see also\") and `v` text preview.\n- `sp-devonthink-similar-to-note` (`C-c k d a`).\n- Literate doc `docs/tangles/academic/sp-devonthink-search.org`; README row.\n\n## Not tested\n- AppleScript not run: `page count of`, `kind of`, `location of` on search results; `compare record … to database …`; `plain text of` with `text 1 thru N of`.\n- Tested here: 7 ERT tests and the tangle check.\n\n## Manual testing\nMac, fish, `~/.config/emacs-modular`, DEVONthink open on `literature`.\n- [ ] Check out: `cd ~/dotfiles; git fetch origin 418-devonthink-search; git checkout 418-devonthink-search`, restart Emacs.\n- [ ] Unit tests: `cd ~/.config/emacs-modular; for f in browse search; do emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-$f-test.el -f ert-run-tests-batch-and-exit; done` → 6 and 7 pass.\n- [ ] `C-c k d f`, query `Therborn` → hits in rank order, each annotated e.g. `PDF Document, 212 pages`; choosing one opens it in DEVONthink. Time it (design measured about 0.5 s).\n- [ ] Operators: `\"value form\" kind:pdf` returns only PDFs with the phrase; `name:okane` returns records by file name.\n- [ ] Embark (`C-.`) on a hit: `v` shows a `*devonthink preview*` buffer; `n` litnote; `t` tags.\n- [ ] `s` on a hit → \"Similar to KEY.pdf:\" list; choosing one opens it. In a litnote with `#+devonthink:`, `C-c k d a` does the same.\n- [ ] `C-u C-c k d f` → `litdb: meaning`, query `exchange abstraction` → page hits with scores like `C-c k l`; choosing one opens DEVONthink at that page (needs the litdb index: `C-c k I`). Try `litdb: words` and `litdb: both`.\n- [ ] Query `zzzzzzqq` → \"No records found\".\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC\n",
-    "changed_files": 10,
-    "closed_at": null,
+    "changed_files": 8,
+    "closed_at": "2026-11-14T21:07:46Z",
     "comment_data": [],
     "comment_regular_data": [
         {
@@ -1186,12 +1186,99 @@
             ],
             "sha": "95360b34d231cbda939171b53ec76d4e8595b6d2",
             "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/95360b34d231cbda939171b53ec76d4e8595b6d2"
+        },
+        {
+            "author": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+                "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+                "followers_url": "https://api.github.com/users/siainbuletin/followers",
+                "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+                "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/siainbuletin",
+                "id": 97026492,
+                "login": "siainbuletin",
+                "node_id": "U_kgDOBciBvA",
+                "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+                "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+                "repos_url": "https://api.github.com/users/siainbuletin/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/siainbuletin",
+                "user_view_type": "public"
+            },
+            "comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e/comments",
+            "commit": {
+                "author": {
+                    "date": "2026-11-14T21:07:31Z",
+                    "email": "97026492+siainbuletin@users.noreply.github.com",
+                    "name": "Sia Piperea"
+                },
+                "comment_count": 0,
+                "committer": {
+                    "date": "2026-11-14T21:07:31Z",
+                    "email": "noreply@github.com",
+                    "name": "GitHub"
+                },
+                "message": "Merge branch 'main' into 418-devonthink-search",
+                "tree": {
+                    "sha": "e0ff6c8ef814e4c5b1651d954f11a9f7dd5e0682",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/trees/e0ff6c8ef814e4c5b1651d954f11a9f7dd5e0682"
+                },
+                "url": "https://api.github.com/repos/siainbuletin/dotfiles/git/commits/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e",
+                "verification": {
+                    "payload": "tree e0ff6c8ef814e4c5b1651d954f11a9f7dd5e0682\nparent 95360b34d231cbda939171b53ec76d4e8595b6d2\nparent d39a9ff931642b8059dcb73efef1259077395cb4\nauthor Sia Piperea <97026492+siainbuletin@users.noreply.github.com> 1794690451 +0200\ncommitter GitHub <noreply@github.com> 1794690451 +0200\n\nMerge branch 'main' into 418-devonthink-search",
+                    "reason": "valid",
+                    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq+M2TCRC1aQ7uu5UhlAAAjy4QAAZQtuK/2adknWJO/qF4Mkjb\n6G5gtsYIALHWTOj2uyHHcxAPV8wJozNleUDBWBIWTYtGtd5ZgrK2xVFJ91191urQ\n+JG3wGHOlWFr41ZcA5OKJvRs7RpbjzHKgedGEO4JQdxKw03wrVAn0xLFD5bQ4qXe\nE1XJAOKPXe78t6w1wMqY0hVUdCyNQqBl2+MvMCMO4a226219iW/oWCivxwb/bNf4\nG40CDBofoo+7JLw+u9uSY7VPTPe0xrBTeQn5wefmhYXur0pD9sI58xVYkS7U77R1\nPgnXVvsfrZ3ULXlUPfCNoq/TraLn+VwjwPD61BwaGKWtmeMBmg+lucky2NfaWVAB\nINB56b+Tjc3DRM55qxpVNSgaZcFiAppeWxKWqxnC9PZqfjY1JWV9WX18IK2Wywtg\nFZYrKKCO+oLOCnPWXD8o0+4dIiXg7rt9kkYkk6kNiFSMbZm0uYz/TPxA04AVWg0F\nu6TF3+9+0pqttO5FqZIRVuRFHF3aq6oTg4HyB44N5+heIIZIcN1LuMbVoanEm0vk\nZor05vXKR9EmV8HNzaN2RejKPC/yPjCtnpnVTtLDjCptK5VmSrsJUZH8KCaKuxgz\nd1BG16qReuDA5DzWQc4IR+t4TBdvERvZ7zASEvNAGt4H78CDwg+bdlFL1cTZM2B/\nTjkRemwEIrOD110xLEeL\n=/ezN\n-----END PGP SIGNATURE-----\n",
+                    "verified": true,
+                    "verified_at": "2026-11-14T21:07:32Z"
+                }
+            },
+            "committer": {
+                "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+                "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+                "followers_url": "https://api.github.com/users/web-flow/followers",
+                "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+                "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+                "gravatar_id": "",
+                "html_url": "https://github.com/web-flow",
+                "id": 19864447,
+                "login": "web-flow",
+                "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+                "organizations_url": "https://api.github.com/users/web-flow/orgs",
+                "received_events_url": "https://api.github.com/users/web-flow/received_events",
+                "repos_url": "https://api.github.com/users/web-flow/repos",
+                "site_admin": false,
+                "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+                "type": "User",
+                "url": "https://api.github.com/users/web-flow",
+                "user_view_type": "public"
+            },
+            "html_url": "https://github.com/siainbuletin/dotfiles/commit/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e",
+            "node_id": "C_kwDOQOHyyNoAKDFhYTU4YzgxYmRhYTdkYzM0YjUzMDhhN2YyNjBjMWIwNDE0ZTk5MWU",
+            "parents": [
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/95360b34d231cbda939171b53ec76d4e8595b6d2",
+                    "sha": "95360b34d231cbda939171b53ec76d4e8595b6d2",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/95360b34d231cbda939171b53ec76d4e8595b6d2"
+                },
+                {
+                    "html_url": "https://github.com/siainbuletin/dotfiles/commit/d39a9ff931642b8059dcb73efef1259077395cb4",
+                    "sha": "d39a9ff931642b8059dcb73efef1259077395cb4",
+                    "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/d39a9ff931642b8059dcb73efef1259077395cb4"
+                }
+            ],
+            "sha": "1aa58c81bdaa7dc34b5308a7f260c1b0414e991e",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/commits/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e"
         }
     ],
-    "commits": 10,
+    "commits": 11,
     "commits_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/418/commits",
     "created_at": "2026-11-12T22:00:25Z",
-    "deletions": 6,
+    "deletions": 4,
     "diff_url": "https://github.com/siainbuletin/dotfiles/pull/418.diff",
     "draft": false,
     "head": {
@@ -1253,8 +1340,8 @@
             "name": "dotfiles",
             "node_id": "R_kgDOQOHyyA",
             "notifications_url": "https://api.github.com/repos/siainbuletin/dotfiles/notifications{?since,all,participating}",
-            "open_issues": 19,
-            "open_issues_count": 19,
+            "open_issues": 17,
+            "open_issues_count": 17,
             "owner": {
                 "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
                 "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -1279,9 +1366,9 @@
             "private": false,
             "pull_request_creation_policy": "all",
             "pulls_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls{/number}",
-            "pushed_at": "2026-11-14T12:10:30Z",
+            "pushed_at": "2026-11-15T10:03:38Z",
             "releases_url": "https://api.github.com/repos/siainbuletin/dotfiles/releases{/id}",
-            "size": 115104,
+            "size": 117579,
             "ssh_url": "git@github.com:siainbuletin/dotfiles.git",
             "stargazers_count": 0,
             "stargazers_url": "https://api.github.com/repos/siainbuletin/dotfiles/stargazers",
@@ -1300,7 +1387,7 @@
             "watchers_count": 0,
             "web_commit_signoff_required": false
         },
-        "sha": "95360b34d231cbda939171b53ec76d4e8595b6d2",
+        "sha": "1aa58c81bdaa7dc34b5308a7f260c1b0414e991e",
         "user": {
             "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
             "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
@@ -1326,15 +1413,58 @@
     "html_url": "https://github.com/siainbuletin/dotfiles/pull/418",
     "id": 5285926105,
     "issue_url": "https://api.github.com/repos/siainbuletin/dotfiles/issues/418",
-    "labels": [],
+    "labels": [
+        {
+            "archived_at": null,
+            "archived_by": null,
+            "color": "82f1b9",
+            "default": false,
+            "description": "Newly-developed feature (from scratch). This is where development starts.",
+            "id": 12808100853,
+            "name": "new-feature",
+            "node_id": "LA_kwDOQOHyyM8AAAAC-2wb9Q",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/labels/new-feature"
+        },
+        {
+            "archived_at": null,
+            "archived_by": null,
+            "color": "4ADB72",
+            "default": false,
+            "description": "Merged because I need it for testing; functionality unconfirmed",
+            "id": 12812641364,
+            "name": "needs-further-testing",
+            "node_id": "LA_kwDOQOHyyM8AAAAC-7FkVA",
+            "url": "https://api.github.com/repos/siainbuletin/dotfiles/labels/needs-further-testing"
+        }
+    ],
     "locked": false,
     "maintainer_can_modify": false,
-    "merge_commit_sha": "8442bb96a9015316073e12203514ff579bd69e63",
+    "merge_commit_sha": "f20c21adcdd372496c9303b926d2df1ecf27b68c",
     "mergeable": null,
     "mergeable_state": "unknown",
-    "merged": false,
-    "merged_at": null,
-    "merged_by": null,
+    "merged": true,
+    "merged_at": "2026-11-14T21:07:46Z",
+    "merged_by": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
+        "events_url": "https://api.github.com/users/siainbuletin/events{/privacy}",
+        "followers_url": "https://api.github.com/users/siainbuletin/followers",
+        "following_url": "https://api.github.com/users/siainbuletin/following{/other_user}",
+        "gists_url": "https://api.github.com/users/siainbuletin/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/siainbuletin",
+        "id": 97026492,
+        "login": "siainbuletin",
+        "node_id": "U_kgDOBciBvA",
+        "organizations_url": "https://api.github.com/users/siainbuletin/orgs",
+        "received_events_url": "https://api.github.com/users/siainbuletin/received_events",
+        "repos_url": "https://api.github.com/users/siainbuletin/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/siainbuletin/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/siainbuletin/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/siainbuletin",
+        "user_view_type": "public"
+    },
     "milestone": null,
     "node_id": "PR_kwDOQOHyyM8AAAABOxDU2Q",
     "number": 418,
@@ -1346,10 +1476,10 @@
     "review_comments": 0,
     "review_comments_url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/418/comments",
     "review_data": [],
-    "state": "open",
-    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/95360b34d231cbda939171b53ec76d4e8595b6d2",
+    "state": "closed",
+    "statuses_url": "https://api.github.com/repos/siainbuletin/dotfiles/statuses/1aa58c81bdaa7dc34b5308a7f260c1b0414e991e",
     "title": "✨ Search DEVONthink and litdb from one command, with similar records and preview",
-    "updated_at": "2026-11-14T00:27:10Z",
+    "updated_at": "2026-11-14T21:07:53Z",
     "url": "https://api.github.com/repos/siainbuletin/dotfiles/pulls/418",
     "user": {
         "avatar_url": "https://avatars.githubusercontent.com/u/97026492?v=4",
