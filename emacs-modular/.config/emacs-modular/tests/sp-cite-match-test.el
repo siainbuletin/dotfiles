@@ -271,3 +271,54 @@
       (delete-directory dir t))))
 
 ;;; sp-cite-match-test.el ends here
+
+(defconst sp-cite-match-test--bib-at-line
+  "@article{a2017x,
+  author = {Smith, John},
+  title = {Attention},
+  abstract = {Contact us
+@lab for details},
+  year = {2017},
+}
+
+@book{b2019y,
+  author = {Jones, Mary},
+  title = {Other},
+  year = {2019},
+}"
+  "A record whose abstract has a line that starts with an at sign.")
+
+(defun sp-cite-match-test--parse (text)
+  "The candidates parsed from the BibTeX TEXT."
+  (with-temp-buffer (insert text) (sp-cite-match--parse-buffer)))
+
+(ert-deftest sp-cite-match-test-abstract-with-at-line ()
+  (let ((cands (sp-cite-match-test--parse sp-cite-match-test--bib-at-line)))
+    (should (equal (mapcar (lambda (c) (plist-get c :key)) cands) '("a2017x" "b2019y")))
+    ;; The fields after the abstract are still read.
+    (should (equal (plist-get (car cands) :year) 2017))
+    (should (equal (plist-get (cadr cands) :year) 2019))))
+
+(ert-deftest sp-cite-match-test-last-entry-with-at-line-and-no-newline ()
+  (let ((cands (sp-cite-match-test--parse
+                "@article{a2017x,\n  title = {T},\n  note = {x\n@y},\n  year = {2017}\n}")))
+    (should (equal (mapcar (lambda (c) (plist-get c :key)) cands) '("a2017x")))
+    (should (equal (plist-get (car cands) :year) 2017))))
+
+(ert-deftest sp-cite-match-test-unbalanced-braces-still-parse ()
+  (let ((cands (sp-cite-match-test--parse
+                "@article{a2017x,\n  title = {Open {brace},\n  year = {2017}\n}\n\n@book{b2019y,\n  title = {B},\n  year = {2019}\n}\n")))
+    (should (>= (length cands) 1))
+    (should (equal (plist-get (car cands) :key) "a2017x"))))
+
+(ert-deftest sp-cite-match-test-paren-entry ()
+  (let ((cands (sp-cite-match-test--parse
+                "@article(a2017x,\n  title = {T},\n  year = {2017}\n)\n@book{b2019y,\n  title = {B},\n  year = {2019}\n}\n")))
+    (should (equal (mapcar (lambda (c) (plist-get c :key)) cands) '("a2017x" "b2019y")))))
+
+(ert-deftest sp-cite-match-test-entry-end-never-before-start ()
+  (with-temp-buffer
+    (insert "@article{a,\n  title = {x\n@y")
+    (should (equal (mapcar (lambda (c) (plist-get c :key)) (progn (goto-char (point-min))
+                                                                   (sp-cite-match--parse-buffer)))
+                   '("a")))))
