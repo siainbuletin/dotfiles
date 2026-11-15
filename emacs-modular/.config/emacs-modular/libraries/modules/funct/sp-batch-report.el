@@ -95,8 +95,11 @@ list of its cells as strings (the other item arguments work as in
 
 (defun sp-batch-report--cell (cell)
   "CELL as the text of an Org table cell: on one line, with no bar."
-  (replace-regexp-in-string
-   "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " (format "%s" cell)) t t))
+  (let ((text (if (stringp cell) cell (format "%s" cell))))
+    (if (string-match-p "[|\n\r]" text)
+        (replace-regexp-in-string
+         "|" "\\vert{}" (replace-regexp-in-string "[\n\r]+" " " text) t t)
+      text)))
 
 (defun sp-batch-report--row-line (cells &optional widths)
   "The Org table line of CELLS; WIDTHS, when given, pads each column to its width."
@@ -501,6 +504,9 @@ Files are links: \\<sp-batch-report-mode-map>\\[org-open-at-point] visits the on
   (with-current-buffer (or buffer (current-buffer))
     (or (derived-mode-p 'sp-batch-report-mode) (derived-mode-p 'sp-batch-report-org-mode))))
 
+(defvar-local sp-batch-report--org-extra-mode nil
+  "The mode whose keys the Org report of this buffer was set up with.")
+
 (defun sp-batch-report--enter-org-mode (mode)
   "Turn the current buffer into an Org report with the keys of MODE.
 MODE is a mode derived from `sp-batch-report-mode', or nil."
@@ -637,9 +643,17 @@ ARGS: :refresh, :redraw and :apply (functions, see `sp-batch-report-mode'),
                     (get-text-property 0 'sp-batch-report-model text))))
     (remhash name sp-batch-report--pending-lines)
     (with-current-buffer (get-buffer-create name)
+      ;; Running the mode again resets Org for the whole buffer (its hooks,
+      ;; indentation, numbering), which costs seconds in a big report that is
+      ;; only drawn again after a drop or a refresh.
       (if model
-          (funcall (or (plist-get args :mode) #'sp-batch-report-mode))
-        (sp-batch-report--enter-org-mode (plist-get args :mode)))
+          (let ((mode (or (plist-get args :mode) #'sp-batch-report-mode)))
+            (unless (eq major-mode mode)
+              (funcall mode)))
+        (unless (and (eq major-mode 'sp-batch-report-org-mode)
+                     (eq sp-batch-report--org-extra-mode (plist-get args :mode)))
+          (sp-batch-report--enter-org-mode (plist-get args :mode))
+          (setq-local sp-batch-report--org-extra-mode (plist-get args :mode))))
       (if model
           (sp-batch-report-view--render model)
         (let ((inhibit-read-only t))
