@@ -62,6 +62,7 @@
           (sp-see-also-directory (expand-file-name "litnotes/" root))
           (sp-see-also-files-function #'sp-see-also-default-files)
           (sp-see-also-use-db nil)
+          (sp-see-also-cite-dirs (list root))
           (sp-see-also--files nil)
           (sp-see-also--signature nil)
           (sp-see-also--dirty nil)
@@ -691,6 +692,36 @@
                                    (sp-see-also-references "lit-id" "smith2020"))
                            #'string<)
                      '("Litnote on X" "Referrer"))))))
+
+(ert-deftest sp-see-also-cite-regexp-reads-every-citation-style ()
+  (dolist (text '("[cite:@smith2020]" "[cite/t:@smith2020]" "[cite:@a;@smith2020]"
+                  "[cite:see @smith2020 p. 3]" "cite:smith2020" "[[cite:&smith2020]]"
+                  "[cite/text/bare:@smith2020, p. 3]" "@smith2020"))
+    (should (string-match-p (sp-see-also--cite-regexp "smith2020") text)))
+  (dolist (text '("[cite:@smith2020b]" "cite:smith20201" "[cite:@smith2020_x]"))
+    (should-not (string-match-p (sp-see-also--cite-regexp "smith2020") text))))
+
+(ert-deftest sp-see-also-references-find-citations-in-any-note ()
+  (skip-unless (executable-find "rg"))
+  (sp-see-also-test--with-vault
+    (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
+      ;; not a litnote: it is outside the litnote folder
+      (with-temp-file (expand-file-name "concept.org" root)
+        (insert (sp-see-also-test--text
+                 "#+title: A concept" "" "* Heading"
+                 "Argued in [cite/t:@other2001; @smith2020 p. 4]."
+                 "And again [[id:lit-id][the litnote]].")))
+      (with-temp-file (expand-file-name "unrelated.org" root)
+        (insert "#+title: Unrelated\nCites [cite:@smith2020b] only.\n"))
+      (let ((usage (sp-see-also-references "lit-id" "smith2020" lit)))
+        (should (equal (mapcar (lambda (e) (plist-get e :title)) usage)
+                       '("A concept")))
+        (should (equal (mapcar (lambda (m) (plist-get m :where))
+                               (plist-get (car usage) :mentions))
+                       '(cite link))))
+      ;; without ripgrep only the litnotes are read
+      (cl-letf (((symbol-function 'executable-find) (lambda (&rest _) nil)))
+        (should-not (sp-see-also-references "lit-id" "smith2020" lit))))))
 
 (ert-deftest sp-see-also-citekey-is-read-from-the-reference-line ()
   (sp-see-also-test--with-vault

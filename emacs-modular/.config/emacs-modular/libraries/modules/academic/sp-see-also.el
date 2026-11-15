@@ -55,6 +55,14 @@
   "When non-nil, ask the Vulpea database which files link to a concept."
   :type 'boolean)
 
+(defcustom sp-see-also-cite-dirs
+  (delq nil (list (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
+                  (and (boundp 'sp-writing-projects) sp-writing-projects)))
+  "Folders searched with ripgrep for the notes that cite a litnote's citekey.
+Any Org note below them counts, not only litnotes.  Without ripgrep only the
+litnotes of `sp-see-also-files-function' are read."
+  :type '(repeat directory))
+
 (defcustom sp-see-also-cache-file
   (expand-file-name "see-also-index.eld"
                     (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
@@ -917,6 +925,33 @@ the whole-vault index is used."
              "^#\\+reference:[ \t]*\\(?:cite:\\|@\\)?\\([^ \t\n]+\\)" nil t)
         (match-string-no-properties 1)))))
 
+(defun sp-see-also--cite-regexp (citekey)
+  "Return the Emacs regexp of a citation of CITEKEY.
+It reads `[cite:@key]', `[cite/t:@a;@b]', `[cite:see @key p. 3]', `cite:key' and
+`[[cite:&key]]'; the key must end there, so `key2' is another key.  Group 1 is
+the character after the key (empty at the end of the text)."
+  (format "\\(?:@\\|cite[[:alpha:]/]*:&?\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
+          (regexp-quote citekey)))
+
+(defun sp-see-also--cite-files (citekey id)
+  "Return the Org files of `sp-see-also-cite-dirs' that cite CITEKEY or link to ID.
+Ripgrep finds them, in any kind of note.  The value is `unavailable' when
+ripgrep is missing or fails, and then `sp-see-also-references' reads the litnotes."
+  (if-let* ((rg (executable-find "rg"))
+            (dirs (seq-filter #'file-directory-p
+                              (mapcar #'expand-file-name sp-see-also-cite-dirs))))
+    (with-temp-buffer
+      (let ((status (apply #'call-process rg nil t nil
+                           "-l" "-i" "--glob" "*.org"
+                           "-e" (format "(@|cite[a-z/]*:&?)%s([^A-Za-z0-9_:+-]|$)"
+                                        (regexp-quote citekey))
+                           "-e" (format "id:%s" (regexp-quote id))
+                           "--" dirs)))
+        (if (memq status '(0 1))
+            (split-string (buffer-string) "\n" t)
+          'unavailable)))
+    'unavailable))
+
 (defun sp-see-also--other-refs-in-buffer (id citekey covered)
   "Return the references to ID and CITEKEY in the buffer that are not mentions.
 COVERED are the ranges already read as mentions.  Source and example blocks
@@ -929,8 +964,7 @@ and comments are left out.  Each item is a plist of :beg, :end, :where (`link',
                                                 (regexp-quote id)))
                             (and citekey
                                  (cons 'cite
-                                       (format "\\(?:@\\|cite[[:alpha:]]*:\\)%s\\([^[:alnum:]_:+-]\\|\\'\\)"
-                                               (regexp-quote citekey)))))))
+                                       (sp-see-also--cite-regexp citekey))))))
          (headings 'unread)
          items)
     (save-excursion
@@ -1011,9 +1045,15 @@ a :where of `prose', `quote', `section', `link', `parent' or `cite'.
 Only the kinds in `sp-see-also-reference-kinds' are returned.  CITEKEY is the
 `#+reference:' citekey of the note, when it has one, whose citations count too.
 EXCLUDE-FILE is not read, so a note is not listed as referencing itself.  The
-Vulpea database narrows the files to read, unless a citekey is looked for."
+Vulpea database narrows the files to read.  With a CITEKEY, the notes that cite
+it are found with ripgrep in `sp-see-also-cite-dirs', in any kind of note, and
+added to those the database says link to ID."
   (let* ((files (if citekey
-                    (funcall sp-see-also-files-function)
+                    (append (let ((found (sp-see-also--cite-files citekey id)))
+                              (if (eq found 'unavailable)
+                                  (funcall sp-see-also-files-function)
+                                found))
+                            (sp-see-also--db-files id))
                   (or (sp-see-also--db-files id)
                       (funcall sp-see-also-files-function))))
          (skip (and exclude-file (expand-file-name exclude-file)))
