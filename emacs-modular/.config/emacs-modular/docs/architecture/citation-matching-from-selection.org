@@ -268,6 +268,15 @@ This is a design. The macOS parts of PR 1 to 3 are implemented in =sp-cite-match
 - Match inside =litdb= only: rejected as primary; semantic, so it confuses similar titles by different authors.
 - Keep =print_bibliography=: rejected, see #338.
 
+* Jump to the record (sp-cite-open)
+
+- Added 2026-11-15: a second hotkey, =Caps Lock + r= in DEVONthink, opens the record of the cited work instead of writing the Cited works section.
+- Order of the lookup:
+  - the reference list at the end of the same document (numeric =[12]= or author-year);
+  - the BibTeX files, with the scoring above;
+  - litdb, as a list to choose from (never automatic).
+- Module doc: [[file:../tangles/academic/sp-cite-open.org][sp-cite-open.org]].
+
 * Order of work
 
 - PR 1: =sp-cite-match= core: normalisation, extraction, scoring, ERT tests with real entries (Chicago, APA, IEEE, with typos).
