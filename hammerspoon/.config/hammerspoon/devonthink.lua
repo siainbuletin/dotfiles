@@ -26,14 +26,22 @@
 --   * The colour menu items are renamed, e.g. "Red - Important point".
 --   * So they are found by the start of the name (the patterns below),
 --     searched in the Format menu, not by a fixed full title.
+--   * Speed: reading the whole menu bar (app:getMenuItems) is the slow part,
+--     so it is done once for all colours and the menu paths are cached. A key
+--     press then only selects the cached item. If the item is not found (menu
+--     renamed), the cache is dropped and the menu is read again once.
+--   * The cache is filled shortly after DEVONthink comes to the front, so the
+--     first press is fast too.
 --
 -- Undo and redo:
 --   * The menu items are found by title pattern, because their titles change
 --     with the action ("Undo Add Highlight", "Redo Add Highlight").
 --   * Only enabled items count. The Edit menu always shows the next undo and
 --     redo step, so a highlight that is gone or older than another action is
---     never touched.
+--     never touched. These cannot be cached, since the titles change.
 --   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
+--
+-- Timing: DEVONthink.benchmark() prints how long reading the menu bar takes.
 
 local M = {}
 
@@ -56,6 +64,9 @@ local colors = {
   { name = "Grey",   pattern = "^Gr[ae]y" },
 }
 local colorIndex = 0
+
+-- Menu path of each colour item, by colour number; filled by scanColorPaths.
+local colorPaths = {}
 
 -- Edit > Undo titles that mean "the last step was a highlight".
 local undoHighlightPatterns = {
@@ -127,6 +138,20 @@ local function selectFirst(app, menu, patterns)
   return false
 end
 
+-- Read the menu bar once and cache the paths of all colour items.
+local function scanColorPaths(app)
+  colorPaths = {}
+  for _, top in ipairs(app:getMenuItems() or {}) do
+    if top.AXTitle == "Format" then
+      local items = top.AXChildren and top.AXChildren[1]
+      for index, color in ipairs(colors) do
+        colorPaths[index] = findItem(items, color.pattern, { "Format" })
+      end
+      return
+    end
+  end
+end
+
 -- Print the titles of a top-level menu (check mark, enabled) to the Hammerspoon console.
 function M.dumpMenu(menu)
   local app = hs.application.get(APP) or hs.application.frontmostApplication()
@@ -146,6 +171,27 @@ function M.dumpMenu(menu)
   end
 end
 
+-- Print how long reading the whole menu bar takes (the cost of one uncached press),
+-- and how long a cached colour selection takes. Run with DEVONthink open.
+function M.benchmark()
+  local app = hs.application.get(APP)
+  if not app then
+    hs.printf("DEVONthink is not running")
+    return
+  end
+  local t0 = hs.timer.absoluteTime()
+  scanColorPaths(app)
+  local scanMs = (hs.timer.absoluteTime() - t0) / 1e6
+  hs.printf("devonthink: reading the menu bar and finding the colours: %.0f ms", scanMs)
+  local path = colorPaths[1]
+  if path then
+    t0 = hs.timer.absoluteTime()
+    app:selectMenuItem(path)
+    hs.printf("devonthink: selecting a cached colour (%s): %.0f ms", colors[1].name,
+      (hs.timer.absoluteTime() - t0) / 1e6)
+  end
+end
+
 function M.highlight()
   return selectMenu({ "Tools", "Annotate", "Highlight Text" })
 end
@@ -156,12 +202,20 @@ function M.setColor(index, startHighlight)
   local app = hs.application.frontmostApplication()
   local color = colors[index]
   if not app or not color then return false end
-  local path = findInMenu(app, "Format", color.pattern)
-  if not path then
-    hs.alert.show("No colour starting with " .. color.name .. " in the Format menu")
-    return false
+  local path = colorPaths[index]
+  if not (path and app:selectMenuItem(path)) then
+    -- Not cached, or the menu changed: read the menu bar once for all colours.
+    scanColorPaths(app)
+    path = colorPaths[index]
+    if not path then
+      hs.alert.show("No colour starting with " .. color.name .. " in the Format menu")
+      return false
+    end
+    if not selectMenu(path) then
+      colorPaths[index] = nil
+      return false
+    end
   end
-  if not selectMenu(path) then return false end
   colorIndex = index
   hs.alert.show(color.name, 0.5)
   if startHighlight then M.highlight() end
@@ -232,10 +286,20 @@ local function setScoped(on)
   end
 end
 
+-- Fill the colour cache a moment after DEVONthink is in front (once; the
+-- menu is not ready the instant the app activates).
+local function warmColorCache()
+  hs.timer.doAfter(1, function()
+    local app = hs.application.frontmostApplication()
+    if isDevonthink(app) and next(colorPaths) == nil then scanColorPaths(app) end
+  end)
+end
+
 M.watcher = hs.application.watcher.new(function(_, event, app)
   if not isDevonthink(app) then return end
   if event == hs.application.watcher.activated then
     setScoped(true)
+    warmColorCache()
   elseif event == hs.application.watcher.deactivated then
     setScoped(false)
   end
@@ -244,5 +308,6 @@ M.watcher:start()
 
 -- Hammerspoon may be reloaded while DEVONthink is already in front.
 setScoped(frontIsDevonthink())
+if frontIsDevonthink() then warmColorCache() end
 
 return M
