@@ -50,7 +50,6 @@ hammerspoon	darwin	.config/hammerspoon
 devonthink-open	darwin	.local/bin/dt-open-install
 devonthink-open	darwin	.local/share/dt-open
 devonthink-open	darwin	.config/dt-open
-devonthink-pdf-grey	darwin	.local/bin/dt-pdf-grey
 # --- Linux desktop only ---
 i3	linux	.config/i3
 sway	linux	.config/sway
