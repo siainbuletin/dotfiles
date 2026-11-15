@@ -2599,13 +2599,43 @@ longer the one that was linted is left alone.  Return (CHANGED STALE WROTE)."
   (let ((attributes (file-attributes file)))
     (list (file-attribute-modification-time attributes) (file-attribute-size attributes))))
 
+(defun sp-bibtex-lint--refresh (file)
+  "Bring what depends on the .bib FILE up to date after it was written.
+The buffer that visits FILE is reverted without a question, and point stays where
+it was, unless it has unsaved changes: those are never discarded and the
+buffer is left alone, with a warning.  The citar cache is refreshed too."
+  (when-let* ((visiting (find-buffer-visiting file)))
+    (if (buffer-modified-p visiting)
+        (display-warning 'sp-bibtex-lint
+                         (format "%s has unsaved changes and was not reloaded; save it elsewhere and use `revert-buffer'"
+                                 (buffer-name visiting)))
+      (with-current-buffer visiting (revert-buffer t t t))))
+  (when (fboundp 'citar-refresh) (ignore-errors (citar-refresh))))
+
 (defun sp-bibtex-lint--save (work file)
   "Write the buffer WORK to FILE and bring the buffer that visits FILE up to date."
   (with-current-buffer work
     (write-region (point-min) (point-max) file nil 'silent))
-  (when-let* ((visiting (find-buffer-visiting file)))
-    (unless (buffer-modified-p visiting)
-      (with-current-buffer visiting (revert-buffer t t t)))))
+  (sp-bibtex-lint--refresh file))
+
+(defun sp-bibtex-lint--unsaved-resolve (file)
+  "Ask what to do when the buffer that visits FILE has unsaved changes; return non-nil to go on.
+`d' shows the unsaved changes as a diff, `r' checks again (after you saved the
+buffer), `s' skips: nothing is written and the buffer keeps its changes."
+  (let ((visiting (find-buffer-visiting file)) (go nil) (done nil))
+    (while (and (not done) visiting (buffer-modified-p visiting))
+      (pcase (car (read-multiple-choice
+                   (format "%s has unsaved changes. Writing would make it stale:"
+                           (file-name-nondirectory file))
+                   '((?d "diff" "show the unsaved changes")
+                     (?r "recheck" "I saved the buffer, check again")
+                     (?s "skip" "write nothing"))))
+        (?d (diff-buffer-with-file visiting))
+        (?r nil)
+        (?s (setq done t))))
+    (unless (and visiting (buffer-modified-p visiting))
+      (setq go t))
+    go))
 
 (defun sp-bibtex-lint--run (file kind results ask apply-fn &optional then whole)
   "Go through the entries of RESULTS with a fix of KIND for FILE, in batches.
@@ -3071,17 +3101,32 @@ The `** NAME' headings are what `sp-bibtex-merge--show-group' searches for."
         (forward-line -1)
         (recenter 1)))))
 
-(defun sp-bibtex-merge--ask (groups)
+(defun sp-bibtex-merge--drop-key (file group)
+  "The key that drops GROUP of variants from the merge of FILE; see `sp-bibtex-lint--excluded'."
+  (sp-bibtex-lint--drop-key file (plist-get group :target) 'merge))
+
+(defun sp-bibtex-merge--dropped-p (file group)
+  "Non-nil when GROUP of variants was dropped from the merge of FILE."
+  (and file (member (sp-bibtex-merge--drop-key file group) sp-bibtex-lint--excluded)))
+
+(defun sp-bibtex-merge--ask (groups &optional file)
   "Ask for the name of each of GROUPS; return an alist from variant to chosen name.
 The help line shows the keys; the report keeps `n' and `p' for the groups.
 - RET takes the proposed name; a digit takes that variant (as numbered in the
   help line); `e' types a name.
 - `n' leaves the group as it is and goes to the next, `p' goes back, `c' clears
   the choice of the group.
-- `f' finishes (the last group does too); `q' or \\[keyboard-quit] stops without changing anything."
+- `f' finishes (the last group does too); `q' or \\[keyboard-quit] stops without changing anything.
+- With FILE: `d' drops the group for later (it is not asked again, also not in
+  later runs of this Emacs session) and `u' brings a dropped group back; `p' can
+  step back to a dropped group, going forward skips them."
   (let* ((count (length groups))
          (decided (make-vector count nil))
          (i 0) (finished nil))
+    (cl-flet ((skip-dropped ()
+                (while (and (< i count) (sp-bibtex-merge--dropped-p file (nth i groups)))
+                  (cl-incf i))))
+    (skip-dropped)
     (while (and (not finished) (< i count))
       (let* ((g (nth i groups))
              (forms (mapcar #'car (plist-get g :forms)))
@@ -3092,13 +3137,16 @@ The help line shows the keys; the report keeps `n' and `p' for the groups.
                      `(("RET" ,(format "Proposed: %s" (plist-get g :target)) t)
                        ,@(and (cdr forms) '(("1-9" "A variant")))
                        ("e" "Type a name") ("n/p" "Next/previous group") ("c" "Clear")
+                       ,@(and file '(("d" "Drop for later") ("u" "Restore")))
                        ("f" "Finish") ("q" "Quit"))
                      (format "Group %d of %d: %s%s" (1+ i) count
                              (string-join (cl-loop for f in forms for k from 1
                                                    collect (format "%d %s" k f))
                                           " | ")
-                             (if-let* ((chosen (aref decided i))) (format "  => %s" chosen) ""))
-                     (append '(?\r ?e ?n ?p ?c ?f ?q) digits)))))
+                             (cond ((sp-bibtex-merge--dropped-p file g) "  (dropped for later)")
+                                   ((aref decided i) (format "  => %s" (aref decided i)))
+                                   (t "")))
+                     (append '(?\r ?e ?n ?p ?c ?f ?q) (and file '(?d ?u)) digits)))))
         (pcase key
           (?\r (aset decided i (plist-get g :target)) (cl-incf i))
           ((pred (lambda (k) (memq k digits)))
@@ -3108,11 +3156,18 @@ The help line shows the keys; the report keeps `n' and `p' for the groups.
           (?n (cl-incf i))
           (?p (setq i (max 0 (1- i))))
           (?c (aset decided i nil))
+          (?d (aset decided i nil)
+              (cl-pushnew (sp-bibtex-merge--drop-key file g) sp-bibtex-lint--excluded :test #'equal)
+              (cl-incf i))
+          (?u (setq sp-bibtex-lint--excluded
+                    (delete (sp-bibtex-merge--drop-key file g) sp-bibtex-lint--excluded)))
           (?f (setq finished t))
-          (?q (signal 'quit nil)))))
+          (?q (signal 'quit nil)))
+        (unless (eq key ?p) (skip-dropped)))))
     (let (mapping)
       (dotimes (k count)
-        (when-let* ((chosen (aref decided k))
+        (when-let* (((not (sp-bibtex-merge--dropped-p file (nth k groups))))
+                    (chosen (aref decided k))
                     (target (sp-bibtex-canonical-name chosen)))
           (dolist (f (plist-get (nth k groups) :forms))
             (unless (equal (car f) target)
@@ -3159,6 +3214,10 @@ other names stay.  Return the number of entries rewritten."
                            (insert-file-contents file)
                            (delay-mode-hooks (bibtex-mode)))
                          (sp-bibtex-merge--rewrite work mapping))))
+          (when (and (> changed 0) (not (sp-bibtex-lint--unsaved-resolve file)))
+            (message "BibTeX merge: %s has unsaved changes, nothing written"
+                     (file-name-nondirectory file))
+            (setq changed 0))
           (when (> changed 0)
             (unless (equal signature (sp-bibtex-lint--signature file))
               (user-error "%s changed on disk since it was linted; run the command again"
@@ -3178,7 +3237,8 @@ names that fit: `Hegel, G. W. F.' and `Hegel, Georg Wilhelm Friedrich'.  A
 name that fits two names that do not fit each other is never merged.  The
 groups are shown, then you choose the name of each with the keys in the help line:
 RET the proposed one (the name of an author note, else the fullest and most used),
-a digit another variant, `e' a name you type; `n' and `p' step between the groups.  After one confirmation the
+a digit another variant, `e' a name you type; `n' and `p' step between the groups;
+`d' drops a group for later and `u' brings it back (`sp-bibtex-lint-restore-dropped' too).  After one confirmation the
 author and editor fields are rewritten, after a backup: only the names change,
 never the order of the authors, the `and' separators or the braces of other names.
 Entries with a comment inside are left alone.  Notes for authors are not changed.
@@ -3188,14 +3248,16 @@ THEN is called when the run was not stopped."
   (let ((groups (sp-bibtex-merge--groups
                  (sp-bibtex-merge--count file)
                  (condition-case nil (sp-bibtex-people) (error nil)))))
-    (if (null groups)
-        (message "BibTeX lint: no variants of one author in %s" (file-name-nondirectory file))
+    (if (or (null groups)
+            (seq-every-p (lambda (g) (sp-bibtex-merge--dropped-p file g)) groups))
+        (message "BibTeX lint: no variants of one author in %s%s" (file-name-nondirectory file)
+                 (if groups " (the groups left are dropped; `M-x sp-bibtex-lint-restore-dropped')" ""))
       (sp-batch-report-show
        sp-bibtex-lint--batch-buffer
        (format "#+title: Variants of one author in %s\n\n- %d group%s; the proposed name comes first.\n\n%s"
                (file-name-nondirectory file) (length groups) (if (= 1 (length groups)) "" "s")
                (sp-bibtex-merge--text groups)))
-      (let ((mapping (sp-bibtex-merge--ask groups)))
+      (let ((mapping (sp-bibtex-merge--ask groups file)))
         (cond
          ((null mapping) (message "BibTeX lint: nothing to merge in %s" (file-name-nondirectory file)))
          ((not (yes-or-no-p (format "Rewrite %d name form%s in %s (a backup is made first)? "
