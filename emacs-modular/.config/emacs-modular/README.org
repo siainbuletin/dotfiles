@@ -382,7 +382,7 @@ Deciding on the order is not trivial: [[file:docs/architecture/load-order.org][M
 
 * Tangling
 
-How the module docs become =.el= files (=sp-tangle-changed=, tangle all, the =:tangle= headers, the Provide section rule) is in [[file:docs/tangling-instructions.org][Tangling instructions]]. How the tangled files are checked in CI, and how the stable and sandbox Emacsen use them, is in [[file:docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
+How the module docs become =.el= files (=sp-tangle-changed=, tangle all, =sp-check-tangle= to check the modules against their docs, the =:tangle= headers, the Provide section rule) is in [[file:docs/tangling-instructions.org][Tangling instructions]]. How the tangled files are checked in CI, and how the stable and sandbox Emacsen use them, is in [[file:docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
 
 * Protocol for replicating the configuration across machines
 

@@ -14,7 +14,8 @@ This module configures Org Babel. It sets up:
 
 - which languages can be executed in source blocks,
 - how tangled files are cleaned up,
-- commands to tangle only the literate documents that changed (=sp-tangle-changed=), all of them (=sp-tangle-all=), to reload what was tangled, and to tangle on save.
+- commands to tangle only the literate documents that changed (=sp-tangle-changed=), all of them (=sp-tangle-all=), to reload what was tangled, and to tangle on save,
+- a command to check that the committed modules match their docs (=sp-check-tangle=).
 
 Details:
 
@@ -442,6 +443,54 @@ With prefix argument FORCE, tangle (and reload) all of them."
     (remove-hook 'after-save-hook #'sp-tangle--after-save t)))
 #+end_src
 
+** Checking the modules against their docs
+
+- =M-x sp-check-tangle= (also =M-x check-tangle=) runs =tools/check-tangle.sh= from the Emacs directory, the same check as the =tangle-check= GitHub Action.
+  - It runs in the background, so Emacs stays usable; the output goes to the =*sp-check-tangle*= compilation buffer.
+  - When it ends, the echo area says =passed= or =FAILED=; the buffer header says =finished= or =exited abnormally with code 1=.
+  - In the buffer, =g= runs it again and =q= closes the window.
+- The script tangles every doc in place and leaves the result in the working tree.
+  - =git diff= shows the drift; =git checkout -- libraries= undoes it.
+  - To fix it, re-tangle the doc (=M-x sp-tangle-changed=) and commit the doc and the module together.
+- =sp-check-tangle-script= is the script path, relative to =user-emacs-directory=; change it only if the script moves.
+- It signals an error when the script is not found or not executable.
+- It needs =emacs= and =git= on the =PATH= of the Emacs process, like the script itself, and =user-emacs-directory= must be inside the git checkout.
+
+#+begin_src emacs-lisp -i
+(defvar sp-check-tangle-script "tools/check-tangle.sh"
+  "Tangle check script, relative to `user-emacs-directory'.")
+
+(defconst sp-check-tangle--buffer "*sp-check-tangle*"
+  "Name of the buffer that shows the output of `sp-check-tangle'.")
+
+(defun sp-check-tangle--finished (buffer status)
+  "Say in the echo area whether the check in BUFFER passed, given its STATUS."
+  (when (equal (buffer-name buffer) sp-check-tangle--buffer)
+    (if (string-prefix-p "finished" status)
+        (message "sp-check-tangle: passed, the modules match their docs")
+      (message "sp-check-tangle: FAILED, see %s" sp-check-tangle--buffer))))
+
+;;;###autoload
+(defun sp-check-tangle ()
+  "Run the tangle check script in the background and show its output.
+The script tangles every module document in place and compares the
+result with the committed modules.  Output goes to `*sp-check-tangle*'."
+  (interactive)
+  (require 'compile)
+  (if-let* ((root (file-name-as-directory (expand-file-name user-emacs-directory)))
+            (script (expand-file-name sp-check-tangle-script root))
+            ((file-executable-p script)))
+      (let ((default-directory root))
+        (add-hook 'compilation-finish-functions #'sp-check-tangle--finished)
+        (compilation-start (shell-quote-argument script) nil
+                           (lambda (_mode) sp-check-tangle--buffer)))
+    (user-error "No executable tangle check script `%s' in %s"
+                sp-check-tangle-script user-emacs-directory)))
+
+;;;###autoload
+(defalias 'check-tangle #'sp-check-tangle)
+#+end_src
+
 * Provide
 
 Provides the =sp-org-babel= feature and closes the file.
@@ -463,3 +512,8 @@ What each pull request changed in this module, newest last; the one-line summary
   - Details: [[file:sp-org-babel.org::*Finding the literate documents][=sp-org-babel= doc]], [[file:../../../README.org::*Tangling only what changed][README]].
   - Tested in Emacs 29.3 in batch (all 130 docs: 167 files on the first run, 0 on the second)
     - not run in the interactive config.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/535][#535]]
+  - ✨ Added =sp-check-tangle= (alias =check-tangle=): runs =tools/check-tangle.sh= in the background and shows the output in =*sp-check-tangle*=, with =passed= or =FAILED= in the echo area.
+  - Details: [[file:sp-org-babel.org::*Checking the modules against their docs][=sp-org-babel= doc]].
+  - Tested in Emacs 29.3 batch (the command ran the script and reported =FAILED= for an edited module); not run in the interactive config.

@@ -274,5 +274,38 @@ With prefix argument FORCE, tangle (and reload) all of them."
       (add-hook 'after-save-hook #'sp-tangle--after-save nil t)
     (remove-hook 'after-save-hook #'sp-tangle--after-save t)))
 
+(defvar sp-check-tangle-script "tools/check-tangle.sh"
+  "Tangle check script, relative to `user-emacs-directory'.")
+
+(defconst sp-check-tangle--buffer "*sp-check-tangle*"
+  "Name of the buffer that shows the output of `sp-check-tangle'.")
+
+(defun sp-check-tangle--finished (buffer status)
+  "Say in the echo area whether the check in BUFFER passed, given its STATUS."
+  (when (equal (buffer-name buffer) sp-check-tangle--buffer)
+    (if (string-prefix-p "finished" status)
+        (message "sp-check-tangle: passed, the modules match their docs")
+      (message "sp-check-tangle: FAILED, see %s" sp-check-tangle--buffer))))
+
+;;;###autoload
+(defun sp-check-tangle ()
+  "Run the tangle check script in the background and show its output.
+The script tangles every module document in place and compares the
+result with the committed modules.  Output goes to `*sp-check-tangle*'."
+  (interactive)
+  (require 'compile)
+  (if-let* ((root (file-name-as-directory (expand-file-name user-emacs-directory)))
+            (script (expand-file-name sp-check-tangle-script root))
+            ((file-executable-p script)))
+      (let ((default-directory root))
+        (add-hook 'compilation-finish-functions #'sp-check-tangle--finished)
+        (compilation-start (shell-quote-argument script) nil
+                           (lambda (_mode) sp-check-tangle--buffer)))
+    (user-error "No executable tangle check script `%s' in %s"
+                sp-check-tangle-script user-emacs-directory)))
+
+;;;###autoload
+(defalias 'check-tangle #'sp-check-tangle)
+
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.
