@@ -82,6 +82,7 @@ periods. This ain't a typewriter."
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
+   ("C-x t I" . sp-org-lint-resources) ;; tidy a list of links; next to `org-toggle-item'
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)
