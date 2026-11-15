@@ -67,6 +67,10 @@ While picking, C-c s switches between the two."
   "Non-nil to index in DEVONthink a file that had no record, after filing it."
   :type 'boolean :group 'sp-fetch-inbox)
 
+(defcustom sp-fetch-inbox-backup-dir (expand-file-name "replaced" sp-literature-dir)
+  "Folder where the old PDF is copied before `sp-fetch-inbox' replaces it."
+  :type 'directory :group 'sp-fetch-inbox)
+
 (defcustom sp-fetch-inbox-sync-metadata t
   "Non-nil to copy author, title and keywords to the DEVONthink record after filing.
 See `sp-devonthink-bibsync-entry'."
@@ -434,7 +438,8 @@ With a single item, that one.  The order starts as `sp-fetch-inbox-sort'."
   "C-c C-c" #'sp-fetch-inbox-confirm
   "C-c C-k" #'sp-fetch-inbox-abort
   "C-c C-r" #'sp-fetch-inbox-regenerate-key
-  "C-c C-d" #'sp-fetch-inbox-fetch-doi)
+  "C-c C-d" #'sp-fetch-inbox-fetch-doi
+  "C-c C-p" #'sp-fetch-inbox-replace)
 
 (define-derived-mode sp-fetch-inbox-edit-mode bibtex-mode "Inbox-BibTeX"
   "BibTeX entry of an article of the inbox, beside its PDF.")
@@ -448,7 +453,8 @@ With a single item, that one.  The order starts as `sp-fetch-inbox-sort'."
   '(("C-c C-c" "File it" t)
     ("C-c C-k" "Abort" t)
     ("C-c C-r" "New key")
-    ("C-c C-d" "Fetch DOI"))
+    ("C-c C-d" "Fetch DOI")
+    ("C-c C-p" "Replace a PDF"))
   "The key hints of the BibTeX buffer, see `sp-echo-help-set'.")
 
 (defun sp-fetch-inbox--set-hints (note)
@@ -473,6 +479,20 @@ With a single item, that one.  The order starts as `sp-fetch-inbox-sort'."
     (unless bib (user-error "No entry found for %s" doi))
     (sp-fetch-inbox--insert-entry bib)
     (sp-fetch-inbox--set-hints (format "DOI %s" doi))))
+
+(defun sp-fetch-inbox--replaceable-keys ()
+  "The keys that already have a PDF KEY.pdf in `sp-literature-dir'."
+  (when (file-directory-p sp-literature-dir)
+    (mapcar #'file-name-base (directory-files sp-literature-dir nil "\\.pdf\\'"))))
+
+(defun sp-fetch-inbox-replace (key)
+  "Give the entry the KEY of an article already filed, to replace its PDF.
+Filing then swaps the PDF and keeps the existing entry."
+  (interactive
+   (list (completing-read "Replace the PDF of: " (sp-fetch-inbox--replaceable-keys) nil t)))
+  (sp-fetch-inbox--check-buffer)
+  (sp-fetch-inbox--set-key key)
+  (sp-fetch-inbox--set-hints (format "will replace %s.pdf" key)))
 
 (defun sp-fetch-inbox-regenerate-key ()
   "Make the key again from the author, year and title in the buffer."
@@ -632,6 +652,44 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
           (sp-reading--jxa (sp-fetch-inbox--trash-script uuid))))))
     dest))
 
+(defun sp-fetch-inbox--records-at-script (path)
+  "The JavaScript that returns the UUIDs of the records whose file is PATH, tab-separated."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const rs = app.lookupRecordsWithPath(%s, {in: db});
+rs.map(r => r.uuid()).join(\"\\t\");"
+          (json-encode-string sp-reading-database)
+          (json-encode-string (expand-file-name path))))
+
+(defun sp-fetch-inbox--backup-pdf (dest key)
+  "Copy the file DEST to `sp-fetch-inbox-backup-dir' as KEY-TIMESTAMP.pdf; return the copy."
+  (let ((backup (expand-file-name
+                 (format "%s-%s.pdf" key (format-time-string "%Y%m%d-%H%M%S"))
+                 sp-fetch-inbox-backup-dir)))
+    (make-directory sp-fetch-inbox-backup-dir t)
+    (copy-file dest backup)
+    backup))
+
+(defun sp-fetch-inbox--replace-pdf (item key dest)
+  "Replace the existing file DEST (KEY.pdf) by the PDF of ITEM; return the backup copy.
+The old file is copied first.  The record that points at DEST stays, so its UUID,
+tags, links and notes are kept; the record of ITEM is trashed, so there is no
+duplicate.  Without a record of DEST, the new file is indexed."
+  (let* ((uuid (plist-get item :uuid))
+         (file (plist-get item :file))
+         (dt (sp-fetch-inbox--dt-p)))
+    (when (sp-fetch-inbox--same-file-p file dest)
+      (user-error "That is the file to replace"))
+    (let* ((old (and dt (delete uuid (split-string
+                                      (sp-reading--jxa (sp-fetch-inbox--records-at-script dest))
+                                      "\t" t))))
+           (backup (sp-fetch-inbox--backup-pdf dest key)))
+      (when (and dt uuid) (sp-reading--jxa (sp-fetch-inbox--trash-script uuid)))
+      (rename-file file dest t)
+      (when (and dt (null old) (or uuid sp-fetch-inbox-index-new))
+        (sp-reading-index-file key dest))
+      backup)))
+
 (defun sp-fetch-inbox--append (bibfile text)
   "Append the entry TEXT to BIBFILE and save it."
   (with-current-buffer (find-file-noselect bibfile)
@@ -660,7 +718,8 @@ A failure is reported, not signalled: the article is already filed."
     (when (window-configuration-p config) (set-window-configuration config))))
 
 (defun sp-fetch-inbox-confirm ()
-  "File the PDF as KEY.pdf, update DEVONthink and append the entry to the .bib file."
+  "File the PDF as KEY.pdf, update DEVONthink and append the entry to the .bib file.
+When KEY is already in a .bib and KEY.pdf exists, replace that PDF instead."
   (interactive)
   (sp-fetch-inbox--check-buffer)
   (let* ((edit (current-buffer))
@@ -670,23 +729,35 @@ A failure is reported, not signalled: the article is already filed."
          (key (sp-fetch-inbox--entry-key)))
     (when (or (null key) (string-empty-p key) (equal key sp-fetch-inbox--placeholder-key))
       (user-error "Give the entry a key first (C-c C-r makes one from author, year and title)"))
-    (when (sp-fetch-inbox--key-taken-p key)
-      (user-error "The key %s is already in a .bib file; change it or press C-c C-r" key))
-    (let ((dest (expand-file-name (concat key ".pdf") sp-literature-dir)))
-      (when (file-exists-p dest) (user-error "%s already exists" dest))
-      (unless (y-or-n-p (format "Move %s to %s, update DEVONthink, add %s to %s? "
-                                (plist-get item :name) (abbreviate-file-name dest) key
-                                (file-name-nondirectory bibfile)))
+    (let* ((dest (expand-file-name (concat key ".pdf") sp-literature-dir))
+           (taken (sp-fetch-inbox--key-taken-p key))
+           (replace (and taken (file-exists-p dest))))
+      (when (and taken (not replace))
+        (user-error "The key %s is already in a .bib file; change it or press C-c C-r" key))
+      (when (and (not taken) (file-exists-p dest))
+        (user-error "%s already exists" dest))
+      (unless (y-or-n-p
+               (if replace
+                   (format "Replace %s by %s (old copy kept in %s), update DEVONthink, keep the entry of %s? "
+                           (abbreviate-file-name dest) (plist-get item :name)
+                           (abbreviate-file-name sp-fetch-inbox-backup-dir) key)
+                 (format "Move %s to %s, update DEVONthink, add %s to %s? "
+                         (plist-get item :name) (abbreviate-file-name dest) key
+                         (file-name-nondirectory bibfile))))
         (user-error "Nothing changed"))
       (when (buffer-live-p pdf) (kill-buffer pdf))
-      (sp-fetch-inbox--file-pdf item key dest)
-      (unless (fboundp 'sp--fetch-academic-attach) (require 'sp-fetch-academic))
-      (goto-char (point-min))
-      (sp--fetch-academic-attach dest)
-      (sp-fetch-inbox--append bibfile (buffer-string))
-      (sp-fetch-inbox--sync-metadata key (buffer-string))
-      (sp-fetch-inbox--finish edit)
-      (message "Filed %s in %s" key (abbreviate-file-name dest))
+      (if replace
+          (let ((backup (sp-fetch-inbox--replace-pdf item key dest)))
+            (sp-fetch-inbox--finish edit)
+            (message "Replaced %s; old copy in %s" key (abbreviate-file-name backup)))
+        (sp-fetch-inbox--file-pdf item key dest)
+        (unless (fboundp 'sp--fetch-academic-attach) (require 'sp-fetch-academic))
+        (goto-char (point-min))
+        (sp--fetch-academic-attach dest)
+        (sp-fetch-inbox--append bibfile (buffer-string))
+        (sp-fetch-inbox--sync-metadata key (buffer-string))
+        (sp-fetch-inbox--finish edit)
+        (message "Filed %s in %s" key (abbreviate-file-name dest)))
       (when (and (sp-fetch-inbox-items) (y-or-n-p "Next article? "))
         (sp-fetch-inbox)))))
 
