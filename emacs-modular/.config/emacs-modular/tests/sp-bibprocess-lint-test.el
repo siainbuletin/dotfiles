@@ -1432,6 +1432,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
           "@article{a6,\n  title = {F},\n  date = {5/14/2021}}\n\n"
           "@article{a7,\n  title = {G},\n  date = {2021/5/14}}\n\n"
           "@article{a8,\n  title = {H},\n  date = {3/4/2021}}\n\n"
+          "@article{a0,\n  title = {P},\n  date = {14. Mai 2021}}\n\n"
           "@article{a9,\n  title = {I},\n  date = {Spring 2021}}\n\n"
           "@article{b1,\n  title = {J},\n  date = {2020/2021}}\n\n"
           "@article{b2,\n  title = {K},\n  date = {c. 1850}}\n\n"
@@ -1454,7 +1455,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
 (ert-deftest sp-bibtex-date-test-text-reads-the-forms ()
   (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
     (let ((results (sp-bibprocess-lint-test--datetext-results)))
-      (dolist (key '("a1" "a2" "a5" "a6" "a7" "iso"))
+      (dolist (key '("a0" "a1" "a2" "a5" "a6" "a7" "iso"))
         (ert-info (key)
           (let ((new (sp-bibprocess-lint-test--datetext-new results key)))
             (should (string-match-p "year = {2021}" new))
@@ -1502,7 +1503,7 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
   (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
     ;; The ISO fix does only `iso'; the text fix then does the others and writes once.
     (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
-    (should (equal '(7) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date-text)))
+    (should (equal '(8) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date-text)))
     (let ((text (sp-bibprocess-lint-test--text file)))
       (should (string-search "date = {2020/2021}" text))
       (should (string-search "date = {c. 1850}" text))

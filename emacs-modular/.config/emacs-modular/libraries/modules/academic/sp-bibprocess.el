@@ -1858,7 +1858,7 @@ leaves it.  A number over 12 always settles it, and 3.4.2021 and 3-4-2021 are al
 (defun sp-bibtex-date--parse-words (text)
   "Read the date TEXT with a month name (May 14, 2021; 14th May 2021; May 2021; 2021 May)."
   (let* ((tokens (split-string (replace-regexp-in-string
-                                "\\([0-9]\\)\\(?:st\\|nd\\|rd\\|th\\|\\.\\)\\b" "\\1"
+                                "\\([0-9]\\)\\(?:\\(?:st\\|nd\\|rd\\|th\\)\\b\\|\\.\\(?:[ \t]\\|\\'\\)\\)" "\\1 "
                                 (replace-regexp-in-string "," " " (downcase text)))
                                "[ \t]+" t))
          (years (seq-filter (lambda (tk) (string-match-p "\\`[0-9]\\{4\\}\\'" tk)) tokens))
