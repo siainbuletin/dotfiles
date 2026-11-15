@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-sync.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink-sync.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "The record-to-litnote link") and [[file:../../../../../../adr/0030-litnote-and-record-link-both-ways.org][ADR 0030]].
+Literate source for =libraries/modules/academic/sp-devonthink-sync.el=. Design: [[file:sp-devonthink.org][sp-devonthink.org]] (section "The record-to-litnote link") and [[file:../../../../../../adr/0031-litnote-and-record-link-both-ways.org][ADR 0031]].
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
@@ -15,7 +15,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-sync.el=. Design: 
 - The report compares three things by citekey: the litnotes, the PDF records in DEVONthink, and the registered =.bib= files.
 - Writers:
   - =sp-devonthink-sync-backfill=: writes the =#+devonthink:= keyword into litnotes that lack it;
-  - =sp-devonthink-sync-record-links=: writes a link to the litnote into each record (proposed in ADR 0030; try the probe first).
+  - =sp-devonthink-sync-record-links=: writes a link to the litnote into each record (proposed in ADR 0031; try the probe first).
 - Every note the backfill changes is copied first to a backup folder under =sp-var-dir=.
 
 * The report
@@ -306,7 +306,7 @@ LIMIT, a prefix argument, limits how many notes are done."
 
 * The link in the record
 
-- Proposed in ADR 0030: a custom metadata field of type URL (name =sp-devonthink-sync-record-field=) holds a link that Emacs resolves with =org-id-open=.
+- Proposed in ADR 0031: a custom metadata field of type URL (name =sp-devonthink-sync-record-field=) holds a link that Emacs resolves with =org-id-open=.
   - The field must exist in DEVONthink first (Settings > Data > Metadata).
   - The value is built from =sp-devonthink-sync-url-template= and the note's =:ID:=.
 - =sp-devonthink-sync-probe-field= tests the field on one record and puts the value back: run it before anything else.
@@ -434,4 +434,4 @@ Shows the plan and asks first; a prefix argument LIMIT limits how many."
   - the AppleScript of the probe and of the writer: =add custom meta data … for … to …= and =get custom meta data for … from …=, and that the field has to exist first;
   - whether DEVONthink opens an =org-protocol://= URL stored in a URL field, and what happens next:
     - macOS needs an application registered for the =org-protocol= scheme; the test is =open 'org-protocol://devonthink-note?id=SOME-ID'= in fish;
-    - without it nothing opens, and the fallback of ADR 0030 (a file path to the litnote) applies.
+    - without it nothing opens, and the fallback of ADR 0031 (a file path to the litnote) applies.

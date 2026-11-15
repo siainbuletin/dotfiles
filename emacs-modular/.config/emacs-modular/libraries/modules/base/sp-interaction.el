@@ -143,16 +143,25 @@ Nil never shows them again on idle."
   "Non-nil when a live buffer has `sp-echo-help-mode' on."
   (seq-some (lambda (b) (buffer-local-value 'sp-echo-help-mode b)) (buffer-list)))
 
+(defcustom sp-echo-help-message-hold 5
+  "Seconds a message of a command stays before idle time replaces it with the hints.
+The hints never replace a younger message; `sp-echo-help-show-now' always does."
+  :type 'number
+  :group 'sp-interaction)
+
 (defun sp-echo-help--idle-show ()
   "Show the hints of the selected window's buffer; stop the timer when unused.
-The hints replace a message that has been there for the whole idle delay,
-so the last message of a job does not hide them for good."
+The hints replace a message only after Emacs has been idle for
+`sp-echo-help-message-hold' seconds, so the last message of a job does not
+hide them for good, and a message just emitted is never replaced."
   (if (not (sp-echo-help--any-buffer-p))
       (when (timerp sp-echo-help--timer)
         (cancel-timer sp-echo-help--timer)
         (setq sp-echo-help--timer nil))
     (with-current-buffer (window-buffer (selected-window))
-      (when sp-echo-help-mode (sp-echo-help-show t)))))
+      (when sp-echo-help-mode
+        (sp-echo-help-show (let ((idle (current-idle-time)))
+                             (and idle (>= (float-time idle) sp-echo-help-message-hold))))))))
 
 (defun sp-echo-help-show-now ()
   "Show the key hints of this buffer in the echo area now."
@@ -177,15 +186,17 @@ Set them with `sp-echo-help-set'.  \\{sp-echo-help-mode-map}"
                 (run-with-idle-timer sp-echo-help-idle-delay t #'sp-echo-help--idle-show))))
     (remove-hook 'post-command-hook #'sp-echo-help-show t)))
 
-(defun sp-echo-help-set (hints &optional note)
+(defun sp-echo-help-set (hints &optional note quiet)
   "Show HINTS in the echo area whenever this buffer is current.
 HINTS is a list of (KEY DESCRIPTION [STRONG]); see `sp-echo-help-format'.
-NOTE is an optional line above them.  Nil HINTS turn the hints off."
+NOTE is an optional line above them.  Nil HINTS turn the hints off.
+A non-nil QUIET keeps a message that is in the echo area: the hints then
+show after the next command or idle time, not now."
   (setq sp-echo-help--hints hints
         sp-echo-help--note note)
   (sp-echo-help-mode (if hints 1 -1))
   (when (and hints (eq (current-buffer) (window-buffer (selected-window))))
-    (sp-echo-help-show t)))
+    (sp-echo-help-show (not quiet))))
 
 (provide 'sp-interaction)
 ;; sp-interaction.el ends here.

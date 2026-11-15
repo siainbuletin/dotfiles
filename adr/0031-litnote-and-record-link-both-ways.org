@@ -1,4 +1,4 @@
-#+title: 0030 Link a litnote and its DEVONthink record in both directions
+#+title: 0031 Link a litnote and its DEVONthink record in both directions
 #+date: 2026-11-12
 #+status: proposed (Emacs side done, record side not built)
 

@@ -34,8 +34,9 @@ local layer = hs.hotkey.modal.new()
 -- A hotkey only matches the modifiers it is bound with. Bound with none, F18
 -- pressed while Shift is already held is not the layer key, so the layer never
 -- opens and Shift+letter types a capital. Bind the layer key with and without
--- Shift so that either order of pressing works. Same for Ctrl (join, below).
-for _, mods in ipairs({ {}, { "shift" }, { "ctrl" } }) do
+-- Shift so that either order of pressing works. Same for Ctrl (join, below)
+-- and Option (the DEVONthink colour keys in devonthink.lua).
+for _, mods in ipairs({ {}, { "shift" }, { "ctrl" }, { "alt" } }) do
   hs.hotkey.bind(mods, layerKey,
     function() layer:enter() end,
     function() layer:exit() end)

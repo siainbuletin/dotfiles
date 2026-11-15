@@ -90,12 +90,20 @@
         (let ((vertico-posframe-mode nil))
           (should (= (sp-citations--frame-columns) 150)))))))
 
+;; The cache objects of citar: `sp-citations--repreformat' reads the format string slot.
+(cl-defstruct (citar-cache--bibliography
+               (:constructor citar-cache--make-bibliography (filename)))
+  filename buffers props format-string
+  (entries (make-hash-table :test 'equal)))
+
 (ert-deftest sp-citations-apply-layout-follows-frame-and-font ()
   (let ((reformatted 0) (pixels 1080) (charw 9) (height 150) (sp-citations--applied-state nil)
         (citar-templates '((preview . "p") (main . "m") (suffix . "s")))
         (vertico-posframe-mode nil)
         (citar-cache--bibliographies (make-hash-table :test 'equal)))
-    (puthash "a.bib" 'bib citar-cache--bibliographies)
+    (let ((bib (citar-cache--make-bibliography "a.bib")))
+      (setf (citar-cache--bibliography-format-string bib) "${title}")
+      (puthash "a.bib" bib citar-cache--bibliographies))
     (cl-letf (((symbol-function 'display-graphic-p) (lambda (&rest _) nil))
               ((symbol-function 'frame-parameter) (lambda (&rest _) nil))
               ((symbol-function 'frame-text-width) (lambda (&rest _) pixels))

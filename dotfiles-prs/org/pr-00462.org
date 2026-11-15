@@ -12,7 +12,7 @@
 - Merged :: 2026-11-14 11:36
 - Branch :: =claude/project-thread-6gdylj= → =main=
 - Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/e53baaf232706dff0e636dfe42c68f6d8590ad79][e53baaf232]]
-- Labels :: bugfix, needs-further-testing
+- Labels :: bugfix, does-what-it-should
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW23sZmuL1MsmYTfmFAfbKUto][project thread]]/
@@ -70,8 +70,8 @@
 - [X] Start Emacs with the PR checked out; no errors in =*Messages*= or =*elpaca-log*=.
 - [X] =M-x elpaca-update-menus= finishes; =*Messages*= shows "Downloading MELPA...100%".
 - [ ] In =var/elpaca/cache/melpa/=, =git branch= shows =main= tracking =origin/main=.
-- [ ] =M-x elpaca-try= a MELPA-only package installs.
-- [ ] =M-x elpaca-update-all= (or =elpaca-pull= on a MELPA package) works.
+- [X] =M-x elpaca-try= a MELPA-only package installs.
+- [X] =M-x elpaca-update-all= (or =elpaca-pull= on a MELPA package) works.
 - [ ] Fresh clone: move =var/elpaca/cache/melpa= aside, run =elpaca-update-menus=; it re-clones.
 - [ ] Set =sp-elpaca-melpa-fix= to nil: Elpaca's original (broken) behaviour returns, confirming the switch.
 

@@ -69,9 +69,6 @@
     (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) sp-devonthink-browse-test--text)))
       (should (= (length (sp-devonthink-browse-refresh)) 3)))))
 
-(provide 'sp-devonthink-browse-test)
-;;; sp-devonthink-browse-test.el ends here
-
 (ert-deftest sp-devonthink-browse-record-note-needs-a-bibtex-entry ()
   (sp-devonthink-browse--make-candidates
    (sp-devonthink-browse--parse sp-devonthink-browse-test--text))
@@ -84,3 +81,103 @@
               ((symbol-function 'sp-litnotes-meta--entry) (lambda (_) '(("k" . "v")))))
       (sp-devonthink-record-note "smith-2017-x.pdf")
       (should (equal opened '("smith-2017-x"))))))
+
+;;;; Search, similar records and preview (formerly sp-devonthink-search)
+
+(defconst sp-devonthink-browse-test--hits
+  "U1\t/A/\tsmith-2017-x.pdf\tPDF Document\t12\nU2\t/B/\tnote.txt\tPlain Text\t0\n")
+
+(ert-deftest sp-devonthink-browse-script-quotes-the-query ()
+  (let ((script (sp-devonthink-browse--search-script "\"value form\" kind:pdf")))
+    (should (string-match-p "app.search(\"\\\\\"value form\\\\\" kind:pdf\", {in: db.root()})" script))
+    (should (string-match-p "slice(0, 50)" script))
+    (should (string-match-p "r.pageCount()" script))
+    (should-not (string-match-p "every item" script))))
+
+(ert-deftest sp-devonthink-browse-parse-and-annotate ()
+  (let* ((records (sp-devonthink-browse--parse sp-devonthink-browse-test--hits))
+         (cands (sp-devonthink-browse--make-candidates records)))
+    (should (equal (plist-get (car records) :pages) "12"))
+    (should (equal (sp-devonthink-browse--annotate (car cands)) "  PDF Document, 12 pages"))
+    (should (equal (sp-devonthink-browse--annotate (cadr cands)) "  Plain Text"))
+    (should-not (sp-devonthink-browse--annotate "unknown"))))
+
+(ert-deftest sp-devonthink-browse-table-keeps-rank-order ()
+  (let ((table (sp-devonthink-browse--ranked-table '("b" "a"))))
+    (should (eq (alist-get 'category (cdr (funcall table "" nil 'metadata))) 'sp-devonthink-record))
+    (should (eq (alist-get 'display-sort-function (cdr (funcall table "" nil 'metadata))) 'identity))
+    (should (equal (all-completions "" table) '("b" "a")))))
+
+(ert-deftest sp-devonthink-browse-choose-opens-the-hit ()
+  (let (opened)
+    (cl-letf (((symbol-function 'sp-reading--jxa)
+               (lambda (_) sp-devonthink-browse-test--hits))
+              ((symbol-function 'completing-read) (lambda (&rest _) "smith-2017-x.pdf"))
+              ((symbol-function 'sp-reading--open-url) (lambda (url) (setq opened url))))
+      (sp-devonthink-browse--choose "script" "p: "))
+    (should (equal opened "x-devonthink-item://U1"))
+    (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "")))
+      (should-error (sp-devonthink-browse--choose "script" "p: ") :type 'user-error))))
+
+(ert-deftest sp-devonthink-browse-empty-query-browses ()
+  (let (read opened)
+    (cl-letf (((symbol-function 'sp-devonthink-browse--read) (lambda (&rest _) (setq read t) "x.pdf"))
+              ((symbol-function 'sp-devonthink-record-open) (lambda (c) (setq opened c)))
+              ((symbol-function 'sp-devonthink-browse--choose)
+               (lambda (&rest _) (ert-fail "must not search"))))
+      (sp-devonthink-browse "  " 'devonthink)
+      (should read)
+      (should (equal opened "x.pdf"))
+      (setq read nil opened nil)
+      (sp-devonthink-browse "")
+      (should (equal opened "x.pdf")))))
+
+(ert-deftest sp-devonthink-browse-empty-query-with-litdb-is-an-error ()
+  (cl-letf (((symbol-function 'sp-litdb-search) (lambda (&rest _) (ert-fail "must not search")))
+            ((symbol-function 'require) (lambda (&rest _) t)))
+    (should-error (sp-devonthink-browse "" 'hybrid) :type 'user-error)))
+
+(ert-deftest sp-devonthink-browse-merged-command-and-keys ()
+  (should-not (fboundp 'sp-devonthink-search))
+  (should-not (featurep 'sp-devonthink-search))
+  (should-not (keymap-lookup sp-devonthink-map "b"))
+  (should (eq (keymap-lookup sp-devonthink-map "f") 'sp-devonthink-browse)))
+
+(ert-deftest sp-devonthink-browse-engine-litdb-sets-mode ()
+  (let (mode query)
+    (defvar sp-litdb-default-mode)
+    (cl-letf (((symbol-function 'sp-litdb-search)
+               (lambda (q &optional _) (setq query q mode sp-litdb-default-mode)))
+              ((symbol-function 'require) (lambda (&rest _) t)))
+      (sp-devonthink-browse "value form" 'vector))
+    (should (equal query "value form"))
+    (should (eq mode 'vector))))
+
+(ert-deftest sp-devonthink-browse-similar-and-preview-scripts ()
+  (should (string-match-p "app.compare({record: app.getRecordWithUuid(\"U1\"), to: db})"
+                          (sp-devonthink-browse--similar-script "U1")))
+  (should (string-match-p "getRecordWithUuid(\"U1\").plainText().slice(0, 3000)" (sp-devonthink-browse--preview-script "U1"))))
+
+(ert-deftest sp-devonthink-browse-preview-buffer ()
+  (sp-devonthink-browse--make-candidates (sp-devonthink-browse--parse sp-devonthink-browse-test--hits))
+  (cl-letf (((symbol-function 'sp-reading--jxa) (lambda (_) "Some text"))
+            ((symbol-function 'display-buffer) #'ignore))
+    (sp-devonthink-preview "smith-2017-x.pdf"))
+  (with-current-buffer "*devonthink preview*"
+    (should (string-match-p "smith-2017-x.pdf\n\nSome text" (buffer-string)))))
+
+(ert-deftest sp-devonthink-browse-similar-to-note-uses-the-note-resolver ()
+  (let (script)
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid)
+               (lambda (&optional action)
+                 (when action (error "read-only command must not ask"))
+                 "U-PARENT"))
+              ((symbol-function 'sp-devonthink-browse--choose)
+               (lambda (s _prompt) (setq script s))))
+      (sp-devonthink-similar-to-note)
+      (should (string-match-p "U-PARENT" script)))
+    (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) nil)))
+      (should-error (sp-devonthink-similar-to-note) :type 'user-error))))
+
+(provide 'sp-devonthink-browse-test)
+;;; sp-devonthink-browse-test.el ends here

@@ -54,7 +54,7 @@
 :END:
 Mac, =~/.config/emacs-modular=, a note with a heading that has an =ID= and is linked from another note.
 
-- [ ] Check out: =cd ~/dotfiles; git fetch origin 450-backlink-check; git checkout 450-backlink-check=, restart Emacs (or =M-x sp-reload-modules=)
+- [X] Check out: =cd ~/dotfiles; git fetch origin 450-backlink-check; git checkout 450-backlink-check=, restart Emacs (or =M-x sp-reload-modules=)
 - [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -l tests/sp-vulpea-backlink-check-test.el -f ert-run-tests-batch-and-exit= → 21 pass
 - [ ] On a linked heading with an ID: =M-x sp-vulpea-backlink-check= shows =N backlinks from M notes=
 - [ ] Eval =(sp-vulpea-backlink-check)= with =C-x C-e= on the same heading: same message

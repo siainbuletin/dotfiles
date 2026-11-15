@@ -1818,8 +1818,7 @@ progress count and ETA in the echo area -- see
                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
                     (push (car p) found))))))
            (when found
-             (format "- %s: %s" (sp-batch-report-file-link file)
-                     (string-join (seq-uniq found) ", "))))))
+             (cons file (seq-uniq found))))))
      "Previewing property conversion"
      (lambda (results)
        (let ((report (delq nil results)))
@@ -1827,12 +1826,16 @@ progress count and ETA in the echo area -- see
              (message "Nothing would be converted -- every property found is blocklisted.")
              (sp-batch-report-show
               "*vulpea property conversion preview*"
-              (concat "#+title: Property conversion: dry run\n\n"
-                      "A applies the conversion to the files that are left (it asks first).\n\n"
-                      (sp-batch-report-key-entries
-                       (concat (string-join report "\n") "\n"))
-                      (and excluded
-                           (concat "\n" (sp-batch-report-dropped-section excluded))))
+              (sp-batch-report-text
+               "Property conversion: dry run"
+               (list (sp-batch-report-section
+                      "Properties to convert"
+                      (mapcar (lambda (entry)
+                                (sp-batch-report-item (string-join (cdr entry) ", ")
+                                                      :file (car entry)))
+                              report)))
+               :intro "A applies the conversion to the files that are left (it asks first)."
+               :excluded excluded)
               #'sia-vulpea-convert-all-notes-properties-to-meta-dryrun)
              (with-current-buffer "*vulpea property conversion preview*"
                (setq sp-batch-report-excluded excluded
@@ -4862,3 +4865,29 @@ What each pull request changed in these modules, newest last; the one-line summa
     - the result is an Embark target (=sp-vulpea-backlinks=); =embark-act= opens a buffer with each backlink's note, heading, line and context, and =RET= jumps to it.
   - 18 ERT tests in headless Emacs 29.3 (Vulpea stubbed)
     - not run with real Vulpea, Embark or the GUI.
+- [[https://github.com/siainbuletin/dotfiles/pull/407][#407]]
+  - ✨ Changed =Mentions= in =sp-grouped-backlinks= into a section with one subsection per kind of source note
+    - notes (tagged =concept= or =zettel=, and untagged ones), litnotes (tagged =litnote=), writing projects (files below =sp-writing-projects=, which wins over the tags)
+    - empty kinds are not shown; meta-key groups such as =pub-author= are unchanged
+  - ✨ Added =sp-vulpea-grouped-backlinks-block-padding= (default 2 blank lines), read by the Org buffer, the sidebar and the widget
+  - 🔧 Changed the three views to share =sp-vulpea-grouped-backlinks-sections=
+- [[https://github.com/siainbuletin/dotfiles/pull/416][#416]]
+  - 🔧 Changed =sp-vulpea-start-autosync= to be idempotent: it cancels the pending timer and does nothing if the mode is on
+    - =sp-vulpea-schedule-autosync= sets the idle timer, and runs at once if init is over
+  - 🔧 Changed =sp-vulpea-autosync-delay= to a =number=, default 10 s (was 30 s); =sp-find-note= calls =sp-vulpea-start-autosync= first
+- [[https://github.com/siainbuletin/dotfiles/pull/447][#447]]
+  - ✨ Added =sp-vulpea-ui-view=: the =vulpea-ui= widgets in a buffer and frame of their own
+    - =M-o v= (=sp-vulpea-ui-view-toggle=) opens a frame named =vulpea-ui-view= and closes it again; =q= closes, =g= refreshes
+    - it mounts =vulpea-ui-sidebar-root=, so the widgets and their order are the sidebar's
+    - it follows the most recently used window that shows a vulpea note, in any frame
+- [[https://github.com/siainbuletin/dotfiles/pull/456][#456]]
+  - ✨ Added =sp-vulpea-ui-view-wrap-lines= (default =t=): long lines wrap at word boundaries in the view buffer only
+  - ✨ Added =sp-vulpea-ui-view-wrap-indent= (default =t=): the wrapped part is indented like the line start (=visual-wrap-prefix-mode=, Emacs 30 and later)
+    - applied in the mode body, after the first mount and after =g=
+- [[https://github.com/siainbuletin/dotfiles/pull/469][#469]]
+  - ✨ Added =sp-vulpea-ui-view-switch-buffer-action= for =C-x b= in the dedicated view window
+    - =other-window= (default): the buffer opens in the notes window and that frame gets the focus; the view keeps following the current note
+    - =prompt=: Emacs asks whether to undedicate the window and switches in place
+    - nil: Emacs's own error
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the view to the echo-area hints of =sp-echo-help-set= (=RET=, =n/p=, =g=, =q=) instead of a line in the buffer

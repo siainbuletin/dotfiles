@@ -325,11 +325,11 @@
                (lambda (prompt &rest _)
                  (if (string-prefix-p "Folder" prompt)
                      "Texte Filosofia istoriei (1)"
-                   (user-error "Picker should not be needed"))))
+                   (should (string-match-p "only Texte Filosofia istoriei" prompt))
+                   "a.pdf")))
               ((symbol-function 'sp-fetch-inbox--start) (lambda (item) (setq started item))))
       (should (equal (sp-fetch-inbox--read-folder items) "Texte Filosofia istoriei"))
-      ;; one item in the folder: chosen directly, no second prompt
-      (sp-fetch-inbox t)
+            (sp-fetch-inbox t)
       (should (equal (plist-get started :name) "a.pdf")))))
 
 (ert-deftest sp-fetch-inbox-merge-skips-known-files ()
@@ -339,6 +339,18 @@
     (write-region "" nil a) (write-region "" nil b)
     (let ((items (sp-fetch-inbox--merge (list (list :uuid "U" :name "a.pdf" :file a)) (list a b))))
       (should (equal (mapcar (lambda (i) (plist-get i :name)) items) '("a.pdf" "b.pdf"))))))
+
+(ert-deftest sp-fetch-inbox-arrange-is-linear-in-folders ()
+  "6000 items in 1500 folders are grouped in well under a second (was 5 s)."
+  (let ((items (mapcar (lambda (n) (list :name (format "a%d.pdf" n) :added n
+                                         :subdir (format "Folder %d" (mod n 1500))))
+                       (number-sequence 1 6000)))
+        (start (float-time)))
+    (let ((out (sp-fetch-inbox--arrange items 'added t)))
+      (should (= (length out) 6000))
+      ;; folders stay together, newest folder first
+      (should (equal (plist-get (car out) :subdir) "Folder 0")))
+    (should (< (- (float-time) start) 1.5))))
 
 (provide 'sp-fetch-inbox-test)
 ;;; sp-fetch-inbox-test.el ends here

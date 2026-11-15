@@ -12,7 +12,7 @@
 - Merged :: 2026-11-14 11:32
 - Branch :: =459-echo-help-linting-uis= → =457-echo-area-help-hints=
 - Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/43c4e0dc9de0719db82dd1d393379dc427c80185][43c4e0dc9d]]
-- Labels :: new-feature, needs-further-testing
+- Labels :: new-feature, follow-up-pr-needed, needs-further-testing
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25PFxuq2GjykReQ26LTWPmi][project thread]]/
@@ -51,8 +51,8 @@
 :END:
 Needs #457 checked out first (this branch includes it).
 
-- [ ] =cd ~/dotfiles; git fetch origin 459-echo-help-linting-uis; git checkout 459-echo-help-linting-uis=, restart Emacs (or =M-x sp-reload-modules=)
-- [ ] =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -L libraries/modules/base -L libraries/modules/academic -L libraries/modules/ui -L libraries/modules/vulpea -l tests/sp-batch-report-test.el -f ert-run-tests-batch-and-exit= → 18 pass (more =-L= if Emacs asks)
+- [X] =cd ~/dotfiles; git fetch origin 459-echo-help-linting-uis; git checkout 459-echo-help-linting-uis=, restart Emacs (or =M-x sp-reload-modules=)
+- [X] =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/funct -L libraries/modules/base -L libraries/modules/academic -L libraries/modules/ui -L libraries/modules/vulpea -l tests/sp-batch-report-test.el -f ert-run-tests-batch-and-exit= → 18 pass (more =-L= if Emacs asks)
 - [ ] =M-x sp-litnotes-titles-dryrun=: no keys in the header line; the echo area shows the grid of hints with =Apply= and =Quit= bold (untested by Claude)
 - [ ] In that report press =d= on an entry: the "dropped" message is not overwritten; the hints return after the next command
 - [ ] A report with no apply function (for example a preview-only one): no =Apply= hint
