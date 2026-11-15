@@ -20,6 +20,7 @@
 
 (defcustom sp-backup-lookup-directories
   '(("BibTeX lint" . sp-bibtex-lint-backup-directory)
+    ("BibTeX abstracts" . sp-bibtex-abstract-backup-directory)
     ("Litnote titles" . sp-litnotes-titles-backup-directory)
     ("Litnote meta" . sp-litnotes-meta-backup-directory)
     ("Meta order" . sp-vulpea-meta-order-backup-directory)

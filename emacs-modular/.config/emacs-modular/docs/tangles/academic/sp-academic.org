@@ -153,6 +153,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
+(require 'sp-bibtex-abstract)
 (require 'sp-bibtex-zotero)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
