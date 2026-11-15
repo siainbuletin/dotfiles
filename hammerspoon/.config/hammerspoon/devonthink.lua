@@ -8,6 +8,9 @@
 --   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
 --                     highlights selected in the Annotations inspector; the
 --                     result depends on DEVONthink, see the PR)
+--   r                 open the DEVONthink record of the selected citation
+--                     (cite-match.lua, Emacs sp-cite-open: reference list of
+--                     the document, BibTeX, litdb)
 --
 -- Keys active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
@@ -255,6 +258,13 @@ for index = 1, #colors do
   layer:bind({ "alt" }, key, inDevonthink(function() M.setColor(index, true) end))
   layer:bind({ "alt", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
 end
+
+-- Open the record of the selected citation. cite-match.lua is optional (see
+-- init.lua), so a failed load only shows an alert.
+layer:bind({}, "r", inDevonthink(function()
+  local ok, cite = pcall(require, "cite-match")
+  if ok then cite.open() else hs.alert.show("cite-match not loaded") end
+end))
 
 --------------------------------------------------
 -- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
