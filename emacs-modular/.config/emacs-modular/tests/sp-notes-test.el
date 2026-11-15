@@ -414,3 +414,106 @@
               (should (string-match-p "1 dropped" (sp-batch-report-view--header-line))))))
       (when (get-buffer "*Notes filing*") (kill-buffer "*Notes filing*"))
       (delete-directory root t))))
+
+;;; sp-notes-trash
+
+(defmacro sp-notes-test--with-note (var &rest body)
+  "Run BODY with VAR bound to a temp note file that has an :ID: and a title."
+  (declare (indent 1))
+  `(let* ((dir (file-name-as-directory (make-temp-file "sp-trash" t)))
+          (,var (expand-file-name "n.org" dir)))
+     (unwind-protect
+         (progn
+           (with-temp-file ,var
+             (insert ":PROPERTIES:\n:ID: id-1\n:END:\n#+title: My note\n"))
+           ,@body)
+       (delete-directory dir t))))
+
+(ert-deftest sp-notes-trash-moves-file-and-kills-buffer ()
+  (sp-notes-test--with-note file
+    (let ((trashed nil) (forgotten nil) (buffer (find-file-noselect file)))
+      (with-current-buffer buffer (insert "unsaved"))
+      (cl-letf (((symbol-function 'sp-notes-trash--move)
+                 (lambda (f) (setq trashed f) (delete-file f)))
+                ((symbol-function 'vulpea-db--forget-file)
+                 (lambda (f) (setq forgotten f)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (should (equal (sp-notes-trash file) (expand-file-name file))))
+      (should (equal trashed (expand-file-name file)))
+      (should (equal forgotten (expand-file-name file)))
+      (should-not (buffer-live-p buffer))
+      (should-not (file-exists-p file)))))
+
+(ert-deftest sp-notes-trash-default-is-current-buffer ()
+  (sp-notes-test--with-note file
+    (let (trashed)
+      (cl-letf (((symbol-function 'sp-notes-trash--move)
+                 (lambda (f) (setq trashed f) (delete-file f)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (with-current-buffer (find-file-noselect file)
+          (sp-notes-trash)))
+      (should (equal trashed (expand-file-name file))))))
+
+(ert-deftest sp-notes-trash-declined-keeps-everything ()
+  (sp-notes-test--with-note file
+    (let ((buffer (find-file-noselect file)) moved)
+      (cl-letf (((symbol-function 'sp-notes-trash--move) (lambda (_) (setq moved t)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+        (should-error (sp-notes-trash file) :type 'user-error))
+      (should-not moved)
+      (should (file-exists-p file))
+      (should (buffer-live-p buffer))
+      (kill-buffer buffer))))
+
+(ert-deftest sp-notes-trash-failure-changes-nothing ()
+  (sp-notes-test--with-note file
+    (let ((buffer (find-file-noselect file)) forgotten)
+      (cl-letf (((symbol-function 'sp-notes-trash--move) (lambda (_) (error "No trash")))
+                ((symbol-function 'vulpea-db--forget-file) (lambda (_) (setq forgotten t)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (should-error (sp-notes-trash file)))
+      (should-not forgotten)
+      (should (file-exists-p file))
+      (should (buffer-live-p buffer))
+      (kill-buffer buffer))))
+
+(ert-deftest sp-notes-trash-backlinks-need-yes-and-are-shown ()
+  (sp-notes-test--with-note file
+    (let ((asked nil) trashed)
+      (cl-letf (((symbol-function 'vulpea-db-query-links-to)
+                 (lambda (id) (and (equal id "id-1") (list (list :source "src-1") (list :source "self")))))
+                ((symbol-function 'vulpea-db-get-by-id)
+                 (lambda (id) (if (equal id "self") file "/notes/other.org")))
+                ((symbol-function 'vulpea-note-path) #'identity)
+                ((symbol-function 'sp-notes-trash--move)
+                 (lambda (f) (setq trashed f) (delete-file f)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) (error "y-or-n-p used")))
+                ((symbol-function 'yes-or-no-p) (lambda (p) (setq asked p) t)))
+        (should (equal (sp-notes-trash--backlinks file) '("/notes/other.org")))
+        (sp-notes-trash file))
+      (should trashed)
+      (should (string-match-p "My note" asked))
+      (should (string-match-p "1 note still link" asked))
+      (should (string-match-p "other\\.org" asked)))))
+
+(ert-deftest sp-notes-trash-refuses-protected-and-missing ()
+  (let ((sp-notes-filing-protected-files '("inbox.org")))
+    (sp-notes-test--with-note file
+      (let ((inbox (expand-file-name "inbox.org" (file-name-directory file))))
+        (write-region "" nil inbox)
+        (should-error (sp-notes-trash inbox) :type 'user-error)
+        (should (file-exists-p inbox))
+        (should-error (sp-notes-trash (expand-file-name "nope.org" (file-name-directory file)))
+                      :type 'user-error)))))
+
+(ert-deftest sp-notes-trash-no-file-buffer ()
+  (with-temp-buffer
+    (should-error (sp-notes-trash) :type 'user-error)))
+
+(ert-deftest sp-notes-trash-move-uses-trash-not-delete ()
+  "The real mover goes through `move-file-to-trash' with trashing on."
+  (let (seen)
+    (cl-letf (((symbol-function 'move-file-to-trash)
+               (lambda (f) (setq seen (list f delete-by-moving-to-trash)))))
+      (let ((system-type 'gnu/linux)) (sp-notes-trash--move "/tmp/x.org")))
+    (should (equal seen '("/tmp/x.org" t)))))

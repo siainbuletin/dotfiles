@@ -196,6 +196,7 @@ the line, respectively."
            ("n"  .  sp-notes-notebook)
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
+           ("d"  .  sp-notes-trash)
            ("s"  .  sp-search-in-notes)
            ("f"  .  sp-notes-filing-dryrun)
            ;; The three kinds of note (sp-note-kinds): a see-also note is a
