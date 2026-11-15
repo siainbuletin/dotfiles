@@ -257,78 +257,51 @@ Nothing is written.  Return the job."
         (push plan (gethash key by-key))
         (unless (gethash key index) (push (cons key plan) unknown))
         (cl-incf (alist-get (sp-litnotes-refs--pdf key index) pdf-counts nil nil #'eq))))
-    (let* ((stubs (sp-litnotes-refs--stubs plans index))
-           (dups (let (found)
-                   (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) found)))
-                            by-key)
-                   (sort found (lambda (a b) (string< (car a) (car b))))))
-           (sections
-            (append
-             (list
-              (sp-batch-report-section
-               "Counts"
-               (append
-                (mapcar (lambda (status)
-                          (sp-batch-report-item
-                           (format "%s: %d" status (length (gethash status by-status))) :key nil))
-                        '(convert merge normalise ok no-reference no-id))
-                (list (sp-batch-report-item
-                       (format "keys not in any registered .bib: %d" (length unknown)) :key nil)
-                      (sp-batch-report-item
-                       (format "keys with a PDF of their own: %d; through crossref: %d; none: %d"
-                               (alist-get 'own pdf-counts) (alist-get 'crossref pdf-counts)
-                               (alist-get nil pdf-counts nil nil #'eq))
-                       :key nil)))))
-             (when stubs
-               (list (sp-batch-report-section
-                      (format "Would add to %s (stub entries)"
-                              (file-name-nondirectory sp-litnotes-refs-inbox-bib))
-                      (mapcar (lambda (stub)
-                                (sp-batch-report-item
-                                 (format "%s: %s" (car stub)
-                                         (if (string-match "^@\\([[:alpha:]]+\\)" (cdr stub))
-                                             (match-string 1 (cdr stub)) ""))
-                                 :key nil))
-                              stubs))))
-             (delq nil
-                   (mapcar
-                    (lambda (spec)
-                      (when-let* ((items (reverse (gethash (car spec) by-status))))
-                        (sp-batch-report-section
-                         (cadr spec)
-                         (mapcar (lambda (plan)
-                                   (sp-batch-report-item
-                                    (format "%s -> %s"
-                                            (or (plist-get plan :keyword) (plist-get plan :roam) "")
-                                            (plist-get plan :refs))
-                                    :file (plist-get plan :file)))
-                                 items))))
-                    '((convert "Would add ROAM_REFS and drop #+reference:")
+    (with-temp-buffer
+      (insert (format "#+title: Litnote references: dry run\n\nFolder: =%s=\nNotes: %d\n\n"
+                      sp-litnotes-refs-directory (length plans)))
+      (insert "* Counts\n")
+      (dolist (status '(convert merge normalise ok no-reference no-id))
+        (insert (format "- %s: %d\n" status (length (gethash status by-status)))))
+      (insert (format "- keys not in any registered .bib: %d\n" (length unknown)))
+      (insert (format "- keys with a PDF of their own: %d; through crossref: %d; none: %d\n\n"
+                      (alist-get 'own pdf-counts) (alist-get 'crossref pdf-counts)
+                      (alist-get nil pdf-counts nil nil #'eq)))
+      (let ((stubs (sp-litnotes-refs--stubs plans index)))
+        (when stubs
+          (insert (format "* Would add to %s (%d stub entries)\n"
+                          (file-name-nondirectory sp-litnotes-refs-inbox-bib) (length stubs)))
+          (dolist (stub stubs)
+            (insert (format "- %s: %s\n" (car stub)
+                            (if (string-match "^@\\([[:alpha:]]+\\)" (cdr stub))
+                                (match-string 1 (cdr stub)) ""))))
+          (insert "\n")))
+      (dolist (spec '((convert "Would add ROAM_REFS and drop #+reference:")
                       (merge "Has both: would merge into ROAM_REFS and drop #+reference:")
                       (normalise "ROAM_REFS in another format: would rewrite as @key")
-                      (no-id "No top-level :ID: drawer: would get a new ID (and ROAM_REFS) if you agree; otherwise skipped"))))
-             (when unknown
-               (list (sp-batch-report-section
-                      "Keys that no registered .bib has"
-                      (mapcar (lambda (item)
-                                (sp-batch-report-item (format "%s" (car item))
-                                                      :file (plist-get (cdr item) :file)
-                                                      :key nil))
-                              (reverse unknown)))))
-             (when dups
-               (list (sp-batch-report-section
-                      "Keys used by more than one note"
-                      (mapcar (lambda (dup)
-                                (sp-batch-report-item
-                                 (format "%s: %s" (car dup)
-                                         (sp-batch-report-file-links
-                                          (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))
-                                 :key nil))
-                              dups)))))))
-      (sp-batch-report-text
-       "Litnote references: dry run" sections
-       :intro (format "Folder: =%s=\nNotes: %d" sp-litnotes-refs-directory (length plans))
-       :excluded sp-litnotes-refs--excluded))))
+                      (no-id "No top-level :ID: drawer: would get a new ID (and ROAM_REFS) if you agree; otherwise skipped")))
+        (when-let* ((items (reverse (gethash (car spec) by-status))))
+          (insert (format "* %s (%d)\n" (cadr spec) (length items)))
+          (dolist (plan items)
+            (insert (format "- %s: %s -> %s\n"
+                            (sp-batch-report-file-link (plist-get plan :file))
+                            (or (plist-get plan :keyword) (plist-get plan :roam) "")
+                            (plist-get plan :refs))))
+          (insert "\n")))
+      (when unknown
+        (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
+        (dolist (item (reverse unknown))
+          (insert (format "- %s in %s\n" (car item)
+                          (sp-batch-report-file-link (plist-get (cdr item) :file)))))
+        (insert "\n"))
+      (let (dups)
+        (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
+        (when dups
+          (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
+          (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
+            (insert (format "- %s: %s\n" (car dup)
+                            (sp-batch-report-file-links (mapcar (lambda (p) (plist-get p :file)) (cdr dup))))))))
+      (buffer-string))))
 
 (defvar sp-litnotes-refs--excluded nil
   "The notes (files) dropped from the report with `d'; the commands leave them out.")
@@ -353,7 +326,8 @@ when they are read.  EXCLUDED lists notes (files) to leave out; the report's
                  plans (lambda (p) (plist-get p :file)) excluded)))
     (sp-batch-report-open
      "*litnote refs*"
-     (sp-litnotes-refs--report-text shown index)
+     (concat (sp-batch-report-key-entries (sp-litnotes-refs--report-text shown index))
+             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
      :refresh (lambda () (sp-litnotes-refs-dryrun sp-litnotes-refs--excluded))
      :redraw (lambda (excl)
                (setq sp-litnotes-refs--excluded excl)
