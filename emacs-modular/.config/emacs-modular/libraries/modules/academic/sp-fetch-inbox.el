@@ -564,7 +564,7 @@ With a prefix argument PICK-FOLDER, first choose one sub-directory to restrict t
 
 ;;;###autoload
 (defun sp-fetch-inbox-record (candidate)
-  "File the DEVONthink record CANDIDATE (an Embark action of `sp-devonthink-browse')."
+  "File the DEVONthink record CANDIDATE (an Embark action on a DEVONthink record)."
   (interactive (list (sp-devonthink-browse--read)))
   (let* ((record (sp-devonthink-browse--record candidate))
          (uuid (plist-get record :uuid))

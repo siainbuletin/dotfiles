@@ -49,7 +49,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 | =sp-devonthink-bibsync=              | one record: the citekey of the litnote, else asked                   |
 | =sp-devonthink-bibsync-many=         | several citekeys chosen from the records that have an entry          |
 | =sp-devonthink-bibsync-all=          | every record of the index that has a BibTeX entry, after a question  |
-| =sp-devonthink-bibsync-record=       | Embark action =y= on a record of =sp-devonthink-browse=              |
+| =sp-devonthink-bibsync-record=       | Embark action =y= on a DEVONthink record              |
 
 - Keys: =C-; k d y= runs =sp-devonthink-bibsync=.
 - From Lisp: =sp-devonthink-bibsync-keys= takes a list of citekeys; =sp-devonthink-bibsync-entry= takes a citekey and the text of an entry (this is what =sp-fetch-inbox= uses).
