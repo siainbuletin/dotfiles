@@ -124,7 +124,7 @@ Where the modules live:
 | sp-litdb | Search the litdb index of highlighted PDF pages from DEVONthink | [[file:docs/tangles/academic/sp-litdb.org][sp-litdb.org]] | [[file:libraries/modules/academic/sp-litdb.el][sp-litdb.el]] | — |
 | sp-cite-match | Match a selected citation to a BibTeX record and write the Cited works section of a litnote | [[file:docs/tangles/academic/sp-cite-match.org][sp-cite-match.org]] | [[file:libraries/modules/academic/sp-cite-match.el][sp-cite-match.el]] | — |
 | sp-reading | Open a cited work in DEVONthink, or index its PDF first (macOS) | [[file:docs/tangles/academic/sp-reading.org][sp-reading.org]] | [[file:libraries/modules/academic/sp-reading.el][sp-reading.el]] | — |
-| sp-devonthink | =devonthink:= Org links, the =#+devonthink:= litnote keyword and opening a record from a note (macOS) | [[file:docs/tangles/academic/sp-devonthink.org][sp-devonthink.org]] | [[file:libraries/modules/academic/sp-devonthink.el][sp-devonthink.el]] | — |
+| sp-devonthink | =devonthink:= Org links, the =#+devonthink:= litnote keyword, opening a record from a note or a citekey, storing a link to what DEVONthink shows, a chapter's keywords in its parent's record (macOS) | [[file:docs/tangles/academic/sp-devonthink.org][sp-devonthink.org]] | [[file:libraries/modules/academic/sp-devonthink.el][sp-devonthink.el]] | — |
 | sp-devonthink-tags | Read and set DEVONthink tags from Emacs; split the comma-joined tag (macOS) | [[file:docs/tangles/academic/sp-devonthink-tags.org][sp-devonthink-tags.org]] | [[file:libraries/modules/academic/sp-devonthink-tags.el][sp-devonthink-tags.el]] | — |
 | sp-devonthink-bibsync | Copy the BibTeX author, title and keywords to the DEVONthink record (tags and custom metadata), also when =sp-fetch-inbox= files an article (macOS) | [[file:docs/tangles/academic/sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]] | [[file:libraries/modules/academic/sp-devonthink-bibsync.el][sp-devonthink-bibsync.el]] | — |
 | sp-pdf-reader | Read PDFs in Emacs with emureader (GNU ELPA); annotations stay in DEVONthink | [[file:docs/tangles/academic/sp-pdf-reader.org][sp-pdf-reader.org]] | [[file:libraries/modules/academic/sp-pdf-reader.el][sp-pdf-reader.el]] | — |
@@ -139,6 +139,13 @@ Where the modules live:
 | sp-pdfprocess | PDF metadata and the emacs-reader viewer | [[file:docs/tangles/academic/sp-academic.org::*sp-pdfprocess.el][sp-academic.org]] | [[file:libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]] | [[file:docs/tangles/academic/sp-academic.org][sp-academic]] |
 | sp-semantic | Semantic search over notes | [[file:docs/tangles/academic/sp-semantic.org][sp-semantic.org]] | [[file:libraries/modules/academic/sp-semantic.el][sp-semantic.el]] | — |
 | sp-statistics | ESS for statistics | [[file:docs/tangles/academic/sp-statistics.org][sp-statistics.org]] | [[file:libraries/modules/academic/sp-statistics.el][sp-statistics.el]] | — |
+
+DEVONthink, in short:
+
+- Start at [[file:docs/tangles/academic/sp-devonthink.org::*Current state][the "Current state" section of sp-devonthink.org]]: what exists, keys, options, limitations, what is untested.
+- All its keys are under =C-; k d= (=C-; k= is the knowledge group of the leader); =C-; B a= files the inbox.
+- Scripts the modules use, with their own literate docs: [[file:docs/tangles/academic/devonthink-reading.org][devonthink-reading.org]] (the small =reading= database), [[file:docs/tangles/academic/devonthink-move.org][devonthink-move.org]] (moving records), =tools/devonthink-to-litdb.py= (litdb index of highlighted pages).
+- Outside Emacs: the Stow package =devonthink-open= (=DT Open PDF=, settings =DT_OPEN_*=) and the Hammerspoon file =hammerspoon/.config/hammerspoon/devonthink.lua= (highlight keys); both are described in "Outside Emacs" of that section.
 
 ** base/
 
