@@ -4,8 +4,8 @@
 -- aerospace-keys.lua, then press):
 --   x                 Tools > Annotate > Highlight Text (persistent highlight mode)
 --   c                 next colour (cycling), then highlight again
---   Ctrl+1 ... Ctrl+7 pick colour N (list below), then highlight again
---   Ctrl+Shift+1 ...  set colour N only, no highlight mode (to recolour the
+--   Option+1 ... 7    pick colour N (list below), then highlight again
+--   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
 --                     highlights selected in the Annotations inspector; the
 --                     result depends on DEVONthink, see the PR)
 --
@@ -14,12 +14,11 @@
 --                  otherwise the normal Cmd+Z goes to DEVONthink
 --
 -- Why:
---   * The layer never reaches Emacs or any other app, and uses no Option,
---     Cmd+Space or Ctrl+Space chord.
---   * The keys do nothing outside DEVONthink.
+--   * The layer never reaches Emacs or any other app, so Option here does not
+--     become Emacs Meta. The keys do nothing outside DEVONthink.
 --   * No automatic highlight on activation: it only runs when you press the key.
 --   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
---     numbers use Caps+Ctrl+number. Caps+Ctrl+h/j/k/l is join-with, no clash.
+--     numbers use Caps+Option+number, which the layer does not use otherwise.
 --
 -- Colours:
 --   * The colour menu items are renamed, e.g. "Red - Important point".
@@ -180,11 +179,11 @@ local layer = require("aerospace-keys").layer
 layer:bind({}, "x", inDevonthink(M.highlight))
 layer:bind({}, "c", inDevonthink(M.nextColor))
 
--- Caps+Ctrl+N picks colour N and highlights; Caps+Ctrl+Shift+N only sets it.
+-- Caps+Option+N picks colour N and highlights; Caps+Option+Shift+N only sets it.
 for index = 1, #colors do
   local key = tostring(index)
-  layer:bind({ "ctrl" }, key, inDevonthink(function() M.setColor(index, true) end))
-  layer:bind({ "ctrl", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
+  layer:bind({ "alt" }, key, inDevonthink(function() M.setColor(index, true) end))
+  layer:bind({ "alt", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
 end
 
 --------------------------------------------------
