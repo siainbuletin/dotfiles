@@ -781,6 +781,18 @@
                            (sp-see-also-parse-buffer))
                    '((("ID-1" . "Kant")))))))
 
+(ert-deftest sp-see-also-note-new-bare-does-not-ask ()
+  (with-temp-buffer
+    (insert "Text\n")
+    (delay-mode-hooks (org-mode))
+    (goto-char (point-min))
+    (end-of-line)
+    (cl-letf (((symbol-function 'sp-see-also--pick-note)
+               (lambda () (error "Must not ask"))))
+      (sp-see-also-note-new-bare))
+    (should (string-prefix-p "Text[fn:see-1]\n" (buffer-string)))
+    (should (string-match-p "\\[fn:see-1\\] \\'" (buffer-string)))))
+
 (ert-deftest sp-see-also-convert-footnotes-inline-and-numbered ()
   (with-temp-buffer
     (insert (sp-see-also-test--text

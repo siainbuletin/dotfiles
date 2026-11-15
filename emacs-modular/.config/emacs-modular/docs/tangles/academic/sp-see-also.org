@@ -35,6 +35,7 @@ While I write a litnote, an idea often reminds me of another concept. I do not w
 - A /see-also note/ is a footnote whose label starts with =see-= (=[fn:see-1]=), see [[file:../text/sp-note-kinds.org][sp-note-kinds]].
   - The text of it is a definition below the paragraph, so the paragraph stays short; the reference in the text is only =[fn:see-1]=.
   - =C-; n a= (=sp-see-also-note-new=) makes one: it asks for the note to point at and writes the link as the start of the definition.
+  - =C-; n A= (=sp-see-also-note-new-bare=) makes one without asking, for a commentary that is more than a link.
   - The prefix is =sp-note-see-also-prefix=.
 - Endnotes (=[fn:end-1]=) are never read, even when they hold an =id:= link.
 - Older notes have see-also footnotes that are inline or numbered. They are still read while =sp-see-also-legacy-footnotes= is non-nil (the default); =M-x sp-see-also-convert-footnotes= turns them into see-also notes.
@@ -1807,6 +1808,7 @@ writing projects, config), not taken from the entry at point."
   + it asks for the note to point at, then inserts =[fn:see-N]= at point and opens the definition at the end of the =Footnotes= section, starting with =[[id:..][Title]]=
   + =C-g= at the prompt stops before anything is inserted
   + with a prefix argument it does not ask, and leaves the definition empty (for a note that is not a link)
+  + =sp-see-also-note-new-bare= (=C-; n A=) is the same as the prefix argument, on a key of its own
 - =sp-see-also-convert-footnotes= (=C-; n M=) turns the see-also footnotes of the buffer that are not see-also notes yet into see-also notes:
   + a /numbered definition/ with an =id:= link is renamed (reference and definition) to the next =see-N=, where it is; the text stays where it was
   + an /inline/ footnote with an =id:= link (=[fn::[[id:..][X]]]= or =[fn:name:...]=) becomes =[fn:see-N]= and its text moves to the =Footnotes= section
@@ -1830,6 +1832,13 @@ with prefix argument BARE, do not ask and leave the definition empty."
                      (format "[[id:%s][%s]] "
                              (vulpea-note-id note) (vulpea-note-title note))))))
     (sp-note-new 'see-also text)))
+
+;;;###autoload
+(defun sp-see-also-note-new-bare ()
+  "Insert a see-also note at point without asking for a note to link.
+The definition is empty, for a commentary that is more than a link."
+  (interactive)
+  (sp-see-also-note-new t))
 
 (defun sp-see-also--rename-label (old new skip)
   "Rename the footnote label OLD to NEW everywhere outside the SKIP ranges."
@@ -2849,6 +2858,18 @@ its text moves to the definitions section.  One undo step undoes all."
                            (sp-see-also-parse-buffer))
                    '((("ID-1" . "Kant")))))))
 
+(ert-deftest sp-see-also-note-new-bare-does-not-ask ()
+  (with-temp-buffer
+    (insert "Text\n")
+    (delay-mode-hooks (org-mode))
+    (goto-char (point-min))
+    (end-of-line)
+    (cl-letf (((symbol-function 'sp-see-also--pick-note)
+               (lambda () (error "Must not ask"))))
+      (sp-see-also-note-new-bare))
+    (should (string-prefix-p "Text[fn:see-1]\n" (buffer-string)))
+    (should (string-match-p "\\[fn:see-1\\] \\'" (buffer-string)))))
+
 (ert-deftest sp-see-also-convert-footnotes-inline-and-numbered ()
   (with-temp-buffer
     (insert (sp-see-also-test--text
@@ -2940,3 +2961,5 @@ What each pull request changed in this module, newest last; the one-line summary
     - =sp-see-also-convert-footnotes= (=C-; n M=) converts inline and numbered see-also footnotes
   - 🔧 Changed what is read: endnotes (=end-N=) never count; footnotes with a plain label and an =id:= link still do while =sp-see-also-legacy-footnotes= is non-nil (the default)
   - 🔧 Changed the cache version from 5 to 6
+- Pull request: this one (bare see-also note)
+  - ✨ Added =sp-see-also-note-new-bare= (=C-; n A=): a see-also note without the prompt for a note to link, for a longer commentary
