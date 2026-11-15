@@ -118,7 +118,7 @@ Most of these are fine as long as I know about them. The ones that cost somethin
 | =C-<return>= | =pulse-line= (=sp-faces=) | Org: =org-insert-heading-respect-content= /(memory)/ | lost in Org |
 | =M-a= | =sp-move-region-to-heading= | built in: =backward-sentence= | the global rebind takes a high-use motion key |
 
-A rule that explains the table: *a prefix and a command on the same key shadow each other; two prefixes merge.* =C-x t i/h/d= in =org-mode-map= and the global =C-x t= tab prefix merge (the tab commands still work in Org), but =C-x s t= against the global command =C-x s= does not /(memory)/. Any design has to treat "this key is a command somewhere" as a conflict with "this key is a prefix elsewhere".
+A rule that explains the table: *a prefix and a command on the same key shadow each other; two prefixes merge.* =C-x t i/h/d/I= in =org-mode-map= and the global =C-x t= tab prefix merge (the tab commands still work in Org), but =C-x s t= against the global command =C-x s= does not /(memory)/. Any design has to treat "this key is a command somewhere" as a conflict with "this key is a prefix elsewhere".
 
 ** Reserved and built-in keys that are taken
 
@@ -127,7 +127,7 @@ A rule that explains the table: *a prefix and a command on the same key shadow e
    + This configuration also binds =C-x C-f=, =C-x C-b=, =C-x C-r= (=recentf-open-files=, hides =find-file-read-only=),
    + =C-x t b= (=transpose-buffers=, hides =switch-to-buffer-other-tab= in the tab prefix /(memory)/),
    + =C-x w t/r/f/f= (the =EMACS-31= comment says they exist upstream in Emacs 31; confirm and drop them if so),
-   + =C-x n n=, =C-x r D=, =C-x s t=, =C-x t i/h/d/s=.
+   + =C-x n n=, =C-x r D=, =C-x s t=, =C-x t i/h/d/I/s=.
 - =C--= and =M--= (negative argument) are taken by =text-scale-decrease= and =font-size-decrease=;
    + =M-== (=count-words-region=) and =M-+= by =font-size-increase=;
    + =M-u/l/c= are rebound to the same =-dwim= commands Emacs already has.

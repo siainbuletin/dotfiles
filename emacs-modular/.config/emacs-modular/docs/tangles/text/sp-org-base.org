@@ -172,6 +172,9 @@ Keybindings:
 - =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
 - =s-v= pastes with =org-yank=.
 - =C-x t i= and =C-x t h= toggle items and headings, =C-x t d= demotes, =C-c s i= sorts a list.
+- =C-x t I= (Shift-i) runs =sp-org-lint-resources= (from =sp-org-lint=, loaded in the Functions block of =init.el=): tidy the region or list at point and sort it alphabetically.
+  - It sits next to =C-x t i= (=org-toggle-item=) because the lint turns stray lines into items with that command.
+  - =C-x t I= is free in Emacs: the =tab-bar= prefix has no uppercase =I=.
 - =C-c f n= and =C-c f q= create and normalize footnotes.
 - =C-c l d= toggles raw link display, =C-c l c= inserts a link to a configuration doc (=sp-org-insert-config-doc-link=, autoloaded from =sp-org-id-link= like the split command), =C-c s a= saves all Org buffers.
 
@@ -237,6 +240,7 @@ In =:config=:
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
+   ("C-x t I" . sp-org-lint-resources) ;; tidy a list of links; next to `org-toggle-item'
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)

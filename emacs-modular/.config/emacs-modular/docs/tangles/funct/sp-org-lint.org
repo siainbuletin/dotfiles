@@ -55,7 +55,8 @@ Dependencies and behaviour:
 - The commands work on the active region. With none, they use the list at or near point, falling back to the block of consecutive non-blank lines.
 - All edits run inside one =atomic-change-group=, so a single undo reverts a whole lint pass.
 - Loaded in the Functions block of =init.el=.
-- No key bindings are set for the commands anywhere in the configuration, so run them with =M-x=.
+- =sp-org-lint-resources= is bound to =C-x t I= in =org-mode-map= (see [[file:../text/sp-org-base.org][sp-org-base]]), next to =C-x t i= (=org-toggle-item=).
+- =sp-org-lint-list= and =sp-org-mark-list= have no key bindings, so run them with =M-x=.
 
 * Setup and patterns
 
