@@ -26,6 +26,23 @@
                    '("Alpha" "Beta")))
     (should (equal (plist-get plan :removed) '("Footnotes")))))
 
+(ert-deftest sp-org-lint-footnote-leaves-see-also-notes-and-endnotes ()
+  (let ((plan (sp-org-lint-test--result
+               "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+               "* Beta" "Again[fn:see-1]." ""
+               "* Footnotes" "[fn:a] Source A." "" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    ;; Only the plain footnote moves; the notes stay in the Footnotes section,
+    ;; and the see-also note cited twice is not copied.
+    (should (equal (plist-get plan :text)
+                   (sp-org-lint-test--text
+                    "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+                    "[fn:a] Source A." ""
+                    "* Beta" "Again[fn:see-1]." ""
+                    "* Footnotes" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    (should (equal (mapcar (lambda (m) (plist-get m :label)) (plist-get plan :moves))
+                   '("a")))
+    (should-not (plist-get plan :orphans))))
+
 (ert-deftest sp-org-lint-footnote-cited-twice-gets-a-copy ()
   (let ((plan (sp-org-lint-test--result
                "* Alpha" "One.[fn:s]" "" "* Beta" "Two.[fn:s]" ""

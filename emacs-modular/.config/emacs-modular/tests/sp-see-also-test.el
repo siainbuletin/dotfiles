@@ -13,6 +13,10 @@
 
 (defvar sp-org-keywords-research)
 
+(add-to-list 'load-path
+             (expand-file-name "../libraries/modules/text"
+                               (file-name-directory (or load-file-name buffer-file-name))))
+
 (load (expand-file-name
        "../libraries/modules/academic/sp-see-also.el"
        (file-name-directory (or load-file-name buffer-file-name)))
@@ -727,6 +731,96 @@
     (cl-letf (((symbol-function 'sp-see-also-show) (lambda (id) (setq shown id))))
       (sp-see-also-show-concept "c-one")
       (should (equal shown "c-one")))))
+
+(defun sp-see-also-test--org-buffer (text)
+  "Parse TEXT as a litnote and return the labels of the see-also footnotes found."
+  (with-temp-buffer
+    (insert text)
+    (mapcar (lambda (f) (plist-get f :label)) (sp-see-also-parse-buffer))))
+
+(ert-deftest sp-see-also-note-kinds-are-read-by-label ()
+  (let ((text (sp-see-also-test--text
+               "A[fn:see-1] b[fn:end-1] c[fn:2] d[fn::[[id:i4][Four]]]"
+               ""
+               "* Footnotes"
+               "[fn:see-1] [[id:i1][One]]"
+               ""
+               "[fn:end-1] [[id:i2][Two]] is cited here"
+               ""
+               "[fn:2] [[id:i3][Three]]")))
+    ;; An endnote never counts; a numbered or inline footnote counts while
+    ;; the legacy option is on.
+    (should (equal (sp-see-also-test--org-buffer text) '("see-1" "2" nil)))
+    (let ((sp-see-also-legacy-footnotes nil))
+      (should (equal (sp-see-also-test--org-buffer text) '("see-1"))))))
+
+(ert-deftest sp-see-also-note-kinds-prefix-is-an-option ()
+  (let ((sp-note-see-also-prefix "sa-")
+        (sp-see-also-legacy-footnotes nil))
+    (should (equal (sp-see-also-test--org-buffer
+                    "A[fn:sa-1] B[fn:see-1]\n\n[fn:sa-1] [[id:i][I]]\n\n[fn:see-1] [[id:j][J]]\n")
+                   '("sa-1")))))
+
+(ert-deftest sp-see-also-note-new-asks-for-the-note ()
+  (with-temp-buffer
+    (insert "Text\n")
+    (delay-mode-hooks (org-mode))
+    (goto-char (point-min))
+    (end-of-line)
+    (cl-letf (((symbol-function 'sp-see-also--pick-note)
+               (lambda () (list 'note)))
+              ((symbol-function 'sp-select-note) #'ignore)
+              ((symbol-function 'vulpea-note-id) (lambda (_) "ID-1"))
+              ((symbol-function 'vulpea-note-title) (lambda (_) "Kant")))
+      (sp-see-also-note-new))
+    (should (string-prefix-p "Text[fn:see-1]\n" (buffer-string)))
+    (should (string-match-p "\\* Footnotes\n\n\\[fn:see-1\\] \\[\\[id:ID-1\\]\\[Kant\\]\\] \\'"
+                            (buffer-string)))
+    ;; The new note is read as a see-also note, with the link as its mention.
+    (should (equal (mapcar (lambda (f) (plist-get f :links))
+                           (sp-see-also-parse-buffer))
+                   '((("ID-1" . "Kant")))))))
+
+(ert-deftest sp-see-also-convert-footnotes-inline-and-numbered ()
+  (with-temp-buffer
+    (insert (sp-see-also-test--text
+             "A[fn::[[id:i1][One]] why] b[fn:1] c[fn:x:[[id:i2][Two]]] d[fn:3]"
+             ""
+             "* Footnotes"
+             "[fn:1] [[id:i3][Three]]"
+             ""
+             "[fn:3] plain commentary"))
+    (delay-mode-hooks (org-mode))
+    (should (= (sp-see-also-convert-footnotes) 3))
+    (let ((text (buffer-string)))
+      ;; Numbered in the order of the text, whichever form was converted first.
+      (should (string-prefix-p
+               "A[fn:see-1] b[fn:see-2] c[fn:see-3] d[fn:3]\n" text))
+      (should (string-match-p "^\\[fn:see-2\\] \\[\\[id:i3\\]\\[Three\\]\\]$" text))
+      (should (string-match-p "^\\[fn:see-1\\] \\[\\[id:i1\\]\\[One\\]\\] why$" text))
+      (should (string-match-p "^\\[fn:see-3\\] \\[\\[id:i2\\]\\[Two\\]\\]$" text))
+      ;; Footnotes with no link are left alone.
+      (should (string-match-p "^\\[fn:3\\] plain commentary$" text)))
+    ;; All three are see-also notes now, so the legacy option is not needed.
+    (let ((sp-see-also-legacy-footnotes nil))
+      (should (= (length (sp-see-also-parse-buffer)) 3)))
+    ;; A second run finds nothing.
+    (should (= (sp-see-also-convert-footnotes) 0))))
+
+(ert-deftest sp-see-also-convert-footnotes-leaves-endnotes-and-blocks ()
+  (with-temp-buffer
+    (insert (sp-see-also-test--text
+             "A[fn:end-1] b"
+             ""
+             "#+begin_src org"
+             "x[fn::[[id:i][I]]]"
+             "#+end_src"
+             ""
+             "[fn:end-1] [[id:j][J]]"))
+    (delay-mode-hooks (org-mode))
+    (let ((before (buffer-string)))
+      (should (= (sp-see-also-convert-footnotes) 0))
+      (should (equal before (buffer-string))))))
 
 (provide 'sp-see-also-test)
 ;;; sp-see-also-test.el ends here

@@ -79,3 +79,36 @@
 
   body
 }
+
+// Notes of three kinds (see sp-note-kinds): a footnote is `#footnote'; a
+// see-also note is `#see-also[..]', a footnote here and a sidenote when
+// sidenotes.typ is imported after this file; an endnote is `#endnote[..]',
+// collected and printed by `#endnotes()'.
+#let see-also(body) = footnote(body)
+
+#let _endnote-counter = counter("sp-endnote")
+#let _endnote-list = state("sp-endnote-list", ())
+
+#let endnote(body) = {
+  _endnote-counter.step()
+  _endnote-list.update(list => list + (body,))
+  context super[\[#_endnote-counter.display()\]]
+}
+
+// Print the endnotes collected since the last call, then start again from 1,
+// so each doc of the book has its own Notes section.
+#let endnotes() = {
+  context {
+    let notes = _endnote-list.get()
+    if notes.len() > 0 {
+      grid(
+        columns: (auto, 1fr),
+        column-gutter: 0.8em,
+        row-gutter: 0.7em,
+        ..notes.enumerate().map(((i, note)) => ([\[#(i + 1)\]], note)).flatten(),
+      )
+    }
+  }
+  _endnote-list.update(())
+  _endnote-counter.update(0)
+}

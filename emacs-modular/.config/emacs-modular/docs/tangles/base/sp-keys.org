@@ -437,7 +437,14 @@ Notes:
            ("c"  .  sp-notes-create)
            ("o"  .  sp-notes-open)
            ("s"  .  sp-search-in-notes)
-           ("f"  .  sp-notes-filing-dryrun))
+           ("f"  .  sp-notes-filing-dryrun)
+           ;; The three kinds of note (sp-note-kinds): a see-also note is a
+           ;; sidenote, an endnote goes to the Notes section.
+           ("a"  .  sp-see-also-note-new)
+           ("e"  .  sp-note-endnote-new)
+           ("E"  .  sp-note-insert-endnotes-section)
+           ("r"  .  sp-note-renumber)
+           ("M"  .  sp-see-also-convert-footnotes))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")
@@ -1397,3 +1404,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - Tests in =tests/sp-keys-test.el=; the keys are not tried in a GUI.
 - [[https://github.com/siainbuletin/dotfiles/pull/490][#490]]
   - ✨ Added =C-; L b z= (=l= dry run, =a= apply, =r= restore) for the Zotero attachment paths of a =.bib= file
+- Pull request: this one (see-also notes and endnotes)
+  - ✨ Added =C-; n a= (a see-also note), =C-; n e= (an endnote), =C-; n E= (the endnotes template) and =C-; n M= (convert the old see-also footnotes of the buffer) and =C-; n r= (renumber see-also notes and endnotes in the order of the text); all five work in an Org buffer

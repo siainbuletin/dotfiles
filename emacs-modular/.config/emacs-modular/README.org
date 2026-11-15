@@ -279,6 +279,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 | sp-org-export | Org export, Pandoc and clipboard conversion | [[file:docs/tangles/text/sp-org-export.org][sp-org-export.org]] | [[file:libraries/modules/text/sp-org-export.el][sp-org-export.el]] | — |
 | sp-org-ext | Org extensions and sub-module loader | [[file:docs/tangles/text/sp-org-ext.org][sp-org-ext.org]] | [[file:libraries/modules/text/sp-org-ext.el][sp-org-ext.el]] | — |
 | sp-org-fn | Scoped Org footnotes (experimental) | [[file:docs/tangles/text/sp-org-fn.org][sp-org-fn.org]] | [[file:libraries/modules/text/sp-org-fn.el][sp-org-fn.el]] | — |
+| sp-note-kinds | Footnotes, see-also notes (=[fn:see-N]=) and endnotes (=[fn:end-N]=) told by label; new notes, renumbering, the endnotes template | [[file:docs/tangles/text/sp-note-kinds.org][sp-note-kinds.org]] | [[file:libraries/modules/text/sp-note-kinds.el][sp-note-kinds.el]] | — |
 | sp-org-id-link | Org IDs and link utilities | [[file:docs/tangles/text/sp-org-id-link.org][sp-org-id-link.org]] | [[file:libraries/modules/text/sp-org-id-link.el][sp-org-id-link.el]] | — |
 | sp-org-images | Images in Org with org-download | [[file:docs/tangles/text/sp-org-images.org][sp-org-images.org]] | [[file:libraries/modules/text/sp-org-images.el][sp-org-images.el]] | — |
 | sp-org-keywords | The one list of Org TODO keywords, one constant per use | [[file:docs/tangles/text/sp-org-keywords.org][sp-org-keywords.org]] | [[file:libraries/modules/text/sp-org-keywords.el][sp-org-keywords.el]] | — |

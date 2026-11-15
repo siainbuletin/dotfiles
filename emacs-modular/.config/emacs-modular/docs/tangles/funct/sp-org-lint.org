@@ -536,6 +536,10 @@ A second feature of the module lints the footnotes of the whole vault.
 - With =org-footnote-section= set to nil (see =sp-org-base=) and the per-heading footnotes of =sp-split-leave-parents=, a footnote definition lives at the end of the text of the heading that cites it.
 - Notes written with Org's default behaviour have a =Footnotes= heading at the end instead.
 - =sp-org-lint-footnotes-dryrun= finds those and moves each definition to the heading that contains its reference.
+- See-also notes (=[fn:see-N]=) and endnotes (=[fn:end-N]=, see [[file:../text/sp-note-kinds.org][sp-note-kinds]]) are not moved:
+  + their definitions stay in the =Footnotes= section, which is where =sp-note-new= writes them
+  + a note cited from two headings is not copied (no =see-1-2=)
+  + they are still reported as orphans or dangling when a reference or a definition is missing
 
 *Nothing is written without a preview, and nothing blocks Emacs.* The command lists the Org files of the vulpea database, hands them to a second, headless Emacs that reads them one at a time, and shows what it finds in a report buffer while it works. Applying the changes is a separate key in that buffer; it runs in the headless Emacs too, after copying every file to a backup folder.
 
@@ -563,6 +567,7 @@ This section tangles to =sp-org-lint-footnotes.el=, so the headless worker can l
 (require 'org-element)
 (require 'subr-x)
 (require 'sp-batch-report)
+(require 'sp-note-kinds)
 
 ;; The worker sets this: it needs no settings of the config, and `sp-globals'
 ;; cannot load without early-init.el.
@@ -783,6 +788,8 @@ check afterwards."
          (fn-defs (seq-filter
                    (lambda (d)
                      (and (not (plist-get d :inline))
+                          ;; See-also notes and endnotes stay where they are.
+                          (eq (sp-note-kind (plist-get d :label)) 'footnote)
                           (sp-org-lint-fn--footnotes-section-p
                            (sp-org-lint-fn--section (plist-get d :begin)
                                                     heads)
@@ -6107,6 +6114,23 @@ Test fixtures:
                    '("Alpha" "Beta")))
     (should (equal (plist-get plan :removed) '("Footnotes")))))
 
+(ert-deftest sp-org-lint-footnote-leaves-see-also-notes-and-endnotes ()
+  (let ((plan (sp-org-lint-test--result
+               "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+               "* Beta" "Again[fn:see-1]." ""
+               "* Footnotes" "[fn:a] Source A." "" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    ;; Only the plain footnote moves; the notes stay in the Footnotes section,
+    ;; and the see-also note cited twice is not copied.
+    (should (equal (plist-get plan :text)
+                   (sp-org-lint-test--text
+                    "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+                    "[fn:a] Source A." ""
+                    "* Beta" "Again[fn:see-1]." ""
+                    "* Footnotes" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    (should (equal (mapcar (lambda (m) (plist-get m :label)) (plist-get plan :moves))
+                   '("a")))
+    (should-not (plist-get plan :orphans))))
+
 (ert-deftest sp-org-lint-footnote-cited-twice-gets-a-copy ()
   (let ((plan (sp-org-lint-test--result
                "* Alpha" "One.[fn:s]" "" "* Beta" "Two.[fn:s]" ""
@@ -6460,3 +6484,5 @@ What each pull request changed in this module, newest last; the one-line summary
     - the worker is a bare =emacs -Q --batch= with only =funct/= on its =-L= path; =sp-batch-report= now requires =sp-interaction= from =base/=
     - =sp-org-lint-fn--worker-load-dirs= gives it the library folder, its parent and the parent's sub-folders; =sp-org-lint-fn--worker-command= builds the command line
   - 🐛 Fixed two breakages behind it: =sp-globals= needs =early-init.el= (the worker sets =sp-org-lint-fn--worker= and skips it)
+- Pull request: this one (see-also notes and endnotes)
+  - 🔧 Changed =sp-org-lint-footnotes= to leave see-also notes (=[fn:see-N]=) and endnotes (=[fn:end-N]=) where they are: not moved to the citing heading, not copied when cited twice

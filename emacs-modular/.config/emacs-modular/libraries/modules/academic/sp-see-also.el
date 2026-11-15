@@ -2,8 +2,11 @@
 
 ;;; Commentary:
 
-;; A see-also footnote is an Org footnote that holds an `id:' link: inline,
-;; `[fn::[[id:...][Concept]]]', or a definition, `[fn:1] ... [[id:...][Concept]]'.
+;; A see-also note is an Org footnote whose label starts with `see-'
+;; (`[fn:see-1]', see `sp-note-kinds') and that holds an `id:' link.  Older
+;; footnotes with an `id:' link, inline, `[fn::[[id:...][Concept]]]', or a
+;; definition, `[fn:1] ... [[id:...][Concept]]', are read too while
+;; `sp-see-also-legacy-footnotes' is non-nil.  Endnotes (`[fn:end-1]') are not.
 ;; This module finds them without visiting the file (a temporary buffer, no mode, no hook), keeps them in a cache keyed by
 ;; the modification time and size of each file, and ranks the concepts and the
 ;; open research questions they point at.
@@ -15,6 +18,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'sp-note-kinds)
 
 (defvar sp-cache-dir)
 (defvar sp-notes-dir)
@@ -93,6 +97,21 @@ when the index has not been built.  A higher number comes first."
 QUESTION is a plist with :keyword, :title and :pos.  MENTIONS are the see-also
 mentions under it.  A higher number comes first."
   :type 'function)
+
+(defcustom sp-see-also-legacy-footnotes t
+  "Non-nil: footnotes with an `id:' link that are not see-also notes count too.
+A see-also note is `[fn:see-1]' (see `sp-note-kinds').  The older inline and
+numbered footnotes with an `id:' link are still read while this is non-nil, so
+the notes need not all be converted at once (`sp-see-also-convert-footnotes').
+Endnotes never count."
+  :type 'boolean)
+
+(defun sp-see-also--counts-p (label)
+  "Non-nil when the footnote LABEL can hold a see-also mention."
+  (pcase (sp-note-kind label)
+    ('see-also t)
+    ('endnote nil)
+    (_ sp-see-also-legacy-footnotes)))
 
 (defcustom sp-see-also-reference-kinds '(footnote section link parent cite)
   "The ways a note is referenced that the \"Referenced by\" view shows.
@@ -452,7 +471,9 @@ Nothing is moved, narrowed for good or changed, and no mode is needed."
                (all (sp-see-also--footnotes-all (car ranges)))
                (raw (delq nil
                           (mapcar (lambda (footnote)
-                                    (when-let* ((links (sp-see-also--links
+                                    (when-let* (((sp-see-also--counts-p
+                                                  (plist-get footnote :label)))
+                                                (links (sp-see-also--links
                                                         (plist-get footnote :text))))
                                       (append footnote (list :links links))))
                                   all)))
@@ -531,7 +552,7 @@ A mention is the footnote plist of `sp-see-also-parse-buffer' without :text and
           (push (append (list :id (car link) :desc (cdr link)) base) mentions))))
     (nreverse mentions)))
 
-(defconst sp-see-also--cache-version 5
+(defconst sp-see-also--cache-version 6
   "Version of the cache format; raise it when the mentions change.")
 
 (defvar sp-see-also--files nil
@@ -1368,11 +1389,15 @@ about this note."
                      (sp-see-also--concept-title id nil))
           :citekey (and own file (sp-see-also--citekey file)))))
 
+(defun sp-see-also--pick-note ()
+  "Pick a note by its title and return it (a Vulpea note), or nil."
+  (if (fboundp 'sp-select-note)
+      (sp-select-note "Note: " :require-match t :grouped t)
+    (vulpea-select "Note" :require-match t)))
+
 (defun sp-see-also--pick-id ()
   "Pick a note by its title and return its ID, or nil."
-  (and-let* ((note (if (fboundp 'sp-select-note)
-                       (sp-select-note "Note: " :require-match t :grouped t)
-                     (vulpea-select "Note" :require-match t))))
+  (and-let* ((note (sp-see-also--pick-note)))
     (vulpea-note-id note)))
 
 (defun sp-see-also-view--outgoing (file concepts questions)
@@ -1478,6 +1503,85 @@ writing projects, config), not taken from the entry at point."
       (require 'sp-see-also-widget)
     (error (message "[see-also] the sidebar widgets could not load: %s"
                     (error-message-string err)))))
+
+;;;###autoload
+(defun sp-see-also-note-new (&optional bare)
+  "Insert a see-also note at point and open its definition.
+Ask for the note to point at and start the definition with a link to it;
+with prefix argument BARE, do not ask and leave the definition empty."
+  (interactive "P")
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Notes need an Org buffer"))
+  (let ((text (and (not bare)
+                   (or (fboundp 'sp-select-note) (fboundp 'vulpea-select))
+                   (when-let* ((note (sp-see-also--pick-note)))
+                     (format "[[id:%s][%s]] "
+                             (vulpea-note-id note) (vulpea-note-title note))))))
+    (sp-note-new 'see-also text)))
+
+(defun sp-see-also--rename-label (old new skip)
+  "Rename the footnote label OLD to NEW everywhere outside the SKIP ranges."
+  (let ((case-fold-search nil)
+        (regexp (format "\\[fn:%s\\]" (regexp-quote old)))
+        positions)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward regexp nil t)
+        (unless (or (sp-see-also--in-ranges-p (match-beginning 0) skip)
+                    (sp-see-also--commented-p (match-beginning 0)))
+          (push (match-beginning 0) positions)))
+      ;; From the end, so the positions before stay right.
+      (dolist (pos positions)
+        (goto-char pos)
+        (when (looking-at regexp)
+          (replace-match (format "[fn:%s]" new) t t))))))
+
+(defun sp-see-also--convertible (footnotes)
+  "The footnotes in FOOTNOTES that hold an `id:' link and are plain footnotes."
+  (seq-filter (lambda (footnote)
+                (and (eq (sp-note-kind (plist-get footnote :label)) 'footnote)
+                     (sp-see-also--links (plist-get footnote :text))))
+              footnotes))
+
+;;;###autoload
+(defun sp-see-also-convert-footnotes ()
+  "Turn the see-also footnotes of this buffer into see-also notes; return how many.
+A footnote with an `id:' link and a plain label (a number, or none) gets
+the next label `see-N' (see `sp-note-see-also-prefix'): a numbered
+definition is renamed in place, an inline footnote becomes a reference and
+its text moves to the definitions section.  One undo step undoes all."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Notes need an Org buffer"))
+  (let ((count 0))
+    (save-excursion
+      (save-restriction
+        (widen)
+        (atomic-change-group
+          ;; Numbered definitions first, one at a time: the text moves after
+          ;; each change, so the scan starts again.
+          (while-let ((found (car (sp-see-also--convertible
+                                   (sp-see-also--definitions-raw
+                                    (car (sp-see-also--block-ranges)))))))
+            (sp-see-also--rename-label
+             (plist-get found :label) (sp-note-next-label 'see-also)
+             (car (sp-see-also--block-ranges)))
+            (setq count (1+ count)))
+          (while-let ((found (car (sp-see-also--convertible
+                                   (sp-see-also--footnotes-raw
+                                    (car (sp-see-also--block-ranges)))))))
+            (let ((label (sp-note-next-label 'see-also))
+                  (text (string-trim (plist-get found :text))))
+              (goto-char (plist-get found :beg))
+              (delete-region (plist-get found :beg) (plist-get found :end))
+              (insert (format "[fn:%s]" label))
+              (sp-note--goto-definitions)
+              (insert (format "\n\n[fn:%s] %s" label text))
+              (setq count (1+ count))))
+          (when (> count 0)
+            (sp-note-renumber)))))
+    (message "%d see-also footnote%s converted" count (if (= count 1) "" "s"))
+    count))
 
 (provide 'sp-see-also)
 ;;; sp-see-also.el ends here
