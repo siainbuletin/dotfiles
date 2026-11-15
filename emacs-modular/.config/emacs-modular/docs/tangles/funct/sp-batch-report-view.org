@@ -36,6 +36,8 @@ intro line
 ▶ Arendt, Hannah                                            4 of 9
 #+end_example
 
+- Table cells alternate between two colors by row and column, like a checkerboard: no two neighbouring cells, across or down, look alike.
+- A small blank gap follows each entry.
 - Header line: =3 sections · 25 entries · 2 dropped=.
 - =▶= is a folded section.
 - =N of M= says that some entries of the section are dropped.
@@ -104,6 +106,25 @@ intro line
   "Face of the column names of a table section."
   :group 'sp-batch-report)
 
+(defface sp-batch-report-cell-even
+  '((t :inherit default))
+  "Face of the cells whose row and column numbers add up to an even number.
+It alternates with `sp-batch-report-cell-odd', so no two neighbours look alike."
+  :group 'sp-batch-report)
+
+(defface sp-batch-report-cell-odd
+  '((((class color) (min-colors 88)) :inherit font-lock-constant-face)
+    (t :inherit shadow))
+  "Face of the cells whose row and column numbers add up to an odd number.
+It follows the theme, because it inherits from a font-lock face."
+  :group 'sp-batch-report)
+
+(defcustom sp-batch-report-row-padding 0.5
+  "Height of the blank line after each entry, as a fraction of a text line.
+Nil or 0 puts the entries right after each other."
+  :type '(choice (const :tag "No padding" nil) number)
+  :group 'sp-batch-report)
+
 (defface sp-batch-report-link
   '((t :inherit link))
   "Face of a link to a file or a note in a report."
@@ -155,6 +176,21 @@ It stays when the mode is called again, so a refresh finds which sections were f
   "The titles of the folded sections; they stay folded when the report is made again.")
 (put 'sp-batch-report-view--folded 'permanent-local t)
 #+end_src
+
+* Checkerboard colors and padding
+
+- =sp-batch-report-cell-even=: face of a cell when row + column is even.
+  - Inherits =default=.
+- =sp-batch-report-cell-odd=: face of a cell when row + column is odd.
+  - Inherits =font-lock-constant-face=, so it follows the theme in light and dark.
+  - Falls back to =shadow= without colors.
+- =sp-batch-report-row-padding=: height of the blank line after an entry.
+  - A number is a fraction of a text line; nil or 0 means no gap.
+- Column numbers count from 0 in each table, row numbers from 0 in the report.
+  - A neighbour across or down always has the other face.
+- Faces of links stay on top: the cell face is added last.
+- A dropped entry keeps its strike-through, which is added on top.
+- The header row keeps =sp-batch-report-column=.
 
 * Text
 
@@ -346,14 +382,36 @@ A word longer than WIDTH is cut.  The text properties of CELL are kept."
         (setq rest (string-trim-left (substring rest cut)))))
     (nreverse (cons rest lines))))
 
-(defun sp-batch-report-view--table-line (cells widths face &optional cut)
+(defun sp-batch-report-view--padding ()
+  "The blank line that ends an entry, or the empty string without padding."
+  (if (and (numberp sp-batch-report-row-padding) (> sp-batch-report-row-padding 0))
+      (propertize "\n" 'face `(:height ,sp-batch-report-row-padding))
+    ""))
+
+(defun sp-batch-report-view--checker-face (row column)
+  "The face of the cell at ROW and COLUMN, alternating like a checkerboard."
+  (if (cl-evenp (+ row column))
+      'sp-batch-report-cell-even
+    'sp-batch-report-cell-odd))
+
+(defun sp-batch-report-view--table-line (cells widths face &optional cut row)
   "The lines of the row CELLS, each wrapped to its column in WIDTHS.
 FACE, when given, is the face of the row.  CUT is a list that says, per column,
-whether its cell is cut off at the width instead of wrapped.  The row ends with
-a newline."
-  (let* ((columns (cl-mapcar
+whether its cell is cut off at the width instead of wrapped.  ROW, when given,
+is the number of the row: the cells then alternate between two faces, by row and
+column.  The row ends with a newline."
+  (let* ((column-index -1)
+         (columns (cl-mapcar
                    (lambda (cell width cut)
-                     (let ((cell (if face (propertize (substring-no-properties cell) 'face face) cell)))
+                     (setq column-index (1+ column-index))
+                     (let ((cell (cond (face (propertize (substring-no-properties cell) 'face face))
+                                       (row (let ((copy (copy-sequence cell)))
+                                              (add-face-text-property
+                                               0 (length copy)
+                                               (sp-batch-report-view--checker-face row column-index)
+                                               t copy)
+                                              copy))
+                                       (t cell))))
                        (if cut
                            (list (truncate-string-to-width (string-trim cell) width nil nil "…"))
                          (sp-batch-report-view--wrap cell width))))
@@ -481,8 +539,9 @@ MODEL is a plist with :title, :intro, :sections, :excluded and :key-label."
                    (beg (point))
                    (action (plist-get item :action)))
               (insert (if header
-                          (sp-batch-report-view--table-line (pop cells) widths nil cut)
-                        (sp-batch-report-view--list-row item)))
+                          (sp-batch-report-view--table-line (pop cells) widths nil cut nrows)
+                        (sp-batch-report-view--list-row item))
+                      (sp-batch-report-view--padding))
               (add-text-properties
                beg (point)
                (append (sp-batch-report--item-props item drop)
@@ -1241,11 +1300,33 @@ Sections fold with \\<sp-batch-report-mode-map>\\[sp-batch-report-toggle-section
     (sp-batch-report-view--schedule)
     (should-not sp-batch-report-view--timer)))
 
+(ert-deftest sp-batch-report-view-cells-form-a-checkerboard ()
+  (let ((sp-batch-report-row-padding nil))
+    (dotimes (row 3)
+      (let ((line (sp-batch-report-view--table-line '("a" "b" "c") '(1 1 1) nil nil row)))
+        (dotimes (col 3)
+          (let ((face (get-text-property (+ 2 (* col 3)) 'face line)))
+            (should (equal (if (cl-evenp (+ row col)) '(sp-batch-report-cell-even)
+                             '(sp-batch-report-cell-odd))
+                           (ensure-list face)))))))))
+
+(ert-deftest sp-batch-report-view-padding-follows-the-option ()
+  (let ((sp-batch-report-row-padding nil))
+    (should (equal "" (sp-batch-report-view--padding))))
+  (let ((sp-batch-report-row-padding 0.5))
+    (should (equal "\n" (sp-batch-report-view--padding)))))
+
 (provide 'sp-batch-report-view-test)
 ;;; sp-batch-report-view-test.el ends here
 #+end_src
 
 * Changes by pull request
+
+- Pull request: checkerboard cells and padding in the batch report
+  - ✨ Table cells alternate between =sp-batch-report-cell-even= and =sp-batch-report-cell-odd= by row and column.
+    - Both faces follow the theme (the odd one inherits =font-lock-constant-face=), and both are customizable.
+  - ✨ =sp-batch-report-row-padding= sets a blank gap after each entry (0.5 of a line; nil or 0 for none).
+  - Not run: the GUI, light and dark themes.
 
 - Pull request: special-mode report view
   - ✨ Added the special-mode view of the batch reports, the default; the Org view stays as =sp-batch-report-org-mode=, selected with =sp-batch-report-display=.
