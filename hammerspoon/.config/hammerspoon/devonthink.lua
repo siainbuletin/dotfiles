@@ -2,8 +2,12 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x   Tools > Annotate > Highlight Text (persistent highlight mode)
---   c   next colour (menu order below), then highlight again
+--   x                 Tools > Annotate > Highlight Text (persistent highlight mode)
+--   c                 next colour (cycling), then highlight again
+--   Ctrl+1 ... Ctrl+7 pick colour N (list below), then highlight again
+--   Ctrl+Shift+1 ...  set colour N only, no highlight mode (to recolour the
+--                     highlights selected in the Annotations inspector; the
+--                     result depends on DEVONthink, see the PR)
 --
 -- Key active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
@@ -14,6 +18,8 @@
 --     Cmd+Space or Ctrl+Space chord.
 --   * The keys do nothing outside DEVONthink.
 --   * No automatic highlight on activation: it only runs when you press the key.
+--   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
+--     numbers use Caps+Ctrl+number. Caps+Ctrl+h/j/k/l is join-with, no clash.
 --
 -- Colours:
 --   * The colour menu items are renamed, e.g. "Red - Important point".
@@ -36,7 +42,8 @@ local BUNDLE_IDS = {
   ["com.devon-technologies.think"] = true,
 }
 
--- Lua patterns for the start of each colour item title, in cycling order.
+-- Lua patterns for the start of each colour item title. The position is the
+-- number key (1 = Red, ...) and the cycling order.
 local colors = {
   { name = "Red",    pattern = "^Red" },
   { name = "Green",  pattern = "^Green" },
@@ -134,20 +141,26 @@ function M.highlight()
   return selectMenu({ "Tools", "Annotate", "Highlight Text" })
 end
 
-function M.nextColor()
+-- Set colour number INDEX (see `colors`). With START_HIGHLIGHT, then start
+-- highlighting; without it, only the colour changes (for selected highlights).
+function M.setColor(index, startHighlight)
   local app = hs.application.frontmostApplication()
-  if not app then return end
-  colorIndex = colorIndex % #colors + 1
-  local color = colors[colorIndex]
+  local color = colors[index]
+  if not app or not color then return false end
   local path = findInMenu(app, "Format", color.pattern)
   if not path then
     hs.alert.show("No colour starting with " .. color.name .. " in the Format menu")
-    return
+    return false
   end
-  if selectMenu(path) then
-    hs.alert.show(color.name, 0.5)
-    M.highlight()
-  end
+  if not selectMenu(path) then return false end
+  colorIndex = index
+  hs.alert.show(color.name, 0.5)
+  if startHighlight then M.highlight() end
+  return true
+end
+
+function M.nextColor()
+  M.setColor(colorIndex % #colors + 1, true)
 end
 
 -- Undo the latest highlight. False when the next undo step is not a highlight.
@@ -166,6 +179,13 @@ end
 local layer = require("aerospace-keys").layer
 layer:bind({}, "x", inDevonthink(M.highlight))
 layer:bind({}, "c", inDevonthink(M.nextColor))
+
+-- Caps+Ctrl+N picks colour N and highlights; Caps+Ctrl+Shift+N only sets it.
+for index = 1, #colors do
+  local key = tostring(index)
+  layer:bind({ "ctrl" }, key, inDevonthink(function() M.setColor(index, true) end))
+  layer:bind({ "ctrl", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
+end
 
 --------------------------------------------------
 -- Cmd+Z, only while DEVONthink is in front
