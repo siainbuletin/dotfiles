@@ -2,7 +2,7 @@
 --
 -- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
 -- aerospace-keys.lua, then press):
---   x                 Tools > Annotate > Highlight Text (persistent highlight mode)
+--   x                 toggle between selecting and highlighting (same as Cmd+X)
 --   c                 next colour (cycling), then highlight again
 --   Option+1 ... 7    pick colour N (list below), then highlight again
 --   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
@@ -13,6 +13,8 @@
 --                     the document, BibTeX, litdb)
 --
 -- Keys active only while DEVONthink is in front:
+--   Cmd+X          toggle between selecting and highlighting, when a PDF is
+--                  shown; otherwise the normal Cmd+X (Cut) goes to DEVONthink
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
 --   Cmd+Shift+Z    bring back the highlight just deleted, if it is the next
@@ -24,6 +26,17 @@
 --   * No automatic highlight on activation: it only runs when you press the key.
 --   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
 --     numbers use Caps+Option+number, which the layer does not use otherwise.
+--
+-- Toggle (Cmd+X, Caps+x):
+--   * A PDF is shown when Tools > Annotate > Highlight Text exists and is
+--     enabled. Otherwise Cmd+X is Cut as usual, so text editors, the item list
+--     and other windows keep Cut.
+--   * Highlighting is on when that menu item has a check mark. Then the key
+--     selects the selection tool (an item of Tools > Annotate starting with
+--     Select, Pointer or Text Selection) or, if there is none, chooses
+--     Highlight Text again to switch it off.
+--   * If the menu shows no check marks at all, the last state this file set is
+--     used instead; it is only a record of the last key press.
 --
 -- Colours:
 --   * The colour menu items are renamed, e.g. "Red - Important point".
@@ -85,6 +98,15 @@ local redoHighlightPatterns = {
   "^Redo.*[Mm]arkup",
 }
 
+-- The annotation tools submenu, the highlight tool in it, and the titles of
+-- the selection tool (the first one found is used).
+local annotateMenu = { "Tools", "Annotate" }
+local highlightToolPattern = "^Highlight"
+local selectToolPatterns = { "^Select", "^Pointer", "^Text Selection" }
+-- Whether highlighting is on, as far as the last key press knows; used only
+-- when the menu shows no check marks.
+local highlightOn = false
+
 local function isDevonthink(app)
   if not app then return false end
   return BUNDLE_IDS[app:bundleID() or ""] or app:name() == APP
@@ -141,6 +163,40 @@ local function selectFirst(app, menu, patterns)
   return false
 end
 
+-- The items (from getMenuItems) of the submenu at PATH, e.g. { "Tools", "Annotate" }.
+local function submenuItems(app, path)
+  local items = app:getMenuItems() or {}
+  for _, title in ipairs(path) do
+    local found
+    for _, item in ipairs(items) do
+      if item.AXTitle == title then
+        found = item
+        break
+      end
+    end
+    if not found then return nil end
+    items = found.AXChildren and found.AXChildren[1] or {}
+  end
+  return items
+end
+
+local function isChecked(item)
+  local mark = item.AXMenuItemMarkChar
+  return mark ~= nil and mark ~= ""
+end
+
+-- First enabled item whose title matches one of PATTERNS.
+local function firstMatching(items, patterns)
+  for _, pattern in ipairs(patterns) do
+    for _, item in ipairs(items) do
+      if item.AXTitle and item.AXTitle:match(pattern) and item.AXEnabled ~= false then
+        return item
+      end
+    end
+  end
+  return nil
+end
+
 -- Read the menu bar once and cache the paths of all colour items.
 local function scanColorPaths(app)
   colorPaths = {}
@@ -161,9 +217,8 @@ function M.dumpMenu(menu)
   local function dump(items, depth)
     for _, item in ipairs(items or {}) do
       if item.AXTitle and item.AXTitle ~= "" then
-        local mark = item.AXMenuItemMarkChar
         hs.printf("%s%s%s%s", string.rep("  ", depth), item.AXTitle,
-          (mark and mark ~= "") and " (checked)" or "",
+          isChecked(item) and " (checked)" or "",
           item.AXEnabled == false and " (disabled)" or "")
         dump(item.AXChildren and item.AXChildren[1], depth + 1)
       end
@@ -195,8 +250,45 @@ function M.benchmark()
   end
 end
 
+-- Start highlighting (used by the colour keys).
 function M.highlight()
-  return selectMenu({ "Tools", "Annotate", "Highlight Text" })
+  local ok = selectMenu({ "Tools", "Annotate", "Highlight Text" })
+  if ok then highlightOn = true end
+  return ok
+end
+
+-- Toggle between selecting and highlighting. False (nothing done, no alert)
+-- when no PDF is shown, so the caller can pass the key through.
+function M.toggleHighlight()
+  local app = hs.application.frontmostApplication()
+  if not app then return false end
+  local items = submenuItems(app, annotateMenu) or {}
+  local tool = firstMatching(items, { highlightToolPattern })
+  if not tool then return false end
+
+  local anyChecked = false
+  for _, item in ipairs(items) do
+    if isChecked(item) then
+      anyChecked = true
+      break
+    end
+  end
+  local on = highlightOn
+  if anyChecked then on = isChecked(tool) end
+
+  local toolPath = { annotateMenu[1], annotateMenu[2], tool.AXTitle }
+  if on then
+    local select = firstMatching(items, selectToolPatterns)
+    local path = select and { annotateMenu[1], annotateMenu[2], select.AXTitle } or toolPath
+    if not selectMenu(path) then return true end
+    highlightOn = false
+    hs.alert.show("Select", 0.5)
+  else
+    if not selectMenu(toolPath) then return true end
+    highlightOn = true
+    hs.alert.show("Highlight", 0.5)
+  end
+  return true
 end
 
 -- Set colour number INDEX (see `colors`). With START_HIGHLIGHT, then start
@@ -249,7 +341,11 @@ local function inDevonthink(fn)
 end
 
 local layer = require("aerospace-keys").layer
-layer:bind({}, "x", inDevonthink(M.highlight))
+layer:bind({}, "x", inDevonthink(function()
+  if not M.toggleHighlight() then
+    hs.alert.show("No PDF shown: highlight tools are not available")
+  end
+end))
 layer:bind({}, "c", inDevonthink(M.nextColor))
 
 -- Caps+Option+N picks colour N and highlights; Caps+Option+Shift+N only sets it.
@@ -267,7 +363,7 @@ layer:bind({}, "r", inDevonthink(function()
 end))
 
 --------------------------------------------------
--- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
+-- Cmd+X, Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
 --------------------------------------------------
 
 -- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
@@ -286,6 +382,7 @@ local function withPassThrough(mods, key, action)
 end
 
 local scoped = {
+  withPassThrough({ "cmd" }, "x", M.toggleHighlight),
   withPassThrough({ "cmd" }, "z", M.undoHighlight),
   withPassThrough({ "cmd", "shift" }, "z", M.redoHighlight),
 }
