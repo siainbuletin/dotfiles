@@ -762,7 +762,7 @@ Notes:
   + a prefix argument means the same as on the command (=C-u= asks for the file or the source).
 - The report buffers use the matching keys: =g= list again, =A= apply, =d= drop, =u= restore, =k= stop the job, =q= quit (see =sp-batch-report=).
 - Modules: =b= BibTeX files, =m= litnote metadata fill, =q= litnote titles with quotes around all of them, =t= litnote authors, year and title, =r= litnote references, =f= footnotes, =g= org tags, =u= author notes, =n= notes filing.
-- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =d= date fields to year and month, =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
+- =L b f= holds one fix per kind of BibTeX problem (they all work in batches): =n= author names, =c= crossref (=C= its report), =d= date fields to year and month (=D= the non-ISO ones, after it), =f= attachment paths, =i= indentation, =k= citekeys over 45 characters, =o= field order, =p= name prefixes.
 - =L b z= moves the Zotero attachments of a =.bib= file into the literature folder (=sp-bibtex-zotero=): =l= dry run, =a= apply (=C-u= also the weak matches), =r= restore a run.
 - =L u w= is the same pair of commands for the Works tables of the author notes.
 
@@ -783,6 +783,7 @@ Notes:
            ("c" . sp-bibtex-lint-fix-crossref)
            ("C" . sp-bibtex-lint-crossref-dryrun)
            ("d" . sp-bibtex-lint-fix-date)
+           ("D" . sp-bibtex-lint-fix-date-text)
            ("f" . sp-bibtex-lint-fix-files)
            ("i" . sp-bibtex-lint-fix-indent)
            ("k" . sp-bibtex-lint-fix-keys)

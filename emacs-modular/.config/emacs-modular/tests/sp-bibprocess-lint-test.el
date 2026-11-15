@@ -285,6 +285,7 @@ each question that was asked."
             (dolist (command '(sp-bibtex-lint-fix-order sp-bibtex-lint-fix-indent
                                sp-bibtex-lint-fix-prefixes sp-bibtex-lint-fix-authors
                                sp-bibtex-lint-fix-files sp-bibtex-lint-fix-crossref sp-bibtex-lint-fix-date
+                               sp-bibtex-lint-fix-date-text
                                sp-bibtex-lint-fix-keys))
               (funcall command file)
               (with-current-buffer sp-bibtex-lint--buffer
@@ -1419,3 +1420,93 @@ NOTE is the note file; aliases are added by a stub that appends to ADDED."
       (should (string-match-p "date fields left as they are" (buffer-string)))
       (should (string-match-p "2020/2021 is a range" (buffer-string))))
     (kill-buffer sp-bibtex-lint--buffer)))
+
+;;;; Non-ISO dates, the text fix
+
+(defconst sp-bibprocess-lint-test--datetext-bib
+  (concat "@article{a1,\n  title = {A},\n  date = {May 14, 2021}}\n\n"
+          "@article{a2,\n  title = {B},\n  date = {14th May 2021}}\n\n"
+          "@article{a3,\n  title = {C},\n  date = {May. 2021}}\n\n"
+          "@article{a4,\n  title = {D},\n  date = {2021 Mai}}\n\n"
+          "@article{a5,\n  title = {E},\n  date = {14.5.2021}}\n\n"
+          "@article{a6,\n  title = {F},\n  date = {5/14/2021}}\n\n"
+          "@article{a7,\n  title = {G},\n  date = {2021/5/14}}\n\n"
+          "@article{a8,\n  title = {H},\n  date = {3/4/2021}}\n\n"
+          "@article{a9,\n  title = {I},\n  date = {Spring 2021}}\n\n"
+          "@article{b1,\n  title = {J},\n  date = {2020/2021}}\n\n"
+          "@article{b2,\n  title = {K},\n  date = {c. 1850}}\n\n"
+          "@article{b3,\n  title = {L},\n  date = {31 Feb 2021}}\n\n"
+          "@article{b4,\n  title = {M},\n  year = {2019},\n  date = {May 14, 2021}}\n\n"
+          "@misc{web,\n  title = {N},\n  date = {May 14, 2021}}\n\n"
+          "@article{iso,\n  title = {O},\n  date = {2021-05-14}}\n"))
+
+(defun sp-bibprocess-lint-test--datetext-results ()
+  (let (results)
+    (sp-bibtex-lint--job "t" (list (car sp-bibtex-files)) '(datetext datetext-skipped)
+                         (lambda (r) (setq results r)))
+    results))
+
+(defun sp-bibprocess-lint-test--datetext-new (results key)
+  (when-let* ((r (sp-bibprocess-lint-test--result results key))
+              (new (plist-get (alist-get 'datetext (nth 4 r)) :new)))
+    (replace-regexp-in-string "[ \t]+=[ \t]+" " = " new)))
+
+(ert-deftest sp-bibtex-date-test-text-reads-the-forms ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((results (sp-bibprocess-lint-test--datetext-results)))
+      (dolist (key '("a1" "a2" "a5" "a6" "a7" "iso"))
+        (ert-info (key)
+          (let ((new (sp-bibprocess-lint-test--datetext-new results key)))
+            (should (string-match-p "year = {2021}" new))
+            (should (string-match-p "month = {5}" new))
+            (should-not (string-match-p "date\\|day" new)))))
+      (dolist (key '("a3" "a4"))
+        (ert-info (key)
+          (let ((new (sp-bibprocess-lint-test--datetext-new results key)))
+            (should (string-match-p "year = {2021}" new))
+            (should (string-match-p "month = {5}" new))))))))
+
+(ert-deftest sp-bibtex-date-test-text-reports-what-it-cannot-read ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((results (sp-bibprocess-lint-test--datetext-results)))
+      (dolist (key '("a8" "a9" "b1" "b2" "b3" "b4" "web"))
+        (ert-info (key)
+          (should-not (sp-bibprocess-lint-test--datetext-new results key))))
+      (should (string-match-p "day first or month first"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "a8")))
+                                              :desc))))
+      (should (string-match-p "a range"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b1")))
+                                              :desc))))
+      (should (string-match-p "no day 31"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b3")))
+                                              :desc))))
+      (should (string-match-p "year = 2019 differs"
+                              (car (plist-get (alist-get 'datetext-skipped
+                                                         (nth 4 (sp-bibprocess-lint-test--result results "b4")))
+                                              :desc)))))))
+
+(ert-deftest sp-bibtex-date-test-text-numeric-order-option ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    (let ((sp-bibtex-date-numeric-order 'day-first))
+      (should (string-match-p "month = {4}" (sp-bibprocess-lint-test--datetext-new
+                                             (sp-bibprocess-lint-test--datetext-results) "a8"))))
+    (let ((sp-bibtex-date-numeric-order 'month-first))
+      (should (string-match-p "month = {3}" (sp-bibprocess-lint-test--datetext-new
+                                             (sp-bibprocess-lint-test--datetext-results) "a8"))))))
+
+(ert-deftest sp-bibtex-date-test-text-runs-after-the-iso-fix ()
+  (sp-bibprocess-lint-test--with-biblatex sp-bibprocess-lint-test--datetext-bib
+    ;; The ISO fix does only `iso'; the text fix then does the others and writes once.
+    (should (equal '(1) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date)))
+    (should (equal '(7) (sp-bibprocess-lint-test--convert file '(?a) #'sp-bibtex-lint-fix-date-text)))
+    (let ((text (sp-bibprocess-lint-test--text file)))
+      (should (string-search "date = {2020/2021}" text))
+      (should (string-search "date = {c. 1850}" text))
+      (should (string-search "date = {May 14, 2021}}" text))
+      (should-not (string-search "14.5.2021" text)))
+    (should-not (seq-some (lambda (r) (alist-get 'datetext (nth 4 r)))
+                          (sp-bibprocess-lint-test--datetext-results)))))
