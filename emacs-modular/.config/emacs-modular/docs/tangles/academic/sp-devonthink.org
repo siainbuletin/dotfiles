@@ -2,12 +2,17 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-devonthink.el=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (sections "Highlights and pages" and "The two-way link", Emacs side).
+Literate source for =libraries/modules/academic/sp-devonthink.el=.
+
+- Start with "Current state" below: it covers the whole DEVONthink integration (all modules, keys, options, limitations).
+- Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]] (sections "Highlights and pages" and "The two-way link", Emacs side).
+  - It is the original proposal (#209) and is not kept up to date; where it differs from "Current state", "Current state" is right.
+  - Older version of it, kept as a link: [[https://github.com/siainbuletin/dotfiles/blob/c0188a9f0b7c1840034707d3866582a5000eeea3/emacs-modular/.config/emacs-modular/docs/architecture/devonthink-emacs-integration.org][devonthink-emacs-integration.org at c0188a9f]] (2026-11-08).
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
-- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-test.el=; the AppleScript was not run (see the end of this file).
+- Status: macOS only. The pure parts are covered by =tests/sp-devonthink-test.el=; the AppleScript was not run when this was written (see "Current state" and the end of this file).
 
 * What it is for
 
@@ -17,7 +22,172 @@ Literate source for =libraries/modules/academic/sp-devonthink.el=. Design: [[fil
   - the cache from citekey to UUID (=sp-reading-uuid=, =sp-reading-refresh=);
   - the item URL with a page anchor (=sp-reading--url=);
   - running AppleScript (=sp-reading--osascript=).
-- Later pull requests add browsing, tags, search, highlights and a sync report to this module.
+- Later pull requests added browsing, tags, search and the BibTeX sync in sibling modules; highlights and the sync report are still open pull requests (see "Current state").
+
+* Current state
+
+- As of 2026-11-15, on =main= (up to the Hammerspoon commit =b09d4e0=).
+- macOS only, and only the GUI: the keys are GUI keys, terminal Emacs is not covered.
+- DEVONthink must be running, with the database named by =sp-reading-database= (=literature=) open.
+- Everything talks to DEVONthink through =osascript= (AppleScript or JXA), never through its files (the reasoning is in the design document linked at the top).
+- The citekey joins BibTeX entry, PDF file name (=KEY.pdf=), litnote and DEVONthink record; the record's UUID is looked up from the citekey, never typed.
+
+** What exists
+
+| Piece | What it does | Delivered by | Doc |
+|-------+--------------+--------------+-----|
+| =sp-reading= | citekey to UUID cache, item URLs with a page, =osascript= runner, opening a cited work | earlier; #430 (records whose name lacks =.pdf=) | [[file:sp-reading.org][sp-reading.org]] |
+| =sp-devonthink= (this file) | =devonthink:UUID::PAGE= link, =#+devonthink:= keyword, open from note, insert link, store link, crossref resolver, chapter keywords | #414, #434 to #437, #441 | this file |
+| =sp-devonthink-browse= | pick any record, grouped by DEVONthink group; Embark actions | #415 | [[file:sp-devonthink-browse.org][sp-devonthink-browse.org]] |
+| =sp-devonthink-tags= | read and set tags on one or many records; split the comma-joined tag | #415 | [[file:sp-devonthink-tags.org][sp-devonthink-tags.org]] |
+| =sp-devonthink-search= | one search command over DEVONthink and litdb; similar records; text preview | #418 | [[file:sp-devonthink-search.org][sp-devonthink-search.org]] |
+| =sp-devonthink-bibsync= | copy BibTeX author, title, keywords to the record | #460 | [[file:sp-devonthink-bibsync.org][sp-devonthink-bibsync.org]] |
+| =sp-fetch-inbox= | file inbox articles: BibTeX entry beside the PDF, rename and move the record | #454, #472, #478, #479 | [[file:sp-fetch-inbox.org][sp-fetch-inbox.org]] |
+| =sp-pdf-reader= | open a record's PDF in Emacs (emureader); annotations stay in DEVONthink | merged | [[file:sp-pdf-reader.org][sp-pdf-reader.org]] |
+| =sp-litdb= | search the litdb index of highlighted pages | earlier | [[file:sp-litdb.org][sp-litdb.org]] |
+| =tools/devonthink-reading.py=, =devonthink-move.py= | small synced =reading= database; move records | earlier | [[file:devonthink-reading.org][devonthink-reading.org]], [[file:devonthink-move.org][devonthink-move.org]] |
+| =devonthink-open= (Stow package) | PDFs indexed in DEVONthink open there from the Finder or Alfred | #449 (raise only the PDF window) | [[file:../../../../../../devonthink-open/README.org][devonthink-open/README.org]] |
+| =hammerspoon/devonthink.lua= | highlight keys and an automatic Highlight mode in DEVONthink | commit =b09d4e0= (no PR) | this section |
+
+** What each part does
+
+- Links and litnotes (=sp-devonthink=):
+  - =[[devonthink:UUID::6][key p. 6]]= opens the record at printed page 6 (the URL gets page 5); exporting writes only the description.
+  - =#+devonthink: UUID= in a litnote's front matter names its record; the citekey is the fallback.
+  - An entry with no record of its own (a chapter) uses the record of its =crossref= parent and opens at its first page plus an offset.
+  - A command that changes the parent's record asks first.
+  - A chapter's own keywords are stored in a block of the parent record's comment and can be shown at the bottom of the chapter's litnote.
+  - =sp-devonthink-store-link= stores a link to the record and page now showing in DEVONthink (any window); the selected text goes to the kill ring.
+- Browse (=sp-devonthink-browse=):
+  - One completion over the records (PDFs by default), grouped by group, cached for the session.
+  - Embark actions on a record: open, PDF in Emacs, litnote, link, tags, plus those added by the modules below.
+- Tags (=sp-devonthink-tags=):
+  - Tags live in DEVONthink only; nothing mirrors them into the litnote on =main=.
+  - New tags are marked =(new)= in the confirmation; =C-u= removes.
+  - A one-off command splits the single comma-joined tag of the =literature= database after a preview.
+- Search (=sp-devonthink-search=):
+  - The query goes to DEVONthink as typed, so =name:=, =kind:=, =tags:=, quotes, =AND=, =OR=, =NOT= work.
+  - =C-u= chooses the engine: DEVONthink, or litdb (by meaning, highlighted pages only).
+  - Embark actions on a hit: all of the browser's, plus =s= (similar records) and =v= (text preview).
+- BibTeX to DEVONthink (=sp-devonthink-bibsync=):
+  - Keywords become tags (added, never removed); author and title go to custom metadata (=bibauthor=, =bibtitle=); BibTeX wins on every run.
+  - A chapter's record is skipped (it is the parent's).
+- Inbox (=sp-fetch-inbox=):
+  - PDF on the left, editable BibTeX on the right; =C-c C-c= files the PDF as =~/Documents/literature/KEY.pdf=, renames and moves the record, appends the entry, then runs the bibsync.
+  - The picker lists the DEVONthink =inbox= group and =~/Documents/literature/inbox/=, sorted (newest first or alphabetical) and grouped by sub-group.
+
+** Keys
+
+- Leader is =C-;=. The old =C-c k d=, =C-c w b= and =C-c k= keys are unbound (no shims), since #489.
+- DEVONthink commands are under =C-; k d= (=sp-devonthink-map=):
+
+| Key | Command | Where it is documented |
+|-----+---------+------------------------|
+| =C-; k d o= | open the record of this litnote (=C-u=: ask for a page) | here |
+| =C-; k d l= | insert a =devonthink:= link by citekey (always asks for a page) | here |
+| =C-; k d s= | store a link to what DEVONthink shows | here |
+| =C-; k d k= | write the =#+devonthink:= keyword of this litnote | here |
+| =C-; k d c= | show this chapter's keywords at the bottom of the litnote | here |
+| =C-; k d C= | store this chapter's keywords in its parent's record | here |
+| =C-; k d r= | refresh the citekey to UUID cache | here |
+| =C-; k d b= | browse the records | browse doc |
+| =C-; k d t= | tag the record of this litnote (=C-u= removes) | tags doc |
+| =C-; k d f= | search (=C-u= chooses the engine) | search doc |
+| =C-; k d a= | records similar to this litnote's record | search doc |
+| =C-; k d y= | copy BibTeX author, title and keywords to the record | bibsync doc |
+
+- Other keys that touch DEVONthink:
+  - =C-; k l= litdb search (=C-u= chooses words, meaning or both); =C-; k I= index new highlighted pages.
+  - =C-; B a= =sp-fetch-inbox=; inside its BibTeX buffer: =C-c C-c= file, =C-c C-k= abort, =C-c C-r= new key, =C-c C-d= fetch a DOI; in its picker: =C-c s= switches the sort.
+  - In the citar Embark menu: =D= opens the record of the reference (a chapter opens its parent's PDF at its first page).
+  - On a record of the browser or the search: =o= open, =p= PDF in Emacs, =n= litnote, =l= link, =t= tags, =s= similar, =v= preview, =y= bibsync, =f= file the inbox record.
+  - =C-; E= is the Embark group of the leader (#484): =a= act, =A= act on all, =s= select, =c= collect, =l= live, =e= export, =b= become, =d= dwim, =B= bindings; =C-,= marks a candidate in the minibuffer. It is how to reach the record actions from the leader.
+
+** Options
+
+- Core (=sp-devonthink=):
+  - =sp-devonthink-keyword=: name of the litnote keyword, =devonthink=.
+  - =sp-devonthink-store-page-offset=: added to the page DEVONthink reports when a link is stored, 0.
+  - =sp-devonthink-page-offset=: PDF page minus printed page for a chapter in its parent's PDF, 0.
+  - =sp-devonthink-parent-page-offsets=: alist =(PARENT-CITEKEY . OFFSET)= that overrides it for one book.
+- From =sp-reading=:
+  - =sp-reading-database=: the database that holds the literature, =literature=.
+  - =sp-reading-index-group=: the group that new indexed files go to, nil (the root).
+  - =sp-reading-preview-command=: the fallback reader for a PDF with no record, =open -a Preview=.
+- Browse and search:
+  - =sp-devonthink-browse-path-regexp=: which records are listed, a JavaScript regexp on the file path, =\\.pdf$=.
+  - =sp-devonthink-search-limit=: hits listed, 50.
+  - =sp-devonthink-search-preview-chars=: characters in the preview, 3000.
+- Bibsync:
+  - =sp-devonthink-bibsync-author-id=, =sp-devonthink-bibsync-title-id=: custom metadata identifiers, =bibauthor= and =bibtitle=.
+  - =sp-devonthink-bibsync-keywords=: nil leaves the tags alone, t.
+  - =sp-devonthink-bibsync-author-separator=: replaces BibTeX's =and=, =; =.
+- Inbox (=sp-fetch-inbox=):
+  - =sp-fetch-inbox-dir=: the inbox folder, =~/Documents/literature/inbox=; =sp-fetch-inbox-exclude=: skipped paths, =mac-bibdesk/=.
+  - =sp-fetch-inbox-sort=: =added= or =alphabetical=; =sp-fetch-inbox-group=: group the picker by sub-directory, t.
+  - =sp-fetch-inbox-devonthink=: use DEVONthink at all, t; =sp-fetch-inbox-devonthink-group=: the inbox group, =inbox=.
+  - =sp-fetch-inbox-devonthink-depth=: sub-group levels listed, 8; 0 is the quickest.
+  - =sp-fetch-inbox-profile=: t messages how long each step of building the picker takes (use it to see where a slow picker spends its time), nil.
+  - =sp-fetch-inbox-index-new=: index a file that had no record after filing it, t.
+  - =sp-fetch-inbox-sync-metadata=: run the bibsync after filing, t.
+  - =sp-fetch-inbox-pdf-function=, =sp-fetch-inbox-pdftotext=: how the PDF is shown and its text read.
+- =DT Open PDF= (file =~/.config/dt-open/config=, one =NAME=value= per line, read at every start):
+  - =DT_OPEN_FALLBACK=: app for PDFs that are not in DEVONthink; left out, the viewer that was the default before the install, else Preview.
+  - =DT_OPEN_LAUNCH=: =1= starts DEVONthink when it is not running (waits up to 60 s); =0= uses the fallback and never starts it.
+  - =DT_OPEN_RAISE=: =window= (default) raises only the PDF's window and needs Accessibility permission; =app= activates DEVONthink and every window with it; =none= raises nothing.
+  - =DT_OPEN_DEBUG=: =1= writes a log to =~/Library/Logs/DT Open PDF.log=.
+  - Full description: [[file:../../../../../../devonthink-open/README.org][devonthink-open/README.org]].
+  - AeroSpace tiles the windows it makes through two =on-window-detected= rules (#444).
+
+** Outside Emacs: Hammerspoon
+
+- =hammerspoon/.config/hammerspoon/devonthink.lua= (Sia's commit =b09d4e0=, loaded from =init.lua= as =DEVONthink=) presses DEVONthink's menu items for highlighting.
+- It presses =Tools > Annotate > Highlight Text=; it needs the Accessibility permission for Hammerspoon.
+- Keys: the modal leader is =Cmd+Ctrl+Alt+H= (the comment at the top of the file says =Cmd+Option+Space=, the code binds =h=).
+  - =H= turns on persistent Highlight mode (presses the menu item).
+  - =1= yellow, =2= red, =3= green, =4= blue: choose the color from =Format > Highlight Color=, then press Highlight.
+  - =Esc= leaves the leader.
+- Automatic: whenever DEVONthink becomes the frontmost app, 0.4 s later, if it still is, it presses Highlight Text; so Highlight mode is on when you start to select.
+- Not documented elsewhere and not tested by Claude; the menu names are for DEVONthink 4.4.2, as the file says.
+- The Emacs-side "highlight a selection by key or automatically" pull request (#452) was closed as not useful; it is not a feature.
+
+** Open pull requests, not on =main=
+
+- None of this is on =main=, so none of it is described as existing above:
+  - #419: the design document moved into this file ("Design" section), ADRs 0027 to 0031, and the DEVONthink docs moved to =docs/tangles/devonthink/=; it will conflict with this section and with the paths in this file.
+  - #420: highlights of a litnote's PDF into the note (=sp-devonthink-highlights-import=, =tools/devonthink-highlights.py=).
+  - #421: report and backfill of the litnote and record link (=sp-devonthink-sync=, field =litnote=, org-protocol URL).
+  - #451: link to one highlight, the latest or one chosen (stacked on #421).
+  - #443: DEVONthink tags mirrored into a litnote =keywords= meta line.
+  - #455: browser-added tags mirrored into the litnote and the BibTeX =keywords= (stacked on #443); the bibsync doc mentions it, but it is not on =main= yet.
+- These PRs still use the old key =C-c k d= in their text; =C-c k d= is now =C-; k d=.
+
+** Known limitations
+
+- A chapter or section has no record of its own; everything for it goes through its =crossref= parent.
+  - Only the first number of =pages= is used; roman numerals give no page, and the parent opens at the start.
+  - The printed page to PDF page offset is a setting (=sp-devonthink-page-offset=), not detected.
+- One database only: =sp-reading-database=; the other packages in =~/Databases= are never searched.
+- DEVONthink's concordance is not in its scripting dictionary, so it is not offered from Emacs.
+- The browser list is cached for the session; run =sp-devonthink-browse-refresh= after the database changes.
+- Search lists the first =sp-devonthink-search-limit= hits DEVONthink ranks; litdb finds only pages that were highlighted when it last indexed (=C-; k I=).
+- Tags are not mirrored to the litnote or to BibTeX on =main=; bibsync copies BibTeX to DEVONthink only.
+- Bibsync overwrites author and title each run; no tag is ever removed.
+- Chapter keywords in a comment may be hard to find in DEVONthink; prefixed tags are the fallback.
+- The =litnote= metadata field and the record-side link do not exist on =main= (#421 is open).
+- =DT Open PDF= needs DEVONthink installed to build, and Accessibility permission for =DT_OPEN_RAISE=window=.
+
+** What is untested
+
+- The pure Lisp parts have ERT tests. The AppleScript and JXA of every module were written without DEVONthink and, as far as these docs record, were not run on the Mac; the pull requests list the manual tests, and their results are not recorded here.
+- To check by hand on the Mac, per module:
+  - core: =current page= and =selected text= of a window (0- or 1-based page: =sp-devonthink-store-page-offset=); reading and setting =comment of= a record by UUID (chapter keywords); that the citar Embark map is =citar-embark-map=;
+  - browse and tags: listing tags (=tags group of database=), =set tags of=, JXA field reads in bulk;
+  - search: =search= with operators, =compare record … to database …=, =plain text of= on a large record, litdb hits opening at their page;
+  - bibsync: whether =add custom meta data= creates an undefined field, and which identifier DEVONthink gives a field made by hand;
+  - inbox: listing, renaming, moving, exporting and trashing records; whether moving an indexed record keeps its file at =~/Documents/literature/KEY.pdf=;
+  - =devonthink-reading.py=: the same question for moving a record between databases (run =send --apply --limit 1=);
+  - Hammerspoon: the menu names, and the automatic press when DEVONthink is activated.
 
 * The =devonthink:= link
 
@@ -746,3 +916,8 @@ What each pull request changed in this module, newest last; the one-line summary
     - =-- sp-chapter: KEY --= and =keywords: a, b= and =-- end sp-chapter --=; text outside the block is kept, an empty list removes it
     - not inherited from the parent and not merged into its tags
   - ✨ Added the keywords at the bottom of the chapter's litnote, under =* Keywords in the book "Title" (parent-key)=, with =:SP_CHAPTER_OF:=
+- [[https://github.com/siainbuletin/dotfiles/pull/489][#489]]
+  - 🔧 Changed the key prefix of the commands from =C-c k d= to =C-; k d= (the map is mounted on =lem+knowledge-keys= by =sp-keys=); the old keys are unbound, with no shims
+- [[https://github.com/siainbuletin/dotfiles/pull/497][#497]]
+  - 📝 Added the section "Current state": the modules, keys, options, open pull requests, limitations and what is untested for the whole DEVONthink integration
+  - 📝 Kept the link to the older design document at =c0188a9f=, and said that "Current state" wins where they differ

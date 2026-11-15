@@ -8,6 +8,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 - Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-bibsync-test.el=; the AppleScript was not run (see "What is untested").
+- Overview of the whole DEVONthink integration (keys, options, limitations): "Current state" in [[file:sp-devonthink.org][sp-devonthink.org]].
 
 * What it is for
 
@@ -29,7 +30,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 
 * How it avoids fighting the tag mirror
 
-- The other direction, DEVONthink tags to BibTeX =keywords= (PR #455, =sp-devonthink-mirror-record-tags=), runs only after you tag a record in the browser.
+- The other direction, DEVONthink tags to BibTeX =keywords= (PR #455, =sp-devonthink-mirror-record-tags=; still an open pull request, not on =main=), runs only after you tag a record in the browser.
 - This module writes tags through =sp-devonthink--set-tags-script= directly, not through the browser action, so it never starts that mirror: no loop.
 - Both directions only add, and ignore case, so running either again changes nothing.
   - A tag added in the browser is written to =keywords=; the next sync finds it there and adds nothing.
