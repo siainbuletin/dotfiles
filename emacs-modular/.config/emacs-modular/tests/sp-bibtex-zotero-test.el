@@ -191,6 +191,7 @@ files at the top.  ROOT is the library, FILE the .bib file."
 ;;;; The dry run
 
 (ert-deftest sp-bibtex-zotero-dryrun-changes-nothing ()
+  (let ((sp-batch-report-display 'org))
   (sp-bibtex-zotero-test--with-library
       '(("AAAAAAA1" "One.pdf" "1") ("AAAAAAA3" "Other.pdf" "3"))
       (sp-bibtex-zotero-test--bib
@@ -214,14 +215,15 @@ files at the top.  ROOT is the library, FILE the .bib file."
       (should (string-match-p "^\\* Not matched.*(1)" shown))
       (should (string-match-p "no folder in the backup" shown))
       (should (string-match-p "1 records would be moved" shown))
-      (should (string-match-p "sp-bibtex-zotero:apply:" shown)))))
+      (should (string-match-p "sp-bibtex-zotero:apply:" shown))))))
 
 (ert-deftest sp-bibtex-zotero-dryrun-says-when-devonthink-is-not-running ()
   (sp-bibtex-zotero-test--with-library
       '(("AAAAAAA1" "One.pdf" "1"))
       (sp-bibtex-zotero-test--bib '("one" "/Users/me/Zotero/storage/AAAAAAA1/One.pdf"))
     (setq sp-bibtex-zotero-test--running nil)
-    (let ((text (sp-bibtex-zotero--render file (sp-bibtex-zotero--plan file))))
+    (let* ((sp-batch-report-display 'org)
+           (text (sp-bibtex-zotero--render file (sp-bibtex-zotero--plan file))))
       (should (string-match-p "DEVONthink is not running" text)))))
 
 ;;;; Applying
@@ -365,6 +367,7 @@ files at the top.  ROOT is the library, FILE the .bib file."
 
 
 (ert-deftest sp-bibtex-zotero-dropped-rows-are-not-applied ()
+  (let ((sp-batch-report-display 'org))
   (sp-bibtex-zotero-test--with-library
       '(("AAAAAAA1" "One.pdf" "1") ("AAAAAAA2" "Two.pdf" "2"))
       (sp-bibtex-zotero-test--bib
@@ -381,9 +384,10 @@ files at the top.  ROOT is the library, FILE the .bib file."
       (sp-bibtex-zotero-convert file)
       (should (string-match-p "AAAAAAA1/One.pdf" (sp-bibtex-zotero-test--text file)))
       (should (string-match-p "file = {Two.pdf}" (sp-bibtex-zotero-test--text file)))
-      (should (file-exists-p (expand-file-name "inbox/zotero-backup/AAAAAAA1/One.pdf" root))))))
+      (should (file-exists-p (expand-file-name "inbox/zotero-backup/AAAAAAA1/One.pdf" root)))))))
 
 (ert-deftest sp-bibtex-zotero-report-tables-are-aligned-org ()
+  (let ((sp-batch-report-display 'org))
   (sp-bibtex-zotero-test--with-library
       '(("AAAAAAA1" "One.pdf" "1") ("AAAAAAA2" "Longer name.pdf" "2"))
       (sp-bibtex-zotero-test--bib
@@ -392,7 +396,7 @@ files at the top.  ROOT is the library, FILE the .bib file."
     (let* ((text (sp-bibtex-zotero--render file (sp-bibtex-zotero--plan file)))
            (rows (seq-filter (lambda (l) (string-prefix-p "|" l)) (split-string text "\n"))))
       (should (>= (length rows) 4))
-      (should (= 1 (length (delete-dups (mapcar #'string-width rows))))))))
+      (should (= 1 (length (delete-dups (mapcar #'string-width rows)))))))))
 
 (provide 'sp-bibtex-zotero-test)
 ;;; sp-bibtex-zotero-test.el ends here
