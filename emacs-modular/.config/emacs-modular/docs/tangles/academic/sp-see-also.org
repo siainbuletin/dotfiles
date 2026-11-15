@@ -216,6 +216,8 @@ Two functions decide it. Both are options, so the scoring can be changed without
   - =cite=: a citation of the note's citekey.
     - The keys are read from the =:ROAM_REFS:= property only (all keys, not only the first); =@key=, =key=, =cite:key= and =[cite:@a;@b]= forms are read.
     - =#+reference:= is not read.
+    - Fallback, only for files below =litnotes/= (=sp-see-also-directory=) that have no =ROAM_REFS= key: the =#+title:= is the key when it is a single key word, else the file name is.
+    - This is for litnotes whose title is still the key; once they have a proper title and =ROAM_REFS=, the fallback is not used.
     - A note with no key shows a line saying so at the end of the view.
     - Read: =[cite:@key]=, =[cite/t:@key]= (any style), =[cite:@a;@b]=, =[cite:see @key p. 3]=, =[[cite:&key]]=, =cite:key= and =@key=.
     - =key2= is another key, so it is not matched.
@@ -1222,26 +1224,50 @@ the whole-vault index is used."
                   (string< (plist-get a :title) (plist-get b :title))
                 (> na nb)))))))
 
-(defun sp-see-also--citekeys (file)
-  "Return the citekeys of FILE, from its `ROAM_REFS' property.
+(defun sp-see-also--key-tokens (string)
+  "Return the citation keys in STRING, such as a `ROAM_REFS' value or a title.
 `@key', `key', `cite:key' and `[cite:@a;@b]' are read; URLs and DOIs are not
-keys.  Nil when the note has none."
+keys."
+  (let (keys)
+    (dolist (token (split-string
+                    (replace-regexp-in-string "\\[cite[^:]*:\\|\\]" "" string)
+                    "[ \t;,]+" t))
+      (let ((bare (replace-regexp-in-string
+                   "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" token)))
+        (when (and (not (string-match-p "\\`https?:\\|\\`doi:\\|/" bare))
+                   (string-match-p "\\`[[:alnum:]_:-]+\\'" bare))
+          (push bare keys))))
+    (nreverse keys)))
+
+(defun sp-see-also--in-litnotes-p (file)
+  "Non-nil when FILE is below `sp-see-also-directory'."
+  (and (file-directory-p sp-see-also-directory)
+       (file-in-directory-p file sp-see-also-directory)))
+
+(defun sp-see-also--citekeys (file)
+  "Return the citekeys of FILE: its `ROAM_REFS', else (in `litnotes/') its title.
+A litnote below `sp-see-also-directory' that has no `ROAM_REFS' key is still
+found: its `#+title:' is the key when it is one that is a single word, and
+otherwise its file name is.  Nil when the note has no key."
   (with-temp-buffer
     (ignore-errors (insert-file-contents file nil 0 8192))
     (let ((case-fold-search t) keys)
       (goto-char (point-min))
-      (while (re-search-forward
-              "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t)
-        (dolist (token (split-string
-                        (replace-regexp-in-string
-                         "\\[cite[^:]*:\\|\\]" "" (match-string-no-properties 1))
-                        "[ \t;,]+" t))
-          (let ((bare (replace-regexp-in-string
-                       "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" token)))
-            (when (and (not (string-match-p "\\`https?:\\|\\`doi:\\|/" bare))
-                       (string-match-p "\\`[[:alnum:]_:-]+\\'" bare))
-              (push bare keys)))))
-      (delete-dups (nreverse keys)))))
+      (while (re-search-forward "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t)
+        (setq keys (append keys (sp-see-also--key-tokens (match-string-no-properties 1)))))
+      (when (and (null keys) (sp-see-also--in-litnotes-p file))
+        (goto-char (point-min))
+        (let ((title (and (re-search-forward "^#\\+title:[ \t]*\\(.*?\\)[ \t]*$" nil t)
+                          (match-string-no-properties 1))))
+          (setq keys (or (and title
+                              (let ((found (sp-see-also--key-tokens title)))
+                                (and (= (length found) 1)
+                                     (equal (car found)
+                                            (replace-regexp-in-string
+                                             "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" title))
+                                     found)))
+                         (sp-see-also--key-tokens (file-name-base file))))))
+      (delete-dups keys))))
 
 (defun sp-see-also--citekey (file)
   "Return the first citekey of FILE (see `sp-see-also--citekeys'), or nil."
@@ -2901,12 +2927,33 @@ its text moves to the definitions section.  One undo step undoes all."
         (should (string-match-p "\\[cite\\]" (buffer-string))))
       (kill-buffer "*see-also*"))))
 
+(ert-deftest sp-see-also-citekey-falls-back-to-the-title-in-litnotes ()
+  (sp-see-also-test--with-vault
+    (let ((titled (sp-see-also-test--write
+                   root "a.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: a" ":END:"
+                                                        "#+title: smith2020")))
+          (named (sp-see-also-test--write
+                  root "jones2021.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: b" ":END:"
+                                                               "#+title: A long real title")))
+          (words (sp-see-also-test--write
+                  root "c.org" (sp-see-also-test--text ":PROPERTIES:" ":ID: c" ":END:"
+                                                       "#+title: Two words")))
+          (outside (expand-file-name "other2020.org" root)))
+      (with-temp-file outside (insert "#+title: other2020\n"))
+      (should (equal (sp-see-also--citekeys titled) '("smith2020")))
+      (should (equal (sp-see-also--citekeys named) '("jones2021")))
+      (should (equal (sp-see-also--citekeys words) '("c")))
+      ;; not in litnotes/: no fallback
+      (should-not (sp-see-also--citekeys outside)))))
+
 (ert-deftest sp-see-also-citekey-is-read-from-roam-refs-only ()
   (sp-see-also-test--with-vault
     (let ((lit (sp-see-also-test--write root "lit.org" sp-see-also-test--litnote)))
       (should (equal (sp-see-also--citekey lit) "smith2020"))
       (should-not (sp-see-also--citekey
-                   (sp-see-also-test--write root "none.org" "#+title: No key\n"))))))
+                   (let ((none (expand-file-name "none.org" root)))
+                     (with-temp-file none (insert "#+title: No key\n"))
+                     none))))))
 
 (ert-deftest sp-see-also-show-one-view-for-a-litnote ()
   (sp-see-also-test--with-vault

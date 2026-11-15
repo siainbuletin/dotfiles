@@ -916,26 +916,50 @@ the whole-vault index is used."
                   (string< (plist-get a :title) (plist-get b :title))
                 (> na nb)))))))
 
-(defun sp-see-also--citekeys (file)
-  "Return the citekeys of FILE, from its `ROAM_REFS' property.
+(defun sp-see-also--key-tokens (string)
+  "Return the citation keys in STRING, such as a `ROAM_REFS' value or a title.
 `@key', `key', `cite:key' and `[cite:@a;@b]' are read; URLs and DOIs are not
-keys.  Nil when the note has none."
+keys."
+  (let (keys)
+    (dolist (token (split-string
+                    (replace-regexp-in-string "\\[cite[^:]*:\\|\\]" "" string)
+                    "[ \t;,]+" t))
+      (let ((bare (replace-regexp-in-string
+                   "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" token)))
+        (when (and (not (string-match-p "\\`https?:\\|\\`doi:\\|/" bare))
+                   (string-match-p "\\`[[:alnum:]_:-]+\\'" bare))
+          (push bare keys))))
+    (nreverse keys)))
+
+(defun sp-see-also--in-litnotes-p (file)
+  "Non-nil when FILE is below `sp-see-also-directory'."
+  (and (file-directory-p sp-see-also-directory)
+       (file-in-directory-p file sp-see-also-directory)))
+
+(defun sp-see-also--citekeys (file)
+  "Return the citekeys of FILE: its `ROAM_REFS', else (in `litnotes/') its title.
+A litnote below `sp-see-also-directory' that has no `ROAM_REFS' key is still
+found: its `#+title:' is the key when it is one that is a single word, and
+otherwise its file name is.  Nil when the note has no key."
   (with-temp-buffer
     (ignore-errors (insert-file-contents file nil 0 8192))
     (let ((case-fold-search t) keys)
       (goto-char (point-min))
-      (while (re-search-forward
-              "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t)
-        (dolist (token (split-string
-                        (replace-regexp-in-string
-                         "\\[cite[^:]*:\\|\\]" "" (match-string-no-properties 1))
-                        "[ \t;,]+" t))
-          (let ((bare (replace-regexp-in-string
-                       "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" token)))
-            (when (and (not (string-match-p "\\`https?:\\|\\`doi:\\|/" bare))
-                       (string-match-p "\\`[[:alnum:]_:-]+\\'" bare))
-              (push bare keys)))))
-      (delete-dups (nreverse keys)))))
+      (while (re-search-forward "^[ \t]*:ROAM_REFS:[ \t]*\\(.*\\)$" nil t)
+        (setq keys (append keys (sp-see-also--key-tokens (match-string-no-properties 1)))))
+      (when (and (null keys) (sp-see-also--in-litnotes-p file))
+        (goto-char (point-min))
+        (let ((title (and (re-search-forward "^#\\+title:[ \t]*\\(.*?\\)[ \t]*$" nil t)
+                          (match-string-no-properties 1))))
+          (setq keys (or (and title
+                              (let ((found (sp-see-also--key-tokens title)))
+                                (and (= (length found) 1)
+                                     (equal (car found)
+                                            (replace-regexp-in-string
+                                             "\\`\\(?:cite[[:alpha:]/]*:\\)?[@&]?" "" title))
+                                     found)))
+                         (sp-see-also--key-tokens (file-name-base file))))))
+      (delete-dups keys))))
 
 (defun sp-see-also--citekey (file)
   "Return the first citekey of FILE (see `sp-see-also--citekeys'), or nil."
