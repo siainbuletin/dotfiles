@@ -319,18 +319,22 @@ The buffer must be widened."
 (defun sp-note--ordered (notes)
   "NOTES (from `sp-note--extract-definitions') in the order of `sp-note-definition-order'.
 Within a kind they are in the order of their numbers; a name has no number and
-goes after the numbers."
+goes after the numbers.  Notes of other kinds, plain footnotes, follow."
   (let ((number (lambda (note)
                   (let ((rest (substring (car note)
                                          (length (sp-note-prefix (nth 1 note))))))
                     (if (string-match-p "\\`[0-9]+\\'" rest)
                         (string-to-number rest)
                       most-positive-fixnum)))))
-    (apply #'append
-           (mapcar (lambda (kind)
-                     (sort (seq-filter (lambda (note) (eq (nth 1 note) kind)) notes)
-                           (lambda (a b) (< (funcall number a) (funcall number b)))))
-                   sp-note-definition-order))))
+    (append
+     (apply #'append
+            (mapcar (lambda (kind)
+                      (sort (seq-filter (lambda (note) (eq (nth 1 note) kind)) notes)
+                            (lambda (a b) (< (funcall number a) (funcall number b)))))
+                    sp-note-definition-order))
+     ;; The other kinds (plain footnotes) keep their order, after these.
+     (seq-remove (lambda (note) (memq (nth 1 note) sp-note-definition-order))
+                 notes))))
 
 (defun sp-note--insert-definitions (notes)
   "Write NOTES at the start of the definitions section, making the section if needed."
