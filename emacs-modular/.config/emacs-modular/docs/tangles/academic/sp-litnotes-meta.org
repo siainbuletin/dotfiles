@@ -135,6 +135,7 @@ When =citar-create-note= makes a literature note (=C-; B c=, or opening the note
 (require 'sp-interaction)
 (require 'sp-bibtex-types)
 (require 'sp-vulpea-meta-order)
+(require 'sp-bibtex-biblatex)
 
 (declare-function citar-create-note "citar")
 (declare-function vulpea-db-query "vulpea-db")
@@ -229,6 +230,10 @@ The batch binds it: its table of existing notes is read once, so it does not see
 - =sp-litnotes-meta-build-index= reads the files once into a hash table (key to entry).
 - While =sp-litnotes-meta--index= holds that table, =sp-litnotes-meta--entry= answers from it (and from nothing else).
 - =sp-litnotes-titles= uses it to infer the titles of all litnotes.
+- Every entry type is read (=sp-litnotes-meta--bibtex-mode=):
+  - =bibtex-parse-entry= returns nil for a type that the dialect of the buffer lacks, e.g. =@online= or =@thesis= with the BibTeX dialect, =@video= or =@news= with BibLaTeX.
+  - An unreadable entry looked like a missing one, so =citar-create-note= handed the note to citar's own template (#543).
+  - The buffer gets the BibLaTeX dialect, extended by the types it uses (=sp-bibtex-biblatex--set-dialect=).
 - =sp-litnotes-meta--field= strips the braces and collapses white space.
 - For a =title= it also strips quotes that enclose the whole value (=sp-litnotes-meta--unquote=):
   - So a BibTeX title written ={"Title"}= is never copied into =pub-title= with its quotes.
@@ -243,12 +248,21 @@ The batch binds it: its table of existing notes is read once, so it does not see
   "Hash table of BibTeX key to entry, or nil to read the files for each key.
 Made by `sp-litnotes-meta-build-index'.")
 
+(defun sp-litnotes-meta--bibtex-mode ()
+  "Turn the current buffer into a `bibtex-mode' buffer that reads every entry type.
+`bibtex-parse-entry' returns nil for a type that the dialect of the buffer
+lacks (`@online' and `@thesis' in the BibTeX dialect, `@video' or `@news' in
+BibLaTeX), so such an entry would look as if it did not exist.  The dialect
+is BibLaTeX, extended by the types of the buffer (`sp-bibtex-biblatex--set-dialect')."
+  (delay-mode-hooks (bibtex-mode))
+  (sp-bibtex-biblatex--set-dialect))
+
 (defun sp-litnotes-meta--index-file (file table)
   "Add the entries of the .bib FILE to the hash TABLE (key to entry).
 A key that is already in TABLE keeps its first entry."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
-    (delay-mode-hooks (bibtex-mode))
+    (sp-litnotes-meta--bibtex-mode)
     (goto-char (point-min))
     (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
       (let ((beg (match-beginning 0)))
@@ -278,7 +292,7 @@ Signal a `user-error' when there is no .bib file."
     (dolist (file (sp-author-notes-bibtex--files))
       (with-temp-buffer
         (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
-        (delay-mode-hooks (bibtex-mode))
+        (sp-litnotes-meta--bibtex-mode)
         (goto-char (point-min))
         (when (re-search-forward
                (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)
@@ -1091,6 +1105,9 @@ act on all of them."
   - The title is replaced by =sp-litnotes-meta--new-title=, per =sp-litnotes-meta-new-title=:
     - =title=: the BibTeX title alone.
     - =standard= (default): "Last (Year) Title", as =sp-litnotes-titles-convert= writes it.
+      - Names come from =sp-litnotes-titles--bib-authors=, so an organisation in braces (={World Bank}=) stays whole.
+      - An entry with only editors uses them, with =sp-litnotes-titles-editor-suffix=, as the titles module does.
+      - The format is =sp-litnotes-titles-format-function=.
   - A title that does not start with "Notes on" is left alone.
 - Not run on the real vault.
 
@@ -1152,11 +1169,13 @@ Chicago-style \"Last (Year) Title\" that `sp-litnotes-titles-convert' writes."
   "The title for a new note of the BibTeX ENTRY, per `sp-litnotes-meta-new-title'."
   (let ((title (sp-litnotes-meta--field entry "title")))
     (if (and title (eq sp-litnotes-meta-new-title 'standard))
-        (let ((names (mapcar #'sp-litnotes-titles--split-name
-                             (sp-litnotes-meta--author-names entry)))
-              (year (sp-litnotes-meta--year entry)))
+        (let* ((authors (sp-litnotes-titles--bib-authors entry))
+               (editors (and (null authors) (sp-litnotes-titles--bib-authors entry "editor")))
+               (names (or authors editors))
+               (sp-litnotes-titles--editors-p (and editors t))
+               (year (sp-litnotes-meta--year entry)))
           (if (and names year)
-              (sp-litnotes-titles-format names year title)
+              (funcall sp-litnotes-titles-format-function names year title)
             title))
       title)))
 
@@ -2905,46 +2924,56 @@ file to `fixed' or the error text."
 ** After a note is created
 
 - The advice on =citar-create-note= is =:around=, so one function decides who makes the note (see =sp-litnotes-meta-citar-create=).
-- When it does not make the note, citar does, and the old fill runs afterwards.
+- Sia's personal template always wins: citar's own file template is never used while =sp-litnotes-meta-citar-create= is non-nil.
+  - Citar's template writes =#+title: Notes on <author>, <title>= instead of the title of =sp-litnotes-titles=.
+  - It also writes a =#+print_bibliography:= line (#338 removed it on purpose), no =:CREATED:= and no tags.
+- The cases, in order:
+  - The key already has a litnote: it is visited, no second note is made.
+  - The key has no BibTeX entry in the registered files: a =user-error= says so; no note is made.
+  - =sp-litnotes-meta-create-function= fails: its error is shown; no half-made note from citar.
+  - Otherwise: the note is made, filled from BibTeX and visited.
+- With =sp-litnotes-meta-citar-create= nil citar makes the note; it is filled and tidied afterwards (=sp-litnotes-meta--tidy-new-note=: title, no =#+print_bibliography:=).
 
 #+begin_src emacs-lisp
 (defun sp-litnotes-meta--after-create (key &rest _)
-  "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
+  "Fill and tidy the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
   (when (and sp-litnotes-meta-auto (stringp key) (sp-litnotes-meta--entry key))
     (condition-case err
-        (sp-litnotes-meta-fill key)
+        (progn (sp-litnotes-meta-fill key)
+               (sp-litnotes-meta--tidy-new-note key))
       (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
 
 (defcustom sp-litnotes-meta-citar-create t
   "Non-nil to make the notes that `citar-create-note' is asked for ourselves.
 The note is made by `sp-litnotes-meta-create-function' (an ID, :CREATED:, the
 litnote and BibTeX type tags, ROAM_REFS, the title of
-`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Nil leaves
-the note to citar (and its `citar-vulpea-note-title-template')."
+`sp-litnotes-meta-new-title'), filled from BibTeX, and visited.  Citar's own
+template is then never used.  Nil leaves the note to citar (and its
+`citar-vulpea-note-title-template')."
   :type 'boolean
   :group 'sp-litnotes-meta)
 
 (defun sp-litnotes-meta--around-create (orig-fun key &rest args)
   "Make the note of KEY with `sp-litnotes-meta-create-function', not citar.
-ORIG-FUN is `citar-create-note', called with KEY and ARGS when
-`sp-litnotes-meta-citar-create' is nil, KEY has no BibTeX entry or already has
-a note, or the note could not be made; the note is then filled afterwards."
-  (let ((file (when (and sp-litnotes-meta-citar-create (stringp key)
-                         (sp-litnotes-meta--entry key)
-                         (not (gethash key (sp-author-notes-bibtex--covered))))
-                (condition-case err
-                    (funcall sp-litnotes-meta-create-function key)
-                  (error (message "sp-litnotes-meta: %s: %s, using citar"
-                                  key (error-message-string err))
-                         nil)))))
-    (if (not file)
-        (prog1 (apply orig-fun key args)
-          (sp-litnotes-meta--after-create key))
-      (when sp-litnotes-meta-auto
-        (condition-case err
-            (sp-litnotes-meta-fill key file)
-          (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
-      (find-file file))))
+ORIG-FUN is `citar-create-note', called with KEY and ARGS only when
+`sp-litnotes-meta-citar-create' is nil; the note is then filled and tidied
+afterwards.  A key that already has a note gets that note visited.  A key
+without a BibTeX entry, or a failing create function, signals an error."
+  (if (not (and sp-litnotes-meta-citar-create (stringp key)))
+      (prog1 (apply orig-fun key args)
+        (sp-litnotes-meta--after-create key))
+    (unless (sp-litnotes-meta--entry key)
+      (user-error "No BibTeX entry %s in the registered files, so no note was made" key))
+    (let ((existing (gethash key (sp-author-notes-bibtex--covered))))
+      (if existing
+          (progn (message "%s already has a note, visiting it" key)
+                 (find-file existing))
+        (let ((file (funcall sp-litnotes-meta-create-function key)))
+          (when sp-litnotes-meta-auto
+            (condition-case err
+                (sp-litnotes-meta-fill key file)
+              (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err)))))
+          (find-file file))))))
 
 (advice-remove 'citar-create-note #'sp-litnotes-meta--after-create)
 (advice-add 'citar-create-note :around #'sp-litnotes-meta--around-create)
@@ -2995,3 +3024,8 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =(none)= to the =bib-project= prompt of =sp-litnotes-meta--read-project=
     - choosing it, or an empty answer, adds no =bib-project= line; the thesis stays the default
     - a note that already has =bib-project= is not asked
+
+- #543
+  - 🐛 =@online=, =@thesis= and other types that the dialect of the buffer lacked were read as missing entries, so =citar-create-note= fell back to citar's template ("Notes on ...", =#+print_bibliography:=); every type is read now (=sp-litnotes-meta--bibtex-mode=).
+  - 🐛 A key that already has a litnote is visited, not given a second note; citar's template is never used for a new note any more (an error is shown instead).
+  - 🐛 The title of a new note uses the editors when there are no authors and keeps an organisation whole.
