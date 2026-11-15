@@ -9,9 +9,11 @@
 --                     highlights selected in the Annotations inspector; the
 --                     result depends on DEVONthink, see the PR)
 --
--- Key active only while DEVONthink is in front:
+-- Keys active only while DEVONthink is in front:
 --   Cmd+Z          delete the latest highlight, if it is the next undo step;
 --                  otherwise the normal Cmd+Z goes to DEVONthink
+--   Cmd+Shift+Z    bring back the highlight just deleted, if it is the next
+--                  redo step; otherwise the normal Cmd+Shift+Z goes to DEVONthink
 --
 -- Why:
 --   * The layer never reaches Emacs or any other app, so Option here does not
@@ -25,11 +27,12 @@
 --   * So they are found by the start of the name (the patterns below),
 --     searched in the Format menu, not by a fixed full title.
 --
--- Undo:
---   * The menu item is found by title pattern, because its title changes with
---     the action ("Undo Add Highlight").
---   * Only enabled items count. The Edit menu always shows the next undo step,
---     so a highlight that is gone or older than another action is never touched.
+-- Undo and redo:
+--   * The menu items are found by title pattern, because their titles change
+--     with the action ("Undo Add Highlight", "Redo Add Highlight").
+--   * Only enabled items count. The Edit menu always shows the next undo and
+--     redo step, so a highlight that is gone or older than another action is
+--     never touched.
 --   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
 
 local M = {}
@@ -59,6 +62,13 @@ local undoHighlightPatterns = {
   "^Undo.*[Hh]ighlight",
   "^Undo.*[Aa]nnotat",
   "^Undo.*[Mm]arkup",
+}
+
+-- Edit > Redo titles that mean "the step to redo is a highlight".
+local redoHighlightPatterns = {
+  "^Redo.*[Hh]ighlight",
+  "^Redo.*[Aa]nnotat",
+  "^Redo.*[Mm]arkup",
 }
 
 local function isDevonthink(app)
@@ -168,6 +178,12 @@ function M.undoHighlight()
   return app ~= nil and selectFirst(app, "Edit", undoHighlightPatterns)
 end
 
+-- Redo the highlight just undone. False when the next redo step is not a highlight.
+function M.redoHighlight()
+  local app = hs.application.frontmostApplication()
+  return app ~= nil and selectFirst(app, "Edit", redoHighlightPatterns)
+end
+
 -- Run FN only when DEVONthink is in front; elsewhere the key does nothing.
 local function inDevonthink(fn)
   return function()
@@ -187,7 +203,7 @@ for index = 1, #colors do
 end
 
 --------------------------------------------------
--- Cmd+Z, only while DEVONthink is in front
+-- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
 --------------------------------------------------
 
 -- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
@@ -207,6 +223,7 @@ end
 
 local scoped = {
   withPassThrough({ "cmd" }, "z", M.undoHighlight),
+  withPassThrough({ "cmd", "shift" }, "z", M.redoHighlight),
 }
 
 local function setScoped(on)
