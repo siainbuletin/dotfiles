@@ -85,11 +85,7 @@ title Batch linting: who loads what
 
 package "init.el (Functions block)" {
   [sp-batch-lint] as BL
-  [sp-org-lint] as OL
-}
-
-package "one-off, current Org buffer" {
-  [sp-org-lint-others\nlists: sp-org-lint-list,\nsp-org-lint-resources] as OT
+  [sp-org-lint\none-off lists: sp-org-lint-list,\nsp-org-lint-resources] as OL
 }
 
 package "batch members, required by sp-batch-lint" {
@@ -112,7 +108,6 @@ package "shared batch infrastructure" {
   [sp-backup-lookup] as BK
 }
 
-OL --> OT
 BL --> FN
 BL --> AN
 BL --> ANB

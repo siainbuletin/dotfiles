@@ -1,13 +1,8 @@
 #+TITLE: sp-org-lint.el: Lint and tidy plain lists in the current Org buffer
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-lint-others.el :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-lint.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for the =sp-org-lint= family of modules in =libraries/modules/funct/=. One document, two =.el= files:
-
-| File | Holds |
-|------+-------|
-| =sp-org-lint.el= | only a =require= line for the submodule below |
-| =sp-org-lint-others.el= | the list commands (=sp-org-lint-list=, =sp-org-lint-resources=, =sp-org-mark-list=) |
+Literate source for =libraries/modules/funct/sp-org-lint.el=, the one-off lint of the Org buffer you are working in.
 
 - =sp-org-lint= is the one-off lint of the Org buffer you are working in.
 - The batch linters (many files or notes, with a report and a backup) are in [[file:sp-batch-lint.org][sp-batch-lint]]. That includes the footnote linter, the author notes and the litnote lint commands, which used to be sections of this document.
@@ -33,7 +28,7 @@ Dependencies and behaviour:
 - Depends only on built-in libraries: =org=, =org-list=, =org-element= and =subr-x=.
 - The commands work on the active region. With none, they use the list at or near point, falling back to the block of consecutive non-blank lines.
 - All edits run inside one =atomic-change-group=, so a single undo reverts a whole lint pass.
-- Loaded in the Functions block of =init.el=.
+- Loaded in the Functions block of =init.el=; =sp-org-lint= is one file (=sp-org-lint-others.el= was merged into it).
 - =sp-org-lint-resources= is bound to =C-x t I= in =org-mode-map= (see [[file:../text/sp-org-base.org][sp-org-base]]), next to =C-x t i= (=org-toggle-item=).
 - =sp-org-lint-list= and =sp-org-mark-list= have no key bindings, so run them with =M-x=.
 
@@ -44,7 +39,7 @@ Dependencies and behaviour:
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-org-lint-others.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
+;;; sp-org-lint.el --- Lint and tidy plain lists in the current Org buffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -54,7 +49,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; blank lines between items and drops items whose https link already appeared
 ;; earlier.
 ;;
-;; `sp-org-lint' requires this module.  The batch linters, such as
+;; The batch linters (many files or notes), such as
 ;; `sp-org-lint-footnotes-dryrun', are in `sp-batch-lint'.
 
 ;;; Code:
@@ -507,32 +502,9 @@ sublists travel with their parent item but are not re-sorted."
 
 * Provide
 
-Provides the =sp-org-lint-others= feature and closes the file.
+Provides the =sp-org-lint= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-
-(provide 'sp-org-lint-others)
-;;; sp-org-lint-others.el ends here
-#+end_src
-
-* sp-org-lint.el
-:PROPERTIES:
-:header-args:emacs-lisp+: :tangle ../../../libraries/modules/funct/sp-org-lint.el
-:END:
-
-The entry point: it only requires the submodule, so =(require 'sp-org-lint)= (the Functions block of =init.el=) loads it. The batch linters it used to require are loaded by [[file:sp-batch-lint.org][sp-batch-lint]].
-
-#+begin_src emacs-lisp -i
-;;; sp-org-lint.el --- Lint and tidy plain lists in the current Org buffer -*- lexical-binding: t; -*-
-
-;;; Commentary:
-
-;; Requires the submodule; see docs/tangles/funct/sp-org-lint.org.  The batch
-;; linters (many files or notes) are in `sp-batch-lint'.
-
-;;; Code:
-
-(require 'sp-org-lint-others)
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here
@@ -649,4 +621,5 @@ What each pull request changed in this module, newest last. The entries about th
   - 🔧 Changed =sp-org-lint-footnotes= to leave see-also notes (=[fn:see-N]=) and endnotes (=[fn:end-N]=) where they are: not moved to the citing heading, not copied when cited twice
 
 - Pull request: this one (stacked on #557)
-  - 🔧 Moved the footnote linter, =sp-author-notes=, =sp-author-notes-bibtex=, =sp-litnotes-refs=, =sp-litnotes-titles= and their tests to [[file:sp-batch-lint.org][sp-batch-lint]]; =sp-org-lint.el= now only requires =sp-org-lint-others=.
+  - 🔧 Moved the footnote linter, =sp-author-notes=, =sp-author-notes-bibtex=, =sp-litnotes-refs=, =sp-litnotes-titles= and their tests to [[file:sp-batch-lint.org][sp-batch-lint]].
+  - 🔧 Merged =sp-org-lint-others.el= into =sp-org-lint.el=: the list commands and the feature are now one file; =(require 'sp-org-lint-others)= is gone (nothing else required it).
