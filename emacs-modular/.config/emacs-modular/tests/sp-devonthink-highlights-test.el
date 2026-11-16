@@ -53,13 +53,13 @@
   (with-temp-buffer
     (insert (format "#+title: T\n#+devonthink: %s\n" sp-devonthink-highlights-test--uuid))
     (cl-letf (((symbol-function 'sp-devonthink-highlights--fetch)
-               (lambda (_) '((6 "value form")))))
+               (lambda (&rest _) '((6 "value form")))))
       (sp-devonthink-highlights-import)
       (should (string-match-p "\\* Highlights\n- value form \\[\\[devonthink:.*::6\\]" (buffer-string)))
       (let ((before (buffer-string)))
         (sp-devonthink-highlights-import)
         (should (equal before (buffer-string)))))
-    (cl-letf (((symbol-function 'sp-devonthink-highlights--fetch) (lambda (_) nil)))
+    (cl-letf (((symbol-function 'sp-devonthink-highlights--fetch) (lambda (&rest _) nil)))
       (sp-devonthink-highlights-import))))
 
 (ert-deftest sp-devonthink-highlights-fetch-needs-a-file ()
@@ -74,7 +74,7 @@
                  (lambda (k) (and (equal k "parent-2000-b") sp-devonthink-highlights-test--uuid)))
                 ((symbol-function 'citar-get-value)
                  (lambda (field _) (and (eq field 'crossref) "parent-2000-b")))
-                ((symbol-function 'sp-devonthink-highlights--fetch) (lambda (_) '((6 "value form"))))
+                ((symbol-function 'sp-devonthink-highlights--fetch) (lambda (&rest _) '((6 "value form"))))
                 ((symbol-function 'y-or-n-p) (lambda (p) (setq asked p) nil))
                 ((symbol-function 'message) #'ignore))
         (should-error (sp-devonthink-highlights-import) :type 'user-error)
@@ -84,11 +84,131 @@
                  (lambda (k) (and (equal k "parent-2000-b") sp-devonthink-highlights-test--uuid)))
                 ((symbol-function 'citar-get-value)
                  (lambda (field _) (and (eq field 'crossref) "parent-2000-b")))
-                ((symbol-function 'sp-devonthink-highlights--fetch) (lambda (_) '((6 "value form"))))
+                ((symbol-function 'sp-devonthink-highlights--fetch) (lambda (&rest _) '((6 "value form"))))
                 ((symbol-function 'y-or-n-p) (lambda (&rest _) t))
                 ((symbol-function 'message) #'ignore))
         (sp-devonthink-highlights-import)
         (should (string-match-p "value form \\[\\[devonthink:.*::6\\]" (buffer-string)))))))
+
+;;;; Splitting by colour
+
+(defconst sp-devonthink-highlights-test--colored
+  '((2 ("a yellow one" . "#ffff00") ("a blue one" . "#3050ff"))
+    (6 ("plain" . nil) ("another yellow" . "#fff176") ("green" . "#00ff00"))))
+
+(ert-deftest sp-devonthink-highlights-color-names ()
+  (should (eq (sp-devonthink-highlights--color-name "#ffff00") 'yellow))
+  (should (eq (sp-devonthink-highlights--color-name "#ff0000") 'red))
+  (should (eq (sp-devonthink-highlights--color-name "#ff8000") 'orange))
+  (should (eq (sp-devonthink-highlights--color-name "#00ff00") 'green))
+  (should (eq (sp-devonthink-highlights--color-name "#00ffff") 'cyan))
+  (should (eq (sp-devonthink-highlights--color-name "#3050ff") 'blue))
+  (should (eq (sp-devonthink-highlights--color-name "#a020f0") 'purple))
+  (should (eq (sp-devonthink-highlights--color-name "#ff69b4") 'pink))
+  (should (eq (sp-devonthink-highlights--color-name "#808080") 'gray))
+  (should (eq (sp-devonthink-highlights--color-name nil) 'none)))
+
+(ert-deftest sp-devonthink-highlights-parse-colored ()
+  (should (equal (sp-devonthink-highlights--parse-colored
+                  "[{\"page\": 6, \"highlights\": [\"a\", \"b\"], \"colors\": [\"#ffff00\", null]}]")
+                 '((6 ("a" . "#ffff00") ("b"))))))
+
+(ert-deftest sp-devonthink-highlights-group-in-colour-order ()
+  (let ((groups (sp-devonthink-highlights--group
+                 (sp-devonthink-highlights--missing-entries
+                  sp-devonthink-highlights-test--colored sp-devonthink-highlights-test--uuid "k"))))
+    (should (equal (mapcar #'car groups) '(yellow blue green none)))
+    (should (= (length (cdr (assq 'yellow groups))) 2))))
+
+(ert-deftest sp-devonthink-highlights-import-headings ()
+  (with-temp-buffer
+    (insert "#+title: T\n* Highlights\n** Blue\n- old [[x][y]]\n\n* Other\ntext\n")
+    (sp-devonthink-highlights--insert-groups
+     (sp-devonthink-highlights--group
+      (sp-devonthink-highlights--missing-entries
+       sp-devonthink-highlights-test--colored sp-devonthink-highlights-test--uuid "k"))
+     'headings)
+    (let ((s (buffer-string)))
+      (should (string-match-p "\\*\\* Blue\n- old \\[\\[x\\]\\[y\\]\\]\n- a blue one " s))
+      (should (string-match-p "\\*\\* Yellow\n- a yellow one .*\n- another yellow " s))
+      (should (string-match-p "\\*\\* No colour\n- plain " s))
+      (should (string-match-p "\n\n\\* Other\ntext\n\\'" s)))))
+
+(ert-deftest sp-devonthink-highlights-import-quotes ()
+  (with-temp-buffer
+    (insert "#+title: T\n")
+    (sp-devonthink-highlights--insert-groups
+     (sp-devonthink-highlights--group
+      (sp-devonthink-highlights--missing-entries
+       sp-devonthink-highlights-test--colored sp-devonthink-highlights-test--uuid "k"))
+     'quotes)
+    (let ((s (buffer-string)))
+      (should (string-match-p "\\* Highlights\n#\\+attr_dt: :color yellow\n#\\+begin_quote\n- a yellow one " s))
+      (should (string-match-p "#\\+end_quote\n\n#\\+attr_dt: :color blue\n" s)))
+    ;; a second run finds everything already in the section
+    (should-not (sp-devonthink-highlights--missing-entries
+                 sp-devonthink-highlights-test--colored sp-devonthink-highlights-test--uuid "k"))))
+
+(ert-deftest sp-devonthink-highlights-import-command-splits ()
+  (with-temp-buffer
+    (insert (format "#+title: T\n#+devonthink: %s\n" sp-devonthink-highlights-test--uuid))
+    (let (flags)
+      (cl-letf (((symbol-function 'sp-devonthink-highlights--fetch)
+                 (lambda (_ &optional colors)
+                   (setq flags colors)
+                   (if colors sp-devonthink-highlights-test--colored '((6 "value form")))))
+                ((symbol-function 'message) #'ignore))
+        (sp-devonthink-highlights-import)
+        (should-not flags)
+        (should-not (string-match-p "^\\*\\* " (buffer-string)))
+        (let ((sp-devonthink-highlights-split 'headings))
+          (sp-devonthink-highlights-import 'flat)
+          (should-not flags))
+        (sp-devonthink-highlights-import 'headings)
+        (should flags)
+        (should (string-match-p "\\*\\* Yellow\n- a yellow one" (buffer-string)))))))
+
+;;;; Quote block colours
+
+(defconst sp-devonthink-highlights-test--quote-note
+  "* Highlights
+#+attr_dt: :color yellow
+#+begin_quote
+- some yellow text
+#+end_quote
+
+#+begin_quote
+- an unmarked quote
+#+end_quote
+")
+
+(ert-deftest sp-devonthink-quote-colors-fontify-marked-blocks-only ()
+  (with-temp-buffer
+    (delay-mode-hooks (org-mode))
+    (insert sp-devonthink-highlights-test--quote-note)
+    (let ((sp-devonthink-quote-colors-auto nil))
+      (sp-devonthink-quote-colors-mode 1))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "some yellow")
+    (should (memq 'sp-devonthink-quote-yellow
+                  (ensure-list (get-text-property (point) 'face))))
+    (search-forward "unmarked")
+    (should-not (memq 'sp-devonthink-quote-yellow
+                      (ensure-list (get-text-property (point) 'face))))
+    (sp-devonthink-quote-colors-mode -1)
+    (font-lock-ensure (point-min) (point-max))
+    (goto-char (point-min))
+    (search-forward "some yellow")
+    (should-not (memq 'sp-devonthink-quote-yellow
+                      (ensure-list (get-text-property (point) 'face))))))
+
+(ert-deftest sp-devonthink-quote-colors-refresh-uses-the-theme ()
+  (require 'sp-theme-engine)
+  (sp-devonthink-quote-colors-refresh)
+  (let ((bg (face-attribute 'sp-devonthink-quote-blue :background nil t)))
+    (should (string-match-p "\\`#[[:xdigit:]]\\{6\\}\\'" bg))
+    (should-not (equal bg (face-attribute 'sp-devonthink-quote-yellow :background nil t)))))
 
 ;;;; Links to single annotations
 

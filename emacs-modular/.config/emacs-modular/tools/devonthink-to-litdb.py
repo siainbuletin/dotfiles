@@ -79,11 +79,26 @@ def pdf_date(value):
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def color_hex(rgb):
+    """#rrggbb for the PDF colour RGB (floats 0..1; grey and CMYK are widened), or None."""
+    if not rgb:
+        return None
+    if len(rgb) == 1:
+        rgb = (rgb[0],) * 3
+    elif len(rgb) == 4:
+        c, m, y, k = rgb
+        rgb = tuple((1 - v) * (1 - k) for v in (c, m, y))
+    elif len(rgb) != 3:
+        return None
+    return "#%02x%02x%02x" % tuple(max(0, min(255, round(v * 255))) for v in rgb)
+
+
 def page_highlight_details(page):
     """Return the highlight annotations of PAGE as dicts, in file order.
 
     Each has text (the highlighted words), note (the comment, or ""), created
-    and modified (ISO 8601 UTC, or None when the PDF has no date).
+    and modified (ISO 8601 UTC, or None when the PDF has no date), and color
+    (the highlight colour as #rrggbb, or None when the annotation has none).
     """
     import pymupdf
     found = []
@@ -101,7 +116,8 @@ def page_highlight_details(page):
             found.append({"text": text,
                           "note": clean(info.get("content") or ""),
                           "created": pdf_date(info.get("creationDate")),
-                          "modified": pdf_date(info.get("modDate"))})
+                          "modified": pdf_date(info.get("modDate")),
+                          "color": color_hex(annot.colors.get("stroke"))})
     return found
 
 
