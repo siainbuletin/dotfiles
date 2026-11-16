@@ -7,7 +7,7 @@
 ;; contains their reference, and reports orphan definitions and dangling
 ;; references.  A second, headless Emacs loads this file and reads the files,
 ;; so Emacs stays usable; the report comes first and nothing is changed
-;; (after a backup) until you apply it.  Required by `sp-org-lint'.
+;; (after a backup) until you apply it.  Required by `sp-batch-lint'.
 
 ;;; Code:
 

@@ -8,9 +8,8 @@
 ;; blank lines between items and drops items whose https link already appeared
 ;; earlier.
 ;;
-;; This is the part of the `sp-org-lint' family that is not a bigger
-;; submodule; `sp-org-lint' requires it.  Footnotes are in
-;; `sp-org-lint-footnotes-dryrun'.
+;; `sp-org-lint' requires this module.  The batch linters, such as
+;; `sp-org-lint-footnotes-dryrun', are in `sp-batch-lint'.
 
 ;;; Code:
 

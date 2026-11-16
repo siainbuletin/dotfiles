@@ -1,17 +1,13 @@
-;;; sp-org-lint.el --- Lint and tidy Org lists, footnotes, author notes and litnotes -*- lexical-binding: t; -*-
+;;; sp-org-lint.el --- Lint and tidy plain lists in the current Org buffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; Requires the submodules; see docs/tangles/funct/sp-org-lint.org.
+;; Requires the submodule; see docs/tangles/funct/sp-org-lint.org.  The batch
+;; linters (many files or notes) are in `sp-batch-lint'.
 
 ;;; Code:
 
 (require 'sp-org-lint-others)
-(require 'sp-org-lint-footnotes)
-(require 'sp-author-notes)
-(require 'sp-author-notes-bibtex)
-(require 'sp-litnotes-refs)
-(require 'sp-litnotes-titles)
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here
