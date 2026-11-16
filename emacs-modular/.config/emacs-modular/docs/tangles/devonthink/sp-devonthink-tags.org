@@ -301,7 +301,8 @@ What each pull request changed in this module, newest last; the one-line summary
     - =sp-devonthink-tag-note= (=C-c k d t=, =C-u= removes)
     - =sp-devonthink-split-comma-tags= splits a comma-joined tag after showing a plan; the old tag is kept
 
-- 🐛 Fixed reading the tags of a record: the script coerced a loop reference to text and failed with =-1700= on records that have tags
-  - reads =tags of r= into a list and takes =name of= each item, falling back to the item as text
-  - the same script serves the keyword sync, the browser tag action and bibsync, which all read tags through =sp-devonthink-record-tags=
-  - covered by two tests with a faked =osascript=
+- [[https://github.com/siainbuletin/dotfiles/pull/562][#562]]
+  - 🐛 Fixed reading the tags of a record: the script coerced a loop reference to text and failed with =-1700= on records that have tags
+    - reads =tags of r= into a list and takes =name of= each item, falling back to the item as text
+    - the same script serves the keyword sync, the browser tag action and bibsync, which all read tags through =sp-devonthink-record-tags=
+    - covered by two tests with a faked =osascript=
