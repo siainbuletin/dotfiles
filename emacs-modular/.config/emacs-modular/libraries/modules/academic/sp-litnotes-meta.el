@@ -95,6 +95,10 @@ This is for `sp-litnotes-meta-fill' and the batch commands."
   "An alist of meta key to value that `sp-litnotes-meta-fill' uses instead of asking.
 A value of nil in it means: leave the line out, do not ask.")
 
+(defvar sp-litnotes-meta-fill-functions nil
+  "Functions called with the citekey in the note's buffer at the end of `sp-litnotes-meta-fill'.
+Each returns its label (a string) when it changed the note, else nil; the label is added to the result.")
+
 (defvar sp-litnotes-meta--made-parents nil
   "A hash table of citation key to (ID . TITLE) for the parent notes made in this run, or nil.
 The batch binds it: its table of existing notes is read once, so it does not see them.")
@@ -506,6 +510,9 @@ without OVERWRITE.  A crossref'd entry without a note gets one (see
           (sp-litnotes-meta--put "pub-title" new)
           (push "pub-title" changed))
         (when (sp-litnotes-meta--ensure-type-tag entry) (push "tag" changed))
+        (dolist (fn sp-litnotes-meta-fill-functions)
+          (when-let* ((label (funcall fn key)))
+            (push (if (stringp label) label "extra") changed)))
         (when (and sp-litnotes-meta-order-meta (sp-vulpea-meta-order-buffer))
           (push "order" changed))
         (when changed (save-buffer))

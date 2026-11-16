@@ -171,3 +171,118 @@
 
 (provide 'sp-devonthink-tags-test)
 ;;; sp-devonthink-tags-test.el ends here
+
+;;; Browser tags in litnote and BibTeX
+
+(ert-deftest sp-devonthink-merge-keywords ()
+  (should (equal (sp-devonthink--merge-keywords nil '("a" "b")) "a, b"))
+  (should (equal (sp-devonthink--merge-keywords "a, B" '("b" "c")) "a, B, c"))
+  (should (equal (sp-devonthink--merge-keywords "a; b" '("c")) "a; b; c"))
+  (should-not (sp-devonthink--merge-keywords "a, b" '("A")))
+  (should (equal (sp-devonthink--merge-keywords "x" '("p,q")) "x, p, q")))
+
+(defun sp-devonthink-test--bib (text key tags)
+  "Run `sp-devonthink--bib-set-keywords' on TEXT; return (RESULT . NEW-TEXT)."
+  (with-temp-buffer
+    (insert text)
+    (delay-mode-hooks (bibtex-mode))
+    (let ((result (sp-devonthink--bib-set-keywords key tags)))
+      (cons result (buffer-string)))))
+
+(ert-deftest sp-devonthink-bib-set-keywords-existing ()
+  (let ((out (sp-devonthink-test--bib
+              "@book{k1,\n  title = {T},\n  keywords = {a, b},\n  year = {2020}\n}\n@book{k2,\n  keywords = {z}\n}\n"
+              "k1" '("c" "A"))))
+    (should (equal (car out) "a, b, c"))
+    (should (string-match-p "keywords = {a, b, c},\n  year" (cdr out)))
+    (should (string-match-p "@book{k2,\n  keywords = {z}\n}" (cdr out)))))
+
+(ert-deftest sp-devonthink-bib-set-keywords-missing-field ()
+  (dolist (text '("@book{k1,\n  title = {T}\n}\n" "@book{k1,\n  title = {T},\n}\n"))
+    (let ((out (sp-devonthink-test--bib text "k1" '("a" "b"))))
+      (should (equal (car out) "a, b"))
+      (should (string-match-p "title = {T},\n  keywords = {a, b}" (cdr out)))
+      (should (string-match-p "}\n\\'" (cdr out))))))
+
+(ert-deftest sp-devonthink-bib-set-keywords-nothing-to-do ()
+  (let ((out (sp-devonthink-test--bib "@book{k1,\n  keywords = {a}\n}\n" "k1" '("a"))))
+    (should-not (car out))
+    (should (equal (cdr out) "@book{k1,\n  keywords = {a}\n}\n")))
+  (should-not (car (sp-devonthink-test--bib "@book{k1,\n  title = {T}\n}\n" "other" '("a")))))
+
+(ert-deftest sp-devonthink-write-bib-keywords-file ()
+  (let ((file (make-temp-file "sp-dt" nil ".bib" "@book{k1,\n  title = {T}\n}\n")))
+    (unwind-protect
+        (progn
+          (should (equal (sp-devonthink--write-bib-keywords file '(("k1" "a"))) '("k1")))
+          (should (string-match-p "keywords = {a}" (with-temp-buffer (insert-file-contents file) (buffer-string))))
+          (should-not (find-buffer-visiting file))
+          (with-current-buffer (find-file-noselect file)
+            (insert " ")
+            (should (eq (sp-devonthink--write-bib-keywords file '(("k1" "b"))) 'unsaved))
+            (set-buffer-modified-p nil)
+            (kill-buffer)))
+      (delete-file file))))
+
+(ert-deftest sp-devonthink-mirror-record-tags ()
+  (let* ((note (make-temp-file "sp-dt" nil ".org" "* Note\n"))
+         (bib (make-temp-file "sp-dt" nil ".bib" "@book{k1,\n  title = {T}\n}\n"))
+         (sp-devonthink-keywords-key "keywords")
+         question put)
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-devonthink--key-litnote)
+                   (lambda (key) (and (equal key "k1") note)))
+                  ((symbol-function 'sp-devonthink--key-bib-file)
+                   (lambda (key) (and (equal key "k1") bib)))
+                  ((symbol-function 'sp-devonthink-record-tags)
+                   (lambda (_) '(("U1" "a" "b"))))
+                  ((symbol-function 'sp-devonthink-write-keywords)
+                   (lambda (tags) (setq put tags) (insert "kw")))
+                  ((symbol-function 'y-or-n-p) (lambda (q) (setq question q) t)))
+          ;; U2 is an inbox record: neither a litnote nor an entry, skipped.
+          (should (= (sp-devonthink-mirror-record-tags '(("U1" . "k1") ("U2" . "Inbox doc")) '("b")) 1))
+          (should (equal put '("a" "b")))
+          (should (string-match-p "BibTeX keywords of k1" question))
+          (should (string-match-p "keywords = {b}" (with-temp-buffer (insert-file-contents bib) (buffer-string))))
+          (should (string-match-p "kw" (with-temp-buffer (insert-file-contents note) (buffer-string)))))
+      (delete-file note) (delete-file bib))))
+
+(ert-deftest sp-devonthink-mirror-record-tags-declined-and-off ()
+  (let ((bib (make-temp-file "sp-dt" nil ".bib" "@book{k1,\n  title = {T}\n}\n")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-devonthink--key-litnote) (lambda (_) nil))
+                  ((symbol-function 'sp-devonthink--key-bib-file) (lambda (_) bib)))
+          (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
+            (sp-devonthink-mirror-record-tags '(("U1" . "k1")) '("b")))
+          (should-not (string-match-p "keywords" (with-temp-buffer (insert-file-contents bib) (buffer-string))))
+          (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) (error "no question"))))
+            (let ((sp-devonthink-bibtex-keywords nil))
+              (should (= (sp-devonthink-mirror-record-tags '(("U1" . "k1")) '("b")) 1)))))
+      (delete-file bib))))
+
+(ert-deftest sp-devonthink-fill-keywords ()
+  (let ((sp-devonthink-keywords-key "keywords") (sp-devonthink-keywords-on-fill t)
+        (sp-litnotes-meta--index nil) (written nil))
+    (cl-letf (((symbol-value 'system-type) 'darwin)
+              ((symbol-function 'sp-litnotes-meta--has-value-p) (lambda (_) nil))
+              ((symbol-function 'sp-devonthink-record) (lambda (_) '(:uuid "U1" :supplier "k1")))
+              ((symbol-function 'sp-devonthink-record-tags) (lambda (_) '(("U1" "a"))))
+              ((symbol-function 'sp-devonthink-write-keywords) (lambda (tags) (setq written tags))))
+      (should (equal (sp-devonthink--fill-keywords "k1") "keywords"))
+      (should (equal written '("a")))
+      (setq written nil)
+      ;; batch fill, option off, parent's record, existing value, no tags: nothing written
+      (let ((sp-litnotes-meta--index (make-hash-table))) (should-not (sp-devonthink--fill-keywords "k1")))
+      (let ((sp-devonthink-keywords-on-fill nil)) (should-not (sp-devonthink--fill-keywords "k1")))
+      (cl-letf (((symbol-function 'sp-devonthink-record) (lambda (_) '(:uuid "U1" :via "p"))))
+        (should-not (sp-devonthink--fill-keywords "k1")))
+      (cl-letf (((symbol-function 'sp-litnotes-meta--has-value-p) (lambda (_) t)))
+        (should-not (sp-devonthink--fill-keywords "k1")))
+      (cl-letf (((symbol-function 'sp-devonthink-record-tags) (lambda (_) '(("U1")))))
+        (should-not (sp-devonthink--fill-keywords "k1")))
+      (should-not written))
+    ;; no record (inbox): quiet
+    (cl-letf (((symbol-value 'system-type) 'darwin)
+              ((symbol-function 'sp-litnotes-meta--has-value-p) (lambda (_) nil))
+              ((symbol-function 'sp-devonthink-record) (lambda (_) (error "boom"))))
+      (should-not (sp-devonthink--fill-keywords "Inbox doc")))))

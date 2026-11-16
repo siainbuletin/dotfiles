@@ -164,7 +164,21 @@ end tell"
                 (format "Tags for %d record%s: " (length records) (if (cdr records) "s" "")))))
     (message "Added tags to %d of %d records"
              (sp-devonthink-apply-tags (mapcar (lambda (r) (plist-get r :uuid)) records) tags 'add)
-             (length records))))
+             (length records))
+    (sp-devonthink-browse--mirror records tags)))
+
+(defun sp-devonthink-browse--mirror (records tags)
+  "Mirror the TAGS just added to RECORDS in their litnotes and BibTeX entries.
+A failure is reported, not signalled: the tags are already in DEVONthink."
+  (condition-case err
+      (let ((skipped (sp-devonthink-mirror-record-tags
+                      (mapcar (lambda (r) (cons (plist-get r :uuid) (sp-devonthink-browse--key r)))
+                              records)
+                      tags)))
+        (when (> skipped 0)
+          (message "%d record%s without a litnote or BibTeX entry skipped" skipped
+                   (if (= skipped 1) "" "s"))))
+    (error (message "Tags added, but not mirrored in litnote/BibTeX: %s" (error-message-string err)))))
 
 ;;;###autoload
 (defun sp-devonthink-browse ()

@@ -25,6 +25,10 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 | =relevance-factor= | Asked; =01= to =05=, =01= is the most relevant (=sp-litnotes-meta-relevance-scale=) |
 | =read-priority= | Asked; =01= to =05=, =01= is read first (=sp-litnotes-meta-priority-scale=) |
 
+- Other modules add lines through the hook =sp-litnotes-meta-fill-functions=:
+  - each function gets the citekey, runs in the note's buffer and returns a label when it changed the note;
+  - =sp-devonthink-tags= uses it to fill the =keywords= line from the DEVONthink record (single fill only, not the batch).
+
 ** Design choices
 
 - *Existing values stay.* A line that already has a value is never changed; an empty one is filled. So the command is safe to run again on a note you edited, and =M-x sp-litnotes-meta-fill= fills the missing lines of an old note.
@@ -188,6 +192,10 @@ This is for `sp-litnotes-meta-fill' and the batch commands."
 (defvar sp-litnotes-meta--preset nil
   "An alist of meta key to value that `sp-litnotes-meta-fill' uses instead of asking.
 A value of nil in it means: leave the line out, do not ask.")
+
+(defvar sp-litnotes-meta-fill-functions nil
+  "Functions called with the citekey in the note's buffer at the end of `sp-litnotes-meta-fill'.
+Each returns its label (a string) when it changed the note, else nil; the label is added to the result.")
 
 (defvar sp-litnotes-meta--made-parents nil
   "A hash table of citation key to (ID . TITLE) for the parent notes made in this run, or nil.
@@ -639,6 +647,9 @@ without OVERWRITE.  A crossref'd entry without a note gets one (see
           (sp-litnotes-meta--put "pub-title" new)
           (push "pub-title" changed))
         (when (sp-litnotes-meta--ensure-type-tag entry) (push "tag" changed))
+        (dolist (fn sp-litnotes-meta-fill-functions)
+          (when-let* ((label (funcall fn key)))
+            (push (if (stringp label) label "extra") changed)))
         (when (and sp-litnotes-meta-order-meta (sp-vulpea-meta-order-buffer))
           (push "order" changed))
         (when changed (save-buffer))

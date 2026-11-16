@@ -199,6 +199,172 @@ Skip, with a message, when the note's record is its crossref parent's."
     (sp-devonthink--mirror-tags uuid)
     (message "Keywords line updated (buffer not saved)")))
 
+;;;; Browser tags in litnote and BibTeX
+
+(declare-function bibtex-end-of-entry "bibtex" ())
+(declare-function bibtex-text-in-field-bounds "bibtex" (bounds &optional remove-delim))
+(declare-function sp-litnotes-meta--entry "sp-litnotes-meta" (key))
+(declare-function sp-litnotes-meta--has-value-p "sp-litnotes-meta" (key))
+(declare-function sp-author-notes-bibtex--covered "sp-author-notes-bibtex" ())
+(declare-function sp-author-notes-bibtex--files "sp-author-notes-bibtex" ())
+(defvar sp-litnotes-meta--index)
+(defvar sp-litnotes-meta-fill-functions)
+
+(defcustom sp-devonthink-bibtex-keywords t
+  "Non-nil to add the tags given in the browser to the BibTeX `keywords' (after asking)."
+  :type 'boolean
+  :group 'sp-devonthink)
+
+(defcustom sp-devonthink-keywords-on-fill t
+  "Non-nil to fill an empty keywords line from the record when a litnote is filled."
+  :type 'boolean
+  :group 'sp-devonthink)
+
+(defun sp-devonthink--key-litnote (key)
+  "The litnote file of the citekey KEY, or nil (also when the lookup fails)."
+  (ignore-errors
+    (require 'sp-litnotes-meta)
+    (gethash key (sp-author-notes-bibtex--covered))))
+
+(defun sp-devonthink--key-bib-file (key)
+  "The registered .bib file that has an entry KEY, or nil."
+  (ignore-errors
+    (require 'sp-litnotes-meta)
+    (seq-find (lambda (file)
+                (with-temp-buffer
+                  (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+                  (re-search-forward
+                   (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)))
+              (sp-author-notes-bibtex--files))))
+
+(defun sp-devonthink--merge-keywords (old tags)
+  "The BibTeX keywords text: OLD (a string or nil) plus the members of TAGS it lacks.
+OLD keeps its separator, `;' when it has one and no comma, else a comma."
+  (let* ((sep (if (and old (string-search ";" old) (not (string-search "," old))) "; " ", "))
+         (have (and old (seq-remove #'string-empty-p
+                                    (mapcar #'string-trim (split-string old "[,;]")))))
+         (new (seq-remove (lambda (tag) (seq-find (lambda (h) (string-equal-ignore-case h tag)) have))
+                          (seq-uniq (mapcan #'sp-devonthink--split-tag tags)
+                                    #'string-equal-ignore-case))))
+    (when new (concat (and old (not (string-empty-p (string-trim old))) (concat (string-trim old) sep))
+                      (string-join new sep)))))
+
+(defun sp-devonthink--bib-set-keywords (key tags)
+  "In the current .bib buffer, add TAGS to the `keywords' of the entry KEY.
+Return the new text of the field, or nil when the entry is missing or nothing was added."
+  (goto-char (point-min))
+  (when (re-search-forward
+         (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)
+    (goto-char (match-beginning 0))
+    (let* ((bounds (bibtex-search-forward-field "keywords" t))
+           (old (and bounds (bibtex-text-in-field-bounds bounds t)))
+           (text (sp-devonthink--merge-keywords (and old (replace-regexp-in-string "[ \t\n]+" " " old)) tags)))
+      (when text
+        (if bounds
+            (let ((span (cons (nth 1 bounds) (nth 2 bounds))))
+              (goto-char (car span))
+              (delete-region (car span) (cdr span))
+              (insert "{" text "}"))
+          (goto-char (match-beginning 0))
+          (bibtex-end-of-entry)
+          (backward-char)
+          (skip-chars-backward " \t\n")
+          (unless (eq (char-before) ?,) (insert ","))
+          (insert "\n  keywords = {" text "}"))
+        text))))
+
+(defun sp-devonthink--write-bib-keywords (file wanted)
+  "Add tags to the entries of the .bib FILE: WANTED is ((KEY . TAGS) ...).
+Return the keys changed, or `unsaved' when the FILE's buffer has unsaved changes."
+  (let ((buffer (find-buffer-visiting file)) changed)
+    (if (and buffer (buffer-modified-p buffer))
+        'unsaved
+      (with-current-buffer (or buffer (find-file-noselect file))
+        (save-excursion
+          (save-restriction
+            (widen)
+            (dolist (item wanted)
+              (when (sp-devonthink--bib-set-keywords (car item) (cdr item))
+                (push (car item) changed)))))
+        (when changed (save-buffer))
+        (unless buffer (kill-buffer))
+        (nreverse changed)))))
+
+(defun sp-devonthink--mirror-litnote (file tags)
+  "Write TAGS in the keywords line of the litnote FILE and save it.
+Return t when written, `unsaved' when its buffer has unsaved changes."
+  (let ((buffer (find-buffer-visiting file)))
+    (if (and buffer (buffer-modified-p buffer))
+        'unsaved
+      (with-current-buffer (or buffer (find-file-noselect file))
+        (sp-devonthink-write-keywords tags)
+        (when (buffer-modified-p) (save-buffer))
+        (unless buffer (kill-buffer))
+        t))))
+
+(defun sp-devonthink-mirror-record-tags (records added)
+  "Mirror the tags of RECORDS in their litnotes and BibTeX entries.
+RECORDS is ((UUID . CITEKEY) ...) and ADDED the tags just added to them.
+The litnotes get the full tags of the record; the BibTeX entries get ADDED,
+after one question.  A record whose citekey has neither is skipped, silently
+here; return how many were skipped."
+  (let (skipped litnotes bibs)
+    (dolist (record records)
+      (let ((file (sp-devonthink--key-litnote (cdr record)))
+            (bib (and sp-devonthink-bibtex-keywords (sp-devonthink--key-bib-file (cdr record)))))
+        (if (not (or file bib))
+            (push record skipped)
+          (when (and file sp-devonthink-keywords-key) (push (cons record file) litnotes))
+          (when bib (push (cons (cdr record) bib) bibs)))))
+    (when litnotes
+      (let ((all (sp-devonthink-record-tags (mapcar (lambda (l) (car (car l))) litnotes)))
+            done unsaved)
+        (dolist (item (nreverse litnotes))
+          (if (eq (sp-devonthink--mirror-litnote
+                   (cdr item) (cdr (assoc (car (car item)) all)))
+                  'unsaved)
+              (push (cdr (car item)) unsaved)
+            (push (cdr (car item)) done)))
+        (message "Keywords line written in %d litnote%s%s" (length done) (if (cdr done) "s" "")
+                 (if unsaved (format "; unsaved changes, skipped: %s" (string-join unsaved ", ")) ""))))
+    (when bibs
+      (let ((keys (mapcar #'car bibs)))
+        (when (y-or-n-p (format "Add %s to the BibTeX keywords of %s? "
+                                (string-join added ", ")
+                                (if (cddddr keys) (format "%d entries" (length keys))
+                                  (string-join keys ", "))))
+          (let (unsaved changed)
+            (dolist (file (seq-uniq (mapcar #'cdr bibs)))
+              (let* ((wanted (mapcar (lambda (b) (cons (car b) added))
+                                     (seq-filter (lambda (b) (equal (cdr b) file)) bibs)))
+                     (result (sp-devonthink--write-bib-keywords file wanted)))
+                (if (eq result 'unsaved)
+                    (push (file-name-nondirectory file) unsaved)
+                  (setq changed (append changed result)))))
+            (message "BibTeX keywords changed in %d entr%s%s" (length changed)
+                     (if (cdr changed) "ies" "y")
+                     (if unsaved (format "; unsaved changes, skipped: %s" (string-join unsaved ", ")) ""))))))
+    (length skipped)))
+
+(defun sp-devonthink--fill-keywords (key)
+  "Fill an empty keywords line of the current litnote from the record of KEY.
+It is a function of `sp-litnotes-meta-fill-functions'.  Return the string \"keywords\" when written, else nil."
+  (when (and sp-devonthink-keywords-on-fill sp-devonthink-keywords-key
+             (eq system-type 'darwin)
+             (not sp-litnotes-meta--index)
+             (not (sp-litnotes-meta--has-value-p sp-devonthink-keywords-key)))
+    (condition-case nil
+        (when-let* ((rec (sp-devonthink-record key))
+                    ((null (plist-get rec :via)))
+                    (tags (cdr (assoc (plist-get rec :uuid)
+                                      (sp-devonthink-record-tags (list (plist-get rec :uuid)))))))
+          (sp-devonthink-write-keywords tags)
+          "keywords")
+      (error nil))))
+
+(with-eval-after-load 'sp-litnotes-meta
+  (add-hook 'sp-litnotes-meta-fill-functions #'sp-devonthink--fill-keywords))
+
 ;;;; Splitting a comma-joined tag
 
 (defun sp-devonthink--lookup-tag-script (tag)
