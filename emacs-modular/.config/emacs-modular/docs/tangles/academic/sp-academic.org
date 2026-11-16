@@ -171,9 +171,11 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-devonthink-browse)
 (require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
+(require 'sp-devonthink-keywords)
 (require 'sp-fetch-inbox)
 (require 'sp-devonthink-sync)
 (require 'sp-see-also)
+(require 'sp-see-also-keywords)
 #+end_src
 
 ** Helper libraries

@@ -4,7 +4,7 @@
 
 ;; Writes the author and title of a BibTeX entry to the custom metadata of the
 ;; DEVONthink record with the same citekey, and its keywords to the record's
-;; tags (added, never removed).  macOS only.
+;; tags, through `sp-devonthink-keywords-sync-items'.  macOS only.
 ;; Literate source: docs/tangles/devonthink/sp-devonthink-bibsync.org.
 
 ;;; Code:
@@ -18,6 +18,7 @@
 (require 'sp-devonthink-tags)
 
 (defvar sp-bibtex-files)
+(declare-function sp-devonthink-keywords-sync-items "sp-devonthink-keywords" (items))
 (declare-function sp-devonthink-browse--record "sp-devonthink-browse")
 (declare-function sp-devonthink-browse--key "sp-devonthink-browse")
 (declare-function sp-devonthink-browse--read "sp-devonthink-browse")
@@ -35,7 +36,7 @@
   :type 'string :group 'sp-devonthink-bibsync)
 
 (defcustom sp-devonthink-bibsync-keywords t
-  "Non-nil to add the BibTeX keywords to the tags of the record."
+  "Non-nil to sync the BibTeX keywords with the tags of the record."
   :type 'boolean :group 'sp-devonthink-bibsync)
 
 (defcustom sp-devonthink-bibsync-author-separator "; "
@@ -146,19 +147,6 @@ end tell"
                       (cons (nth 1 parts) (or (nth 2 parts) "")))))
                 (split-string text "\n" t))))
 
-(defun sp-devonthink-bibsync--tag-changes (items)
-  "The tag changes ((UUID . TAGS) ...) that ITEMS need, from the records' current tags."
-  (let ((wanted (delq nil (mapcar (lambda (item)
-                                    (and (plist-get (cdr item) :keywords) item))
-                                  items))))
-    (when wanted
-      (delq nil
-            (mapcar (lambda (entry)
-                      (let* ((keywords (plist-get (cdr (assoc (car entry) wanted)) :keywords))
-                             (new (sp-devonthink--merge-tags (cdr entry) keywords 'add)))
-                        (and (not (equal new (cdr entry))) (cons (car entry) new))))
-                    (sp-devonthink-record-tags (mapcar #'car wanted)))))))
-
 (defun sp-devonthink-bibsync-apply (items)
   "Write the fields of ITEMS to DEVONthink; ITEMS is a list of (UUID . FIELDS).
 FIELDS is a plist as of `sp-devonthink-bibsync-entry-fields'.  Return a plist:
@@ -168,11 +156,8 @@ FIELDS is a plist as of `sp-devonthink-bibsync-entry-fields'.  Return a plist:
     (when items
       (setq failed (sp-devonthink-bibsync--parse-result
                     (sp-reading--osascript (sp-devonthink-bibsync--metadata-script items))))
-      (when sp-devonthink-bibsync-keywords
-        (when-let* ((changes (sp-devonthink-bibsync--tag-changes items)))
-          (sp-reading--osascript (sp-devonthink--set-tags-script changes))
-          (setq sp-devonthink-tags--known nil)
-          (setq tagged (length changes)))))
+      (when (and sp-devonthink-bibsync-keywords (fboundp 'sp-devonthink-keywords-sync-items))
+        (setq tagged (or (sp-devonthink-keywords-sync-items items) 0))))
     (list :records (length items) :tagged tagged :failed failed)))
 
 (defun sp-devonthink-bibsync--report (result)

@@ -65,9 +65,11 @@
 (require 'sp-devonthink-browse)
 (require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
+(require 'sp-devonthink-keywords)
 (require 'sp-fetch-inbox)
 (require 'sp-devonthink-sync)
 (require 'sp-see-also)
+(require 'sp-see-also-keywords)
 
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))

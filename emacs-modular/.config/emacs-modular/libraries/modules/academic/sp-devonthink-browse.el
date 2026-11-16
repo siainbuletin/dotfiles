@@ -20,6 +20,7 @@
 (require 'sp-devonthink-tags)
 (require 'sp-pdf-reader)
 
+(declare-function sp-devonthink-keywords-sync-quietly "sp-devonthink-keywords" (keys))
 (declare-function citar-open-notes "citar")
 (declare-function sp-litdb-search "sp-litdb")
 (defvar sp-litdb-default-mode)
@@ -184,18 +185,12 @@ end tell"
              (length records))
     (sp-devonthink-browse--mirror records tags)))
 
-(defun sp-devonthink-browse--mirror (records tags)
-  "Mirror the TAGS just added to RECORDS in their litnotes and BibTeX entries.
+(defun sp-devonthink-browse--mirror (records _tags)
+  "Sync the keywords of the citekeys of RECORDS after their tags changed.
 A failure is reported, not signalled: the tags are already in DEVONthink."
-  (condition-case err
-      (let ((skipped (sp-devonthink-mirror-record-tags
-                      (mapcar (lambda (r) (cons (plist-get r :uuid) (sp-devonthink-browse--key r)))
-                              records)
-                      tags)))
-        (when (> skipped 0)
-          (message "%d record%s without a litnote or BibTeX entry skipped" skipped
-                   (if (= skipped 1) "" "s"))))
-    (error (message "Tags added, but not mirrored in litnote/BibTeX: %s" (error-message-string err)))))
+  (when (fboundp 'sp-devonthink-keywords-sync-quietly)
+    (let ((keys (delq nil (mapcar #'sp-devonthink-browse--key records))))
+      (when keys (sp-devonthink-keywords-sync-quietly keys)))))
 
 ;;;; DEVONthink search
 
