@@ -422,6 +422,7 @@ Module: [[file:sp-devonthink-keywords.org][sp-devonthink-keywords.org]]. It repl
 | =C-; k d k= | write the =#+devonthink:= keyword of this litnote | here |
 | =C-; k d c= | show this chapter's keywords at the bottom of the litnote | here |
 | =C-; k d C= | store this chapter's keywords in its parent's record | here |
+| =C-; k d K= | add keywords to this concept note's `#+dt-keyword:` line | here |
 | =C-; k d r= | refresh the citekey to UUID cache | here |
 | =C-; k d A= | insert a link to one highlight: pick from a list, or the latest with a prefix argument (see =sp-devonthink-annotation-default=) | highlights doc |
 | =C-; k d L= | insert a link to the most recently created highlight | highlights doc |
@@ -1214,6 +1215,7 @@ collection it sits in.  The buffer is left unsaved."
 | =C-; k d s= | store a link to what DEVONthink shows |
 | =C-; k d k= | write the =#+devonthink:= keyword of this litnote |
 | =C-; k d c= | show this chapter's keywords at the bottom of the note |
+| =C-; k d K= | add keywords to this concept note's =#+dt-keyword:= line (from `sp-see-also-keywords`) |
 | =C-; k d C= | store this chapter's keywords in its parent's record |
 | =C-; k d r= | refresh the citekey to UUID cache |
 | =C-; k d A= | insert a link to one highlight (list, or the latest with a prefix argument) |
