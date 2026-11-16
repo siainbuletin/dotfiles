@@ -1525,6 +1525,11 @@ about this note."
         (dolist (m (plist-get entry :mentions))
           (sp-see-also-view--entry file m (or (plist-get m :heading) "file")))))))
 
+(defvar sp-see-also-view-sections-functions nil
+  "Functions that add a part to the view of `sp-see-also-show', each called with NOTE.
+NOTE is the plist of `sp-see-also--resolve'.  A function inserts in the current
+buffer, at the end, starting with `sp-see-also-view--section'.")
+
 ;;;###autoload
 (defun sp-see-also-show (&optional target)
   "Show everything see-also knows about a note, in the buffer `*see-also*'.
@@ -1538,6 +1543,8 @@ or litnote, with its entries below:
   left out for a note that has no file of its own.
 - \"Referenced by\": every litnote that references the note, and in which of the
   ways in `sp-see-also-reference-kinds' (footnote, section, link, parent, cite).
+- Parts that other modules add through `sp-see-also-view-sections-functions',
+  such as \"Same keywords\" of `sp-see-also-keywords'.
 A click or RET on a heading or a context visits it."
   (interactive (list (and current-prefix-arg
                           (or (sp-see-also--pick-id) (user-error "No note picked")))))
@@ -1565,6 +1572,7 @@ A click or RET on a heading or a context visits it."
             (sp-see-also-references id (plist-get note :citekey)
                                     (and (plist-get note :own) file)))
          (insert "\nThis note has no ID, so nothing can reference it.\n"))
+       (run-hook-with-args 'sp-see-also-view-sections-functions note)
        (when (and file (plist-get note :own) (null (plist-get note :citekey)))
          (insert "\nNo citekey in ROAM_REFS, so citations of this note were not searched.\n"))))))
 

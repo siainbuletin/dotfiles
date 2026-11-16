@@ -179,18 +179,12 @@
     (cl-letf (((symbol-function 'sp-devonthink-note-record-uuid) (lambda (&rest _) nil)))
       (should-error (sp-devonthink-similar-to-note) :type 'user-error))))
 
+(ert-deftest sp-devonthink-browse-mirror-syncs-the-keys ()
+  (let (keys)
+    (cl-letf (((symbol-function 'sp-devonthink-keywords-sync-quietly)
+               (lambda (k) (setq keys k) 0)))
+      (sp-devonthink-browse--mirror '((:uuid "U1" :name "key1.pdf") (:uuid "U2" :name "key2")) '("a")))
+    (should (equal keys '("key1" "key2")))))
+
 (provide 'sp-devonthink-browse-test)
 ;;; sp-devonthink-browse-test.el ends here
-
-(ert-deftest sp-devonthink-browse-mirror-reports-skipped-and-errors ()
-  (let (messages)
-    (cl-letf (((symbol-function 'message) (lambda (fmt &rest args) (push (apply #'format fmt args) messages)))
-              ((symbol-function 'sp-devonthink-mirror-record-tags)
-               (lambda (records _tags) (should (equal records '(("U1" . "key1")))) 1)))
-      (sp-devonthink-browse--mirror '((:uuid "U1" :name "key1.pdf")) '("a")))
-    (should (string-match-p "1 record without a litnote" (car messages)))
-    (setq messages nil)
-    (cl-letf (((symbol-function 'message) (lambda (fmt &rest args) (push (apply #'format fmt args) messages)))
-              ((symbol-function 'sp-devonthink-mirror-record-tags) (lambda (&rest _) (error "No BibTeX files"))))
-      (sp-devonthink-browse--mirror '((:uuid "U1" :name "key1.pdf")) '("a")))
-    (should (string-match-p "not mirrored.*No BibTeX files" (car messages)))))

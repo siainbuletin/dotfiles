@@ -21,21 +21,19 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 
 - Keywords go to the record's /tags/ (DEVONthink's own field).
   - Tags are kept by DEVONthink when the record is renamed, moved to another group, re-indexed or exported, and they are searchable and smart-group friendly.
-  - Only added, never removed: the sync never takes away a tag you set in DEVONthink.
+  - The keywords are synced both ways by [[file:sp-devonthink-keywords.org][sp-devonthink-keywords.org]] (additions and removals); this module only hands it the parsed entry.
 - Author and title go to /custom metadata/ of the record (=sp-devonthink-bibsync-author-id=, =sp-devonthink-bibsync-title-id=).
   - Custom metadata is stored in the database next to the record, so it also survives renaming, moving and re-indexing; it shows in the Info inspector under Metadata.
   - They do not go to the record's name (=KEY.pdf= is the citekey, see =sp-reading=) or the comment (you may use it for notes).
   - The author/title that DEVONthink reads out of the PDF are read-only for scripts, so they cannot be used.
 - Each time the sync runs, the author and title are overwritten with the BibTeX values: BibTeX wins.
 
-* How it avoids fighting the tag mirror
+* Keywords: delegated to the sync
 
-- The other direction, DEVONthink tags to BibTeX =keywords= (PR #455, =sp-devonthink-mirror-record-tags=; still an open pull request, not on =main=), runs only after you tag a record in the browser.
-- This module writes tags through =sp-devonthink--set-tags-script= directly, not through the browser action, so it never starts that mirror: no loop.
-- Both directions only add, and ignore case, so running either again changes nothing.
-  - A tag added in the browser is written to =keywords=; the next sync finds it there and adds nothing.
-  - A keyword added here becomes a tag; if you tag it again in the browser, it is already in =keywords= and is not repeated.
-- The keywords line of the litnote (PR #443) is not touched here; it mirrors the record's tags in its own commands.
+- The keywords step calls =sp-devonthink-keywords-sync-items= with the parsed entries, so a fresh entry (=sp-fetch-inbox=) is used before it is read back from the file.
+- That sync merges BibTeX, the record's tags and the litnote's =KEYWORDS:= line against the last synced set: see its document for the rule.
+- =sp-devonthink-bibsync-keywords= nil leaves the keywords alone (author and title are still copied).
+- If the keywords module is not loaded, the keywords step does nothing.
 
 * Which record
 
@@ -58,7 +56,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 
 - =sp-devonthink-bibsync-author-id=: custom metadata identifier for the author, =bibauthor=.
 - =sp-devonthink-bibsync-title-id=: custom metadata identifier for the title, =bibtitle=.
-- =sp-devonthink-bibsync-keywords=: nil to leave the tags alone.
+- =sp-devonthink-bibsync-keywords=: nil to leave the keywords alone.
 - =sp-devonthink-bibsync-author-separator=: what replaces BibTeX's =and= between authors, =; =.
 
 * What is untested
@@ -81,7 +79,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 
 ;; Writes the author and title of a BibTeX entry to the custom metadata of the
 ;; DEVONthink record with the same citekey, and its keywords to the record's
-;; tags (added, never removed).  macOS only.
+;; tags, through `sp-devonthink-keywords-sync-items'.  macOS only.
 ;; Literate source: docs/tangles/devonthink/sp-devonthink-bibsync.org.
 
 ;;; Code:
@@ -95,6 +93,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 (require 'sp-devonthink-tags)
 
 (defvar sp-bibtex-files)
+(declare-function sp-devonthink-keywords-sync-items "sp-devonthink-keywords" (items))
 (declare-function sp-devonthink-browse--record "sp-devonthink-browse")
 (declare-function sp-devonthink-browse--key "sp-devonthink-browse")
 (declare-function sp-devonthink-browse--read "sp-devonthink-browse")
@@ -116,7 +115,7 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
   :type 'string :group 'sp-devonthink-bibsync)
 
 (defcustom sp-devonthink-bibsync-keywords t
-  "Non-nil to add the BibTeX keywords to the tags of the record."
+  "Non-nil to sync the BibTeX keywords with the tags of the record."
   :type 'boolean :group 'sp-devonthink-bibsync)
 
 (defcustom sp-devonthink-bibsync-author-separator "; "
@@ -203,7 +202,7 @@ in an earlier file is not looked for again."
 ** Writing to DEVONthink
 
 - The metadata script runs one =try= block per record, so one failure (for example an undefined field) does not stop the others; it prints =ok= or =error= with the message per UUID.
-- The tags are read for all records in one call and set in one call; =sp-devonthink--merge-tags= in mode =add= keeps the existing tags and their case.
+- The tags are read for all records in one call; the keyword sync writes the ones that change.
 - =sp-devonthink-bibsync-apply= takes ITEMS, a list of =(UUID . FIELDS)=, and returns a plist with the counts and the failures.
 
 #+begin_src emacs-lisp -i
@@ -246,19 +245,6 @@ end tell"
                       (cons (nth 1 parts) (or (nth 2 parts) "")))))
                 (split-string text "\n" t))))
 
-(defun sp-devonthink-bibsync--tag-changes (items)
-  "The tag changes ((UUID . TAGS) ...) that ITEMS need, from the records' current tags."
-  (let ((wanted (delq nil (mapcar (lambda (item)
-                                    (and (plist-get (cdr item) :keywords) item))
-                                  items))))
-    (when wanted
-      (delq nil
-            (mapcar (lambda (entry)
-                      (let* ((keywords (plist-get (cdr (assoc (car entry) wanted)) :keywords))
-                             (new (sp-devonthink--merge-tags (cdr entry) keywords 'add)))
-                        (and (not (equal new (cdr entry))) (cons (car entry) new))))
-                    (sp-devonthink-record-tags (mapcar #'car wanted)))))))
-
 (defun sp-devonthink-bibsync-apply (items)
   "Write the fields of ITEMS to DEVONthink; ITEMS is a list of (UUID . FIELDS).
 FIELDS is a plist as of `sp-devonthink-bibsync-entry-fields'.  Return a plist:
@@ -268,11 +254,8 @@ FIELDS is a plist as of `sp-devonthink-bibsync-entry-fields'.  Return a plist:
     (when items
       (setq failed (sp-devonthink-bibsync--parse-result
                     (sp-reading--osascript (sp-devonthink-bibsync--metadata-script items))))
-      (when sp-devonthink-bibsync-keywords
-        (when-let* ((changes (sp-devonthink-bibsync--tag-changes items)))
-          (sp-reading--osascript (sp-devonthink--set-tags-script changes))
-          (setq sp-devonthink-tags--known nil)
-          (setq tagged (length changes)))))
+      (when (and sp-devonthink-bibsync-keywords (fboundp 'sp-devonthink-keywords-sync-items))
+        (setq tagged (or (sp-devonthink-keywords-sync-items items) 0))))
     (list :records (length items) :tagged tagged :failed failed)))
 
 (defun sp-devonthink-bibsync--report (result)
@@ -393,6 +376,6 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/460][#460]]
   - ✨ Added the module: BibTeX author, title and keywords copied to the DEVONthink record
-    - keywords go to the record's tags (only added, never removed)
+    - keywords go to the record's tags (only added, never removed; later reworked into the two-way sync of =sp-devonthink-keywords=)
     - author and title go to the custom metadata =bibauthor= and =bibtitle= (=sp-devonthink-bibsync-author-id=, =-title-id=); BibTeX wins on each run; authors are joined with =; =
     - both are stored with the record, so they survive a move, a rename, a re-index and an export
