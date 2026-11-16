@@ -90,6 +90,9 @@ Points =org-ditaa-jar-path= at =software/ditaa.jar= inside the Emacs directory, 
 
 Renders =plantuml= source blocks, both with =C-c C-c= and on export.
 
+- =:init= defines =org-babel-default-header-args:plantuml= (=:results file=, =:exports results=) before =ob-plantuml= loads.
+  - Org reads it when it parses a block, which happens before the autoload loads the library.
+  - Without it the block had no =file= in its result parameters, so PlantUML wrote text and Org showed a =#+begin_example= block (Org 9.8.7).
 - =:commands= autoloads =org-babel-execute:plantuml=, so =ob-plantuml= loads the first time a block runs (before, nothing triggered the load).
 - Renderer choice, made when =ob-plantuml= loads:
   - If the =plantuml= executable is on =exec-path= (=brew install plantuml=), =org-plantuml-exec-mode= is =plantuml= and =org-plantuml-executable-path= is its path.
@@ -104,6 +107,12 @@ Renders =plantuml= source blocks, both with =C-c C-c= and on export.
   :ensure nil
   :defer t
   :commands (org-babel-execute:plantuml)
+  :init
+  ;; Org reads this variable when it parses the block, before the autoload
+  ;; loads `ob-plantuml'; unset, `:results file' is lost and the output
+  ;; becomes a `#+begin_example' block.
+  (defvar org-babel-default-header-args:plantuml
+    '((:results . "file") (:exports . "results")))
   :config
   (progn
     ;; Prefer the `plantuml' executable (Homebrew); fall back to the jar.
@@ -543,3 +552,4 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Loads =ob-plantuml= on first use, prefers the =plantuml= executable over the jar, and redisplays inline images after =C-c C-c=.
   - Details: [[file:sp-org-babel.org::*PlantUML][=sp-org-babel= doc]].
   - Not run in Emacs (no Emacs in the cloud container); needs =brew install plantuml=.
+  - 🐛 Fixed the PlantUML result showing as a =#+begin_example= block: the default =:results file= is now set before =ob-plantuml= loads.
