@@ -81,6 +81,9 @@ MODE is `add', `remove' or `set'."
   - If DEVONthink does not answer, the prompt still works: you type tags without completion.
 - =sp-devonthink-record-tags= reads the tags of records by UUID in one call.
   - The answer is one line per record: the UUID, then each tag, separated by tabs.
+  - The script never coerces a loop reference to text: that fails with =-1700= ("Can't make item 1 of tags ... into type text").
+    - It copies =tags of r= into a list variable and reads each item by index.
+    - It takes =name of= the item (a tag object) and falls back to the item as text (a plain string), so both kinds of answer work.
 
 #+begin_src emacs-lisp
 ;;;; Reading
@@ -111,8 +114,15 @@ end tell"
   repeat with theId in %s
     set r to get record with uuid (theId as text)
     set theLine to uuid of r
-    repeat with t in (tags of r)
-      set theLine to theLine & tab & (t as text)
+    set theTags to (tags of r) as list
+    repeat with i from 1 to count of theTags
+      set theTag to item i of theTags
+      try
+        set theName to name of theTag
+      on error
+        set theName to theTag as text
+      end try
+      set theLine to theLine & tab & theName
     end repeat
     set end of theOut to theLine
   end repeat
@@ -290,3 +300,8 @@ What each pull request changed in this module, newest last; the one-line summary
     - one prompt completes from the database's tags and accepts new ones; a confirmation marks =(new)= tags
     - =sp-devonthink-tag-note= (=C-c k d t=, =C-u= removes)
     - =sp-devonthink-split-comma-tags= splits a comma-joined tag after showing a plan; the old tag is kept
+
+- 🐛 Fixed reading the tags of a record: the script coerced a loop reference to text and failed with =-1700= on records that have tags
+  - reads =tags of r= into a list and takes =name of= each item, falling back to the item as text
+  - the same script serves the keyword sync, the browser tag action and bibsync, which all read tags through =sp-devonthink-record-tags=
+  - covered by two tests with a faked =osascript=

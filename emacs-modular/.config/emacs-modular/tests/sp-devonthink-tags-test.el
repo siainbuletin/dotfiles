@@ -91,3 +91,20 @@
 
 (provide 'sp-devonthink-tags-test)
 ;;; sp-devonthink-tags-test.el ends here
+
+(ert-deftest sp-devonthink-read-tags-script-avoids-loop-reference-coercion ()
+  ;; "repeat with t in (tags of r)" then "t as text" fails with -1700 on DEVONthink.
+  (let ((script (sp-devonthink--read-tags-script '("U1"))))
+    (should-not (string-match-p "repeat with \\w+ in (tags of" script))
+    (should (string-match-p "set theTags to (tags of r) as list" script))
+    (should (string-match-p "item i of theTags" script))
+    (should (string-match-p "name of theTag" script))
+    (should (string-match-p "on error\n *set theName to theTag as text" script))))
+
+(ert-deftest sp-devonthink-record-tags-reads-the-script-answer ()
+  (let (asked)
+    (cl-letf (((symbol-function 'sp-reading--osascript)
+               (lambda (script) (setq asked script) "U1\tfoo\tbar baz\nU2\n")))
+      (should (equal (sp-devonthink-record-tags '("U1" "U2"))
+                     '(("U1" "foo" "bar baz") ("U2")))))
+    (should (string-match-p "\"U1\", \"U2\"" asked))))

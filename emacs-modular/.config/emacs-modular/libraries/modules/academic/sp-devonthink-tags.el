@@ -71,8 +71,15 @@ end tell"
   repeat with theId in %s
     set r to get record with uuid (theId as text)
     set theLine to uuid of r
-    repeat with t in (tags of r)
-      set theLine to theLine & tab & (t as text)
+    set theTags to (tags of r) as list
+    repeat with i from 1 to count of theTags
+      set theTag to item i of theTags
+      try
+        set theName to name of theTag
+      on error
+        set theName to theTag as text
+      end try
+      set theLine to theLine & tab & theName
     end repeat
     set end of theOut to theLine
   end repeat
