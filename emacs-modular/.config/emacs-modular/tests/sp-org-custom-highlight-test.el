@@ -90,10 +90,20 @@
   (should (eq (lookup-key org-mode-map (kbd "C-c h"))
               #'sp-org-insert-inline-comment)))
 
-;;;; Links inside @@comment:@@
+;;;; Links and citations inside @@comment:@@
+
+(defun sp-och-test--context-at (text search)
+  "The `org-element-context' in TEXT with point after SEARCH, as (TYPE BEG END)."
+  (sp-och-test--with-buffer text
+    (goto-char (point-min))
+    (search-forward search)
+    (let ((c (org-element-context)))
+      (list (org-element-type c)
+            (org-element-property :begin c)
+            (org-element-property :end c)))))
 
 (defmacro sp-och-test--opening (text search &rest body)
-  "In an Org buffer with TEXT and point inside SEARCH, run BODY.
+  "In an Org buffer with TEXT and point after SEARCH, run BODY.
 Return the list of what was opened, as (link RAW) or (cite KEY)."
   (declare (indent 2))
   `(let (opened)
@@ -109,50 +119,81 @@ Return the list of what was opened, as (link RAW) or (cite KEY)."
          ,@body))
      (nreverse opened)))
 
-(ert-deftest sp-och-link-in-comment-opens ()
-  (should (equal (sp-och-test--opening
-                     "[[id:aaa][first]]\nx @@comment:see [[id:bbb][second]] ok@@\n"
-                     "seco"
-                   (should (sp-org-open-comment-link)))
-                 '((link "id:bbb")))))
+(ert-deftest sp-och-context-finds-link-in-comment ()
+  ;; "[[id:b][s]]" starts at 14 in "x @@comment:see " + 1.
+  (should (equal (sp-och-test--context-at "x @@comment:see [[id:b][s]] ok@@" "[[id")
+                 '(link 17 29))))
 
-(ert-deftest sp-och-open-at-point-uses-the-comment-link ()
+(ert-deftest sp-och-context-finds-citation-parts-in-comment ()
+  (let ((text "@@comment:read [cite:@smith2020; @doe1999] soon@@"))
+    (should (equal (sp-och-test--context-at text "@smi")
+                   (list 'citation-reference 22 33)))
+    (should (eq (car (sp-och-test--context-at text "[ci")) 'citation))
+    (should (equal (cdr (sp-och-test--context-at text "[ci")) '(16 44)))))
+
+(ert-deftest sp-och-context-in-comment-text-stays-the-snippet ()
+  (should (eq (car (sp-och-test--context-at "@@comment:see [[id:b][s]] ok@@" "see"))
+              'export-snippet)))
+
+(ert-deftest sp-och-context-outside-comment-and-other-backend-untouched ()
+  (should (eq (car (sp-och-test--context-at "[[id:b][s]]" "[[id")) 'link))
+  (should (eq (car (sp-och-test--context-at "@@html:[[id:b][s]]@@" "[[id"))
+              'export-snippet)))
+
+(ert-deftest sp-och-open-at-point-follows-link-in-comment ()
   (should (equal (sp-och-test--opening
-                     "[[id:aaa][first]]\n@@comment:[[id:bbb][second]]@@\n"
+                     "[[id:aaa][first]]\n@@comment:see [[id:bbb][second]] ok@@\n"
                      "seco"
                    (org-open-at-point))
                  '((link "id:bbb")))))
 
-(ert-deftest sp-och-citation-in-comment-opens ()
+(ert-deftest sp-och-open-at-point-follows-citation-in-comment ()
   (should (equal (sp-och-test--opening "@@comment:read [cite:@smith2020] soon@@\n"
                      "smi"
-                   (should (sp-org-open-comment-link)))
+                   (org-open-at-point))
                  '((cite "smith2020")))))
 
-(ert-deftest sp-och-comment-text-and-edges-do-not-open ()
-  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "see "
-                (should-not (sp-org-open-comment-link))))
-  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "[[id:b][s]]"
-                (should-not (sp-org-open-comment-link))))
-  (should-not (sp-och-test--opening "@@comment:see [[id:b][s]] ok@@" "@@comment:"
-                (should-not (sp-org-open-comment-link)))))
-
-(ert-deftest sp-och-other-snippet-and-plain-link-untouched ()
-  (should-not (sp-och-test--opening "@@html:[[id:b][s]]@@" "[[id:b"
-                (should-not (sp-org-open-comment-link))))
-  (should-not (sp-och-test--opening "[[id:b][s]]" "[[id:b"
-                (should-not (sp-org-open-comment-link)))))
-
 (ert-deftest sp-och-ret-follows-link-in-comment ()
-  (should (equal (sp-och-test--opening "[[id:a][f]]\n@@comment:[[id:b][second]]@@\n"
-                     "seco"
-                   (let ((org-return-follows-link t))
-                     (org-return)))
-                 '((link "id:b"))))
-  (should-not (sp-och-test--opening "@@comment:[[id:b][second]]@@"
-                  "seco"
-                (let ((org-return-follows-link nil))
-                  (org-return)))))
+  (let ((text "[[id:a][f]]\n@@comment:[[id:b][second]]@@\n"))
+    (should (equal (sp-och-test--opening text "seco"
+                     (let ((org-return-follows-link t))
+                       (org-return)))
+                   '((link "id:b"))))
+    (should-not (sp-och-test--opening "@@comment:[[id:b][s]]@@" "[[id:b][s"
+                  (let ((org-return-follows-link nil))
+                    (org-return))))))
+
+(ert-deftest sp-och-citation-key-at-point-inside-comment ()
+  ;; What citar's Embark target finder asks for.
+  (sp-och-test--with-buffer "@@comment:read [cite:@smith2020] soon@@"
+    (goto-char (point-min))
+    (search-forward "smi")
+    (let ((ref (org-element-context)))
+      (should (eq (org-element-type ref) 'citation-reference))
+      (should (equal (org-element-property :key ref) "smith2020"))
+      (should (equal (buffer-substring (org-element-property :begin ref)
+                                       (org-element-property :end ref))
+                     "@smith2020")))))
+
+(ert-deftest sp-och-citation-can-be-inserted-in-comment-text ()
+  (sp-och-test--with-buffer "@@comment:read soon@@"
+    (goto-char (point-min))
+    (search-forward "read ")
+    (should (org-cite--allowed-p (org-element-context))))
+  (sp-och-test--with-buffer "@@html:read soon@@"
+    (goto-char (point-min))
+    (search-forward "read ")
+    (should-not (org-cite--allowed-p (org-element-context)))))
+
+(ert-deftest sp-och-comment-with-single-at-is-highlighted ()
+  (sp-och-test--with-buffer "a @@comment:read [cite:@key] x@@ b"
+    (org-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "read")
+    (should (memq 'my-org-inline-comment
+                  (let ((f (get-text-property (1- (point)) 'face)))
+                    (if (listp f) f (list f)))))))
 
 (provide 'sp-org-custom-highlight-test)
 ;;; sp-org-custom-highlight-test.el ends here

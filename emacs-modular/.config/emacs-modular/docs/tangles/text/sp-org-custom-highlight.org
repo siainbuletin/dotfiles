@@ -50,7 +50,7 @@ On every Org buffer, adds a font-lock keyword that matches =@@comment:= followed
 
 - The two delimiters are shown in the =shadow= face, so they fade into the background.
 - The comment body gets =my-org-inline-comment=.
-- The pattern stops at a newline or an =@= sign, so a comment cannot span lines or contain =@=.
+- The pattern stops at a newline or at =@@=, so a comment cannot span lines or contain =@@=; a single =@= (as in =[cite:@key]=) is fine.
 - The rule is appended after Org's own keywords and uses =prepend=, so it layers on top of existing fontification.
 
 #+begin_src emacs-lisp -i
@@ -58,7 +58,7 @@ On every Org buffer, adds a font-lock keyword that matches =@@comment:= followed
           (lambda ()
             (font-lock-add-keywords
              nil
-             '(("\\(@@comment:\\)\\([^@\n]*\\)\\(@@\\)"
+             '(("\\(@@comment:\\)\\(\\(?:[^@\n]\\|@[^@\n]\\)*\\)\\(@@\\)"
                 (1 'shadow prepend)
                 (2 'my-org-inline-comment prepend)
                 (3 'shadow prepend)))
@@ -136,34 +136,34 @@ insert `@@comment:@@' and put point inside it."
 
 A {{{c(text)}}} macro with #+MACRO: c (empty expansion) also works, but the export snippet needs no setup per file, so I’d go with that.
 
-** Following links inside a comment
+** Links and citations inside a comment
 
-Org reads =@@comment:...@@= as one export snippet, whose text is opaque, so a link written inside it is not a link for Org.
-- Symptom: =RET= or a click on =[[id:...][text]]= inside a comment did not open it.
-  - =org-element-context= returns the snippet, not the link.
-  - =org-open-at-point= then falls through and offers the links of the entry, which are not the one at point.
-- Wrapping a region with =C-c h= produces exactly these snippets, so it hit any region holding a link or a citation.
-
-The fix looks inside the snippet, only when point is inside one with the backend =comment=.
-- =sp-org--comment-inner-bounds= returns the start and end of the text between the markers, or nil.
-- =sp-org--comment-datum-at-point= parses that text again with =org-element-parse-secondary-string=.
-  - Narrowing does not work: =org-element-context= widens the buffer, so it would return the snippet again.
-  - The text is parsed as ordinary Org, so links and citations are found with the usual parser.
-  - The positions of the result are relative to the text, so point is converted to the same scale.
-  - The link is opened from its parsed data, not from its position, so the detached copy is enough.
-  - It returns a =link= or a =citation-reference= (=[cite:@key]=), else nil.
-- =sp-org-open-comment-link= opens that datum and returns non-nil; with nothing to open it returns nil.
-  - A link goes to =org-link-open=; a citation reference goes to =org-cite-follow=.
-- It is added to =org-open-at-point-functions=, so =C-c C-o=, a click (=org-open-at-mouse=) and any other caller of =org-open-at-point= use it.
-- =RET= needs its own step: =org-return= only follows links when the context is a =link=.
-  - An advice (=:before-until=) on =org-return= calls =sp-org-open-comment-link= when =org-return-follows-link= is non-nil.
-  - It follows the same rule as =sp-org-point-strictly-in-link-p=: point at the edges of the link does not follow it, it inserts a newline as before.
-- Links outside comments are not touched: the functions return nil there.
+Org reads =@@comment:...@@= as one export snippet, whose text is opaque, so a link or a citation written inside it is not a link or a citation for Org.
+- #548 made =RET=, clicks and =C-c C-o= open a link inside a comment, with a hook and an advice on =org-return=.
+- Citar and Embark showed the same root cause, so the fix is now one level lower and replaces that hook and advice:
+  - Embark (=embark-act= on a =[cite:@key]= in a comment) took the key for an email address, because the citar target finders ask =org-element-context= and got the snippet.
+  - Inserting a citation with citar inside a comment said "Cannot insert a citation here", because =org-cite--allowed-p= does not accept an export snippet.
+- The fix makes =org-element-context= see the objects inside a =comment= snippet, as it does everywhere else.
+  - Only when point is inside the text of a snippet with the backend =comment=; everywhere else the original function runs untouched.
+  - =sp-org--comment-inner-bounds= returns the start and end of the text between the markers, or nil.
+  - =sp-org--comment-object-at-point= parses that text again with =org-element-parse-secondary-string=.
+    - Narrowing does not work: =org-element-context= widens the buffer, so it would return the snippet again.
+    - The text is parsed as ordinary Org, so links, citations and their references are found by the usual parser.
+    - Every position of the parsed links, citations and references is shifted to a real buffer position, so Embark, citar and =org-cite-boundaries= get real bounds.
+    - The innermost object that contains point is returned: a =citation-reference= on a key, the =citation= on =[cite:=, a =link= on a link.
+  - =org-element-context= is advised with =:around=; calls that pass an element are not touched.
+- Everything that asks for the context follows: =C-c C-o= (=org-open-at-point=), =RET= (=org-return= with the strict link rule of =sp-org-point-strictly-in-link-p=), Embark and citar actions.
+- Inserting a citation inside the text of a comment: =org-cite--allowed-p= is advised so a comment counts as running text.
+  - The inserted =[cite:@key]= keeps its single =@=; only =@@= would end the snippet.
+- The font-lock rule now accepts a single =@= inside the comment, so a comment holding a citation is highlighted.
+- Links and citations outside comments, and other snippet backends (=@@html:=), are unaffected.
 
 #+begin_src emacs-lisp -i
-(defun sp-org--comment-inner-bounds ()
-  "Bounds (BEG . END) of the text of the `@@comment:@@' snippet at point, or nil."
-  (let ((ctx (org-element-context)))
+(defun sp-org--comment-inner-bounds (&optional context)
+  "Bounds (BEG . END) of the text of the `@@comment:@@' snippet CONTEXT, or nil.
+CONTEXT is the snippet at point, by default as `org-element-context' gives it.
+Point must be inside the text."
+  (let ((ctx (or context (org-element-context))))
     (when (and (eq (org-element-type ctx) 'export-snippet)
                (equal (org-element-property :back-end ctx) "comment"))
       (let ((beg (+ (org-element-property :begin ctx) (length "@@comment:")))
@@ -172,45 +172,53 @@ The fix looks inside the snippet, only when point is inside one with the backend
                     (length "@@"))))
         (and (<= beg (point) end) (cons beg end))))))
 
-(defun sp-org--comment-datum-at-point ()
-  "Link or citation reference at point inside a `@@comment:@@', or nil.
-Point must be strictly inside the object, not at its edges."
-  (when-let* ((bounds (sp-org--comment-inner-bounds)))
-    (let ((pos (1+ (- (point) (car bounds))))
-          (tree (org-element-parse-secondary-string
+(defun sp-org--shift-positions (tree delta)
+  "Add DELTA to the position properties of the links and citations of TREE.
+The nodes are changed in place."
+  (org-element-map tree '(link citation citation-reference)
+    (lambda (node)
+      (dolist (prop '(:begin :end :contents-begin :contents-end))
+        (when-let* ((value (org-element-property prop node)))
+          (org-element-put-property node prop (+ value delta)))))))
+
+(defun sp-org--comment-object-at-point (context)
+  "Link, citation or citation reference at point inside snippet CONTEXT, or nil.
+The result has real buffer positions, like what `org-element-context' returns."
+  (when-let* ((bounds (sp-org--comment-inner-bounds context)))
+    (let ((tree (org-element-parse-secondary-string
                  (buffer-substring-no-properties (car bounds) (cdr bounds))
-                 '(link citation))))
-      (catch 'found
-        (org-element-map tree '(link citation-reference)
-          (lambda (datum)
-            (when (and (> pos (org-element-property :begin datum))
-                       (< pos (- (org-element-property :end datum)
-                                 (org-element-property :post-blank datum))))
-              (throw 'found datum))))
-        nil))))
+                 '(link citation)))
+          (delta (1- (car bounds)))
+          best)
+      (sp-org--shift-positions tree delta)
+      (org-element-map tree '(link citation citation-reference)
+        (lambda (node)
+          (let ((beg (org-element-property :begin node))
+                (end (org-element-property :end node)))
+            (when (and (<= beg (point)) (< (point) end)
+                       (or (null best)
+                           (< (- end beg)
+                              (- (org-element-property :end best)
+                                 (org-element-property :begin best)))))
+              (setq best node)))))
+      best)))
 
-(defun sp-org-open-comment-link ()
-  "Open the link or citation inside the `@@comment:@@' at point.
-Return non-nil if one was opened, nil otherwise, so it can be an
-`org-open-at-point-functions' member."
-  (when-let* ((datum (sp-org--comment-datum-at-point)))
-    (if (eq (org-element-type datum) 'link)
-        (org-link-open datum)
-      (org-cite-follow datum nil))
-    t))
+(define-advice org-element-context (:around (orig &optional element) sp-org-comment-objects)
+  "Look inside `@@comment:@@' snippets for links and citations."
+  (let ((context (funcall orig element)))
+    (or (and (null element) (sp-org--comment-object-at-point context))
+        context)))
 
-(add-hook 'org-open-at-point-functions #'sp-org-open-comment-link)
-
-(define-advice org-return (:before-until (&rest _) sp-org-comment-link)
-  "Follow a link inside a `@@comment:@@' when `org-return-follows-link' is set."
-  (and org-return-follows-link
-       (sp-org-open-comment-link)))
+(define-advice org-cite--allowed-p (:around (orig context) sp-org-comment-text)
+  "Allow a citation in the running text of a `@@comment:@@'."
+  (or (and (sp-org--comment-inner-bounds context) t)
+      (funcall orig context)))
 #+end_src
 
 * Tests
 
 =tests/sp-org-custom-highlight-test.el= covers the command in an Org buffer.
-- The link tests cover: a link and a citation inside a comment, link outside unaffected, edges of the link, other snippet backends, and =RET=.
+- The tests cover: the context inside a comment (link, citation, key, real positions), edges, other snippet backends, =C-c C-o=, =RET=, the highlight of a comment holding =@=, and inserting a citation in a comment.
 - Run headless, from the folder of =init.el=:
   - =emacs -Q --batch -l tests/sp-org-custom-highlight-test.el -f ert-run-tests-batch-and-exit=
 
