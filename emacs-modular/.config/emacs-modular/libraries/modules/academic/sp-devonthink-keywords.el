@@ -111,8 +111,8 @@ places that exist."
              ", "))
 
 (defun sp-devonthink-keywords--dt-keywords (tags)
-  "The tags TAGS that count as keywords: those without a comma."
-  (seq-remove (lambda (tag) (string-search "," tag)) tags))
+  "The keywords in the tags TAGS: a comma-joined tag counts as several keywords."
+  (seq-uniq (seq-mapcat #'sp-devonthink--split-tag tags) #'string-equal-ignore-case))
 
 ;;;; The last synced set
 
@@ -324,7 +324,9 @@ Return what FUNCTION returned, or `unsaved' when the buffer has unsaved changes.
   "Set the tags of the record UUID, which has TAGS, so its keywords are MERGED.
 Return non-nil when the record changed."
   (let* ((have (sp-devonthink-keywords--dt-keywords tags))
-         (removed (sp-devonthink-keywords--removed have merged))
+         ;; Only a plain tag can be removed; the parts of a comma-joined tag stay in it.
+         (removed (sp-devonthink-keywords--removed
+                   (seq-remove (lambda (tag) (string-search "," tag)) tags) merged))
          (added (sp-devonthink-keywords--added have merged)))
     (when (or removed added)
       (sp-reading--osascript
@@ -389,7 +391,7 @@ BIB, a list, replaces reading the BibTeX entry.  Return the plist described abov
                         (append (unless (eq bib-list 'none) (list bib-list))
                                 (list dt)
                                 (when (eq use t) (list note)))))
-         (result (list :key key :merged merged)))
+         (result (list :key key :merged merged :dt-count (length dt))))
     (when (and drifted (eq use nil))
       (message "%s: litnote KEYWORDS reset to the synced set (lost %s)" key
                (sp-devonthink-keywords--diff-string merged note)))
@@ -426,8 +428,10 @@ BIB, a list, replaces reading the BibTeX entry.  Return the plist described abov
                                              (eq (plist-get r :bib) 'unsaved)))
                              results))
         (flagged (seq-filter (lambda (r) (eq (plist-get r :drift) 'flagged)) results)))
-    (message "Keywords: %d work%s synced; BibTeX changed %d, DEVONthink %d, litnote %d%s%s%s"
+    (message "Keywords: %d work%s synced (%d DEVONthink keyword%s read); BibTeX changed %d, DEVONthink %d, litnote %d%s%s%s"
              (length results) (if (= (length results) 1) "" "s")
+             (apply #'+ (mapcar (lambda (r) (or (plist-get r :dt-count) 0)) results))
+             (if (= 1 (apply #'+ (mapcar (lambda (r) (or (plist-get r :dt-count) 0)) results))) "" "s")
              (funcall count :bib) (funcall count :dt) (funcall count :note)
              (if skipped (format "; no record of its own: %s" (string-join (seq-take skipped 3) ", ")) "")
              (if unsaved (format "; unsaved, skipped: %s"
