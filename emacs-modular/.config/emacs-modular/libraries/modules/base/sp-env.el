@@ -35,6 +35,41 @@
                  "STARDICT_DATA_DIR"))
     (exec-path-from-shell-copy-env var)))
 
+;;;; POSIX shell for commands that Emacs starts itself
+;; - `shell-command', `call-process-shell-command', `process-file-shell-command'
+;;   and Dirvish's `git-msg' column all run "SHELL -c COMMAND".
+;; - Fish's exit handler printed "fish is now exiting" into that output, which
+;;   showed up appended to every row of the Dirvish git-message column.
+;; - So `shell-file-name' is a POSIX shell; interactive terminals stay on fish.
+;; - `exec-path-from-shell' is not affected: it runs `$SHELL -l -i' by itself and
+;;   never reads `shell-file-name'.
+;; - TRAMP is not affected: it uses `tramp-default-remote-shell' (/bin/sh) on the
+;;   remote side, not `shell-file-name'.
+;; - `shell-command-switch' stays "-c", which bash and sh both accept.
+
+(defcustom sp-posix-shell
+  (seq-find #'file-executable-p '("/bin/bash" "/bin/sh"))
+  "POSIX shell Emacs uses to run shell commands (not terminals)."
+  :type '(choice (const :tag "Leave `shell-file-name' alone" nil) file)
+  :group 'sp-env)
+
+(defcustom sp-interactive-shell nil
+  "Shell for `shell', `eat' and `ansi-term'; nil means the login shell in $SHELL.
+$SHELL is read after `exec-path-from-shell' ran, so a GUI Emacs gets fish."
+  :type '(choice (const nil) file)
+  :group 'sp-env)
+
+(defvar eat-shell)
+
+(let ((login-shell (or sp-interactive-shell (getenv "SHELL"))))
+  ;; Interactive terminals keep the login shell (fish).
+  (when (and login-shell (file-executable-p login-shell))
+    (setq explicit-shell-file-name login-shell
+          eat-shell login-shell))
+  (when sp-posix-shell
+    (setq shell-file-name sp-posix-shell
+          shell-command-switch "-c")))
+
 ;; Configuring the load-path (all of this is now done recursively from the
 ;; variables I have set from the user in ealy-init.el)
 
