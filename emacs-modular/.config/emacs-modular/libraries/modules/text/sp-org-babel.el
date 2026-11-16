@@ -31,11 +31,20 @@
 (use-package ob-plantuml
   :ensure nil
   :defer t
+  :commands (org-babel-execute:plantuml)
   :config
   (progn
+    ;; Prefer the `plantuml' executable (Homebrew); fall back to the jar.
     (setq org-plantuml-jar-path (expand-file-name
                                  "plantuml.jar"
                                  (concat user-emacs-directory "software/")))
+    (if-let* ((exe (executable-find "plantuml")))
+        (setq org-plantuml-exec-mode 'plantuml
+              org-plantuml-executable-path exe)
+      (setq org-plantuml-exec-mode 'jar))
+
+    ;; Show the rendered image right after `C-c C-c'.
+    (add-hook 'org-babel-after-execute-hook #'sp-org-babel-plantuml-redisplay)
 
     (defun lem-advice-org-babel-execute:plantuml (orig-fun &rest args)
       "Force `shell-file-name' to be bash as the \">\" operator is used for redirection.
@@ -48,6 +57,12 @@ Instead it's simpler to use bash."
       (let ((shell-file-name (executable-find "bash")))
         (apply orig-fun args)))
     (advice-add 'org-babel-execute:plantuml :around #'lem-advice-org-babel-execute:plantuml)))
+
+(defun sp-org-babel-plantuml-redisplay ()
+  "Redisplay inline images after a PlantUML block was executed."
+  (when (and (derived-mode-p 'org-mode)
+             (equal (car (org-babel-get-src-block-info 'no-eval)) "plantuml"))
+    (org-redisplay-inline-images)))
 
 (use-package ob-shell
   :ensure nil

@@ -88,20 +88,35 @@ Points =org-ditaa-jar-path= at =software/ditaa.jar= inside the Emacs directory, 
 
 ** PlantUML
 
-Points =org-plantuml-jar-path= at =software/plantuml.jar= and advises =org-babel-execute:plantuml= so it always runs with bash as =shell-file-name=.
+Renders =plantuml= source blocks, both with =C-c C-c= and on export.
 
-- As the docstring explains, under tcsh the =>= redirection refuses to overwrite existing files.
-- Like ditaa, it has no =:commands= of its own.
+- =:commands= autoloads =org-babel-execute:plantuml=, so =ob-plantuml= loads the first time a block runs (before, nothing triggered the load).
+- Renderer choice, made when =ob-plantuml= loads:
+  - If the =plantuml= executable is on =exec-path= (=brew install plantuml=), =org-plantuml-exec-mode= is =plantuml= and =org-plantuml-executable-path= is its path.
+  - Otherwise =org-plantuml-exec-mode= is =jar= and =org-plantuml-jar-path= is =software/plantuml.jar= (needs Java).
+- The bash advice makes =org-babel-execute:plantuml= run with bash as =shell-file-name=; under tcsh the =>= redirection refuses to overwrite existing files.
+- =sp-org-babel-plantuml-redisplay= runs in =org-babel-after-execute-hook= and redisplays inline images, so the diagram appears after =C-c C-c=.
+- A block needs =:file name.png= (=:results file= and =:exports results= are Org's defaults); use =:exports both= to export the code as well.
+- Export runs the block through =org-export-use-babel=; with =org-confirm-babel-evaluate= set to =t= Org asks once per block.
 
 #+begin_src emacs-lisp -i
 (use-package ob-plantuml
   :ensure nil
   :defer t
+  :commands (org-babel-execute:plantuml)
   :config
   (progn
+    ;; Prefer the `plantuml' executable (Homebrew); fall back to the jar.
     (setq org-plantuml-jar-path (expand-file-name
                                  "plantuml.jar"
                                  (concat user-emacs-directory "software/")))
+    (if-let* ((exe (executable-find "plantuml")))
+        (setq org-plantuml-exec-mode 'plantuml
+              org-plantuml-executable-path exe)
+      (setq org-plantuml-exec-mode 'jar))
+
+    ;; Show the rendered image right after `C-c C-c'.
+    (add-hook 'org-babel-after-execute-hook #'sp-org-babel-plantuml-redisplay)
 
     (defun lem-advice-org-babel-execute:plantuml (orig-fun &rest args)
       "Force `shell-file-name' to be bash as the \">\" operator is used for redirection.
@@ -114,6 +129,12 @@ Instead it's simpler to use bash."
       (let ((shell-file-name (executable-find "bash")))
         (apply orig-fun args)))
     (advice-add 'org-babel-execute:plantuml :around #'lem-advice-org-babel-execute:plantuml)))
+
+(defun sp-org-babel-plantuml-redisplay ()
+  "Redisplay inline images after a PlantUML block was executed."
+  (when (and (derived-mode-p 'org-mode)
+             (equal (car (org-babel-get-src-block-info 'no-eval)) "plantuml"))
+    (org-redisplay-inline-images)))
 #+end_src
 
 ** Shell
@@ -517,3 +538,8 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =sp-check-tangle= (alias =check-tangle=): runs =tools/check-tangle.sh= in the background and shows the output in =*sp-check-tangle*=, with =passed= or =FAILED= in the echo area.
   - Details: [[file:sp-org-babel.org::*Checking the modules against their docs][=sp-org-babel= doc]].
   - Tested in Emacs 29.3 batch (the command ran the script and reported =FAILED= for an edited module); not run in the interactive config.
+
+- PlantUML export backend (this PR)
+  - ✨ Loads =ob-plantuml= on first use, prefers the =plantuml= executable over the jar, and redisplays inline images after =C-c C-c=.
+  - Details: [[file:sp-org-babel.org::*PlantUML][=sp-org-babel= doc]].
+  - Not run in Emacs (no Emacs in the cloud container); needs =brew install plantuml=.

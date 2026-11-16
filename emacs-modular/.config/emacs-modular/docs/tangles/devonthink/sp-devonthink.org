@@ -271,9 +271,9 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Status of the arrows:
   - On =main=: the BibTeX to litnote fill, =sp-fetch-inbox=, bibsync, the sync report and backfill.
   - Not on =main=: the DEVONthink to litnote and to BibTeX tag mirror (#443, #455; #455 is merged into the #443 branch, which is still open).
-- The diagram is PlantUML; =C-c C-c= on it renders it (add =:file devonthink-pipeline.png :results file= to the header line first).
+- The diagram is PlantUML; =C-c C-c= on it renders it to =devonthink-pipeline.png= next to this file and shows it inline (needs =brew install plantuml=, see =sp-org-babel=).
 
-#+begin_src plantuml :exports code
+#+begin_src plantuml :file devonthink-pipeline.png :exports both
 @startuml
 skinparam shadowing false
 skinparam sequenceMessageAlign left
