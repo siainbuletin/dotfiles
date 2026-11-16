@@ -1,7 +1,7 @@
-;;; sp-org-lint-test.el --- Tests for the footnote linter in sp-org-lint -*- lexical-binding: t; -*-
+;;; sp-batch-lint-test.el --- Tests for the footnote linter in sp-batch-lint -*- lexical-binding: t; -*-
 
 (require 'ert)
-(require 'sp-org-lint)
+(require 'sp-batch-lint)
 
 (defun sp-org-lint-test--text (&rest lines)
   "LINES joined, with a final newline."
@@ -285,5 +285,5 @@
     (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-interaction.el" d))) dirs))
     (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-batch-report.el" d))) dirs))))
 
-(provide 'sp-org-lint-test)
-;;; sp-org-lint-test.el ends here
+(provide 'sp-batch-lint-test)
+;;; sp-batch-lint-test.el ends here

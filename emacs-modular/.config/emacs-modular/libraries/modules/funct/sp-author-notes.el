@@ -1876,7 +1876,7 @@ and a buffer with unsaved changes is saved before."
   "Make author notes from the `pub-author' meta key of the litnotes.
 Read the vault in slices (Emacs stays usable) and show the plan.  Then write
 it, or stay in the report to drop candidates with `d' and write what is
-left with `A'.  See the doc docs/tangles/funct/sp-org-lint.org."
+left with `A'.  See the doc docs/tangles/funct/sp-batch-lint.org."
   (interactive)
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--ask))
