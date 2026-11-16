@@ -125,6 +125,8 @@ Literate source for =libraries/modules/academic/sp-notes.el=.
 
 - Asks for a title, then for tags (=sp-org-tag-read-note-tags=, so only registered tags).
 - Warns when a note with that title already exists in the vulpea database.
+  - The match ignores case: "My Film" and "my film" are the same title.
+  - =sp-vulpea-notes-with-title= uses =compare-strings= with IGNORE-CASE, so a caller's =case-fold-search= does not matter.
 - Creates the note with =vulpea-create=, so vulpea owns the file, the =:ID:=, the tags and the index entry, and visits it.
   - =sp-notes-create-file-template= gives the file-name template: the tag folder, then =${timestamp}_${slug}.org=.
     - The name part is the one of =vulpea-create-default-function= (=sp-vulpea-base=).
@@ -525,12 +527,19 @@ The plist is `sp-notes-open--info' plus :file."
             (when-let* ((title (plist-get info :title)))
               (concat "  " title)))))
 
+(defun sp-notes-open--lookup (choice items)
+  "Return the entry of ITEMS whose name is CHOICE, ignoring case.
+An exact match wins; `assoc-string' folds case whatever `case-fold-search' is."
+  (or (assoc choice items)
+      (assoc-string choice items t)))
+
 ;;;###autoload
 (defun sp-notes-open ()
   "Pick a note from the notes root, the writing projects and the config and open it.
 Like `denote-open': each candidate is a file name, with the creation date,
 the tags and the title beside it, newest first.  The date is :CREATED:, else
-the id in the file name, else the modification time."
+the id in the file name, else the modification time.
+Typing matches the names without regard to case."
   (interactive)
   (let* ((items (sp-notes-open--candidates))
          (table (lambda (string pred action)
@@ -541,10 +550,11 @@ the id in the file name, else the modification time."
                         (cycle-sort-function . identity)
                         (annotation-function
                          . (lambda (c) (sp-notes-open--annotate
-                                        (cdr (assoc c items))))))
+                                        (cdr (sp-notes-open--lookup c items))))))
                     (complete-with-action action (mapcar #'car items) string pred))))
-         (choice (completing-read "Open note: " table nil t)))
-    (find-file (plist-get (cdr (assoc choice items)) :file))))
+         (choice (let ((completion-ignore-case t))
+                   (completing-read "Open note: " table nil t))))
+    (find-file (plist-get (cdr (sp-notes-open--lookup choice items)) :file))))
 
 ;;;; Delete a note to the trash
 

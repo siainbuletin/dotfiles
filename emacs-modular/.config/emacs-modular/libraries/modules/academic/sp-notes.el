@@ -317,12 +317,19 @@ The plist is `sp-notes-open--info' plus :file."
             (when-let* ((title (plist-get info :title)))
               (concat "  " title)))))
 
+(defun sp-notes-open--lookup (choice items)
+  "Return the entry of ITEMS whose name is CHOICE, ignoring case.
+An exact match wins; `assoc-string' folds case whatever `case-fold-search' is."
+  (or (assoc choice items)
+      (assoc-string choice items t)))
+
 ;;;###autoload
 (defun sp-notes-open ()
   "Pick a note from the notes root, the writing projects and the config and open it.
 Like `denote-open': each candidate is a file name, with the creation date,
 the tags and the title beside it, newest first.  The date is :CREATED:, else
-the id in the file name, else the modification time."
+the id in the file name, else the modification time.
+Typing matches the names without regard to case."
   (interactive)
   (let* ((items (sp-notes-open--candidates))
          (table (lambda (string pred action)
@@ -333,10 +340,11 @@ the id in the file name, else the modification time."
                         (cycle-sort-function . identity)
                         (annotation-function
                          . (lambda (c) (sp-notes-open--annotate
-                                        (cdr (assoc c items))))))
+                                        (cdr (sp-notes-open--lookup c items))))))
                     (complete-with-action action (mapcar #'car items) string pred))))
-         (choice (completing-read "Open note: " table nil t)))
-    (find-file (plist-get (cdr (assoc choice items)) :file))))
+         (choice (let ((completion-ignore-case t))
+                   (completing-read "Open note: " table nil t))))
+    (find-file (plist-get (cdr (sp-notes-open--lookup choice items)) :file))))
 
 ;;;; Delete a note to the trash
 
