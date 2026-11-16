@@ -68,7 +68,10 @@ $SHELL is read after `exec-path-from-shell' ran, so a GUI Emacs gets fish."
           eat-shell login-shell))
   (when sp-posix-shell
     (setq shell-file-name sp-posix-shell
-          shell-command-switch "-c")))
+          shell-command-switch "-c")
+    ;; Child Emacs processes (Dirvish runs `emacs -Q --batch' for its git
+    ;; column) start with `shell-file-name' taken from $SHELL, so set it too.
+    (setenv "SHELL" sp-posix-shell)))
 
 ;; Configuring the load-path (all of this is now done recursively from the
 ;; variables I have set from the user in ealy-init.el)

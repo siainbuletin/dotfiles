@@ -112,6 +112,9 @@ What the block does:
 - =shell-command-switch= stays =-c=, which bash and sh both accept.
 - =sp-interactive-shell= names the shell for =M-x shell= and =eat=; nil means =$SHELL= (fish). It is read after =exec-path-from-shell= ran.
 - =explicit-shell-file-name= and =eat-shell= get that shell, so terminals stay on fish.
+- =$SHELL= in Emacs's environment is set to the POSIX shell too:
+  - Child Emacs processes, such as the =emacs -Q --batch= that Dirvish uses for its git column, start with =shell-file-name= taken from =$SHELL=, so the =setq= alone does not reach them.
+  - This runs after the terminal shell was read from =$SHELL=, so terminals still start fish.
 
 What is not affected:
 
@@ -152,7 +155,10 @@ $SHELL is read after `exec-path-from-shell' ran, so a GUI Emacs gets fish."
           eat-shell login-shell))
   (when sp-posix-shell
     (setq shell-file-name sp-posix-shell
-          shell-command-switch "-c")))
+          shell-command-switch "-c")
+    ;; Child Emacs processes (Dirvish runs `emacs -Q --batch' for its git
+    ;; column) start with `shell-file-name' taken from $SHELL, so set it too.
+    (setenv "SHELL" sp-posix-shell)))
 #+end_src
 
 * Legacy notes
