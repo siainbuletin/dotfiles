@@ -16,13 +16,24 @@
 (require 'sp-collection-query-core)
 
 (defcustom sp-collec-query-views-file
-  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  (expand-file-name "saved-query-views.eld" sp-user-dir)
   "File where the views you save are written.
-It is inside the configuration (`user-emacs-directory'), so with Stow it
-is a link to the file in the dotfiles repository: a saved view shows up in
-`git status' there, ready to commit."
+It is in `sp-user-dir' (libraries/lambda-user/), which Git tracks and Stow
+links, so a saved view shows up in `git status' in the dotfiles repository,
+ready to commit.  It is not named like this module: `sp-user-dir' is on
+`load-path', so a file called sp-collection-query-views.el there would be
+loaded instead of the module."
   :type 'file
   :group 'sp-collec-query)
+
+(defconst sp-collec-query-views--user-file
+  (expand-file-name "sp-collection-query-views.el" sp-user-dir)
+  "Where the views were saved in `sp-user-dir' under the module's own name.
+That name shadowed the module on `load-path'.")
+
+(defconst sp-collec-query-views--root-file
+  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  "Where the views were saved before they moved into `sp-user-dir'.")
 
 (defconst sp-collec-query-views--tables-file
   (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
@@ -103,6 +114,8 @@ from before the rename), so views saved there carry over.  The next save
 writes `sp-collec-query-views-file'."
   (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--user-file
+                    sp-collec-query-views--root-file
                     sp-collec-query-views--tables-file
                     sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file

@@ -616,7 +616,7 @@ background: MIX 1 is the source colour, 0 the background."
 An alist of (THEME . COLORS) where COLORS is an alist of (ROLE . COLOR),
 for example:
 
-\\='((modus-vivendi (art . \"#2a2e3a\") (accent-1 . \"#c678dd\")))
+  \\='((modus-vivendi (art . \"#2a2e3a\") (accent-1 . \"#c678dd\")))
 
 A role that is not listed for the current theme is derived from the
 theme, see `sp-dashboard-palette-roles'."

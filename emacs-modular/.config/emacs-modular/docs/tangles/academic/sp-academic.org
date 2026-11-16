@@ -19,12 +19,12 @@ The files have no newline after their last line (except where noted). Org always
 | [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
 | [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-vulpea |
-| [[file:../funct/sp-org-lint.org::*sp-litnotes-refs.el][sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | Litnote lint: dry-run report and conversion of =#+reference:= to =ROAM_REFS= (doc in sp-org-lint.org) |
-| [[file:../funct/sp-org-lint.org::*sp-litnotes-titles.el][sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | Litnote lint: dry-run report, short reference titles and citekey file names for litnotes (doc in sp-org-lint.org) |
-| [[file:../funct/sp-org-lint.org::*sp-author-notes.el][sp-author-notes.el]] | =libraries/modules/funct/sp-author-notes.el= | Author lint: author notes, =Works= tables and link checks from =pub-author= (doc in sp-org-lint.org) |
-| [[file:../funct/sp-org-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]] | =libraries/modules/funct/sp-author-notes-bibtex.el= | Author lint: BibTeX works of an author with no litnote yet (doc in sp-org-lint.org) |
+| [[file:../funct/sp-batch-lint.org::*sp-litnotes-refs.el][sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | Litnote lint: dry-run report and conversion of =#+reference:= to =ROAM_REFS= (doc in sp-batch-lint.org) |
+| [[file:../funct/sp-batch-lint.org::*sp-litnotes-titles.el][sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | Litnote lint: dry-run report, short reference titles and citekey file names for litnotes (doc in sp-batch-lint.org) |
+| [[file:../funct/sp-batch-lint.org::*sp-author-notes.el][sp-author-notes.el]] | =libraries/modules/funct/sp-author-notes.el= | Author lint: author notes, =Works= tables and link checks from =pub-author= (doc in sp-batch-lint.org) |
+| [[file:../funct/sp-batch-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]] | =libraries/modules/funct/sp-author-notes-bibtex.el= | Author lint: BibTeX works of an author with no litnote yet (doc in sp-batch-lint.org) |
 
-The last four rows are the author and litnote lint commands (=sp-litnotes-refs-dryrun=, =sp-litnotes-refs-convert=, =sp-litnotes-titles-dryrun=, =sp-litnotes-titles-convert=, =sp-author-notes=, =sp-author-notes-bibtex=). Their literate source is now in [[file:../funct/sp-org-lint.org][sp-org-lint.org]], one section each; the =.el= files and the =sp-litnotes= requires are unchanged.
+The last four rows are the author and litnote lint commands (=sp-litnotes-refs-dryrun=, =sp-litnotes-refs-convert=, =sp-litnotes-titles-dryrun=, =sp-litnotes-titles-convert=, =sp-author-notes=, =sp-author-notes-bibtex=). Their literate source is now in [[file:../funct/sp-batch-lint.org][sp-batch-lint.org]], one section each; the =.el= files and the =sp-litnotes= requires are unchanged.
 
 The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
 

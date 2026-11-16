@@ -45,7 +45,7 @@
   :ensure nil
   :after eshell
   :custom
-  (eshell-directory-name (concat lem-etc-dir "eshell/"))
+  (eshell-directory-name (concat sp-etc-dir "eshell/"))
   ;; auto truncate after 20k lines
   (eshell-buffer-maximum-lines 20000)
   (eshell-scroll-to-bottom-on-input 'all)
@@ -56,7 +56,7 @@
   :after eshell
   :custom
   (eshell-list-files-after-cd nil)
-  (eshell-last-dir-ring-file-name (concat lem-etc-dir "eshell/lastdir")))
+  (eshell-last-dir-ring-file-name (concat sp-etc-dir "eshell/lastdir")))
 
 (use-package em-ls
   :ensure nil
@@ -95,7 +95,7 @@
   :ensure nil
   :after eshell
   :custom
-  (eshell-history-file-name (concat lem-etc-dir "eshell/history"))
+  (eshell-history-file-name (concat sp-etc-dir "eshell/history"))
   (eshell-history-size (* 10 1024))
   (eshell-hist-ignoredups t))
 
@@ -347,7 +347,7 @@ ALIASES is a flat list of alias -> command pairs. e.g.
   :ensure nil
   :after eshell
   :custom
-  (eshell-aliases-file (concat lem-etc-dir "eshell/alias"))
+  (eshell-aliases-file (concat sp-etc-dir "eshell/alias"))
   :config
   ;; See https://github.com/doomemacs/doomemacs/blob/master/modules/term/eshell/
   (setq lem-eshell--default-aliases eshell-command-aliases-list

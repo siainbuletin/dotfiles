@@ -36,14 +36,14 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Elfeed
 
-Configures =elfeed= with its database in an =elfeed= folder in =user-emacs-directory=, shows entries with =display-buffer= so they open alongside the search list, and binds =C-c w e= to open it. There is no =:ensure= here, so it relies on the package being installed some other way.
+Configures =elfeed= with its database in =elfeed/= below =sp-var-dir= (=var/elfeed/=), shows entries with =display-buffer= so they open alongside the search list, and binds =C-c w e= to open it. There is no =:ensure= here, so it relies on the package being installed some other way.
 
 #+begin_src emacs-lisp -i
 (use-package elfeed
   :ensure t
   :custom
   (elfeed-db-directory
-   (expand-file-name "elfeed" user-emacs-directory))
+   (expand-file-name "elfeed/" sp-var-dir))
   (elfeed-show-entry-switch 'display-buffer)
   :bind
   ("C-c w e" . elfeed))

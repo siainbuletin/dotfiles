@@ -14,7 +14,7 @@
   :ensure t
   :custom
   (elfeed-db-directory
-   (expand-file-name "elfeed" user-emacs-directory))
+   (expand-file-name "elfeed/" sp-var-dir))
   (elfeed-show-entry-switch 'display-buffer)
   :bind
   ("C-c w e" . elfeed))
