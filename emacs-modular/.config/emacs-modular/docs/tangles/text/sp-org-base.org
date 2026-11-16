@@ -172,6 +172,9 @@ Keybindings:
 - =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
 - =s-v= pastes with =org-yank=.
 - =C-x t i= and =C-x t h= toggle items and headings, =C-x t d= demotes, =C-c s i= sorts a list.
+- =C-x t I= (Shift-i) runs =sp-org-lint-resources= (from =sp-org-lint=, loaded in the Functions block of =init.el=): tidy the region or list at point and sort it alphabetically.
+  - It sits next to =C-x t i= (=org-toggle-item=) because the lint turns stray lines into items with that command.
+  - =C-x t I= is free in Emacs: the =tab-bar= prefix has no uppercase =I=.
 - =C-c f n= and =C-c f q= create and normalize footnotes.
 - =C-c l d= toggles raw link display, =C-c l c= inserts a link to a configuration doc (=sp-org-insert-config-doc-link=, autoloaded from =sp-org-id-link= like the split command), =C-c s a= saves all Org buffers.
 
@@ -237,6 +240,7 @@ In =:config=:
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
+   ("C-x t I" . sp-org-lint-resources) ;; tidy a list of links; next to `org-toggle-item'
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)
@@ -866,6 +870,51 @@ Details:
               (save-excursion (insert "#+end_" choice))))))))))
 #+end_src
 
+** Quote block from the kill ring
+
+=sp-org-insert-quote-from-kill= inserts an Org quote block already filled in. It is bound to =C-; "= (see [[file:../base/sp-keys.org][sp-keys]]), so it replaces =C-c C-,= then =q= followed by a paste.
+
+What goes inside the block:
+
+- With an active region: the region. It is cut from the buffer and put inside the block; the kill ring is not touched.
+- Otherwise: the latest kill ring item, read with =(current-kill 0 t)=.
+  - The ring is not rotated, so a later =yank-pop= works as before.
+  - Emacs may first pull a newer system clipboard item into the ring; that is the usual =yank= behaviour.
+- With a prefix argument and no region: nothing, an empty block.
+- With an empty kill ring: nothing, an empty block (no error).
+
+Shape of the result:
+
+- The block starts on its own line: when point is in the middle of a line, a newline is inserted first.
+- Trailing newlines of the text are dropped, so the block never gets blank lines before =#+end_quote=.
+- Lines that would be read as a heading or a keyword (starting with =*= or =#+=) are escaped with a comma, as Org does in other blocks.
+- Point ends on the line after =#+end_quote=, so you can keep typing.
+- In an empty block, point ends on the empty line inside it, ready to type the quote.
+- The command works in any buffer; it does not check for Org mode.
+
+#+begin_src emacs-lisp -i
+;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-insert-quote-from-kill (&optional arg)
+  "Insert an Org quote block holding the latest kill ring item.
+With an active region, put the region (cut from the buffer) in the block instead.
+With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+The kill ring is neither changed nor rotated by this command."
+  (interactive "P")
+  (let* ((region (and (use-region-p)
+                      (prog1 (buffer-substring-no-properties (region-beginning) (region-end))
+                        (delete-region (region-beginning) (region-end)))))
+         (text (cond (region region)
+                     (arg nil)
+                     (kill-ring (substring-no-properties (current-kill 0 t)))))
+         (text (and text (string-trim-right text "\n+")))
+         (text (and text (not (string-empty-p text)) (org-escape-code-in-string text))))
+    (unless (bolp) (insert "\n"))
+    (insert "#+begin_quote\n")
+    (if text
+        (insert text "\n#+end_quote\n")
+      (save-excursion (insert "\n#+end_quote\n")))))
+#+end_src
+
 * Following links with RET
 
 ** Point strictly inside a link
@@ -1123,3 +1172,7 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
   - ✨ =sp-org-dblock-insert-template= is the one command for inserting dynamic blocks: its candidates are grouped by =:category= (=sp-org-dblock-category-order=), modules add templates through =sp-org-dblock-template-functions=, and =sp-org-dblock-disabled-names= (default =vulpea-collection=) hides blocks from Org's own insert menu.
+- [[https://github.com/siainbuletin/dotfiles/pull/543][#543]]
+  - ✨ Added =C-; "=, which inserts an Org quote block holding the latest kill ring item (=sp-org-insert-quote-from-kill=).
+    - an active region is wrapped instead, =C-u= gives an empty block, and the kill ring is not rotated.
+  - Details: [[*Quote block from the kill ring][Quote block from the kill ring]].

@@ -55,12 +55,11 @@ kills it with SIGKILL (\"Killed: 9\").  A fresh file avoids that."
   (org-semantic-vault-root (directory-file-name sp-notes-dir))
   ;; Under var/, which is git-ignored, so Stow and git never see the binary.
   (org-semantic-install-directory
-   (expand-file-name "var/org-semantic/" user-emacs-directory))
+   (expand-file-name "org-semantic/" sp-var-dir))
 
-  :bind (("C-c k s" . org-semantic-find)
-         ("C-c k S" . org-semantic-find-in-directory)
-         ("C-c k ." . org-semantic-find-at-point)
-         ("C-c k R" . org-semantic-reindex))
+  ;; Keys: C-; k s, S, . and R (sp-keys); the commands load the package.
+  :commands (org-semantic-find org-semantic-find-in-directory
+             org-semantic-find-at-point org-semantic-reindex)
 
   ;; Follow mode, on for every results buffer.
   :hook

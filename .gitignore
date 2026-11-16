@@ -2,3 +2,9 @@
 *~
 \#*\#
 .#*
+
+# fisher (fish plugin manager): files that plugins install into the fish config
+# directory. Stow links the repo into ~ with --no-folding, so these normally land in
+# ~/.config/fish, not here; this only matters if the fish package is ever stowed with folding.
+/fish/.config/fish/completions/
+/fish/.config/fish/functions/fisher.fish

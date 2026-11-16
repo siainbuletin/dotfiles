@@ -1,0 +1,93 @@
+* PR #432: ✨ Fit the citar columns to a half frame and make emoji cells exact
+:PROPERTIES:
+:PR_NUMBER: 432
+:URL: https://github.com/siainbuletin/dotfiles/pull/432
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/432][https://github.com/siainbuletin/dotfiles/pull/432]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 23:38
+- Merged :: 2026-11-12 23:39
+- Branch :: =claude/citar-half-frame-layout= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/dba2c7b384d7a4acc19daa8d429208277a2692fe][dba2c7b384]]
+- Labels :: bugfix, enhancement, needs-further-testing
+
+** Description
+/Requested by *Sia*/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: builds on #429 (revert of the citar column fitting, already merged into main); independent of the open DEVONthink stack.
+- Depends on: #429 (merged). It rewrites the =citar-templates= main/suffix entries that #429 made fixed-width.
+- If merged out of order with #415, #418-#421, #426: no conflict expected; they touch other parts of =sp-academic.org= (the module table near line 164).
+- After merging: nothing to retarget.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+***** Fit in a half frame (macOS, AeroSpace)
+:PROPERTIES:
+:CUSTOM_ID: fit-in-a-half-frame-macos-aerospace
+:END:
+- The widths are worked out from the display, not fixed: =sp-citations--half-frame-columns= = (display width - 24 AeroSpace gaps) / 2, minus the frame's internal border (30 on each side), times =sp-posframe-width-fraction= (0.75), divided by =frame-char-width= of the =default= face (150, Aporetic Sans Mono).
+- Order is kept: emoji, authors, year, title, citekey, keywords.
+- 27 columns are fixed (margin, Vertico mark, indicators, type emoji, year, separators). The rest: authors take a fifth (10 to 30), the citekey takes up to 45 but never leaves the title under 20 (nor itself under 16), the title takes what is left, tags only come back at 110 columns or more.
+- *Trade-off:* the citekey is only whole (45) from about 110 columns in all. With a font this size that is a display of roughly 1900 points or more for a half frame. Below that the key is cut first: 80 columns give a key of 22, 90 give 30, 104 give 42. At the base size on a laptop (about 68 to 80 columns) a 45-character key does not fit next to a readable title. Levers: =sp-posframe-width-fraction= (0.75 to 0.9 gives +20%), a smaller font, or =sp-citations-layout-columns= to set the columns by hand.
+- =M-x sp-citations-fit-layout= works the widths out again (after a font or frame change) and refreshes.
+
+***** Exact emoji cells
+:PROPERTIES:
+:CUSTOM_ID: exact-emoji-cells
+:END:
+- *Cause found in the code (not seen on screen):* =citar= pads and cuts by =string-width=, but an emoji is drawn by the emoji font, with its own advance width. A variation selector (U+FE0F, in 🌿️ 📁️ 📝️ 🎓️) or a ZWJ sequence (the master's thesis emoji) changes what is drawn but not the character count. Every row with a different emoji ended at a different pixel. The earlier attempts (#406, #409, #427) used =:align-to= columns from the window's left edge, which also depend on the Vertico mark, and never measured the glyphs.
+- *Fix:* each emoji (indicators and entry type) goes in a cell measured with =string-pixel-width= in the font in use: the cell is N spaces (so =string-width= is exact and =citar= never pads or cuts it) with a =display= property of the emoji plus a relative space of the pixels left up to N character cells. An emoji wider than its cell is made smaller (face =:height=). Absent indicators are a pixel-exact blank. No =:align-to=, so the line start does not matter.
+- Cached by emoji, columns, character width and font. On a terminal it falls back to the emoji plus spaces.
+- *Not verified:* I have no graphical Emacs here, so I could not measure the real emoji widths (Apple Color Emoji). The batch tests use a stubbed =string-pixel-width=. The check is by eye (see below).
+
+***** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- =tests/sp-citations-layout-test.el=: 5 tests pass (layout never exceeds the columns, key whole when wide, templates, cell exact in pixels for narrow/exact/too-wide glyphs, terminal fallback). Tangle check passes.
+- Docs updated in =docs/tangles/academic/sp-academic.org= (bullet lists). No CHANGELOG edit.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] Pull this branch, restart Emacs (or =M-x sp-reload-modules=), then =M-x sp-citations-fit-layout= (untested by Claude: GUI)
+- [X] Put Emacs in a half-frame tile (AeroSpace), base font size; =C-c w b o= (=citar-open=): nothing wraps and no row runs past the posframe (untested by Claude)
+- [ ] =M-: (sp-citations--half-frame-columns)= and =M-: (sp-citations--layout (sp-citations--half-frame-columns))=: note the numbers and tell me if the key is cut
+- [X] Scroll through rows with different entry types (article ☕️, book 📚️, thesis 👨🏻‍🎓, misc 🕰️): the author column starts at the same x in every row (untested by Claude)
+- [X] Rows with and without 🌿️ 📁️ 📝️ 🎓️: the type emoji and everything after it stay in line
+- [X] Edge: change the font size (=M-+=), run =M-x sp-citations-fit-layout=, columns still line up
+- [X] If an emoji looks small: it was wider than its 2 or 3 cells and was shrunk; tell me which one
+- [ ] Regression: =citar-insert-citation=, =citar-create-note= still list the candidates; the citekey is faded italic
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after checking =git clean -nd=).
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D claude/citar-half-frame-layout= (the remote copy stays until the PR is merged or closed).
+- Restart Emacs (or =M-x sp-reload-modules=) and run =citar-refresh=.
+- No notes or vault files change, so nothing to restore there.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNi9m8fmtgNiBeMPZDGW][Claude Code]]/
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/5c88276a2ad823375d9871d389f936a06acaa7a7][5c88276a2a]] ✨ Fit the citar columns to a half frame and measure emoji cells in pixels (Claude, 2026-11-12 23:36)
+- [[https://github.com/siainbuletin/dotfiles/commit/e6f9fe71ae58960e70c5213a1928748b49056551][e6f9fe71ae]] 🐛 Load subr-x in the layout test so the pixel-width stub holds (Claude, 2026-11-12 23:37)

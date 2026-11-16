@@ -2,7 +2,8 @@
 
 ;;; Commentary:
 
-;; In `sp-reading-mode', inline footnotes that hold an id link are shown as a
+;; In `sp-reading-mode', see-also notes (`[fn:see-1]', and the older inline
+;; footnotes that hold an id link) are shown as a
 ;; small number in the text and as a sidenote in the right margin.  The footnote
 ;; stays in the file.  `sp-reading-sidenotes-export' exports the note with ox-tufte.
 ;; Literate source: docs/tangles/ui/sp-reading-sidenotes.org.

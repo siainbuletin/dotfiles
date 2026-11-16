@@ -338,6 +338,110 @@ the id in the file name, else the modification time."
          (choice (completing-read "Open note: " table nil t)))
     (find-file (plist-get (cdr (assoc choice items)) :file))))
 
+;;;; Delete a note to the trash
+
+(declare-function vulpea-db-query-links-to "vulpea-db")
+(declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-note-path "vulpea-note")
+(defvar org-id-locations)
+(defvar sp-notes-filing-protected-files)
+
+(defun sp-notes-trash--ids (file)
+  "Return every :ID: value in FILE (the note and its headings)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (ids)
+      (while (re-search-forward "^[ \t]*:ID:[ \t]+\\([^ \t\n]+\\)" nil t)
+        (push (match-string-no-properties 1) ids))
+      (nreverse ids))))
+
+(defun sp-notes-trash--backlinks (file)
+  "Return the other files that link to an ID in FILE, according to vulpea."
+  (when (and (fboundp 'vulpea-db-query-links-to) (fboundp 'vulpea-db-get-by-id))
+    (let (files)
+      (dolist (id (sp-notes-trash--ids file))
+        (dolist (link (ignore-errors (vulpea-db-query-links-to id)))
+          (when-let* ((source (plist-get link :source))
+                      (note (vulpea-db-get-by-id source))
+                      (path (vulpea-note-path note))
+                      ((not (file-equal-p path file))))
+            (push path files))))
+      (sort (delete-dups files) #'string<))))
+
+(defun sp-notes-trash--move (file)
+  "Move FILE to the system trash.  Signal an error rather than delete it for good."
+  (cond
+   ((and (eq system-type 'darwin) (not (fboundp 'system-move-file-to-trash)))
+    ;; Emacs built without the NS port has no Finder trash.
+    (if-let* ((cli (executable-find "trash")))
+        (unless (zerop (call-process cli nil nil nil file))
+          (error "The trash command failed for %s" file))
+      (let ((trash-directory (expand-file-name "~/.Trash"))
+            (delete-by-moving-to-trash t))
+        (move-file-to-trash file))))
+   (t (let ((delete-by-moving-to-trash t))
+        (move-file-to-trash file)))))
+
+(defun sp-notes-trash--prompt (file title backlinks)
+  "The confirmation question for FILE with TITLE and the BACKLINKS to it."
+  (let ((shown (seq-take backlinks 5)))
+    (concat
+     (format "Move note %s (%s) to the trash? "
+             (or title "untitled") (abbreviate-file-name file))
+     (when-let* ((buffer (find-buffer-visiting file))
+                 ((buffer-modified-p buffer)))
+       "Its unsaved changes are lost. ")
+     (when backlinks
+       (format "\n%d note%s still link to it and those links will break:\n%s%s\n"
+               (length backlinks) (if (cdr backlinks) "s" "")
+               (mapconcat (lambda (f) (concat "  " (abbreviate-file-name f)))
+                          shown "\n")
+               (if (> (length backlinks) 5)
+                   (format "\n  ... and %d more" (- (length backlinks) 5))
+                 ""))))))
+
+;;;###autoload
+(defun sp-notes-trash (&optional file)
+  "Move the note FILE to the system trash, kill its buffer and update vulpea.
+FILE defaults to the file of the current buffer; with a prefix argument, pick
+a file instead.  Asks first, showing the title and path, and lists the notes
+that still link to it (a typed `yes' is then needed).  The file goes to the
+trash, never deleted for good: if the trash fails, nothing changes."
+  (interactive
+   (list (when current-prefix-arg
+           (read-file-name "Note to trash: "
+                           (file-name-as-directory (expand-file-name sp-notes-dir))
+                           nil t))))
+  (let ((file (expand-file-name
+               (or file buffer-file-name
+                   (user-error "This buffer visits no file; use C-u to pick one")))))
+    (unless (file-regular-p file) (user-error "No such file: %s" file))
+    (when (member (file-name-nondirectory file) sp-notes-filing-protected-files)
+      (user-error "%s is a protected file; not trashing it" (file-name-nondirectory file)))
+    (when (stringp (file-locked-p file))
+      (user-error "%s is locked by another Emacs" (file-name-nondirectory file)))
+    (let* ((title (plist-get (sp-notes-open--info file) :title))
+           (ids (sp-notes-trash--ids file))
+           (backlinks (sp-notes-trash--backlinks file))
+           (prompt (sp-notes-trash--prompt file title backlinks)))
+      (unless (if backlinks (yes-or-no-p prompt) (y-or-n-p prompt))
+        (user-error "Kept %s" (file-name-nondirectory file)))
+      (sp-notes-trash--move file)
+      (when-let* ((buffer (find-buffer-visiting file)))
+        (with-current-buffer buffer (set-buffer-modified-p nil))
+        (let (kill-buffer-query-functions) (kill-buffer buffer)))
+      (remhash file sp-notes-open--cache)
+      (when (hash-table-p (bound-and-true-p org-id-locations))
+        (dolist (id ids) (remhash id org-id-locations)))
+      (when (fboundp 'vulpea-db--forget-file)
+        (ignore-errors (vulpea-db--forget-file file)))
+      (message "Moved %s to the trash%s" (file-name-nondirectory file)
+               (if backlinks
+                   (format " (%d note%s still link to it)" (length backlinks)
+                           (if (cdr backlinks) "s" ""))
+                 ""))
+      file)))
+
 ;;;; File notes by tag
 
 (defgroup sp-notes-filing nil
@@ -631,25 +735,35 @@ Return the tags that are still unregistered."
   "Dry-run report of `sp-notes-filing-dryrun'.
 The keys are those of `sp-batch-report-mode'; \\[sp-batch-report-apply] applies the plan.")
 
-(defun sp-notes-filing--render (plan)
-  "Insert PLAN into the current buffer."
+(defun sp-notes-filing--report-text (plan excluded)
+  "The report of PLAN, for `sp-batch-report-open'; EXCLUDED are the dropped files."
   (let ((root (file-name-as-directory (expand-file-name sp-notes-filing-root)))
-        (counts (make-hash-table :test #'equal)))
-    (dolist (e plan) (cl-incf (gethash (plist-get e :folder) counts 0)))
-    (insert (format "#+title: Notes filing under %s: %d planned moves (dry run, nothing moved)\n"
-                    sp-notes-filing-root (length plan))
-            "Apply with C-c C-c (makes a backup first); g refreshes; q quits.\n\n"
-            "* Per folder\n")
-    (maphash (lambda (k v) (insert (format "- %s: %d\n" k v))) counts)
-    (insert "\n* Moves\n")
+        (counts nil))
     (dolist (e plan)
-      (insert (format "- %s -> %s%s%s%s\n"
-                      (sp-batch-report-file-link (plist-get e :from)
-                                                 (file-relative-name (plist-get e :from) root))
-                      (file-relative-name (plist-get e :to) root)
-                      (if (plist-get e :fallback) "  [no matching tag]" "")
-                      (if (plist-get e :strip-identifier) "  [drops #+identifier:]" "")
-                      (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))))))
+      (let ((cell (assoc (plist-get e :folder) counts)))
+        (if cell (cl-incf (cdr cell)) (push (cons (plist-get e :folder) 1) counts))))
+    (sp-batch-report-text
+     (format "Notes filing under %s: %d planned moves (dry run, nothing moved)"
+             sp-notes-filing-root (length plan))
+     (list
+      (sp-batch-report-section
+       "Per folder"
+       (mapcar (lambda (c) (sp-batch-report-item (format "%s: %d" (car c) (cdr c)) :key nil))
+               (nreverse counts)))
+      (sp-batch-report-section
+       "Moves"
+       (mapcar (lambda (e)
+                 (sp-batch-report-item
+                  (format "-> %s%s%s%s"
+                          (file-relative-name (plist-get e :to) root)
+                          (if (plist-get e :fallback) "  [no matching tag]" "")
+                          (if (plist-get e :strip-identifier) "  [drops #+identifier:]" "")
+                          (if (plist-get e :skip) (format "  [SKIPPED: %s]" (plist-get e :skip)) ""))
+                  :file (plist-get e :from)
+                  :label (file-relative-name (plist-get e :from) root)))
+               plan)))
+     :intro "Apply with C-c C-c (makes a backup first); g refreshes; q quits."
+     :excluded excluded)))
 
 ;;;###autoload
 (defun sp-notes-filing-dryrun (&optional excluded)
@@ -667,9 +781,7 @@ EXCLUDED lists the files (their full names) to leave out of the plan."
                 plan (lambda (e) (plist-get e :from)) excluded)))
     (sp-batch-report-open
      "*Notes filing*"
-     (concat (sp-batch-report-key-entries
-              (with-temp-buffer (sp-notes-filing--render shown) (buffer-string)))
-             (and excluded (concat "\n" (sp-batch-report-dropped-section excluded))))
+     (sp-notes-filing--report-text shown excluded)
      :mode #'sp-notes-filing-report-mode
      :refresh (lambda () (sp-notes-filing-dryrun sp-notes-filing--excluded))
      :redraw (lambda (excl)
@@ -681,10 +793,16 @@ EXCLUDED lists the files (their full names) to leave out of the plan."
       (setq sp-notes-filing--current-plan shown))))
 
 
+(defun sp-notes-filing--plan-to-apply ()
+  "The plan of this report without the files dropped from it.
+The dashboard drops in place, so the plan is cut down when it is applied."
+  (sp-batch-report-without-excluded
+   sp-notes-filing--current-plan (lambda (e) (plist-get e :from)) sp-batch-report-excluded))
+
 (defun sp-notes-filing-convert ()
   "Apply the plan shown in this report, after confirmation."
   (interactive)
-  (let ((plan sp-notes-filing--current-plan))
+  (let ((plan (sp-notes-filing--plan-to-apply)))
     (unless plan (user-error "Nothing to apply"))
     (when (yes-or-no-p (format "Move %d notes (a backup is taken first)? " (length plan)))
       (let ((res (sp-notes-filing-apply plan)))

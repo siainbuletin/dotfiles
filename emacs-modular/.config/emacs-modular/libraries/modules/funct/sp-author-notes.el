@@ -1393,9 +1393,11 @@ a dropped one, A writes what is left, g shows the preview again.")
                            (format "author %s" (substring key 5))
                          (sp-author-notes--short key)))
          nil nil key)))
-    (insert (if apply
-                "\nRET visit   g preview again\n"
-              "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
+    (sp-echo-help-set
+     (if apply
+         '(("RET" "Visit") ("g" "Preview again"))
+       '(("RET" "Visit") ("d" "Drop candidate") ("u" "Restore")
+         ("A" "Write what is left" t) ("g" "Refresh"))))))
 
 (defun sp-author-notes--show-old (run)
   "Show the report of RUN in the old `sp-author-notes-report-mode'."
@@ -1874,7 +1876,7 @@ and a buffer with unsaved changes is saved before."
   "Make author notes from the `pub-author' meta key of the litnotes.
 Read the vault in slices (Emacs stays usable) and show the plan.  Then write
 it, or stay in the report to drop candidates with `d' and write what is
-left with `A'.  See the doc docs/tangles/funct/sp-org-lint.org."
+left with `A'.  See the doc docs/tangles/funct/sp-batch-lint.org."
   (interactive)
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--ask))

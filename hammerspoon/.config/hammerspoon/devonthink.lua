@@ -1,0 +1,434 @@
+-- devonthink.lua: DEVONthink PDF highlight keys.
+--
+-- Keys on the Caps Lock layer (hold Caps Lock, the F18 layer of
+-- aerospace-keys.lua, then press):
+--   x                 toggle between text selection and highlighting
+--   c                 next colour (cycling), then highlight again
+--   Option+1 ... 7    pick colour N (list below), then highlight again
+--   Option+Shift+1 .. set colour N only, no highlight mode (to recolour the
+--                     highlights selected in the Annotations inspector; the
+--                     result depends on DEVONthink, see the PR)
+--   r                 open the DEVONthink record of the selected citation
+--                     (cite-match.lua, Emacs sp-cite-open: reference list of
+--                     the document, BibTeX, litdb)
+--
+-- Keys active only while DEVONthink is in front:
+--   Cmd+Z          delete the latest highlight, if it is the next undo step;
+--                  otherwise the normal Cmd+Z goes to DEVONthink
+--   Cmd+Shift+Z    bring back the highlight just deleted, if it is the next
+--                  redo step; otherwise the normal Cmd+Shift+Z goes to DEVONthink
+--
+-- Why:
+--   * The layer never reaches Emacs or any other app, so Option here does not
+--     become Emacs Meta. The keys do nothing outside DEVONthink.
+--   * No automatic highlight on activation: it only runs when you press the key.
+--   * Caps+1..9 are AeroSpace workspaces (aerospace-keys.lua), so the colour
+--     numbers use Caps+Option+number, which the layer does not use otherwise.
+--
+-- Toggle (Caps+x):
+--   * A PDF is shown when Tools > Annotate > Highlight Text exists and is
+--     enabled. Otherwise an alert says so and nothing else happens.
+--   * Text selection is the menu item "Text Selection" in the Mode menu. It is
+--     found by its exact title in the whole menu bar, so it does not matter
+--     which menu it is in. The cached colour paths are not involved.
+--   * Highlighting is on when Highlight Text has a check mark and Text Selection
+--     does not. Then the key chooses Text Selection. Otherwise it chooses
+--     Highlight Text.
+--   * If the menu shows no check marks, the last state this file set is used
+--     instead; it is only a record of the last key press.
+--   * If Text Selection is not found, an alert says so and nothing changes.
+--     Choosing Highlight Text again does not turn highlighting off.
+--
+-- Colours:
+--   * The colour menu items are renamed, e.g. "Red - Important point".
+--   * So they are found by the start of the name (the patterns below),
+--     searched in the Format menu, not by a fixed full title.
+--   * Speed: reading the whole menu bar (app:getMenuItems) is the slow part,
+--     so it is done once for all colours and the menu paths are cached. A key
+--     press then only selects the cached item. If the item is not found (menu
+--     renamed), the cache is dropped and the menu is read again once.
+--   * The cache is filled shortly after DEVONthink comes to the front, so the
+--     first press is fast too.
+--
+-- Undo and redo:
+--   * The menu items are found by title pattern, because their titles change
+--     with the action ("Undo Add Highlight", "Redo Add Highlight").
+--   * Only enabled items count. The Edit menu always shows the next undo and
+--     redo step, so a highlight that is gone or older than another action is
+--     never touched. These cannot be cached, since the titles change.
+--   * Check titles from the Hammerspoon console: DEVONthink.dumpMenu("Edit").
+--
+-- Timing: DEVONthink.benchmark() prints how long reading the menu bar takes.
+
+local M = {}
+
+local APP = "DEVONthink"
+-- DEVONthink 3 and DEVONthink 4
+local BUNDLE_IDS = {
+  ["com.devon-technologies.think3"] = true,
+  ["com.devon-technologies.think"] = true,
+}
+
+-- Lua patterns for the start of each colour item title. The position is the
+-- number key (1 = Red, ...) and the cycling order.
+local colors = {
+  { name = "Red",    pattern = "^Red" },
+  { name = "Green",  pattern = "^Green" },
+  { name = "Blue",   pattern = "^Blue" },
+  { name = "Yellow", pattern = "^Yellow" },
+  { name = "Orange", pattern = "^Orange" },
+  { name = "Purple", pattern = "^Purple" },
+  { name = "Grey",   pattern = "^Gr[ae]y" },
+}
+local colorIndex = 0
+
+-- Menu path of each colour item, by colour number; filled by scanColorPaths.
+local colorPaths = {}
+
+-- Edit > Undo titles that mean "the last step was a highlight".
+local undoHighlightPatterns = {
+  "^Undo.*[Hh]ighlight",
+  "^Undo.*[Aa]nnotat",
+  "^Undo.*[Mm]arkup",
+}
+
+-- Edit > Redo titles that mean "the step to redo is a highlight".
+local redoHighlightPatterns = {
+  "^Redo.*[Hh]ighlight",
+  "^Redo.*[Aa]nnotat",
+  "^Redo.*[Mm]arkup",
+}
+
+-- The annotation tools submenu and the highlight tool in it; the text selection
+-- item is searched in the whole menu bar (it is in the Mode menu).
+local annotateMenu = { "Tools", "Annotate" }
+local highlightToolPattern = "^Highlight"
+local textSelectionPattern = "^Text Selection$"
+-- Whether highlighting is on, as far as the last key press knows; used only
+-- when the menu shows no check marks.
+local highlightOn = false
+
+local function isDevonthink(app)
+  if not app then return false end
+  return BUNDLE_IDS[app:bundleID() or ""] or app:name() == APP
+end
+
+local function frontIsDevonthink()
+  return isDevonthink(hs.application.frontmostApplication())
+end
+
+local function selectMenu(path)
+  local app = hs.application.frontmostApplication()
+  if not app or not app:selectMenuItem(path) then
+    hs.alert.show("Menu item not found: " .. table.concat(path, " > "))
+    return false
+  end
+  return true
+end
+
+-- Depth-first search of ITEMS (from getMenuItems) for an item whose title
+-- matches PATTERN. Returns the list of titles from the first one in PREFIX,
+-- and the item itself. With ONLY_ENABLED, disabled items are skipped.
+local function findItem(items, pattern, prefix, onlyEnabled)
+  for _, item in ipairs(items or {}) do
+    local title = item.AXTitle
+    if title and title ~= "" then
+      local path = { table.unpack(prefix) }
+      path[#path + 1] = title
+      if title:match(pattern) and not (onlyEnabled and item.AXEnabled == false) then
+        return path, item
+      end
+      local found, foundItem = findItem(item.AXChildren and item.AXChildren[1], pattern, path, onlyEnabled)
+      if found then return found, foundItem end
+    end
+  end
+  return nil
+end
+
+-- Menu path of the item matching PATTERN in the top-level menu MENU.
+local function findInMenu(app, menu, pattern, onlyEnabled)
+  for _, top in ipairs(app:getMenuItems() or {}) do
+    if top.AXTitle == menu then
+      return findItem(top.AXChildren and top.AXChildren[1], pattern, { menu }, onlyEnabled)
+    end
+  end
+  return nil
+end
+
+-- Menu path and item matching PATTERN in any top-level menu of MENUBAR (the
+-- result of getMenuItems, read once by the caller).
+local function findAnywhere(menubar, pattern, onlyEnabled)
+  for _, top in ipairs(menubar or {}) do
+    if top.AXTitle and top.AXTitle ~= "" then
+      local path, item = findItem(top.AXChildren and top.AXChildren[1], pattern,
+        { top.AXTitle }, onlyEnabled)
+      if path then return path, item end
+    end
+  end
+  return nil
+end
+
+-- First enabled item in MENU matching one of PATTERNS; selects it.
+local function selectFirst(app, menu, patterns)
+  for _, pattern in ipairs(patterns) do
+    local path = findInMenu(app, menu, pattern, true)
+    if path then return app:selectMenuItem(path) end
+  end
+  return false
+end
+
+-- The items (from getMenuItems) of the submenu at PATH, e.g. { "Tools", "Annotate" }.
+local function submenuItems(menubar, path)
+  local items = menubar or {}
+  for _, title in ipairs(path) do
+    local found
+    for _, item in ipairs(items) do
+      if item.AXTitle == title then
+        found = item
+        break
+      end
+    end
+    if not found then return nil end
+    items = found.AXChildren and found.AXChildren[1] or {}
+  end
+  return items
+end
+
+local function isChecked(item)
+  local mark = item.AXMenuItemMarkChar
+  return mark ~= nil and mark ~= ""
+end
+
+-- First enabled item whose title matches PATTERN.
+local function firstMatching(items, pattern)
+  for _, item in ipairs(items) do
+    if item.AXTitle and item.AXTitle:match(pattern) and item.AXEnabled ~= false then
+      return item
+    end
+  end
+  return nil
+end
+
+-- Read the menu bar once and cache the paths of all colour items.
+local function scanColorPaths(app)
+  colorPaths = {}
+  for _, top in ipairs(app:getMenuItems() or {}) do
+    if top.AXTitle == "Format" then
+      local items = top.AXChildren and top.AXChildren[1]
+      for index, color in ipairs(colors) do
+        colorPaths[index] = findItem(items, color.pattern, { "Format" })
+      end
+      return
+    end
+  end
+end
+
+-- Print the titles of a top-level menu (check mark, enabled) to the Hammerspoon console.
+function M.dumpMenu(menu)
+  local app = hs.application.get(APP) or hs.application.frontmostApplication()
+  local function dump(items, depth)
+    for _, item in ipairs(items or {}) do
+      if item.AXTitle and item.AXTitle ~= "" then
+        hs.printf("%s%s%s%s", string.rep("  ", depth), item.AXTitle,
+          isChecked(item) and " (checked)" or "",
+          item.AXEnabled == false and " (disabled)" or "")
+        dump(item.AXChildren and item.AXChildren[1], depth + 1)
+      end
+    end
+  end
+  for _, top in ipairs(app:getMenuItems() or {}) do
+    if top.AXTitle == menu then dump(top.AXChildren and top.AXChildren[1], 0) end
+  end
+end
+
+-- Print how long reading the whole menu bar takes (the cost of one uncached press),
+-- and how long a cached colour selection takes. Run with DEVONthink open.
+function M.benchmark()
+  local app = hs.application.get(APP)
+  if not app then
+    hs.printf("DEVONthink is not running")
+    return
+  end
+  local t0 = hs.timer.absoluteTime()
+  scanColorPaths(app)
+  local scanMs = (hs.timer.absoluteTime() - t0) / 1e6
+  hs.printf("devonthink: reading the menu bar and finding the colours: %.0f ms", scanMs)
+  local path = colorPaths[1]
+  if path then
+    t0 = hs.timer.absoluteTime()
+    app:selectMenuItem(path)
+    hs.printf("devonthink: selecting a cached colour (%s): %.0f ms", colors[1].name,
+      (hs.timer.absoluteTime() - t0) / 1e6)
+  end
+end
+
+-- Start highlighting (used by the colour keys).
+function M.highlight()
+  local ok = selectMenu({ "Tools", "Annotate", "Highlight Text" })
+  if ok then highlightOn = true end
+  return ok
+end
+
+-- Toggle between text selection and highlighting. False (nothing done, no
+-- alert) when no PDF is shown; the caller shows the alert.
+function M.toggleHighlight()
+  local app = hs.application.frontmostApplication()
+  if not app then return false end
+  local menubar = app:getMenuItems() or {}
+  local tool = firstMatching(submenuItems(menubar, annotateMenu) or {}, highlightToolPattern)
+  if not tool then return false end
+  local textPath, textItem = findAnywhere(menubar, textSelectionPattern, true)
+
+  -- Highlighting is on when Highlight Text is checked and Text Selection is
+  -- not; if neither shows a check mark, use the last known state.
+  local on = highlightOn
+  if textItem and isChecked(textItem) then
+    on = false
+  elseif isChecked(tool) then
+    on = true
+  end
+
+  if on then
+    if not textPath then
+      hs.alert.show("No Text Selection item in the menus (see DEVONthink.dumpMenu(\"Mode\"))")
+      return true
+    end
+    if not selectMenu(textPath) then return true end
+    highlightOn = false
+    hs.alert.show("Text Selection", 0.5)
+  else
+    if not selectMenu({ annotateMenu[1], annotateMenu[2], tool.AXTitle }) then
+      return true
+    end
+    highlightOn = true
+    hs.alert.show("Highlight", 0.5)
+  end
+  return true
+end
+
+-- Set colour number INDEX (see `colors`). With START_HIGHLIGHT, then start
+-- highlighting; without it, only the colour changes (for selected highlights).
+function M.setColor(index, startHighlight)
+  local app = hs.application.frontmostApplication()
+  local color = colors[index]
+  if not app or not color then return false end
+  local path = colorPaths[index]
+  if not (path and app:selectMenuItem(path)) then
+    -- Not cached, or the menu changed: read the menu bar once for all colours.
+    scanColorPaths(app)
+    path = colorPaths[index]
+    if not path then
+      hs.alert.show("No colour starting with " .. color.name .. " in the Format menu")
+      return false
+    end
+    if not selectMenu(path) then
+      colorPaths[index] = nil
+      return false
+    end
+  end
+  colorIndex = index
+  hs.alert.show(color.name, 0.5)
+  if startHighlight then M.highlight() end
+  return true
+end
+
+function M.nextColor()
+  M.setColor(colorIndex % #colors + 1, true)
+end
+
+-- Undo the latest highlight. False when the next undo step is not a highlight.
+function M.undoHighlight()
+  local app = hs.application.frontmostApplication()
+  return app ~= nil and selectFirst(app, "Edit", undoHighlightPatterns)
+end
+
+-- Redo the highlight just undone. False when the next redo step is not a highlight.
+function M.redoHighlight()
+  local app = hs.application.frontmostApplication()
+  return app ~= nil and selectFirst(app, "Edit", redoHighlightPatterns)
+end
+
+-- Run FN only when DEVONthink is in front; elsewhere the key does nothing.
+local function inDevonthink(fn)
+  return function()
+    if frontIsDevonthink() then fn() end
+  end
+end
+
+local layer = require("aerospace-keys").layer
+layer:bind({}, "x", inDevonthink(function()
+  if not M.toggleHighlight() then
+    hs.alert.show("No PDF shown: highlight tools are not available")
+  end
+end))
+layer:bind({}, "c", inDevonthink(M.nextColor))
+
+-- Caps+Option+N picks colour N and highlights; Caps+Option+Shift+N only sets it.
+for index = 1, #colors do
+  local key = tostring(index)
+  layer:bind({ "alt" }, key, inDevonthink(function() M.setColor(index, true) end))
+  layer:bind({ "alt", "shift" }, key, inDevonthink(function() M.setColor(index, false) end))
+end
+
+-- Open the record of the selected citation. cite-match.lua is optional (see
+-- init.lua), so a failed load only shows an alert.
+layer:bind({}, "r", inDevonthink(function()
+  local ok, cite = pcall(require, "cite-match")
+  if ok then cite.open() else hs.alert.show("cite-match not loaded") end
+end))
+
+--------------------------------------------------
+-- Cmd+Z and Cmd+Shift+Z, only while DEVONthink is in front
+--------------------------------------------------
+
+-- Run ACTION; when it returns false, send the same key to DEVONthink as usual.
+-- The hotkey is off while the key is sent, so it does not catch its own event.
+local function withPassThrough(mods, key, action)
+  local hotkey
+  hotkey = hs.hotkey.new(mods, key, function()
+    if action() then return end
+    hotkey:disable()
+    hs.eventtap.keyStroke(mods, key, 0)
+    hs.timer.doAfter(0.1, function()
+      if frontIsDevonthink() then hotkey:enable() end
+    end)
+  end)
+  return hotkey
+end
+
+local scoped = {
+  withPassThrough({ "cmd" }, "z", M.undoHighlight),
+  withPassThrough({ "cmd", "shift" }, "z", M.redoHighlight),
+}
+
+local function setScoped(on)
+  for _, hotkey in ipairs(scoped) do
+    if on then hotkey:enable() else hotkey:disable() end
+  end
+end
+
+-- Fill the colour cache a moment after DEVONthink is in front (once; the
+-- menu is not ready the instant the app activates).
+local function warmColorCache()
+  hs.timer.doAfter(1, function()
+    local app = hs.application.frontmostApplication()
+    if isDevonthink(app) and next(colorPaths) == nil then scanColorPaths(app) end
+  end)
+end
+
+M.watcher = hs.application.watcher.new(function(_, event, app)
+  if not isDevonthink(app) then return end
+  if event == hs.application.watcher.activated then
+    setScoped(true)
+    warmColorCache()
+  elseif event == hs.application.watcher.deactivated then
+    setScoped(false)
+  end
+end)
+M.watcher:start()
+
+-- Hammerspoon may be reloaded while DEVONthink is already in front.
+setScoped(frontIsDevonthink())
+if frontIsDevonthink() then warmColorCache() end
+
+return M

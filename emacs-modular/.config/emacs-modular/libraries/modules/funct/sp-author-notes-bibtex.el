@@ -5,7 +5,7 @@
 ;; `sp-author-notes-bibtex' lists, for every :person: note, the entries of
 ;; the registered BibTeX files whose author field names that person and
 ;; that have no literature note yet, and offers to create the note.  See the
-;; doc docs/tangles/funct/sp-org-lint.org.
+;; doc docs/tangles/funct/sp-batch-lint.org.
 
 ;;; Code:
 
@@ -15,6 +15,7 @@
 (require 'bibtex)
 (require 'sp-async-work)
 (require 'sp-author-notes)
+(require 'sp-batch-report)
 
 (defvar sp-bibtex-files)
 (defvar sp-bibliography-dir)
@@ -353,6 +354,11 @@ only the exact ones are added."
 (declare-function sp-batch-report-open "sp-batch-report")
 (declare-function sp-batch-report-text "sp-batch-report")
 (declare-function sp-batch-report-item "sp-batch-report")
+(declare-function sp-batch-report-table-section "sp-batch-report")
+(declare-function sp-batch-report-refresh "sp-batch-report")
+(declare-function sp-batch-report--set-hints "sp-batch-report")
+(defvar sp-batch-report-extra-hints)
+(defvar sp-batch-report-excluded)
 (declare-function sp-batch-report-section "sp-batch-report")
 (declare-function sp-batch-report-file-link "sp-batch-report")
 
@@ -588,64 +594,100 @@ note.  The all-authors report is `sp-author-notes-bibtex'."
 
 (defvar sp-author-notes-bibtex-report-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-author-notes-bibtex-visit-entry)
     (define-key map (kbd "o") #'sp-author-notes-bibtex-visit-person)
     (define-key map (kbd "c") #'sp-author-notes-bibtex-create-at-point)
     (define-key map (kbd "C") #'sp-author-notes-bibtex-create-section)
-    (define-key map (kbd "g") #'sp-author-notes-bibtex)
     map)
-  "Keymap of `sp-author-notes-bibtex-report-mode'.")
+  "Keymap of `sp-author-notes-bibtex-report-mode'.
+The other keys (d, u, g, q ...) are those of `sp-batch-report-mode'.")
 
-(define-derived-mode sp-author-notes-bibtex-report-mode special-mode "Author works"
-  "Report of `sp-author-notes-bibtex'.
-\\{sp-author-notes-bibtex-report-mode-map}")
+(define-derived-mode sp-author-notes-bibtex-report-mode sp-batch-report-mode "Author works"
+  "Report of `sp-author-notes-bibtex', in the shared batch report buffer.
+\\{sp-author-notes-bibtex-report-mode-map}"
+  (setq sp-batch-report-extra-hints
+        '(("o" "Visit author note") ("c" "Create litnote" t) ("C" "Create for all exact")))
+  (sp-batch-report--set-hints))
 
-(defun sp-author-notes-bibtex--render (groups)
-  "Insert the report of GROUPS, as `sp-author-notes-bibtex--compute' returns them."
-  (insert (format "Works in BibTeX files without a literature note: %d author note%s\n"
-                  (length groups) (if (= 1 (length groups)) "" "s")))
-  (insert "RET visit entry   o visit author note   c create litnote   C create for all exact   g refresh\n")
+(defun sp-author-notes-bibtex--key (person entry)
+  "The key of the ENTRY found for PERSON, for dropping it from the report."
+  (format "%s:%s" (or (plist-get person :id) (plist-get person :file)) (plist-get entry :key)))
+
+(defun sp-author-notes-bibtex--sections (groups)
+  "The report sections of GROUPS, as `sp-author-notes-bibtex--compute' returns them.
+Each is an Org table with a row per entry."
   (if (null groups)
-      (insert "\n  none\n")
-    (dolist (group groups)
-      (let ((person (car group)) (start (point)))
-        (insert (format "\n* %s  (%d)\n" (plist-get person :title) (length (cdr group))))
-        (put-text-property start (point) 'sp-person person)
-        (dolist (m (cdr group))
-          (let ((entry (car m)) (line-start (point)))
-            (insert (format "  %-9s %-28s %-4s %s  [%s]\n"
-                            (if (eq (cdr m) 'exact) "exact" "possible")
-                            (plist-get entry :key) (plist-get entry :year)
-                            (truncate-string-to-width (plist-get entry :title) 60 nil nil "…")
-                            (file-name-nondirectory (plist-get entry :file))))
-            (add-text-properties line-start (point)
-                                 (list 'sp-person person 'sp-entry entry 'sp-conf (cdr m)))))))))
+      (list (sp-batch-report-section "Works without a literature note" nil "  none"))
+    (mapcar
+     (lambda (group)
+       (let ((person (car group)))
+         (sp-batch-report-table-section
+          (plist-get person :title)
+          '("Match" "Key" "Year" "Title" "BibTeX file")
+          (mapcar
+           (lambda (m)
+             (let ((entry (car m)))
+               (sp-batch-report-item
+                nil
+                :row (list (if (eq (cdr m) 'exact) "exact" "possible")
+                           (plist-get entry :key) (plist-get entry :year)
+                           (truncate-string-to-width (plist-get entry :title) 60 nil nil "…")
+                           (file-name-nondirectory (plist-get entry :file)))
+                :key (sp-author-notes-bibtex--key person entry)
+                :props (list 'sp-person person 'sp-entry entry 'sp-conf (cdr m)))))
+           (cdr group)))))
+     groups)))
 
-;;;###autoload
-(defun sp-author-notes-bibtex ()
-  "Show the BibTeX works of the author notes that have no literature note yet.
-The BibTeX files and the notes are read in slices, so Emacs stays usable;
-the report opens, or is refreshed, when they are read."
-  (interactive)
+(defun sp-author-notes-bibtex--text (groups excluded)
+  "The Org text of the report of GROUPS, without the keys EXCLUDED."
+  (sp-batch-report-text
+   (format "Works in BibTeX files without a literature note: %d author note%s"
+           (length groups) (if (= 1 (length groups)) "" "s"))
+   (sp-author-notes-bibtex--sections groups)
+   :excluded excluded
+   :key-label #'identity))
+
+(defun sp-author-notes-bibtex--show (groups excluded)
+  "Show the report of GROUPS, without the keys EXCLUDED, in the batch report buffer."
+  (sp-batch-report-open
+   sp-author-notes-bibtex--buffer-name
+   (sp-author-notes-bibtex--text groups excluded)
+   :mode #'sp-author-notes-bibtex-report-mode
+   :excluded excluded
+   :redraw (lambda (excl) (sp-author-notes-bibtex--show groups excl))
+   :refresh (lambda (excl) (sp-author-notes-bibtex--run excl))))
+
+(defun sp-author-notes-bibtex--run (&optional excluded)
+  "Read the BibTeX files and notes in slices, then show the report.
+EXCLUDED are the keys dropped from the report.  Return the groups found, which
+is only non-nil when the work is synchronous."
   (let (found)
     (message "Reading BibTeX files and notes in the background...")
     (sp-author-notes-bibtex--compute-job
      (lambda (groups)
        (setq found groups)
-       (with-current-buffer (get-buffer-create sp-author-notes-bibtex--buffer-name)
-         (let ((line (line-number-at-pos)))
-           (sp-author-notes-bibtex-report-mode)
-           (let ((inhibit-read-only t))
-             (erase-buffer)
-             (sp-author-notes-bibtex--render groups)
-             (goto-char (point-min))
-             (forward-line (1- line))))
-         (pop-to-buffer (current-buffer)))))
+       (sp-author-notes-bibtex--show groups excluded)))
     found))
 
+;;;###autoload
+(defun sp-author-notes-bibtex ()
+  "Show the BibTeX works of the author notes that have no literature note yet.
+The BibTeX files and the notes are read in slices, so Emacs stays usable;
+the report opens, or is refreshed, when they are read.  It is an Org buffer
+like the other batch reports, with their keys and the hints in the echo area."
+  (interactive)
+  (sp-author-notes-bibtex--run))
+
+(defun sp-author-notes-bibtex--property (property)
+  "The value of PROPERTY on this line, or on the first entry under this heading."
+  (or (get-text-property (line-beginning-position) property)
+      (and (org-at-heading-p)
+           (save-excursion
+             (forward-line 1)
+             (get-text-property (point) property)))))
+
 (defun sp-author-notes-bibtex--at-point ()
-  (or (get-text-property (line-beginning-position) 'sp-entry)
+  (or (sp-author-notes-bibtex--property 'sp-entry)
       (user-error "No entry on this line")))
 
 (defun sp-author-notes-bibtex-visit-entry ()
@@ -658,7 +700,7 @@ the report opens, or is refreshed, when they are read."
 (defun sp-author-notes-bibtex-visit-person ()
   "Visit the author note of this line or section."
   (interactive)
-  (let ((person (or (get-text-property (line-beginning-position) 'sp-person)
+  (let ((person (or (sp-author-notes-bibtex--property 'sp-person)
                     (user-error "No author note on this line"))))
     (find-file-other-window (plist-get person :file))))
 
@@ -666,16 +708,16 @@ the report opens, or is refreshed, when they are read."
   "Offer to create the litnote for the entry on this line."
   (interactive)
   (let ((entry (sp-author-notes-bibtex--at-point))
-        (person (get-text-property (line-beginning-position) 'sp-person)))
+        (person (sp-author-notes-bibtex--property 'sp-person)))
     (when (y-or-n-p (format "Create a litnote for %s under %s? "
                             (plist-get entry :key) (plist-get person :title)))
       (sp-author-notes-bibtex--create person entry)
-      (sp-author-notes-bibtex))))
+      (sp-batch-report-refresh))))
 
 (defun sp-author-notes-bibtex-create-section ()
   "Offer to create litnotes for all exact entries of the section at point."
   (interactive)
-  (let* ((person (or (get-text-property (line-beginning-position) 'sp-person)
+  (let* ((person (or (sp-author-notes-bibtex--property 'sp-person)
                      (user-error "No author note on this line")))
          (entries nil))
     (save-excursion
@@ -692,7 +734,7 @@ the report opens, or is refreshed, when they are read."
      ((y-or-n-p (format "Create %d litnote%s under %s? "
                         (length entries) (if (cdr entries) "s" "") (plist-get person :title)))
       (dolist (e entries) (sp-author-notes-bibtex--create person e))
-      (sp-author-notes-bibtex)))))
+      (sp-batch-report-refresh)))))
 
 (provide 'sp-author-notes-bibtex)
 ;;; sp-author-notes-bibtex.el ends here

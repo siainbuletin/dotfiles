@@ -82,6 +82,7 @@ periods. This ain't a typewriter."
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
+   ("C-x t I" . sp-org-lint-resources) ;; tidy a list of links; next to `org-toggle-item'
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)
@@ -491,6 +492,27 @@ one week to the next, unchecking them at the same time"
              (t
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
+
+;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-insert-quote-from-kill (&optional arg)
+  "Insert an Org quote block holding the latest kill ring item.
+With an active region, put the region (cut from the buffer) in the block instead.
+With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+The kill ring is neither changed nor rotated by this command."
+  (interactive "P")
+  (let* ((region (and (use-region-p)
+                      (prog1 (buffer-substring-no-properties (region-beginning) (region-end))
+                        (delete-region (region-beginning) (region-end)))))
+         (text (cond (region region)
+                     (arg nil)
+                     (kill-ring (substring-no-properties (current-kill 0 t)))))
+         (text (and text (string-trim-right text "\n+")))
+         (text (and text (not (string-empty-p text)) (org-escape-code-in-string text))))
+    (unless (bolp) (insert "\n"))
+    (insert "#+begin_quote\n")
+    (if text
+        (insert text "\n#+end_quote\n")
+      (save-excursion (insert "\n#+end_quote\n")))))
 
 ;;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
 (defun sp-org-point-strictly-in-link-p ()

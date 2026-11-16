@@ -46,7 +46,7 @@ digraph modules {
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions, programming and AI"; style=rounded; color="#999999"; fontname="Helvetica";
-    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-async-work  sp-org-lint"];
+    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-async-work  sp-org-lint\nsp-batch-lint (batch linters)"];
     g1 [label="sp-base-code"];
     g2 [label="sp-lisp\n(paredit)"];
     g3 [label="sp-prog-misc\n(emr)"];
@@ -55,10 +55,10 @@ digraph modules {
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
 
-    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-tab-psearch  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-tab-psearch  sp-org-tag-groups  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
     l3 [label="sp-vcontrol  →  sp-magit-style  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
-    l4 [label="sp-terminal  sp-eshell\nsp-org-tag-groups\nsp-typst", color="#3a6ea5"];
+    l4 [label="sp-terminal  sp-eshell\nsp-typst", color="#3a6ea5"];
     lx [label="the list is sp-late-modules\n(sp-defer-late-modules)\nrequired from elpaca-after-init-hook,\nthen elpaca-process-queues", shape=note, fillcolor="#e8f0f8", color="#3a6ea5"];
     l4 -> lx [style=dotted, arrowhead=none];
     l1 -> l2 -> l3 -> l4;
@@ -182,7 +182,7 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 - =sp-trails= needs =org-ql= from =sp-org-agenda=, which loads earlier, so it is safe as a late module.
 
 *** =sp-org-tag-groups= is late, and nothing at startup requires it
-=sp-org-tag-groups= (with the tag groups, =sp-org-tag-groups-alist=, defined in it) was in the late list but also =require=d by =sp-tab-inbox=, =sp-collection-query-core=, =sp-move-region-to-heading= and =sp-org-link-conversion=, so it loaded at startup and the late entry only logged =[skip] already loaded=. Those four requires are removed: none of them calls anything from it (they only wanted its side effects, the tag emoji in the =vulpea-select= prompts), and the mode line modules use =fboundp=. Until the late modules have loaded, those prompts show no tag emoji. =sp-graphs=, itself late, still requires it.
+=sp-org-tag-groups= (with the tag groups, =sp-org-tag-groups-alist=, defined in it) was in the late list but also =require=d by =sp-tab-inbox=, =sp-collection-query-core=, =sp-move-region-to-heading= and =sp-org-link-conversion=, so it loaded at startup and the late entry only logged =[skip] already loaded=. Those four requires are removed: none of them calls anything from it (they only wanted its side effects, the tag emoji in the =vulpea-select= prompts), and the mode line modules use =fboundp=. Until the late modules have loaded, those prompts show no tag emoji. =sp-graphs=, itself late, also requires it (for =sp-select-note=), so =sp-org-tag-groups= is listed before =sp-graphs= in =sp-late-modules=; listed after it, the late entry logged =[skip] already loaded= again.
 
 ** Packages declared twice, and ones declared too late
 

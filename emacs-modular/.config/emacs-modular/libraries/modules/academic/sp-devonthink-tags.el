@@ -5,7 +5,7 @@
 ;; Reads and sets the tags of DEVONthink records through `osascript', for one
 ;; record or many, and splits the comma-joined tag of the literature database.
 ;; macOS only.
-;; Literate source: docs/tangles/academic/sp-devonthink-tags.org.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-tags.org.
 
 ;;; Code:
 
@@ -164,7 +164,9 @@ Do nothing when that option is nil.  Return the line's value, or nil."
   (when sp-devonthink-keywords-key
     (require 'sp-litnotes-meta)
     (let ((value (sp-devonthink-keywords-value tags)))
-      (sp-litnotes-meta--put sp-devonthink-keywords-key value)
+      ;; An empty value must clear the line (the last tag was removed).
+      (let ((sp-litnotes-meta--allow-clear t))
+        (sp-litnotes-meta--put sp-devonthink-keywords-key value))
       value)))
 
 (defun sp-devonthink--own-record-p ()

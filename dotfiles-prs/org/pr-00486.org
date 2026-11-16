@@ -1,0 +1,100 @@
+* PR #486: 🐛 Fix the citar preload error after the disk cache is used
+:PROPERTIES:
+:PR_NUMBER: 486
+:URL: https://github.com/siainbuletin/dotfiles/pull/486
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/486][https://github.com/siainbuletin/dotfiles/pull/486]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 21:37
+- Merged :: 2026-11-14 21:44
+- Branch :: =claude/project-thread-d7whd6= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/605e9b097e3a980e0fe6a8c8261a0338192f2d9e][605e9b097e]]
+- Labels :: bugfix, does-what-it-should
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG][project thread]]/
+
+Follow-up to #483. After it, =*Messages*= shows =citar preload: ~/Documents/bibliography/a1s1-filosofia-istoriei-viitorului.bib: Wrong type argument: stringp, nil=.
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main=; no dependency. Touches only =sp-citations= (=.el=, its section in =sp-academic.org=, the preload and layout tests).
+- Branch is =claude/project-thread-d7whd6=, not number-prefixed: a cloud session cannot rename a branch after the PR number is known.
+
+**** Cause (reproduced on the Mac with the real citar 1.4.0, parsebib 6.7, Emacs 31.1, your 80 =.bib= files)
+:PROPERTIES:
+:CUSTOM_ID: cause-reproduced-on-the-mac-with-the-real-citar-140-parsebib-67-emacs-311-your-80-bib-files
+:END:
+- It is not a bad entry. The nil is the =format-string= slot of a bibliography that the preload took from =citar-bibliography.eld=.
+- =sp-citations-preload--prime= fills =entries=, =props= and =buffers=; =format-string= and the pre-formatted candidates stay nil until =citar-cache--get-bibliography= runs for that file.
+- =sp-citations-preload--read= calls =sp-citations--apply-layout= first. In a new session its state is empty, the layout counts as changed, and =sp-citations--repreformat= pre-formatted every bibliography in the cache, including the primed ones. =citar-format--parse= fails on a nil format string.
+- The file in the message is only the first in hash order; any primed file would fail. The preload took it for "saved entries did not work", dropped that file and read it again, so the cost was one wasted parse and a misleading message.
+- With an empty cache (first pass) or a second pass in the same session nothing is primed or the state is set, which is why the tests did not see it.
+
+**** Changes
+:PROPERTIES:
+:CUSTOM_ID: changes
+:END:
+- =sp-citations--repreformat= skips a bibliography without a format string (=citar-cache--get-bibliography= sets it and pre-formats the file itself). Checked on the Mac in a scratch copy: the primed pass then ran with no error and no re-parse.
+- From the first commit of this PR, kept for other errors: the backtrace of a preload error (=M-x sp-citations-preload-show-error=), a retry from the =.bib= when saved entries fail, and an error in one file no longer stops the other files.
+- Docs as bullets; no CHANGELOG edit; no =when-let=.
+
+**** Timings (batch, your real files, 80 =.bib=, sum over all files)
+:PROPERTIES:
+:CUSTOM_ID: timings-batch-your-real-files-80-bib-sum-over-all-files
+:END:
+- First parse without a cache: 1.4 to 1.6 s (slowest: =humanities.bib= 0.33 s, =marx.bib= 0.29 s, =a1s1-filosofia= 0.09 s).
+- Primed read from the disk cache: 0.4 to 0.8 s. The cache file is about 11.7 MB.
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+- On the Mac, batch Emacs 31.1 with the real citar: the error reproduced from a copy of your live cache; the fix removed it (scratch copy).
+- Here (Emacs 29.3, stand-in for =citar-cache=): =tests/sp-citations-preload-test.el= 16 pass, =tests/sp-citations-layout-test.el= 13 pass, also when loaded together. New: =sp-citations-repreformat-skips-bibliographies-from-the-disk=, which signals like citar on a nil format string.
+- =tools/check-tangle.sh=: the =.el= matches the doc.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- A graphical frame: the real frame width, the pixel-cell path and the idle-timer flow in a running Emacs.
+- Your live session with this branch.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] =cd ~/dotfiles; git fetch origin claude/project-thread-d7whd6; git checkout claude/project-thread-d7whd6=, restart Emacs, wait for the idle pass
+- [X] =*Messages*= ends with =citar preload: N bibliography file(s) ready= and has no =citar preload:= error line
+- [X] =M-x sp-citations-preload-explain=: every file says =ready=
+- [X] =M-x citar-open=: no =Updating bibliography=, no wait
+- [X] Restart again: no error, no =Updating= lines
+- [X] =M-x sp-citations-fit-layout= and resize the frame: candidates still look right
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- =git -C ~/dotfiles restore .=, then =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=; restart Emacs.
+- Delete =citar-bibliography.eld= in your cache dir for a cold start.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.ai/code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v]]
+
+** Commits (4)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/7b6fbc7716ee7c3d868a7cd2bab4c01025d43c81][7b6fbc7716]] 🐛 Keep the backtrace of a citar preload error and recover from bad saved entries (Claude, 2026-11-14 21:37)
+- [[https://github.com/siainbuletin/dotfiles/commit/fb7be572d8b60fee57fa798ce15e359b21788db1][fb7be572d8]] 🔧 Restore sp-litnotes-meta.el, tangle drift that was committed by mistake (Claude, 2026-11-14 21:37)
+- [[https://github.com/siainbuletin/dotfiles/commit/99dd871a67d282bef72e165139c9ea55f30ae77e][99dd871a67]] 🐛 Skip bibliographies without a format string when the layout is applied again (Claude, 2026-11-14 21:41)
+- [[https://github.com/siainbuletin/dotfiles/commit/03af0f85b7ae3d0605df930938045397c5c86d6c][03af0f85b7]] 🐛 Give the layout test a real cache object with a format string (Claude, 2026-11-14 21:42)

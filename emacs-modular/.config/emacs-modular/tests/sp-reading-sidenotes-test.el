@@ -30,6 +30,13 @@
     (should (equal (nth 2 (car notes)) "a"))
     (should (equal (nth 3 (car notes)) "Kant"))))
 
+(ert-deftest sp-reading-sidenotes-test-scan-see-also-notes ()
+  (let ((notes (sp-reading-sidenotes-test--scan
+                "A[fn:see-1] b[fn:end-1] c.\n\n* Footnotes\n[fn:see-1] [[id:k][Kant]] says so\n\n[fn:end-1] [[id:h][Hume]]\n")))
+    (should (= (length notes) 1))
+    (should (equal (nth 2 (car notes)) "see-1"))
+    (should (equal (nth 3 (car notes)) "Kant says so"))))
+
 (ert-deftest sp-reading-sidenotes-test-scan-ignores-others ()
   (should-not (sp-reading-sidenotes-test--scan
                "Ref[fn:1] and [fn::a plain remark] and [fn::[[https://x.org][web]]].")))

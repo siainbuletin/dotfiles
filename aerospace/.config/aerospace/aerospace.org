@@ -191,6 +191,74 @@ outer.top =        8
 outer.right =      8
 #+end_src
 
+** DEVONthink windows
+
+- Problem: a PDF opened by =DT Open PDF= gets a DEVONthink window of its own, and AeroSpace did not tile it.
+- Likely cause: AeroSpace tiles only windows it detects as standard windows; DEVONthink's document windows can be detected as floating.
+- Fix: two =[[on-window-detected]]= rules run =layout tiling= for every window of DEVONthink.
+- App ids:
+   + =com.devon-technologies.think3= is DEVONthink 3.
+   + =com.devon-technologies.think= is DEVONthink 4.
+   + The id that is not installed never matches, so both are listed.
+- Check which id is yours with =aerospace list-windows --all --format '%{app-bundle-id} %{window-title}'=.
+- If the window still floats, it is not registered at all: =aerospace list-windows --all= does not list it, and the rule cannot help.
+- Not done: a rule for a window title; all DEVONthink windows tile, the main window too.
+
+#+begin_src toml
+# DEVONthink windows (DT Open PDF makes one per PDF) must be tiled. They are not
+# always detected as standard windows, so AeroSpace left them floating.
+# The first id is DEVONthink 3, the second is DEVONthink 4.
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think3'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.devon-technologies.think'
+run = 'layout tiling'
+#+end_src
+
+** Emacs frames tile
+
+- Problem: after a relaunch Emacs often opened a small frame that AeroSpace left floating.
+- Likely cause: =default-frame-alist= has =(undecorated . t)= in =sp-frame.el=, and AeroSpace may not treat an undecorated window as a standard one.
+- Fix: a rule for the app id =org.gnu.Emacs= runs =layout tiling= on every Emacs frame.
+- Only the first matching rule runs, so the exception comes first.
+- Exception: the =quick-capture= frame (=sp-quick-capture-frame-name=) stays floating, it is a popup.
+- The vulpea-ui view frame is not an exception, it tiles with the others.
+- Check the id with =aerospace list-windows --all --format '%{app-bundle-id} %{window-layout} %{window-title}'=; other Emacs builds use other ids.
+- Not verified on the Mac when written (device not reachable), see the PR checklist.
+
+#+begin_src toml
+# Emacs frames are undecorated (`sp-frame.el`), so AeroSpace does not always see
+# them as standard windows and leaves them floating (small frame after relaunch).
+# Only the first matching rule runs, so the floating exception goes first.
+# The quick capture frame (`sp-quick-capture-frame-name`) stays a floating popup.
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^quick-capture$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+run = 'layout tiling'
+#+end_src
+
+** Emacs vulpea-ui view frame
+
+- Context: =M-o v= (=sp-vulpea-ui-view-toggle=) shows the =vulpea-ui= widgets, backlinks included, in an Emacs frame of its own, see the part =sp-vulpea-ui-view.el= of [[file:../../../emacs-modular/.config/emacs-modular/docs/tangles/vulpea/sp-vulpea.org][sp-vulpea.org]].
+- The frame is named =vulpea-ui-view=, and Emacs uses that name as the window title.
+- A rule is only needed if AeroSpace leaves that frame floating; a normal Emacs frame is detected as a standard window and tiles.
+- Not applied: the rule below is a suggestion, so it is not in =aerospace.toml= (the block is =:tangle no=).
+- To use it, copy it into =aerospace.toml= next to the DEVONthink rules and run =aerospace reload-config=.
+- Check the app id with =aerospace list-windows --all --format '%{app-bundle-id} %{window-title}'=; builds of Emacs for the Mac use different ids.
+
+#+begin_src toml :tangle no
+[[on-window-detected]]
+if.app-id = 'org.gnu.Emacs'
+if.window-title-regex-substring = '^vulpea-ui-view$'
+run = 'layout tiling'
+#+end_src
+
 ** Main mode
 
 - =[mode.main.binding]= must exist, but it is empty on purpose.
