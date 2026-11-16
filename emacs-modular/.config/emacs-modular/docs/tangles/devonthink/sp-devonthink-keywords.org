@@ -705,8 +705,3 @@ the record's tags; nothing is written elsewhere.  Return \"keywords\" when writt
   - whether =set tags of= with the full list replaces the tags as assumed (removals depend on it);
   - whether the litnote found by citekey is the one you expect on the real vault;
   - how the =keywords= fields of the real =.bib= files are formatted (braces, line breaks, =;= separators).
-
-- PR pending
-  - 🐛 Fixed a litnote not getting the DEVONthink keywords when the Tags field holds a comma-joined tag
-    - a comma-joined tag now counts as several keywords; the tag itself is left in DEVONthink
-    - the echo area says how many DEVONthink keywords were read
