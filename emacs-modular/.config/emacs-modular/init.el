@@ -580,8 +580,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
 ;; reset file-name-handler-alist
 (add-hook 'emacs-startup-hook (lambda ()
                                 (setq file-name-handler-alist sp-file-name-handler-alist)
-                                ;; reset garbage collection
-                                (setq gc-cons-threshold 800000)
+                                ;; reset garbage collection: high, so typing in a big vault
+                                ;; does not stop for GC; the idle GC in early-init.el collects
+                                (setq gc-cons-threshold (* 256 1024 1024))
                                 ;; Startup time
                                 (message (format ";; ======================================================\n;; Emacs ready in %.2f seconds with %d garbage collections.\n;; ======================================================"
                                                  (float-time

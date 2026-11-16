@@ -753,16 +753,30 @@ alphabetically; inside a group the order is the usual one of Vertico
                     ((/= (length a) (length b)) (< (length a) (length b)))
                     (t (string< a b))))))))
 
+(defvar sp-org-tag-groups--cache-columns nil
+  "Width of the tag column the vulpea candidate cache was built with.")
+
+(defun sp-org-tag-groups--sync-cache (columns)
+  "Drop vulpea's candidate cache when COLUMNS differs from its build width.
+The tag column is part of each cached candidate string, so a frame of
+another width needs new strings; the cache is then rebuilt once."
+  (unless (eql columns sp-org-tag-groups--cache-columns)
+    (when (and sp-org-tag-groups--cache-columns
+               (fboundp 'vulpea-select-cache-drop))
+      (vulpea-select-cache-drop))
+    (setq sp-org-tag-groups--cache-columns columns)))
+
 (defmacro sp-org-tag-groups--with-tag-column (&rest body)
   "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
-The candidate cache is bypassed, because the column width is not a
-property of the note."
+Vulpea's candidate cache stays on: the column width is the one thing
+that is not a property of the note, so the cache is dropped when the
+width changes (`sp-org-tag-groups--sync-cache')."
   (declare (indent 0))
-  `(let ((sp-org-tag-groups--select-columns (sp-org-tag-groups--select-columns))
-         (vulpea-select-describe-fn #'sp-org-tag-groups-describe-note)
-         (vulpea-select-annotate-fn #'sp-org-tag-groups--annotate-note)
-         (vulpea-select-annotate-matchable t)
-         (vulpea-select-cache nil))
+  `(let* ((sp-org-tag-groups--select-columns (sp-org-tag-groups--select-columns))
+          (vulpea-select-describe-fn #'sp-org-tag-groups-describe-note)
+          (vulpea-select-annotate-fn #'sp-org-tag-groups--annotate-note)
+          (vulpea-select-annotate-matchable t))
+     (sp-org-tag-groups--sync-cache sp-org-tag-groups--select-columns)
      ,@body))
 
 (defmacro sp-org-tag-groups--with-origin-groups (&rest body)

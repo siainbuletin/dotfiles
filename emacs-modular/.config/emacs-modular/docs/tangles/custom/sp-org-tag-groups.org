@@ -102,7 +102,7 @@ Other commands that link to or pick a note
 - the query-table pickers
 
 These other commands call my custom =sp-select-note= or =sp-insert-note= so that *every picker looks the same*. 
-- Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+- Vulpea's candidate cache stays on for the default selection, so only the first call builds it. The tag column width is part of each cached string, so the cache is dropped and rebuilt once when the frame width changes. A selection with its own =:filter-fn= or =:candidates-fn=, and =sp-select-note=, are not served from the cache (vulpea's rule). Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
 ** Tag groups and their colours
 
@@ -1061,16 +1061,30 @@ alphabetically; inside a group the order is the usual one of Vertico
 ** The selector
 
 #+begin_src emacs-lisp -i
+(defvar sp-org-tag-groups--cache-columns nil
+  "Width of the tag column the vulpea candidate cache was built with.")
+
+(defun sp-org-tag-groups--sync-cache (columns)
+  "Drop vulpea's candidate cache when COLUMNS differs from its build width.
+The tag column is part of each cached candidate string, so a frame of
+another width needs new strings; the cache is then rebuilt once."
+  (unless (eql columns sp-org-tag-groups--cache-columns)
+    (when (and sp-org-tag-groups--cache-columns
+               (fboundp 'vulpea-select-cache-drop))
+      (vulpea-select-cache-drop))
+    (setq sp-org-tag-groups--cache-columns columns)))
+
 (defmacro sp-org-tag-groups--with-tag-column (&rest body)
   "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
-The candidate cache is bypassed, because the column width is not a
-property of the note."
+Vulpea's candidate cache stays on: the column width is the one thing
+that is not a property of the note, so the cache is dropped when the
+width changes (`sp-org-tag-groups--sync-cache')."
   (declare (indent 0))
-  `(let ((sp-org-tag-groups--select-columns (sp-org-tag-groups--select-columns))
-         (vulpea-select-describe-fn #'sp-org-tag-groups-describe-note)
-         (vulpea-select-annotate-fn #'sp-org-tag-groups--annotate-note)
-         (vulpea-select-annotate-matchable t)
-         (vulpea-select-cache nil))
+  `(let* ((sp-org-tag-groups--select-columns (sp-org-tag-groups--select-columns))
+          (vulpea-select-describe-fn #'sp-org-tag-groups-describe-note)
+          (vulpea-select-annotate-fn #'sp-org-tag-groups--annotate-note)
+          (vulpea-select-annotate-matchable t))
+     (sp-org-tag-groups--sync-cache sp-org-tag-groups--select-columns)
      ,@body))
 
 (defmacro sp-org-tag-groups--with-origin-groups (&rest body)
