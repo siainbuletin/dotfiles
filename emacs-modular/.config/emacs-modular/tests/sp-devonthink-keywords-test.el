@@ -33,8 +33,8 @@
 (ert-deftest sp-devonthink-keywords-diff-string ()
   (should (equal (sp-devonthink-keywords--diff-string '("a" "b") '("b" "c")) "+c, -a")))
 
-(ert-deftest sp-devonthink-keywords-dt-keywords-skip-comma-tags ()
-  (should (equal (sp-devonthink-keywords--dt-keywords '("a" "b,c" "d")) '("a" "d"))))
+(ert-deftest sp-devonthink-keywords-dt-keywords-split-comma-tags ()
+  (should (equal (sp-devonthink-keywords--dt-keywords '("a" "b, c" "d" "A")) '("a" "b" "c" "d"))))
 
 ;;;; State file
 
@@ -228,9 +228,10 @@ Records writes in `written' (a list of (PLACE . KEYWORDS))."
 (ert-deftest sp-devonthink-keywords-sync-bibtex-addition-reaches-dt ()
   (sp-devonthink-keywords-test--world (:bib '("a" "n") :dt '("a") :note nil :synced '("a"))
     (let ((r (sp-devonthink-keywords-sync-record "k1" "U1" '("a" "other,tag"))))
-      (should (equal (plist-get r :merged) '("a" "n")))
+      ;; the comma-joined tag counts as two keywords; the tag itself stays in DEVONthink
+      (should (equal (plist-get r :merged) '("a" "n" "other" "tag")))
       (should (string-match-p "\"a\", \"other,tag\", \"n\"" (cdr (assq 'dt written))))
-      (should-not (assq 'bib written)))))
+      (should (equal (cdr (assq 'bib written)) '("a" "n" "other" "tag"))))))
 
 (ert-deftest sp-devonthink-keywords-sync-litnote-is-cloned ()
   (sp-devonthink-keywords-test--world (:bib '("a" "b") :dt '("a" "b") :note '("a") :synced '("a" "b"))
