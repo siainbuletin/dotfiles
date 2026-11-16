@@ -56,6 +56,12 @@
         "networking"
         "chapter"
         "writing"
+        "test"
+        "course"
+        "academia"
+        "academicjournal"
+        "ai"
+        "argument"
         ;; sp-org-tag-add: new tags go above this line
         ))
 

@@ -1,0 +1,567 @@
+;;; sp-devonthink-keywords.el --- Keep BibTeX keywords, DEVONthink tags and the litnote KEYWORDS line in step -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A three-way merge of the BibTeX `keywords' field, the tags of the DEVONthink
+;; record and the KEYWORDS: line of the litnote against the last synced set, so
+;; additions and removals both travel.  BibTeX and DEVONthink sync without
+;; asking; a hand-edited litnote line is flagged and propagated only on request.
+;; macOS only.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-keywords.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'seq)
+(require 'bibtex)
+(require 'sp-reading)
+(require 'sp-devonthink)
+(require 'sp-devonthink-tags)
+(require 'sp-devonthink-bibsync)
+
+(defvar sp-var-dir)
+(declare-function org-entry-put "org" (pom property value))
+(declare-function org-entry-delete "org" (pom property))
+(declare-function sp-author-notes-bibtex--covered "sp-author-notes-bibtex" ())
+(declare-function sp-author-notes-bibtex--files "sp-author-notes-bibtex" ())
+(declare-function sp-litnotes-meta--has-value-p "sp-litnotes-meta" (key))
+(defvar sp-litnotes-meta--index)
+(defvar sp-litnotes-meta-fill-functions)
+
+(defgroup sp-devonthink-keywords nil
+  "Keep BibTeX keywords, DEVONthink tags and litnote keywords in step."
+  :group 'sp-devonthink)
+
+(defcustom sp-devonthink-keywords-line "KEYWORDS"
+  "The word that starts the keywords line of a litnote, as in =KEYWORDS: a, b=."
+  :type 'string :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-bibtex t
+  "Non-nil to sync the BibTeX `keywords' field; nil to leave BibTeX out."
+  :type 'boolean :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-litnote t
+  "Non-nil to keep a KEYWORDS: line in the litnote; nil to leave litnotes out."
+  :type 'boolean :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-on-fill t
+  "Non-nil to write the KEYWORDS: line when a new litnote is filled."
+  :type 'boolean :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-check-on-save t
+  "Non-nil to look for a drifted KEYWORDS: line when a litnote is saved."
+  :type 'boolean :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-ask t
+  "Non-nil to ask about a drifted litnote line; nil to only flag it."
+  :type 'boolean :group 'sp-devonthink-keywords)
+
+(defcustom sp-devonthink-keywords-state-file
+  (expand-file-name "devonthink-keywords-synced.eld"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "File that remembers the last synced keywords of each citekey."
+  :type 'file :group 'sp-devonthink-keywords)
+
+(defconst sp-devonthink-keywords--drift-property "SP_KEYWORDS_DRIFT"
+  "Property of the litnote that flags a hand-edited KEYWORDS: line.")
+
+;;;; Pure helpers
+
+(defun sp-devonthink-keywords-parse (string)
+  "The keywords in STRING, split on commas and semicolons, without empties or repeats."
+  (seq-uniq (seq-remove #'string-empty-p
+                        (mapcar #'string-trim (split-string (or string "") "[,;]")))
+            #'string-equal-ignore-case))
+
+(defun sp-devonthink-keywords--member (keyword list)
+  "Non-nil when KEYWORD is in LIST, ignoring case."
+  (seq-find (lambda (x) (string-equal-ignore-case x keyword)) list))
+
+(defun sp-devonthink-keywords--added (base now)
+  "The members of NOW that BASE lacks."
+  (seq-remove (lambda (k) (sp-devonthink-keywords--member k base)) now))
+
+(defun sp-devonthink-keywords--removed (base now)
+  "The members of BASE that NOW lacks."
+  (seq-remove (lambda (k) (sp-devonthink-keywords--member k now)) base))
+
+(defun sp-devonthink-keywords-same-p (a b)
+  "Non-nil when the keyword lists A and B have the same members, ignoring case."
+  (and (null (sp-devonthink-keywords--added a b))
+       (null (sp-devonthink-keywords--removed a b))))
+
+(defun sp-devonthink-keywords-merge (base &rest replicas)
+  "Three-way merge: BASE minus what any of REPLICAS removed, plus what any added.
+Each of BASE and REPLICAS is a list of keywords; REPLICAS must hold only the
+places that exist."
+  (let ((removed (apply #'append
+                        (mapcar (lambda (r) (sp-devonthink-keywords--removed base r)) replicas)))
+        (added (apply #'append
+                      (mapcar (lambda (r) (sp-devonthink-keywords--added base r)) replicas))))
+    (seq-uniq (append (seq-remove (lambda (k) (sp-devonthink-keywords--member k removed)) base)
+                      added)
+              #'string-equal-ignore-case)))
+
+(defun sp-devonthink-keywords--diff-string (base now)
+  "The edit from BASE to NOW as text: +added, -removed."
+  (mapconcat #'identity
+             (append (mapcar (lambda (k) (concat "+" k)) (sp-devonthink-keywords--added base now))
+                     (mapcar (lambda (k) (concat "-" k)) (sp-devonthink-keywords--removed base now)))
+             ", "))
+
+(defun sp-devonthink-keywords--dt-keywords (tags)
+  "The keywords in the tags TAGS: a comma-joined tag counts as several keywords."
+  (seq-uniq (seq-mapcat #'sp-devonthink--split-tag tags) #'string-equal-ignore-case))
+
+;;;; The last synced set
+
+(defvar sp-devonthink-keywords--state nil
+  "Alist from citekey to its last synced keywords, or `unread' before the first use.")
+
+(defun sp-devonthink-keywords--load ()
+  "Load `sp-devonthink-keywords--state' from the state file once."
+  (when (or (null sp-devonthink-keywords--state) (eq sp-devonthink-keywords--state 'unread))
+    (setq sp-devonthink-keywords--state
+          (or (ignore-errors
+                (when (file-readable-p sp-devonthink-keywords-state-file)
+                  (with-temp-buffer
+                    (insert-file-contents sp-devonthink-keywords-state-file)
+                    (read (current-buffer)))))
+              'empty))))
+
+(defun sp-devonthink-keywords--synced (key)
+  "The last synced keywords of KEY, or `none' when it was never synced."
+  (sp-devonthink-keywords--load)
+  (let ((cell (and (listp sp-devonthink-keywords--state)
+                   (assoc key sp-devonthink-keywords--state))))
+    (if cell (cdr cell) 'none)))
+
+(defun sp-devonthink-keywords--set-synced (key keywords)
+  "Remember KEYWORDS as the last synced set of KEY, and save the state file."
+  (sp-devonthink-keywords--load)
+  (let ((state (if (listp sp-devonthink-keywords--state) sp-devonthink-keywords--state nil)))
+    (setq sp-devonthink-keywords--state (cons (cons key keywords) (assoc-delete-all key state)))
+    (condition-case nil
+        (progn (make-directory (file-name-directory sp-devonthink-keywords-state-file) t)
+               (with-temp-file sp-devonthink-keywords-state-file
+                 (let ((print-length nil) (print-level nil))
+                   (prin1 sp-devonthink-keywords--state (current-buffer)))))
+      (error nil))))
+
+;;;; BibTeX
+
+(declare-function bibtex-end-of-entry "bibtex" ())
+(declare-function bibtex-text-in-field-bounds "bibtex" (bounds &optional remove-delim))
+
+(defun sp-devonthink-keywords--key-bib-file (key)
+  "The registered .bib file that has an entry KEY, or nil."
+  (ignore-errors
+    (require 'sp-author-notes-bibtex)
+    (seq-find (lambda (file)
+                (with-temp-buffer
+                  (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+                  (re-search-forward
+                   (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)))
+              (sp-author-notes-bibtex--files))))
+
+(defun sp-devonthink-keywords--bib-text (old merged)
+  "The new text of a BibTeX keywords field that has OLD (a string or nil), or nil.
+MERGED is the wanted list; nil is returned when OLD already holds exactly it."
+  (let* ((have (sp-devonthink-keywords-parse old))
+         (sep (if (and old (string-search ";" old) (not (string-search "," old))) "; " ", ")))
+    (unless (sp-devonthink-keywords-same-p have merged)
+      (string-join
+       (append (seq-filter (lambda (h) (sp-devonthink-keywords--member h merged)) have)
+               (sp-devonthink-keywords--added have merged))
+       sep))))
+
+(defun sp-devonthink-keywords--bib-put (key merged)
+  "In the current .bib buffer, make the `keywords' of the entry KEY hold MERGED.
+Return the new field text, or nil when the entry is missing or already right."
+  (goto-char (point-min))
+  (when (re-search-forward
+         (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)
+    (goto-char (match-beginning 0))
+    (let* ((start (point))
+           (bounds (bibtex-search-forward-field "keywords" t))
+           (old (and bounds (replace-regexp-in-string
+                             "[ \t\n]+" " " (bibtex-text-in-field-bounds bounds t))))
+           (text (sp-devonthink-keywords--bib-text old merged)))
+      (when (and text (or bounds merged))
+        (if bounds
+            (let ((span (cons (nth 1 bounds) (nth 2 bounds))))
+              (goto-char (car span))
+              (delete-region (car span) (cdr span))
+              (insert "{" text "}"))
+          (goto-char start)
+          (bibtex-end-of-entry)
+          (backward-char)
+          (skip-chars-backward " \t\n")
+          (unless (eq (char-before) ?,) (insert ","))
+          (insert "\n  keywords = {" text "}"))
+        text))))
+
+(defun sp-devonthink-keywords--write-bib (file key merged)
+  "Make the `keywords' of KEY in the .bib FILE hold MERGED, and save FILE.
+Return t when written, nil when nothing changed, `unsaved' when FILE's buffer
+has unsaved changes."
+  (let ((buffer (find-buffer-visiting file)))
+    (if (and buffer (buffer-modified-p buffer))
+        'unsaved
+      (with-current-buffer (or buffer (find-file-noselect file))
+        (let ((changed (save-excursion
+                         (save-restriction
+                           (widen)
+                           (sp-devonthink-keywords--bib-put key merged)))))
+          (when changed (save-buffer))
+          (unless buffer (kill-buffer))
+          (and changed t))))))
+
+;;;; Litnote
+
+(defun sp-devonthink-keywords--line-regexp ()
+  "A regexp for the keywords line; group 1 is its value."
+  (format "^%s:[ \t]*\\(.*?\\)[ \t]*$" (regexp-quote sp-devonthink-keywords-line)))
+
+(defconst sp-devonthink-keywords--legacy-regexp "^- keywords ::[ \t]*\\(.*?\\)[ \t]*$"
+  "A regexp for the meta line that PR #443 wrote; group 1 is its value.")
+
+(defun sp-devonthink-keywords--head-end ()
+  "The position of the first heading of the buffer, or its end."
+  (save-excursion
+    (goto-char (point-min))
+    (if (re-search-forward "^\\*+ " nil t) (line-beginning-position) (point-max))))
+
+(defun sp-devonthink-keywords-line-read ()
+  "The keywords line of the current litnote as a plist (:keywords LIST :legacy BOOL), or nil."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let ((end (sp-devonthink-keywords--head-end)) (case-fold-search nil))
+        (goto-char (point-min))
+        (cond ((re-search-forward (sp-devonthink-keywords--line-regexp) end t)
+               (list :keywords (sp-devonthink-keywords-parse (match-string-no-properties 1))
+                     :legacy nil))
+              ((progn (goto-char (point-min))
+                      (let ((case-fold-search t))
+                        (re-search-forward sp-devonthink-keywords--legacy-regexp end t)))
+               (list :keywords (sp-devonthink-keywords-parse (match-string-no-properties 1))
+                     :legacy t)))))))
+
+(defun sp-devonthink-keywords--insert-point (end)
+  "Where a new keywords line goes, before END: after the meta lines, else the #+ lines."
+  (save-excursion
+    (let ((case-fold-search nil))
+      (goto-char end)
+      (cond ((re-search-backward "^- [^ \n]+ ::.*$" (point-min) t) (line-end-position))
+            ((re-search-backward "^#\\+.*$" (point-min) t) (line-end-position))
+            ((re-search-backward "^:END:[ \t]*$" (point-min) t) (line-end-position))
+            (t nil)))))
+
+(defun sp-devonthink-keywords-line-write (keywords)
+  "Write KEYWORDS as the keywords line of the current buffer.
+Replace the line in place, or insert it; drop an old meta line.  An empty
+KEYWORDS with no line to change writes nothing.  Return non-nil when the buffer changed."
+  (let ((text (string-join keywords ", ")) (changed nil))
+    (save-excursion
+      (save-restriction
+        (widen)
+        (let ((case-fold-search nil)
+              (end (copy-marker (sp-devonthink-keywords--head-end))))
+          (goto-char (point-min))
+          (cond
+           ((re-search-forward (sp-devonthink-keywords--line-regexp) end t)
+            (unless (equal (match-string-no-properties 1) text)
+              (replace-match text t t nil 1)
+              (setq changed t)))
+           (keywords
+            (let ((pos (sp-devonthink-keywords--insert-point end)))
+              (goto-char (or pos (point-min)))
+              (if pos (end-of-line) (goto-char (point-min)))
+              (insert (if pos "\n" "") (format "%s: %s" sp-devonthink-keywords-line text)
+                      (if pos "" "\n"))
+              (setq changed t))))
+          (goto-char (point-min))
+          (let ((case-fold-search t))
+            (when (re-search-forward sp-devonthink-keywords--legacy-regexp end t)
+              (delete-region (line-beginning-position)
+                             (min (point-max) (1+ (line-end-position))))
+              (setq changed t)))
+          (goto-char (point-min))
+          (when (and (re-search-forward (sp-devonthink-keywords--line-regexp) end t)
+                     (progn (goto-char (line-beginning-position))
+                            (forward-line -1)
+                            (looking-at-p "- [^ \n]+ ::")))
+            ;; a blank line ends the meta section; the keywords line is not one of its items
+            (forward-line 1)
+            (insert "\n")
+            (setq changed t))
+          (set-marker end nil))))
+    changed))
+
+(defun sp-devonthink-keywords--flag (on)
+  "Set (ON non-nil) or clear the drift property of the current litnote."
+  (require 'org)
+  (save-excursion
+    (save-restriction
+      (widen)
+      (if on
+          (org-entry-put (point-min) sp-devonthink-keywords--drift-property "t")
+        (org-entry-delete (point-min) sp-devonthink-keywords--drift-property)))))
+
+(defun sp-devonthink-keywords--call-in-note (file function &optional save)
+  "Call FUNCTION in the buffer of the litnote FILE; with SAVE, save it if it changed.
+Return what FUNCTION returned, or `unsaved' when the buffer has unsaved changes."
+  (let ((buffer (find-buffer-visiting file)))
+    (if (and buffer (buffer-modified-p buffer))
+        'unsaved
+      (with-current-buffer (or buffer (find-file-noselect file))
+        (prog1 (funcall function)
+          (when (and save (buffer-modified-p)) (save-buffer))
+          (unless buffer (kill-buffer)))))))
+
+(defun sp-devonthink-keywords--key-litnote (key)
+  "The litnote file of the citekey KEY, or nil (also when the lookup fails)."
+  (ignore-errors
+    (require 'sp-author-notes-bibtex)
+    (gethash key (sp-author-notes-bibtex--covered))))
+
+;;;; DEVONthink
+
+(defun sp-devonthink-keywords--write-dt (uuid tags merged)
+  "Set the tags of the record UUID, which has TAGS, so its keywords are MERGED.
+Return non-nil when the record changed."
+  (let* ((have (sp-devonthink-keywords--dt-keywords tags))
+         ;; Only a plain tag can be removed; the parts of a comma-joined tag stay in it.
+         (removed (sp-devonthink-keywords--removed
+                   (seq-remove (lambda (tag) (string-search "," tag)) tags) merged))
+         (added (sp-devonthink-keywords--added have merged)))
+    (when (or removed added)
+      (sp-reading--osascript
+       (sp-devonthink--set-tags-script
+        (list (cons uuid
+                    (append (seq-remove (lambda (tag) (sp-devonthink-keywords--member tag removed))
+                                        tags)
+                            added)))))
+      (setq sp-devonthink-tags--known nil)
+      t)))
+
+;;;; Syncing one work
+
+(defun sp-devonthink-keywords--bib-keywords (key bib)
+  "The BibTeX keywords of KEY: the list BIB when given, else read from the .bib files, else `none'."
+  (cond ((not sp-devonthink-keywords-bibtex) 'none)
+        ((consp bib) bib)
+        (t (let ((fields (cdr (assoc key (sp-devonthink-bibsync--read-files (list key))))))
+             (if fields (plist-get fields :keywords) 'none)))))
+
+(defun sp-devonthink-keywords--note-state ()
+  "The litnote state in the current buffer: plist :note (LIST or `none') and :legacy."
+  (if-let* ((line (sp-devonthink-keywords-line-read)))
+      (list :note (plist-get line :keywords) :legacy (plist-get line :legacy))
+    (list :note 'none :legacy nil)))
+
+(defun sp-devonthink-keywords--use-note-p (key synced note)
+  "Whether the litnote's NOTE keywords take part in the merge; `flag' when it cannot be asked.
+SYNCED is the base.  The litnote takes part without a question when it was never
+synced, or when it equals the base; a drifted one is asked about."
+  (cond ((eq note 'none) nil)
+        ((eq synced 'none) t)
+        ((sp-devonthink-keywords-same-p synced note) t)
+        ((or noninteractive (not sp-devonthink-keywords-ask)) 'flag)
+        (t (y-or-n-p
+            (format "%s: the litnote KEYWORDS changed (%s).  Propagate to BibTeX and DEVONthink? "
+                    key (sp-devonthink-keywords--diff-string synced note))))))
+
+(defvar sp-devonthink-keywords--busy nil
+  "Non-nil while a sync runs, so saving the litnote does not start another.")
+
+(defun sp-devonthink-keywords-sync-record (key uuid tags &optional bib)
+  "Sync the keywords of the citekey KEY, whose record UUID has the tags TAGS.
+BIB, a list, replaces reading the BibTeX entry.  Return the plist described above."
+  (let ((sp-devonthink-keywords--busy t))
+    (sp-devonthink-keywords--sync-record-1 key uuid tags bib)))
+
+(defun sp-devonthink-keywords--sync-record-1 (key uuid tags bib)
+  "The work of `sp-devonthink-keywords-sync-record' for KEY, UUID, TAGS and BIB."
+  (let* ((bib-list (sp-devonthink-keywords--bib-keywords key bib))
+         (dt (sp-devonthink-keywords--dt-keywords tags))
+         (file (and sp-devonthink-keywords-litnote (sp-devonthink-keywords--key-litnote key)))
+         (state (and file (sp-devonthink-keywords--call-in-note
+                           file #'sp-devonthink-keywords--note-state)))
+         (unsaved (eq state 'unsaved))
+         (note (if (and state (not unsaved)) (plist-get state :note) 'none))
+         (synced (sp-devonthink-keywords--synced key))
+         (use (sp-devonthink-keywords--use-note-p key synced note))
+         (drifted (and (listp synced) (listp note) (not (sp-devonthink-keywords-same-p synced note))))
+         (merged (apply #'sp-devonthink-keywords-merge
+                        (if (eq synced 'none) nil synced)
+                        (append (unless (eq bib-list 'none) (list bib-list))
+                                (list dt)
+                                (when (eq use t) (list note)))))
+         (result (list :key key :merged merged :dt-count (length dt))))
+    (when (and drifted (eq use nil))
+      (message "%s: litnote KEYWORDS reset to the synced set (lost %s)" key
+               (sp-devonthink-keywords--diff-string merged note)))
+    (let ((bib-file (and (listp bib-list) sp-devonthink-keywords-bibtex
+                         (sp-devonthink-keywords--key-bib-file key))))
+      (when (and bib-file (not (sp-devonthink-keywords-same-p bib-list merged)))
+        (setq result (plist-put result :bib
+                                (sp-devonthink-keywords--write-bib bib-file key merged)))))
+    (when (sp-devonthink-keywords--write-dt uuid tags merged)
+      (setq result (plist-put result :dt t)))
+    (cond (unsaved (setq result (plist-put result :note 'unsaved)))
+          (file
+           (sp-devonthink-keywords--call-in-note
+            file
+            (lambda ()
+              (let ((changed (if (eq use 'flag)
+                                 nil
+                               (sp-devonthink-keywords-line-write merged))))
+                (sp-devonthink-keywords--flag (eq use 'flag))
+                (when changed (setq result (plist-put result :note t)))))
+            t)
+           (when (eq use 'flag) (setq result (plist-put result :drift 'flagged)))
+           (when (and drifted (not (eq use 'flag))) (setq result (plist-put result :drift 'asked)))))
+    (unless unsaved
+      (sp-devonthink-keywords--set-synced key merged))
+    result))
+
+;;;; Syncing many works
+
+(defun sp-devonthink-keywords--summary (results skipped)
+  "Tell the outcome RESULTS (plists) and the SKIPPED keys in the echo area."
+  (let ((count (lambda (prop) (seq-count (lambda (r) (eq (plist-get r prop) t)) results)))
+        (unsaved (seq-filter (lambda (r) (or (eq (plist-get r :note) 'unsaved)
+                                             (eq (plist-get r :bib) 'unsaved)))
+                             results))
+        (flagged (seq-filter (lambda (r) (eq (plist-get r :drift) 'flagged)) results)))
+    (message "Keywords: %d work%s synced (%d DEVONthink keyword%s read); BibTeX changed %d, DEVONthink %d, litnote %d%s%s%s"
+             (length results) (if (= (length results) 1) "" "s")
+             (apply #'+ (mapcar (lambda (r) (or (plist-get r :dt-count) 0)) results))
+             (if (= 1 (apply #'+ (mapcar (lambda (r) (or (plist-get r :dt-count) 0)) results))) "" "s")
+             (funcall count :bib) (funcall count :dt) (funcall count :note)
+             (if skipped (format "; no record of its own: %s" (string-join (seq-take skipped 3) ", ")) "")
+             (if unsaved (format "; unsaved, skipped: %s"
+                                 (string-join (mapcar (lambda (r) (plist-get r :key)) unsaved) ", ")) "")
+             (if flagged (format "; litnote edited, flagged: %s"
+                                 (string-join (mapcar (lambda (r) (plist-get r :key)) flagged) ", ")) ""))))
+
+(defun sp-devonthink-keywords-sync-keys (keys &optional bibs)
+  "Sync the keywords of the citekeys KEYS; return a plist (:results LIST :skipped KEYS).
+BIBS is an alist from a key to its BibTeX keywords, for entries not yet readable."
+  (let (items skipped results)
+    (dolist (key keys)
+      (let ((rec (ignore-errors (sp-devonthink-record key))))
+        (if (and rec (null (plist-get rec :via)))
+            (push (cons key (plist-get rec :uuid)) items)
+          (push key skipped))))
+    (setq items (nreverse items) skipped (nreverse skipped))
+    (when items
+      (let ((all (sp-devonthink-record-tags (mapcar #'cdr items))))
+        (dolist (item items)
+          (push (sp-devonthink-keywords-sync-record
+                 (car item) (cdr item) (cdr (assoc (cdr item) all))
+                 (cdr (assoc (car item) bibs)))
+                results))))
+    (setq results (nreverse results))
+    (list :results results :skipped skipped)))
+
+(defun sp-devonthink-keywords-sync-items (items)
+  "Sync the keywords of ITEMS, a list of (UUID . FIELDS) as `sp-devonthink-bibsync' has.
+FIELDS has :key and :keywords.  Return how many records changed in any place."
+  (let ((with-key (seq-filter (lambda (i) (plist-get (cdr i) :key)) items)))
+    (when with-key
+      (let* ((tags (sp-devonthink-record-tags (mapcar #'car with-key)))
+             (results (mapcar (lambda (i)
+                                (sp-devonthink-keywords-sync-record
+                                 (plist-get (cdr i) :key) (car i) (cdr (assoc (car i) tags))
+                                 (plist-get (cdr i) :keywords)))
+                              with-key)))
+        (seq-count (lambda (r) (or (plist-get r :bib) (plist-get r :dt) (plist-get r :note)))
+                   results)))))
+
+(defun sp-devonthink-keywords-sync-quietly (keys)
+  "Sync KEYS and tell the outcome; a failure is reported, never signalled."
+  (condition-case err
+      (let ((r (sp-devonthink-keywords-sync-keys keys)))
+        (sp-devonthink-keywords--summary (plist-get r :results) (plist-get r :skipped))
+        (length (plist-get r :skipped)))
+    (error (message "Keywords not synced: %s" (error-message-string err)) 0)))
+
+;;;; Commands
+
+;;;###autoload
+(defun sp-devonthink-keywords-sync ()
+  "Sync the BibTeX keywords, DEVONthink tags and KEYWORDS: line of the current litnote."
+  (interactive)
+  (let ((key (or (sp-devonthink-note-citekey) (user-error "No citekey in this note"))))
+    (when (and buffer-file-name (buffer-modified-p)) (save-buffer))
+    (let ((r (sp-devonthink-keywords-sync-keys (list key))))
+      (when (plist-get r :skipped)
+        (user-error "%s has no DEVONthink record of its own; sync in the litnote of its parent" key))
+      (sp-devonthink-keywords--summary (plist-get r :results) nil))))
+
+;;;###autoload
+(defun sp-devonthink-keywords-sync-all ()
+  "Sync the keywords of every DEVONthink record that has a citekey, after asking."
+  (interactive)
+  (let ((keys (sp-devonthink-bibsync--indexed-keys)))
+    (when (and keys (y-or-n-p (format "Sync the keywords of up to %d works (BibTeX, DEVONthink, litnote)? "
+                                      (length keys))))
+      (sp-devonthink-keywords-sync-quietly keys))))
+
+(defun sp-devonthink-keywords--after-tag (key)
+  "Sync KEY after its tags were changed in DEVONthink; skip quietly without a KEY."
+  (when key (sp-devonthink-keywords-sync-quietly (list key))))
+
+(defun sp-devonthink-keywords--after-save ()
+  "Look for a drifted KEYWORDS: line in the litnote just saved and sync it."
+  (when (and sp-devonthink-keywords-check-on-save
+             (eq system-type 'darwin)
+             buffer-file-name
+             (derived-mode-p 'org-mode)
+             (not (bound-and-true-p sp-devonthink-keywords--busy)))
+    (when-let* ((line (sp-devonthink-keywords-line-read))
+                (key (ignore-errors (sp-devonthink-note-citekey)))
+                (synced (sp-devonthink-keywords--synced key))
+                ((listp synced))
+                ((not (sp-devonthink-keywords-same-p synced (plist-get line :keywords)))))
+      (let ((sp-devonthink-keywords--busy t))
+        (sp-devonthink-keywords-sync-quietly (list key))))))
+
+(add-hook 'after-save-hook #'sp-devonthink-keywords--after-save)
+
+(defun sp-devonthink-keywords--fill (key)
+  "Write the keywords line of the litnote being filled, for the citekey KEY.
+It is a function of `sp-litnotes-meta-fill-functions'.  The set is BibTeX's plus
+the record's tags; nothing is written elsewhere.  Return \"keywords\" when written."
+  (when (and sp-devonthink-keywords-on-fill sp-devonthink-keywords-litnote
+             (eq system-type 'darwin)
+             (not sp-litnotes-meta--index)
+             (null (sp-devonthink-keywords-line-read)))
+    (condition-case nil
+        (let* ((rec (sp-devonthink-record key))
+               (uuid (and rec (null (plist-get rec :via)) (plist-get rec :uuid)))
+               (bib (sp-devonthink-keywords--bib-keywords key nil))
+               (dt (and uuid (sp-devonthink-keywords--dt-keywords
+                              (cdr (assoc uuid (sp-devonthink-record-tags (list uuid)))))))
+               (synced (sp-devonthink-keywords--synced key))
+               (merged (apply #'sp-devonthink-keywords-merge
+                              (if (eq synced 'none) nil synced)
+                              (append (unless (eq bib 'none) (list bib)) (and uuid (list dt))))))
+          (when merged
+            (sp-devonthink-keywords-line-write merged)
+            "keywords"))
+      (error nil))))
+
+(with-eval-after-load 'sp-litnotes-meta
+  (add-hook 'sp-litnotes-meta-fill-functions #'sp-devonthink-keywords--fill))
+
+;;;; Keys
+
+(keymap-set sp-devonthink-map "T" #'sp-devonthink-keywords-sync)
+
+(provide 'sp-devonthink-keywords)
+;;; sp-devonthink-keywords.el ends here

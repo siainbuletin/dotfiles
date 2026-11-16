@@ -23,14 +23,14 @@
   (ibuffer-default-shrink-to-minimum-size nil)
   (ibuffer-formats
         '((mark modified read-only locked " "
-                (name 36 36 :left :elide)
+                (sp-name 36 36 :left :elide)
                 " "
                 (size 9 -1 :right)
                 " "
                 (mode 18 18 :left :elide)
                 " " filename-and-process)
           (mark " "
-                (name 24 24 :left :elide)
+                (sp-name 24 24 :left :elide)
                 " " filename)))
   ;; Group the list as soon as ibuffer opens, otherwise the saved groups
   ;; below are defined but never applied.
@@ -41,6 +41,77 @@
   (when (assoc "Main" ibuffer-saved-filter-groups)
     (ibuffer-switch-to-saved-filter-groups "Main")))
 
+;; Show the `#+title' of an Org file in the buffer list instead of its file
+;; name.  This is a display column only: the buffers are not renamed, so
+;; `switch-to-buffer', Uniquify and the "name" filters keep working.
+(defcustom sp-buffers-org-title-in-ibuffer t
+  "Non-nil shows the `#+title' of Org buffers in the `sp-name' ibuffer column.
+Buffers without a title, and buffers that are not in Org mode, show their
+buffer name as usual."
+  :type 'boolean
+  :group 'ibuffer)
+
+(defconst sp-buffers-org-title-regexp "^[ \t]*#\\+title:[ \t]*\\(.*?\\)[ \t]*$"
+  "Match a `#+title' keyword line; group 1 is the title.")
+
+(defconst sp-buffers-org-title-search-limit 4000
+  "Look for `#+title' only in the first this many characters of a buffer.")
+
+(defvar-local sp-buffers--title-cache nil
+  "Cons of `buffer-chars-modified-tick' and the title found then (or `none').")
+
+(defun sp-buffers-org-title (&optional buffer)
+  "Return the `#+title' of the Org BUFFER, or nil when it has none.
+BUFFER defaults to the current buffer.  The result is cached in the buffer
+and only looked up again after the text changed."
+  (with-current-buffer (or buffer (current-buffer))
+    (when (derived-mode-p 'org-mode)
+      (let ((tick (buffer-chars-modified-tick)))
+        (unless (eq (car sp-buffers--title-cache) tick)
+          (setq sp-buffers--title-cache
+                (cons tick
+                      (save-restriction
+                        (widen)
+                        (save-excursion
+                          (goto-char (point-min))
+                          (let ((case-fold-search t))
+                            (if (re-search-forward
+                                 sp-buffers-org-title-regexp
+                                 sp-buffers-org-title-search-limit t)
+                                (let ((title (match-string-no-properties 1)))
+                                  (if (string-empty-p title) 'none title))
+                              'none)))))))
+        (and-let* ((title (cdr sp-buffers--title-cache))
+                   ((stringp title)))
+          title)))))
+
+(defun sp-buffers-display-name (&optional buffer)
+  "Return the name to list for BUFFER: its Org title, else its buffer name."
+  (or (and sp-buffers-org-title-in-ibuffer
+           (sp-buffers-org-title buffer))
+      (buffer-name buffer)))
+
+(eval-when-compile (require 'ibuf-macs))
+(define-ibuffer-column sp-name
+  (:name "Name"
+   :inline t
+   :header-mouse-map ibuffer-name-header-map
+   :props
+   ('mouse-face 'highlight 'keymap ibuffer-name-map
+                'ibuffer-name-column t
+                'help-echo "mouse-1: mark buffer   mouse-2: select buffer   mouse-3: operate")
+   :summarizer
+   (lambda (strings)
+     (let ((bufs (length strings)))
+       (cond ((zerop bufs) "No buffers")
+             ((= 1 bufs) "1 buffer")
+             (t (format "%s buffers" bufs))))))
+  (let ((string (propertize (sp-buffers-display-name buffer)
+                            'font-lock-face
+                            (ibuffer-buffer-name-face buffer mark))))
+    (string-replace
+     "\n" (propertize "^J" 'font-lock-face 'escape-glyph) string)))
+
 ;; `nerd-icons-ibuffer-mode' (enabled in sp-icons) replaces `ibuffer-formats'
 ;; with its own list, so the column widths have to be set here as well.
 (with-eval-after-load 'nerd-icons-ibuffer
@@ -48,7 +119,7 @@
           '((mark modified read-only locked " "
                   (icon 2 2 :left :elide)
                   " "
-                  (name 36 36 :left :elide)
+                  (sp-name 36 36 :left :elide)
                   " "
                   (size-h 9 -1 :right)
                   " "
@@ -57,7 +128,7 @@
             (mark " "
                   (icon 2 2 :left :elide)
                   " "
-                  (name 24 24 :left :elide)
+                  (sp-name 24 24 :left :elide)
                   " " filename-and-process+))))
 
 (setq ibuffer-saved-filter-groups

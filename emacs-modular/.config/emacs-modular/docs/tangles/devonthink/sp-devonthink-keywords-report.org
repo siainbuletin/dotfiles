@@ -1,0 +1,257 @@
+#+TITLE: sp-devonthink-keywords-report.el: a report that syncs the keywords of many works at once
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-devonthink-keywords-report.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-devonthink-keywords-report.el=. The sync rule is in [[file:sp-devonthink-keywords.org][sp-devonthink-keywords.org]]; the report buffer is [[file:../funct/sp-batch-report.org][sp-batch-report.org]].
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- Status: first implementation, macOS only. The pure parts are covered by =tests/sp-devonthink-keywords-report-test.el= (DEVONthink faked); the AppleScript was not run for this module.
+
+* What it is for
+
+- =M-x sp-devonthink-keywords-report= shows, for many works at once, what the keyword sync would change. Nothing is written.
+  - one row for each work that would change, with the edit for each place: BibTeX, DEVONthink, litnote;
+  - an edit reads =+added, -removed=;
+  - the same =sp-batch-report= view as the other batch commands: =d= drops a row, =u= brings it back, =g= reads again, =A= applies.
+- =A= syncs the works that are left, with =sp-devonthink-keywords-sync-keys=, the same code as the single-note sync.
+- The works are all those with a DEVONthink record in the =sp-reading= index; a prefix argument asks for a list of citekeys instead.
+
+* What the report leaves out
+
+- A work that has no change in any of the three places is not listed; the intro counts them.
+- A litnote that was edited by hand since the last sync is listed apart (section "Litnote edited by hand"):
+  - the sync asks about it one note at a time, so =A= does not apply it; run =sp-devonthink-keywords-sync= in that note.
+  - BibTeX and DEVONthink are still compared with each other, so their edits stay in the main table.
+- A litnote with unsaved changes is listed apart (section "Unsaved litnote"); save it and press =g=.
+- A work with no DEVONthink record of its own (a chapter) is counted in the intro and skipped.
+
+* Planning one work
+
+- =sp-devonthink-keywords-report--note-keywords= reads the =KEYWORDS:= line of a litnote file.
+  - It reads the file text, not a buffer in Org mode, so a vault of notes is fast.
+  - A visited buffer with unsaved changes gives =unsaved=.
+- =sp-devonthink-keywords-report--plan= is a dry run of the merge of =sp-devonthink-keywords-sync-record=:
+  - the places are BibTeX (when the entry is found), DEVONthink (tags, a comma-joined tag counts as several keywords) and the litnote (when the last synced set agrees with it);
+  - the plan holds the merged set, the edit for each place and the litnote state (=ok=, =flag=, =unsaved= or =none=).
+
+#+begin_src emacs-lisp
+;;; sp-devonthink-keywords-report.el --- A report that syncs the keywords of many works at once -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-devonthink-keywords-report' shows what the keyword sync would change for
+;; many works, in the shared `sp-batch-report' view; `A' applies it.
+;; Literate source: docs/tangles/devonthink/sp-devonthink-keywords-report.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'sp-batch-report)
+(require 'sp-reading)
+(require 'sp-devonthink-keywords)
+
+(defconst sp-devonthink-keywords-report--buffer "*devonthink keywords*"
+  "The name of the report buffer.")
+
+(defvar sp-devonthink-keywords-report--excluded nil
+  "The citekeys dropped from the report with `d'.")
+
+(defun sp-devonthink-keywords-report--note-keywords (file)
+  "The keywords of the litnote FILE: a list, `none' without a line, `unsaved' if its buffer has edits."
+  (let ((buffer (find-buffer-visiting file)))
+    (cond ((and buffer (buffer-modified-p buffer)) 'unsaved)
+          (t (with-temp-buffer
+               (insert-file-contents file)
+               (if-let* ((line (sp-devonthink-keywords-line-read)))
+                   (plist-get line :keywords)
+                 'none))))))
+
+(defun sp-devonthink-keywords-report--edit (have merged)
+  "The edit from HAVE to MERGED as text, or nil when there is none."
+  (let ((text (sp-devonthink-keywords--diff-string have merged)))
+    (unless (string-empty-p text) text)))
+
+(defun sp-devonthink-keywords-report--plan (key uuid tags bib)
+  "A dry run of the keyword sync of KEY, whose record UUID has the tags TAGS.
+BIB is the BibTeX keywords (a list) or `none'.  Return a plist: :key :uuid
+:file (the litnote), :merged, :bib :dt :note (the edit of each place as text, or
+nil) and :state (`ok', `flag', `unsaved' or `none' for the litnote)."
+  (let* ((dt (sp-devonthink-keywords--dt-keywords tags))
+         (file (and sp-devonthink-keywords-litnote (sp-devonthink-keywords--key-litnote key)))
+         (note (if file (sp-devonthink-keywords-report--note-keywords file) 'none))
+         (synced (sp-devonthink-keywords--synced key))
+         (state (cond ((eq note 'unsaved) 'unsaved)
+                      ((eq note 'none) 'none)
+                      ((or (eq synced 'none) (sp-devonthink-keywords-same-p synced note)) 'ok)
+                      (t 'flag)))
+         (merged (apply #'sp-devonthink-keywords-merge
+                        (if (eq synced 'none) nil synced)
+                        (append (unless (eq bib 'none) (list bib))
+                                (list dt)
+                                (when (eq state 'ok) (list note))))))
+    (list :key key :uuid uuid :file file :merged merged :state state
+          :bib (unless (eq bib 'none) (sp-devonthink-keywords-report--edit bib merged))
+          :dt (sp-devonthink-keywords-report--edit dt merged)
+          :note (and file (eq state 'ok)
+                     (sp-devonthink-keywords-report--edit (if (eq note 'none) nil note) merged)))))
+
+(defun sp-devonthink-keywords-report--changed-p (plan)
+  "Non-nil when PLAN changes some place."
+  (or (plist-get plan :bib) (plist-get plan :dt) (plist-get plan :note)))
+#+end_src
+
+* Collecting the plans
+
+- =sp-devonthink-keywords-report--collect= reads once what the single-note sync reads for each work:
+  - the DEVONthink tags, for all the records in slices of 100 (one =osascript= call for each slice);
+  - the BibTeX keywords, from all the =.bib= files once;
+  - the litnote line, from the file.
+- A work whose record is its crossref parent's, or that has no record, is skipped and counted.
+
+#+begin_src emacs-lisp
+;;;; Collecting
+
+(defconst sp-devonthink-keywords-report--slice 100
+  "How many records one DEVONthink call reads the tags of.")
+
+(defun sp-devonthink-keywords-report--tags (uuids)
+  "An alist from each UUID in UUIDS to its tags, read in slices."
+  (let (all)
+    (while uuids
+      (let ((slice (seq-take uuids sp-devonthink-keywords-report--slice)))
+        (setq all (append all (sp-devonthink-record-tags slice))
+              uuids (seq-drop uuids sp-devonthink-keywords-report--slice))))
+    all))
+
+(defun sp-devonthink-keywords-report--collect (keys)
+  "The plans of the works KEYS: a plist (:plans LIST :skipped KEYS :bibs ALIST).
+:bibs maps a key to its BibTeX keywords, for the apply step."
+  (let (items skipped plans bibs)
+    (dolist (key keys)
+      (let ((rec (ignore-errors (sp-devonthink-record key))))
+        (if (and rec (null (plist-get rec :via)))
+            (push (cons key (plist-get rec :uuid)) items)
+          (push key skipped))))
+    (setq items (nreverse items) skipped (nreverse skipped))
+    (when items
+      (let ((tags (sp-devonthink-keywords-report--tags (mapcar #'cdr items)))
+            (entries (and sp-devonthink-keywords-bibtex
+                          (sp-devonthink-bibsync--read-files (mapcar #'car items)))))
+        (dolist (item items)
+          (let* ((fields (cdr (assoc (car item) entries)))
+                 (bib (if fields (plist-get fields :keywords) 'none)))
+            (when (consp bib) (push (cons (car item) bib) bibs))
+            (push (sp-devonthink-keywords-report--plan
+                   (car item) (cdr item) (cdr (assoc (cdr item) tags)) bib)
+                  plans)))))
+    (list :plans (nreverse plans) :skipped skipped :bibs bibs)))
+#+end_src
+
+* The report
+
+- Sections:
+  - "To change": a table with the work, the file of its litnote (a link) and the edit of each place;
+  - "Litnote edited by hand" and "Unsaved litnote": lists, not applied.
+- The key of a row is the citekey, so =d= drops that work from =A=.
+
+#+begin_src emacs-lisp
+;;;; The report
+
+(defun sp-devonthink-keywords-report--text (data excluded)
+  "The report of DATA, the result of `sp-devonthink-keywords-report--collect', without EXCLUDED."
+  (let* ((plans (plist-get data :plans))
+         (changed (seq-filter #'sp-devonthink-keywords-report--changed-p plans))
+         (flagged (seq-filter (lambda (p) (eq (plist-get p :state) 'flag)) plans))
+         (unsaved (seq-filter (lambda (p) (eq (plist-get p :state) 'unsaved)) plans))
+         (cell (lambda (edit) (or edit "")))
+         (item (lambda (plan)
+                 (sp-batch-report-item
+                  nil :key (plist-get plan :key) :file (plist-get plan :file)
+                  :label (plist-get plan :key)
+                  :row (list (plist-get plan :key)
+                             (funcall cell (plist-get plan :bib))
+                             (funcall cell (plist-get plan :dt))
+                             (funcall cell (plist-get plan :note))))))
+         (plain (lambda (plan)
+                  (sp-batch-report-item nil :key (plist-get plan :key) :file (plist-get plan :file)
+                                        :label (plist-get plan :key)))))
+    (sp-batch-report-text
+     "Keywords to sync (dry run, nothing changed)"
+     (list
+      (sp-batch-report-table-section
+       "To change" '("Work" "BibTeX" "DEVONthink" "Litnote")
+       (mapcar item changed) "nothing to change")
+      (sp-batch-report-section "Litnote edited by hand: not applied, sync them one by one"
+                               (mapcar plain flagged) "none")
+      (sp-batch-report-section "Unsaved litnote: save it and press g"
+                               (mapcar plain unsaved) "none"))
+     :excluded excluded
+     :intro
+     (concat
+      (format "- %d works looked at, %d to change, %d already equal everywhere.\n"
+              (length plans) (length changed) (- (length plans) (length changed)))
+      (and (plist-get data :skipped)
+           (format "- %d without a DEVONthink record of their own, skipped.\n"
+                   (length (plist-get data :skipped))))
+      "- =d= drops a row, =u= brings it back, =g= reads everything again, =A= syncs the rows that are left.\n"))))
+
+(defun sp-devonthink-keywords-report--show (data excluded)
+  "Show the report of DATA without the EXCLUDED works."
+  (setq sp-devonthink-keywords-report--excluded excluded)
+  (sp-batch-report-open
+   sp-devonthink-keywords-report--buffer
+   (sp-devonthink-keywords-report--text data excluded)
+   :refresh (lambda (&rest _) (sp-devonthink-keywords-report (plist-get data :requested)))
+   :redraw (lambda (excl) (sp-devonthink-keywords-report--show data excl))
+   :apply (lambda (excl) (sp-devonthink-keywords-report--apply data excl))
+   :excluded excluded))
+
+(defun sp-devonthink-keywords-report--apply (data excluded)
+  "Sync the works of DATA that change, leaving out the EXCLUDED ones."
+  (let* ((keys (seq-remove
+                (lambda (k) (member k excluded))
+                (mapcar (lambda (p) (plist-get p :key))
+                        (seq-filter (lambda (p)
+                                      (and (sp-devonthink-keywords-report--changed-p p)
+                                           (not (memq (plist-get p :state) '(flag unsaved)))))
+                                    (plist-get data :plans)))))
+         (r (and keys (sp-devonthink-keywords-sync-keys keys (plist-get data :bibs)))))
+    (if (null keys)
+        (message "Nothing to sync")
+      (sp-devonthink-keywords--summary (plist-get r :results) (plist-get r :skipped)))
+    (sp-devonthink-keywords-report (plist-get data :requested))))
+
+;;;###autoload
+(defun sp-devonthink-keywords-report (&optional keys)
+  "Show what the keyword sync would change for many works; nothing is written.
+KEYS are the citekeys; the default is every work with a DEVONthink record.
+Interactively a prefix argument asks for the citekeys, separated by spaces.
+In the report, \\`A' syncs the works that are left."
+  (interactive (list (when current-prefix-arg
+                       (split-string (read-string "Citekeys: ") "[ ,]+" t))))
+  (message "Reading the keywords of the works...")
+  (let ((data (sp-devonthink-keywords-report--collect
+               (or keys (sp-devonthink-bibsync--indexed-keys)))))
+    (sp-devonthink-keywords-report--show (plist-put data :requested keys)
+                                         sp-devonthink-keywords-report--excluded)
+    (message "Keywords: %d to change" (seq-count #'sp-devonthink-keywords-report--changed-p
+                                                (plist-get data :plans)))))
+
+(keymap-set sp-devonthink-map "R" #'sp-devonthink-keywords-report)
+
+(provide 'sp-devonthink-keywords-report)
+;;; sp-devonthink-keywords-report.el ends here
+#+end_src
+
+* Keys
+
+- =C-; k d R= (=sp-devonthink-keywords-report=), next to =C-; k d T= (the sync of one note). Check first that =R= is free in =sp-devonthink-map=.
+
+* Testing it by hand on the Mac
+
+- See the testing steps in the pull request that added this file.
+- Unknown until tried: how long the report takes on the whole vault (the tags of 100 records are read in one call).

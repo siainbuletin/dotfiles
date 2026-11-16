@@ -123,7 +123,7 @@ In a note, the same spec is the parameter list of a dynamic block:
 - Register a new view without editing any file:
   - in the menu: =S= saves the spec being built;
   - from a block: =M-x sp-collec-query-view-save-from-dblock= with point in a =collection-query-table= block saves its parameters.
-  - Both write =sp-collec-query-views-file=, =views/sp-collection-query-views.el= in the configuration, which is tracked in the repository: after =stow -R emacs-modular= it is a link into =~/dotfiles=, so a saved view appears in =git status= there. A saved view with the name of a built-in one wins.
+  - Both write =sp-collec-query-views-file=, =libraries/lambda-user/saved-query-views.eld= (=sp-user-dir=), which is tracked in the repository: after =stow -R emacs-modular= it is a link into =~/dotfiles=, so a saved view appears in =git status= there. A saved view with the name of a built-in one wins.
 - Built-in views (=sp-collec-query-views-defaults=, in the repository):
   - =book-sections=: the notes linking to this note by =bib-parent=, by page, with a =Check= column.
   - =collection-articles=: the same, plus =pub-year=, for a =collection=.
@@ -176,7 +176,8 @@ Still working, as obsolete aliases:
 Data and blocks:
 
 - A views file written by the first version is read and converted.
-- The views file is now =sp-collection-query-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
+- The views file is =saved-query-views.eld= in =sp-user-dir= (=libraries/lambda-user/=): tracked by Git, not in =var/=. It must not be called =sp-collection-query-views.el=: =sp-user-dir= is on =load-path=, so that name was loaded as the module and broke =sp-org-ext=. The files under that name (in =lambda-user/= and =views/=) are still read. It was =views/= at the root of =user-emacs-directory=, which is still read until the new file holds a view.
+- The views file was briefly =sp-collection-query-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
 - The dynamic block is =collection-query-table=. =#+BEGIN: vulpea-table= in existing notes still works.
 
 Gone or not aliased:
@@ -1464,7 +1465,7 @@ The commands and helpers of the first version lived under =sia-vulpea-*=. These 
 
 A view is a name and a spec. Views you save are written to =sp-collec-query-views-file= as readable Lisp.
 
-- The default is =views/sp-collection-query-views.el= in the configuration, a file the repository tracks (empty at first), so it is a link into =~/dotfiles= under Stow.
+- The default is =saved-query-views.eld= in =sp-user-dir= (=libraries/lambda-user/=), a file the repository tracks, so it is a link into =~/dotfiles= under Stow. Its name differs from the module on purpose: =sp-user-dir= is on =load-path=.
   - A view saved from the menu or from a dynamic block therefore shows up in =git status= in =~/dotfiles=, ready to commit. Nothing else is needed.
   - Views in the older places (below =sp-etc-dir=, directly in =user-emacs-directory=) are read until the new file holds a view, and the next save writes the new file.
 - The built-in views are in the code (=sp-collec-query-views-defaults=), not in this file.
@@ -1503,16 +1504,27 @@ The views file, the in-memory alist, the converter for the first-version format,
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-views-file
-  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  (expand-file-name "saved-query-views.eld" sp-user-dir)
   "File where the views you save are written.
-It is inside the configuration (`user-emacs-directory'), so with Stow it
-is a link to the file in the dotfiles repository: a saved view shows up in
-`git status' there, ready to commit."
+It is in `sp-user-dir' (libraries/lambda-user/), which Git tracks and Stow
+links, so a saved view shows up in `git status' in the dotfiles repository,
+ready to commit.  It is not named like this module: `sp-user-dir' is on
+`load-path', so a file called sp-collection-query-views.el there would be
+loaded instead of the module."
   :type 'file
   :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defconst sp-collec-query-views--user-file
+  (expand-file-name "sp-collection-query-views.el" sp-user-dir)
+  "Where the views were saved in `sp-user-dir' under the module's own name.
+That name shadowed the module on `load-path'.")
+
+(defconst sp-collec-query-views--root-file
+  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  "Where the views were saved before they moved into `sp-user-dir'.")
+
 (defconst sp-collec-query-views--tables-file
   (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
   "Where the views were saved before the module was renamed to `sp-collection-query'.")
@@ -1602,6 +1614,8 @@ from before the rename), so views saved there carry over.  The next save
 writes `sp-collec-query-views-file'."
   (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--user-file
+                    sp-collec-query-views--root-file
                     sp-collec-query-views--tables-file
                     sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file
@@ -3672,3 +3686,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/387][#387]]
   - ✨ Renamed the module from =sp-collection-query-tables= to =sp-collection-query= (files, features, doc, tests; the =sp-collec-query-= symbols are unchanged). A views file saved under the old name is still read.
   - ✨ New =sp-collection-query-templates=: every view is a template of =sp-org-dblock-insert-template=, in the group Academic (literature notes) or Collections (everything else). =sp-collec-query-insert-view-dblock= is an obsolete alias of that command.
+- [[https://github.com/siainbuletin/dotfiles/pull/399][#399]]
+  - 🐛 Fixed =sp-org-ext= failing with =Recursive require for feature sp-collection-query-book=
+    - =sp-collection-query-book.el= ran =(with-eval-after-load 'vulpea-ui (require 'sp-collection-query-book-widget))= before its own =provide=
+    - the widget file requires =sp-collection-query-book=, so the require recursed
+    - =(provide 'sp-collection-query-book)= now comes first

@@ -49,6 +49,8 @@ The push must be a fast-forward; if it is not, =stable= was edited by hand and t
 
 =.github/workflows/tangle-check.yml= runs =tools/check-tangle.sh= on pull requests that touch a doc, a module or the tools, on pushes to =main= and =stable=, and by hand. It installs Emacs 29, tangles every module doc in place with =tools/tangle-all.el= (5 to 6 s for 132 docs in my 4-core container; a GitHub runner was not timed) and compares each module with its committed version. It ignores whitespace and blank lines, because the committed modules have them stripped and a plain tangle does not (and Org indents lines inside strings differently between versions: the runner's Emacs and mine disagreed on =sp-dashboard=).
 
+The same check runs in Emacs with =M-x sp-check-tangle= (alias =M-x check-tangle=): it starts the script in a compilation buffer, so it can be run before pushing. See [[file:../tangling-instructions.org][Tangling instructions]].
+
 Known drift is in =tools/tangle-drift-allow.txt=: empty since 2026-10-30. When a module has to differ for a while, an entry there is reported but does not fail. An entry that stops drifting fails the job until I delete it, so the list can only shrink. Fixing one means deciding which side is right: the doc (re-tangle and commit) or the =.el= (move the edit into the doc).
 
 ** Watching it

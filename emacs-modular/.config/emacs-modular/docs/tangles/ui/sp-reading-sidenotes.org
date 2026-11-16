@@ -25,7 +25,10 @@ In a literature note, a "see also" reminder is an inline Org footnote: =[fn::[[i
 
 ** Which footnotes count
 
-- The same ones as =sp-see-also=: inline footnotes that hold an =id:= link, =[fn::[[id:...][Concept]]]=.
+- The same ones as =sp-see-also=:
+  + see-also notes, =[fn:see-1]= in the text with the definition below (the number is the margin number; the note is drawn where the reference is)
+  + while =sp-see-also-legacy-footnotes= is on, also inline footnotes that hold an =id:= link, =[fn::[[id:...][Concept]]]=
+  + endnotes (=[fn:end-1]=) are not drawn
 - They are found by =sp-see-also-parse-buffer= (see [[file:../academic/sp-see-also.org][sp-see-also]]); this module does not parse footnotes itself.
 - The text in the margin is the footnote text with links shown as their description, so =[[id:x][Kant]]= is shown as =Kant=.
 
@@ -56,7 +59,8 @@ In a literature note, a "see also" reminder is an inline Org footnote: =[fn::[[i
 
 ;;; Commentary:
 
-;; In `sp-reading-mode', inline footnotes that hold an id link are shown as a
+;; In `sp-reading-mode', see-also notes (`[fn:see-1]', and the older inline
+;; footnotes that hold an id link) are shown as a
 ;; small number in the text and as a sidenote in the right margin.  The footnote
 ;; stays in the file.  `sp-reading-sidenotes-export' exports the note with ox-tufte.
 ;; Literate source: docs/tangles/ui/sp-reading-sidenotes.org.
@@ -391,6 +395,13 @@ emacs -Q --batch -L libraries/modules/ui -L libraries/modules/academic -l tests/
     (should (equal (nth 2 (car notes)) "a"))
     (should (equal (nth 3 (car notes)) "Kant"))))
 
+(ert-deftest sp-reading-sidenotes-test-scan-see-also-notes ()
+  (let ((notes (sp-reading-sidenotes-test--scan
+                "A[fn:see-1] b[fn:end-1] c.\n\n* Footnotes\n[fn:see-1] [[id:k][Kant]] says so\n\n[fn:end-1] [[id:h][Hume]]\n")))
+    (should (= (length notes) 1))
+    (should (equal (nth 2 (car notes)) "see-1"))
+    (should (equal (nth 3 (car notes)) "Kant says so"))))
+
 (ert-deftest sp-reading-sidenotes-test-scan-ignores-others ()
   (should-not (sp-reading-sidenotes-test--scan
                "Ref[fn:1] and [fn::a plain remark] and [fn::[[https://x.org][web]]].")))
@@ -511,3 +522,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - =sp-reading-sidenotes-export= exports the note to Tufte HTML with =ox-tufte= (installed through use-package and Elpaca).
   - Footnotes come from =sp-see-also-parse-buffer= (stacked on the =sp-see-also= pull request).
   - Not seen on screen: only tested in Emacs 29.3 batch, so the real look and the HTML export are untried.
+- Pull request: this one (see-also notes and endnotes)
+  - 🔧 Changed what is drawn: see-also notes (=[fn:see-N]=) as well, and no endnotes (the reading is done by =sp-see-also-parse-buffer=; see =sp-note-kinds=)

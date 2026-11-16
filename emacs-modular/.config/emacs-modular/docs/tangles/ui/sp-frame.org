@@ -15,7 +15,8 @@ This module configures Emacs frames, meaning the top-level windows managed by th
 - produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars,
 - recentres new frames,
 - adds small window margins everywhere,
-- turns on =keycast= in the header line.
+- turns on =keycast= in the header line,
+- shares the buffer list with new frames (=sp-frame-share-buffers-mode=).
 
 Some basic frame settings live in =early-init.el= instead, for faster startup.
 
@@ -226,6 +227,145 @@ On macOS, =ns-auto-titlebar-mode= keeps the native title bar's light or dark app
   (select-frame-set-input-focus (selected-frame)))
 #+end_src
 
+* Share the buffer list between frames
+
+Why this exists:
+
+- A new frame starts with an empty =buffer-list= frame parameter.
+- =tabspaces= (see =sp-tabs=) builds the workspace buffer list from that parameter, so =consult-buffer= in a new frame offered almost nothing.
+- The built-in =switch-to-prev-buffer= machinery reads the same parameters (=buffer-list= and =buried-buffer-list=).
+- Fix: when a frame is made, copy the lists into it.
+
+** Option and group
+
+#+begin_src emacs-lisp -i
+;;;;; Share the buffer list between frames
+;; A new frame starts with an empty `buffer-list' frame parameter.  `tabspaces'
+;; (sp-tabs) lists a workspace's buffers from that parameter, so `consult-buffer'
+;; in a new frame showed almost nothing.
+
+(defgroup sp-frame-share-buffers nil
+  "Give new frames the buffer list of an existing frame."
+  :group 'frames)
+#+end_src
+
+- =sp-frame-share-buffers-scope= chooses what a new frame gets:
+  - =selected= (default): the lists of the frame that was selected before =make-frame=, so the new frame is in the same workspace.
+  - =all=: every live buffer whose name does not start with a space, with an empty buried list.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-frame-share-buffers-scope 'selected
+  "Which buffers a new frame gets in its buffer list.
+`selected' copies the buffer list of the frame that was selected before
+the new frame was made.  `all' uses every live buffer whose name does
+not start with a space."
+  :type '(choice (const :tag "Buffers of the previously selected frame" selected)
+                 (const :tag "All live buffers" all)))
+#+end_src
+
+** Helpers
+
+- =sp-frame-share-buffers--source= is set by =before-make-frame-hook= to the frame selected before =make-frame=.
+  - In =after-make-frame-functions= the new frame is already the selected one, so the previous frame cannot be read from there.
+- =sp-frame-share-buffers--live= drops killed buffers and duplicates.
+- =sp-frame-share-buffers--eligible-p= skips:
+  - child frames (frames with a =parent-frame= parameter, for example posframes),
+  - frames with the =sp-no-share-buffers= parameter set, an escape hatch for any frame that must stay isolated.
+
+#+begin_src emacs-lisp -i
+(defvar sp-frame-share-buffers--source nil
+  "Frame that was selected just before the latest `make-frame'.")
+
+(defun sp-frame-share-buffers--live (buffers)
+  "Return the live buffers of BUFFERS, without duplicates."
+  (delete-dups (seq-filter #'buffer-live-p buffers)))
+
+(defun sp-frame-share-buffers--eligible-p (frame)
+  "Return non-nil if FRAME should receive a shared buffer list.
+Child frames (posframe and similar) and frames with the
+`sp-no-share-buffers' parameter are left alone."
+  (and (frame-live-p frame)
+       (not (frame-parameter frame 'parent-frame))
+       (not (frame-parameter frame 'sp-no-share-buffers))))
+
+(defun sp-frame-share-buffers--remember-source ()
+  "Remember the selected frame before a new frame is made."
+  (setq sp-frame-share-buffers--source (selected-frame)))
+#+end_src
+
+** Copying the lists
+
+- =sp-frame-share-buffers-into= sets =buffer-list= and =buried-buffer-list= on FRAME.
+  - SOURCE defaults to the remembered frame, then to the first other eligible frame (for example when a daemon makes a frame with nothing selected).
+  - It does nothing when no source frame exists, such as the very first frame.
+- =sp-frame-share-buffers--after-make= wraps it in =condition-case=, so a failure only prints a message and never breaks =make-frame=.
+- =sp-frame-share-buffers-now= is an interactive command: it copies another frame's lists into the selected frame, for a frame that was made before the mode was on.
+
+#+begin_src emacs-lisp -i
+(defun sp-frame-share-buffers-into (frame &optional source)
+  "Set the buffer lists of FRAME from SOURCE, per `sp-frame-share-buffers-scope'.
+SOURCE defaults to the frame remembered before the latest `make-frame',
+or else the first other frame."
+  (when-let* (((sp-frame-share-buffers--eligible-p frame))
+              (source (or (and (frame-live-p source) source)
+                          (and (frame-live-p sp-frame-share-buffers--source)
+                               (not (eq sp-frame-share-buffers--source frame))
+                               sp-frame-share-buffers--source)
+                          (seq-find (lambda (f) (and (not (eq f frame))
+                                                     (sp-frame-share-buffers--eligible-p f)))
+                                    (frame-list)))))
+    (pcase sp-frame-share-buffers-scope
+      ('all
+       (set-frame-parameter
+        frame 'buffer-list
+        (seq-remove (lambda (b) (string-prefix-p " " (buffer-name b)))
+                    (sp-frame-share-buffers--live (buffer-list))))
+       (set-frame-parameter frame 'buried-buffer-list nil))
+      (_
+       (set-frame-parameter
+        frame 'buffer-list
+        (sp-frame-share-buffers--live (frame-parameter source 'buffer-list)))
+       (set-frame-parameter
+        frame 'buried-buffer-list
+        (sp-frame-share-buffers--live (frame-parameter source 'buried-buffer-list)))))))
+
+(defun sp-frame-share-buffers--after-make (frame)
+  "Share the buffer list into the new FRAME; never signal an error."
+  (condition-case err
+      (sp-frame-share-buffers-into frame)
+    (error (message "sp-frame-share-buffers: %s" (error-message-string err)))))
+
+(defun sp-frame-share-buffers-now ()
+  "Share the buffer list of another frame into the selected frame."
+  (interactive)
+  (sp-frame-share-buffers-into (selected-frame)))
+#+end_src
+
+** Minor mode
+
+- =sp-frame-share-buffers-mode= is global and on by default.
+- It adds the two hooks when enabled and removes them when disabled.
+- It applies to every new frame, whoever made it:
+  - frames made by code, such as the =vulpea-ui-view= frame (=sp-vulpea-ui-view=), call =make-frame= and so run the same hooks,
+  - frames made by =emacsclient= or by an AeroSpace-tiled window run them too.
+- The frame still keeps its own lists afterwards: buffers selected later in one frame are not copied to the others.
+
+#+begin_src emacs-lisp -i
+(define-minor-mode sp-frame-share-buffers-mode
+  "Give every new frame the buffer list of an existing frame.
+Frames made by code, such as the vulpea-ui view frame, count too."
+  :global t
+  :group 'sp-frame-share-buffers
+  (if sp-frame-share-buffers-mode
+      (progn
+        (add-hook 'before-make-frame-hook #'sp-frame-share-buffers--remember-source)
+        (add-hook 'after-make-frame-functions #'sp-frame-share-buffers--after-make))
+    (remove-hook 'before-make-frame-hook #'sp-frame-share-buffers--remember-source)
+    (remove-hook 'after-make-frame-functions #'sp-frame-share-buffers--after-make)))
+
+(sp-frame-share-buffers-mode 1)
+#+end_src
+
 * Footer
 
 ** Provide
@@ -245,4 +385,12 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/116][#116]]
   - 🐛 Fixed Org text not being wrapped and centred by =olivetti-mode=: =sp-set-window-margins= (=sp-frame=) set a two-column margin on every window at each =window-configuration-change-hook=, overwriting the margins Olivetti uses to centre the text, so lines ran to the window edge.
   - It now skips windows showing a buffer in =olivetti-mode=.
+  - Not run in Emacs (none in the container).
+
+- [[https://github.com/siainbuletin/dotfiles/pull/466][#466]]
+  - ✨ Added =sp-frame-share-buffers-mode= (global, on by default): a new frame gets the =buffer-list= and =buried-buffer-list= of the frame selected before it.
+  - Cause: a new frame has empty buffer lists, and =tabspaces= (and so =consult-buffer=) reads them.
+  - Option =sp-frame-share-buffers-scope=: =selected= or =all=.
+  - Child frames and frames with the =sp-no-share-buffers= parameter are skipped.
+  - Command =sp-frame-share-buffers-now= for an existing frame.
   - Not run in Emacs (none in the container).

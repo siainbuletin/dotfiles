@@ -465,6 +465,21 @@ Files the config and its packages write while Emacs runs. Rule: nothing of this 
 | =projects.eld=                            | =project.el= (built in)            | =project-list-file=              | =var/cache/project-list=        | cache                        |
 | =places.eld=                              | =saveplace= (built in)             | =save-place-file= (already set)  | =var/cache/saved-places=        | cache                        |
 | =agent-shell/markdown-links.eld=          | =agent-shell=                      | none found                       | Git-ignored, not moved          | cache                        |
+| =elfeed/=                                 | =elfeed=                           | =elfeed-db-directory=            | =var/elfeed/=                   | feed database, kept          |
+| =url/= (cookies, cache, history)          | =url= (built in)                   | =url-configuration-directory=    | =var/url/=                      | cookies and cache            |
+| =network-security.data=                   | =nsm= (built in)                   | =nsm-settings-file=              | =var/etc/=                      | TLS exceptions, kept         |
+| =tramp=                                   | =tramp= (built in)                 | =tramp-persistency-file-name=    | =var/cache/=                    | connection cache             |
+| =eshell/=                                 | =eshell= (built in)                | =eshell-directory-name=          | =var/etc/eshell/=               | history and aliases          |
+| =org-semantic/= (binary)                  | =org-semantic=                     | =org-semantic-install-directory= | =var/org-semantic/=             | downloaded binary            |
+| =org-lint-backups/=                       | =sp-org-lint-footnotes=            | =sp-org-lint-fn-backup-directory= | =var/org-lint-backups/=        | copies before a fix          |
+| =views/sp-collection-query-views.el=      | =sp-collection-query-views=        | =sp-collec-query-views-file=     | =libraries/lambda-user/=        | *user data*, tracked         |
+
+Top-level folders: only source and docs stay at the root (=libraries/=, =docs/=, =tests/=, =tools/=, =agent/=). The runtime folders above are set in =early-init.el= (built-in libraries) or in the module that owns the package, so they never get created at the root. =.gitignore= still lists them at the root as a safety net.
+
+- The URL, TLS-exception and Tramp variables are set in =early-init.el=, before any library loads, because those libraries read their defaults once when they load.
+- =eshell= used the unbound =lem-etc-dir=, so its settings failed or fell back to =eshell/= at the root. It now uses =sp-etc-dir=.
+- =views/= was tracked on purpose (a saved view shows up in =git status=). That still holds in =libraries/lambda-user/=; the old paths are read until the new file holds a view.
+- Stow is run with =--no-folding=, so only files tracked in the repository are linked. Folders under =var/= are real folders made by Emacs and are never in the repository, so no Stow ignore entry is needed.
 
 The =.eld= files ("Emacs Lisp Data": a file that holds one Lisp object, read back with =read=) at the root were all the default names of packages that had no setting yet. None of them is a file I edit. In the same family, already moved before: =tabspaces-session.eld= (=var/=), =fontaine-latest-state.eld= (=var/cache/=), =recentf.eld= (ignored), and the saved query-table views (=var/etc/=). Which are user data: only the saved query-table views and the known-projects list; the rest is cache.
 
@@ -490,7 +505,32 @@ cp projectile-frecency.eld  var/cache/
 [ -f .org-id-locations ] && cp .org-id-locations var/cache/.org-id-locations
 #+end_src
 
+Runtime folders moved afterwards (run once on each machine, only the ones that exist):
+
+#+begin_src sh
+cd ~/.config/emacs-modular && mkdir -p var/etc var/cache
+[ -d elfeed ] && [ ! -e var/elfeed ] && mv elfeed var/elfeed
+[ -d url ] && [ ! -e var/url ] && mv url var/url
+[ -d org-semantic ] && [ ! -e var/org-semantic ] && mv org-semantic var/org-semantic
+[ -d sp-org-lint-backups ] && [ ! -e var/org-lint-backups ] && mv sp-org-lint-backups var/org-lint-backups
+[ -d eshell ] && [ ! -e var/etc/eshell ] && mv eshell var/etc/eshell
+[ -f network-security.data ] && mv network-security.data var/etc/
+[ -f tramp ] && mv tramp var/cache/tramp
+#+end_src
+
+- =views/sp-collection-query-views.el= is moved by Git itself (=git mv=) into =libraries/lambda-user/=. Copy it first if the pull would overwrite unsaved views: =cp views/sp-collection-query-views.el /tmp/=.
+- Stop Emacs before the =mv= commands, and quit it again afterwards so it reopens with the new paths.
+- =mv= is used, not =rm=: nothing is deleted. If both the old and the new folder exist, the guard skips the move; merge them by hand.
+
 =bookmarks= is moved by Git itself (=git mv=), so it arrives in =libraries/lambda-user/=. The other files (=amx-items=, =places.eld=, =projects.eld=, =agent-shell/=) have nothing worth keeping.
+
+** Root of the configuration
+
+- Only configuration entry points stay at the root: =early-init.el=, =init.el=, =emacs-mcp-stdio.sh= (Claude Code's MCP setting points at that path), =README.org=, =CHANGELOG.org=, =.gitignore= and =.gitattributes=.
+- Modules that nothing loads and that have no doc live in =docs/planned/= (=ox-search.el=, =ox-cmake-ide.el=, =sp-config-profiles.el=, =conditional-loading-lambda-emacs.el=, =conditional-loading.org=).
+- =srecode-map.el= is generated by Emacs, so it is no longer tracked; =srecode-map-save-file= is =var/cache/srecode-map.el= (set in =early-init.el=).
+- =forge-database.sqlite= is =var/forge-database.sqlite= (=forge-database-file=).
+- =.org-id-locations= and =recentf.eld= at the root are stale copies: the live ones are =var/cache/.org-id-locations= and =var/cache/recentf=. Check the =var/cache= copy exists, then remove the root one.
 
 * Backups and lock files
 

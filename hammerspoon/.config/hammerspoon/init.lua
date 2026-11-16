@@ -20,3 +20,5 @@ end)
 if not ok_cite then
   hs.printf("cite-match not loaded: %s", tostring(err_cite))
 end
+
+DEVONthink = dofile(hs.configdir .. "/devonthink.lua")

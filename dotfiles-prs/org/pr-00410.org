@@ -1,0 +1,221 @@
+* PR #410: ✨ Flag BibTeX citekeys over 45 characters in sp-bibtex-lint and update what uses a renamed key
+:PROPERTIES:
+:PR_NUMBER: 410
+:URL: https://github.com/siainbuletin/dotfiles/pull/410
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/410][https://github.com/siainbuletin/dotfiles/pull/410]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 20:14
+- Merged :: 2026-11-12 21:37
+- Branch :: =claude/long-citekey-check= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1c8c061c6787c374ceb5e044702285da2d34cfc8][1c8c061c67]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2CYyGtgLvq5iRgHjYX2SJe6][project thread]]/
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Part of =sp-bibtex-lint=:* a new fix kind =keys=. =sp-bibtex-lint-fix-keys= (=C-c w b k=, the =keys= button of the dry-run report, or =sp-bibtex-lint-convert=) works in batches of =sp-bibtex-lint-batch-size= like the other fixes. The dry run (=C-c w b l=) lists long keys in a section of their own.
+- *Prompt:* for each key over =sp-bibtex-key-max-length= (45) it shows the title and suggests a key from =bibtex-generate-autokey= (else the old key cut to the limit, a letter added if taken). The answer is checked (at most 45 characters, no forbidden characters, not another entry's key in any registered file, or one chosen in the run). An empty answer keeps the key.
+- *Updating what uses the key* (shown as a plan in =*BibTeX key renames*=, then =y= = everything, =b= = only the .bib file, =s= = skip), controlled by =sp-bibtex-key-update-targets= (=notes files bibrefs=):
+  - *Notes* (=sp-bibtex-key-notes-directory=, default =sp-notes-dir=, every =.org= file): the key on =#+reference:= and =:ROAM_REFS:= lines, and citations =@key= (=[cite:@key]=, =[cite/t:@a; @b]=, in text) and =cite:key=. Whole keys only (=@key-2= and =@keyx= are left alone). Each changed note is copied to =key-renames-STAMP/= in =sp-bibtex-lint-backup-directory= first; a note open with unsaved changes is left alone and listed; vulpea is told with =vulpea-db-update-file=.
+  - *Cross references:* =crossref=, =xref=, =xdata=, =related= in the file and the other registered files.
+  - *PDFs:* files in =sp-literature-dir= named =KEY.ext= or =KEY-anything.ext= (citar's additional files), and the =file= field of the entry. They move through the existing =sp-bibtex-files--move=, so with =sp-bibtex-files-devonthink-tool= set DEVONthink does the rename.
+- *DEVONthink tool:* =tools/devonthink-move.py= can now rename: a new name in the same folder is a =rename= in the plan, done with ~rec.name = …~ (tried without, then with the extension; the old name is restored if the file is not where asked), and the record is filed back in the group it was in. Previously such a move would have stopped the run, because DEVONthink's =move= keeps the file name. Changed in =docs/tangles/academic/devonthink-move.org= and tangled.
+- Order of changes, so a failure leaves things as they were: PDFs first, then notes and other .bib files, then the entries (written by the lint with its backup), then =citar-refresh=.
+- PDFs named after an old BibDesk key (not the citekey) are not touched.
+- Docs in =docs/tangles/academic/sp-academic.org= and =devonthink-move.org= (bullet lists). No CHANGELOG edit.
+
+**** Testing
+:PROPERTIES:
+:CUSTOM_ID: testing
+:END:
+- =tests/sp-bibtex-long-keys-test.el=: 11 ERT tests pass in batch Emacs 29, including the whole flow on a temp bib, notes folder and library (prompt, plan, PDF renamed, =file= field, notes, crossref).
+- =tests/sp-bibprocess-lint-test.el=: 61/61 still pass. =tests/test_devonthink_move.py=: 17 pass (new tests for rename planning and running, with DEVONthink faked).
+- *Not run:* against your real vault or vulpea, and *not against DEVONthink*: whether setting a record's name renames the file of an indexed record is an assumption; try one rename with =devonthink-move.py move --moves FILE --apply --limit 1= first.
+- Branch name has no PR number prefix (cannot rename from the cloud session).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+All of these are untested by Claude unless noted: nothing here ran on the Mac, against the real vault, or against DEVONthink. Do the scratch setup first and the real-vault items last. Use a scratch copy, never the real =.bib=, until the DEVONthink items pass.
+
+***** 0. Setup (scratch data)
+:PROPERTIES:
+:CUSTOM_ID: 0-setup-scratch-data
+:END:
+- [ ] =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=, restart Emacs (or =M-x sp-reload-modules=), then =M-x sp-bibtex-lint-fix-keys= exists and =C-c w b k= is bound (=C-h k C-c w b k=)
+- [ ] Make a scratch =.bib= =~/tmp/keytest/keytest.bib= and register it (=C-c w b r= or add it to =sp-bibtex-files=) with these entries (key lengths in brackets):
+  - =Hayek1944TheRoadToSerfdomAndTheLongTitleOfAVeryLongBookAboutPlanning= (over 45)
+  - =abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrs= (exactly 45, must NOT be flagged)
+  - =abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrst= (46, flagged)
+  - a short entry =Short2020= (must NOT be flagged)
+  - a =@incollection= whose ~crossref = {Hayek1944TheRoadToSerfdomAndTheLongTitleOfAVeryLongBookAboutPlanning}~
+  - a long-key entry with no =title=
+- [ ] Scratch notes folder =~/tmp/keytest/notes/= with: a litnote having =#+reference: <long key>= and a =:ROAM_REFS: cite:<long key>= line; a note with =[cite:@<long key>]=, =[cite/t:@Short2020; @<long key>]=, plain =@<long key>= in text and =cite:<long key>=; a note with =@<long key>-2= and =@<long key>x= (must stay untouched); a note in a subfolder; a note in a hidden folder =.hidden/=
+- [ ] =(setq sp-bibtex-key-notes-directory "~/tmp/keytest/notes/")= and make sure =sp-bibtex-lint-backup-directory= points to a folder you can look at
+- [ ] Scratch library: files =<long key>.pdf=, =<long key>-supplement.pdf=, =<long key>x.pdf=, =<long key>2.pdf= in =sp-literature-dir= (or a scratch dir set as =sp-literature-dir=), and the long entry's ~file = {...}~ pointing at =<long key>.pdf=
+- [ ] Copy the scratch folder to =~/tmp/keytest-pristine/= so every run can be reset (=rm -rf= and copy back before each test that changes things)
+
+***** 1. Detection (dry run, nothing changes)
+:PROPERTIES:
+:CUSTOM_ID: 1-detection-dry-run-nothing-changes
+:END:
+- [ ] =C-c w b l= on the scratch =.bib=: the report has a "Long citation keys" section and a =keys= button with the count; the 46- and 69-character keys are listed, the 45-character and =Short2020= entries are not
+- [ ] Each listed item says =key has N characters, over the limit of 45=
+- [ ] =(setq sp-bibtex-key-max-length 20)=, rerun =C-c w b l=: more keys listed; set it back to 45 (limit is honoured)
+- [ ] =M-x sp-bibtex-lint-convert=: =long citation keys= is among the choices and starts the same fix
+- [ ] Regression: the other sections of the dry run (field order, indentation, authors, prefixes, attachment paths) still appear and their buttons still work
+
+***** 2. Fix prompt (=C-c w b k=)
+:PROPERTIES:
+:CUSTOM_ID: 2-fix-prompt-c-c-w-b-k
+:END:
+- [ ] =C-c w b k= with the scratch =.bib= open: asks =Batch 1 of N (M long keys): [p]rompt … [s]kip, [q]uit=
+- [ ] =p=: each prompt shows the old key, its length, the limit and the *title* of the entry, with a suggested key already filled in
+- [ ] The suggestion is at most 45 characters (autokey, or the old key cut to the limit)
+- [ ] Answer with a key of 50 characters: message says =50 characters, the limit is 45= and the prompt comes back with your text
+- [ ] Answer =bad key=: message says =a character BibTeX does not allow=
+- [ ] Answer ={x}=, =a,b=, =a#b=, =a%b=: each rejected for the forbidden character
+- [ ] Answer =Short2020= (taken): =another entry has this key=
+- [ ] Answer with a key that exists only in a *second registered =.bib=*: still rejected (taken in any registered file)
+- [ ] With two long keys, give the second the same key as the first: second is rejected (chosen in this run)
+- [ ] Empty answer: that key is kept and not in the plan
+- [ ] Entry with no title: prompt shows =no title= and does not error
+- [ ] Prefix argument =C-u C-c w b k= asks which =.bib= file to use
+- [ ] =s= at the first question skips the batch; =q= quits; neither changes the file
+- [ ] With the buffer for the =.bib= modified and unsaved: =sp-bibtex-lint--unsaved-check= stops the run (no changes made)
+- [ ] =sp-bibtex-lint-batch-size= 1 with two long keys: two batches, each asked in turn
+
+***** 3. Plan buffer and choices
+:PROPERTIES:
+:CUSTOM_ID: 3-plan-buffer-and-choices
+:END:
+- [ ] After the prompts the =*BibTeX key renames*= buffer shows: =N keys of FILE to rename=, counts of notes / references / citations, PDFs, cross references, then =OLD -> NEW= lines
+- [ ] The counts match the scratch data (e.g. notes with the key, =#+reference:= + =ROAM_REFS= values, each citation form counted once)
+- [ ] =s=: nothing changes anywhere (compare with =~/tmp/keytest-pristine/=, =git diff= or =diff -r=)
+- [ ] =q=: stops the run, nothing changes
+- [ ] =b=: only the =.bib= entry key changes; notes, PDFs and crossref fields are untouched
+- [ ] =y=: everything in the plan changes (sections 4 to 6)
+- [ ] Empty answers for every key: the batch is skipped without showing a plan
+
+***** 4. Entry and cross references (reset scratch first, then =y=)
+:PROPERTIES:
+:CUSTOM_ID: 4-entry-and-cross-references-reset-scratch-first-then-y
+:END:
+- [ ] The long entry's key in the =.bib= is the new key; the rest of the entry is unchanged
+- [ ] The =@incollection= =crossref= now has the new key; run again with =xref=, =xdata=, ~related = {a, <long key>, b}~ (comma-separated): only the matching part changes, the others stay
+- [ ] Entry in *another registered =.bib=* with ~crossref = {<long key>}~: updated, and a copy of that file is in =key-renames-STAMP/= in the backup folder
+- [ ] An unsaved visiting buffer of the other =.bib=: file is left alone (no changes, no error)
+- [ ] The usual lint backup of the linted =.bib= is in =sp-bibtex-lint-backup-directory= and has the old keys
+- [ ] =citar-refresh= ran: =M-x citar-open= / =citar-insert-citation= shows the *new* key and not the old
+
+***** 5. Notes (reset scratch first, then =y=)
+:PROPERTIES:
+:CUSTOM_ID: 5-notes-reset-scratch-first-then-y
+:END:
+- [ ] =#+reference:= and =:ROAM_REFS:= lines have the new key
+- [ ] =[cite:@KEY]=, =[cite/t:@Short2020; @KEY]=, plain =@KEY= in text and =cite:KEY= all changed; =@Short2020= unchanged
+- [ ] Edge case: =@KEY-2= and =@KEYx= are *not* changed; a =@KEY.= at the end of a sentence *is* changed
+- [ ] Note in a subfolder changed; note in =.hidden/= not scanned or changed; a =.#lockfile.org= is ignored
+- [ ] Each changed note was copied to =key-renames-STAMP/= first (file names use =!= for =/=), and the copy has the *old* key
+- [ ] Open a note in a buffer with *unsaved edits* before running: that note is left alone, and =Not updated, open with unsaved changes: NAME= appears in the echo area
+- [ ] A note open in a buffer *without* edits is reverted to the new content (buffer shows the new key)
+- [ ] vulpea (real vault only): =vulpea-db-update-file= ran, so =M-x vulpea-find= or the vulpea-ui widget for the litnote shows the new key without a manual sync
+- [ ] =(setq sp-bibtex-key-update-targets '(files bibrefs))=: notes are not scanned (plan shows 0 notes) and not changed
+
+***** 6. PDFs (reset scratch first, then =y=, DEVONthink tool not set)
+:PROPERTIES:
+:CUSTOM_ID: 6-pdfs-reset-scratch-first-then-y-devonthink-tool-not-set
+:END:
+- [ ] Plan lists =<long key>.pdf= and =<long key>-supplement.pdf= for the rename; =<long key>x.pdf= and =<long key>2.pdf= are *not* listed or moved
+- [ ] After =y=: both files are renamed to the new key (=NEW.pdf=, =NEW-supplement.pdf=); the others stay
+- [ ] The =file= field of the entry now names =NEW.pdf= (and the additional file if present), the rest of the field is unchanged
+- [ ] Edge case: =NEW.pdf= already exists in the library: that move is left out of the plan (nothing overwritten)
+- [ ] Edge case: no PDFs for the key: the plan says =0 PDFs= and the run still works
+- [ ] Edge case: a PDF named after an old BibDesk key (not the citekey) is untouched
+- [ ] =(setq sp-bibtex-key-update-targets '(notes bibrefs))=: PDFs and the =file= field are not changed
+- [ ] =C-c w b k= again after a successful run: no long keys left, says nothing to do (no loop, no error)
+- [ ] Stale entry: after the prompts, before pressing =y=, change the long entry's text in the =.bib= buffer (needs a second window): that entry is left alone and counted as stale; the others are renamed
+
+***** 7. DEVONthink rename: the Python tool
+:PROPERTIES:
+:CUSTOM_ID: 7-devonthink-rename-the-python-tool
+:END:
+- [ ] Prerequisites: DEVONthink running, a *test record* that is an indexed copy of a scratch PDF (e.g. =testkey-old.pdf=) in a group of the same folder
+- [ ] Dry run: =python3 ~/.config/emacs-modular/tools/devonthink-move.py move --moves FILE= where FILE moves =testkey-old.pdf= to =testkey-new.pdf= in the same folder: prints =renamed through DEVONthink: 1 to rename, 0 renamed  (dry run)= and nothing changes on disk or in DEVONthink
+- [ ] =--apply --limit 1=: prints =1 renamed=; on disk the file is now =testkey-new.pdf=; in DEVONthink the record is named per the file and is *still in the same group* it was in before
+- [ ] The manifest =~/.local/state/devonthink-move/moves-*.json= lists the rename (uuid, from, to)
+- [ ] Which name did DEVONthink accept: with the extension or without? (Note it; a wrong assumption would stop the run)
+- [ ] Failure case: source file is not where asked / record not found: run stops, old name restored, message says what was expected
+- [ ] Edge case: two records with the same path: =blocked: 2 records have this path=, not renamed
+- [ ] Edge case: the source file does not exist: listed as =missing=
+- [ ] Edge case: a file not in DEVONthink: =not in DEVONthink: 1; left alone (--plain-rename moves them on disk)=; with =--plain-rename= it is renamed on disk
+- [ ] Regression: a normal move to another folder (=move= plan) still works and still shows =through DEVONthink: N to move, N moved=
+- [ ] Undo: move the files back using the manifest; the record name and file go back
+
+***** 8. DEVONthink rename: from the lint
+:PROPERTIES:
+:CUSTOM_ID: 8-devonthink-rename-from-the-lint
+:END:
+- [ ] =(setq sp-bibtex-files-devonthink-tool "~/.config/emacs-modular/tools/devonthink-move.py")= (or however it is set) and the scratch library PDFs indexed as records in DEVONthink
+- [ ] =C-c w b k=, one long key, =y=: the PDF is renamed *through DEVONthink* (record name and file both updated, record still in its group; check DEVONthink and =ls=)
+- [ ] Open the renamed PDF from Emacs (=citar-open= on the new key): opens the file; the DEVONthink record link / =sp-devonthink= item for it still resolves
+- [ ] Two records in a batch: both renamed, the manifest lists both
+- [ ] DEVONthink not running (quit it): =y= shows an error from the tool, *no note, =.bib= or PDF is changed* (PDFs go first, so a failure leaves everything as it was); re-run works once DEVONthink is open
+- [ ] PDF is a large file (hundreds of MB or a 1000-page PDF): rename finishes without timing out and the record is read back correctly
+- [ ] Record is in more than one group (replicant) or in a different database from the file: note what happens (stopped run, or renamed); report if the record ends in the wrong group
+- [ ] Indexed PDF on a different volume or path than =sp-literature-dir=: not touched by this fix (only =sp-literature-dir= files are in the plan)
+
+***** 9. Real vault (only after the scratch runs pass)
+:PROPERTIES:
+:CUSTOM_ID: 9-real-vault-only-after-the-scratch-runs-pass
+:END:
+- [ ] =git -C ~/notes status= is clean before starting, so the vault diff shows only this run
+- [ ] =C-c w b l= on the real =.bib=: count of long keys looks plausible; list is a section of its own
+- [ ] =C-c w b k= with a batch size of 1 on one real entry, =y=: key, litnote reference, citations in other notes, crossref and PDF all follow
+- [ ] =git -C ~/notes diff= shows only the key changed on the =#+reference:= / =ROAM_REFS= and citation lines
+- [ ] Run again to confirm no other note changed; =M-x citar-open= and the litnote's =C-c k= DEVONthink actions still work for the renamed key
+- [ ] Run for several keys at once (full batch); check =key-renames-STAMP/= has a copy of each changed note and the other =.bib= files
+
+***** 10. Regressions
+:PROPERTIES:
+:CUSTOM_ID: 10-regressions
+:END:
+- [ ] =C-c w b L= (=sp-bibtex-lint-convert=): the other fixes (field order, indentation, name prefixes, author names, attachment paths) still run on the scratch =.bib=
+- [ ] =sp-bibtex-lint-fix-files= still moves PDFs (through DEVONthink if set); the new rename code is not reached for plain moves to another folder
+- [ ] Opening the =.bib= and =citar-refresh= is not slower
+- [ ] Byte compile: =M-x emacs-lisp-byte-compile= on =sp-bibprocess.el= shows no new warnings (no =when-let= / =if-let= obsolete warning)
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard any local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D claude/long-citekey-check=; the remote copy stays until the branch is deleted.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- If a run changed the real vault: restore the notes from =key-renames-STAMP/= in =sp-bibtex-lint-backup-directory=, or =git -C ~/notes restore .= if the vault is under git; restore the =.bib= from the lint backup in the same folder.
+- If a rename went through DEVONthink: move the files back using the manifest in =~/.local/state/devonthink-move/moves-*.json=, and check the record names and groups in DEVONthink.
+- Delete the scratch data: =rm -rf ~/tmp/keytest ~/tmp/keytest-pristine= and remove the scratch =.bib= from =sp-bibtex-files=.
+- Fish shell works for all of the above; Sia uses GNU Stow, so no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiAD7sVQHZBcbnXVRPT]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/34c4e1450fe3dda7d8aec1ae172fb5bc53b96cbd][34c4e1450f]] ✨ Flag BibTeX citekeys over 45 characters and ask for a shorter one (Claude, 2026-11-12 20:14)
+- [[https://github.com/siainbuletin/dotfiles/commit/00d1c857d58655bb7c3ee91d83874ef7d1f70c60][00d1c857d5]] ✨ Make the long-key fix part of sp-bibtex-lint and update what uses a renamed key (Claude, 2026-11-12 21:36)

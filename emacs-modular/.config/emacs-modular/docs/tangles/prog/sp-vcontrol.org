@@ -67,7 +67,7 @@ Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=.
 
 ** Magit on ~/dotfiles
 
-- The dotfiles are linked into =~= by GNU Stow, so =~/.config/emacs-modular/...= are symlinks into =~/dotfiles=. This module sets nothing for that: =sp-auto-follow-symlinks= in =sp-navi= (called from =sp-helper-funct=) sets =vc-follow-symlinks= to =t=. Visiting a link then opens the real file without asking, so the buffer belongs to =~/dotfiles= and Magit, diff-hl and =project.el= find the repository.
+- The dotfiles are linked into =~= by GNU Stow, so =~/.config/emacs-modular/...= are symlinks into =~/dotfiles=. This module sets nothing for that: =sp-auto-follow-symlinks= in =sp-navi= (called when =sp-navi= loads) sets =vc-follow-symlinks= to =t=. Visiting a link then opens the real file without asking, so the buffer belongs to =~/dotfiles= and Magit, diff-hl and =project.el= find the repository.
 - Nothing yadm-specific is left: no =yadm= command, no =~/.git= gitfile, no =GIT_CEILING_DIRECTORIES= and no TRAMP method.
 
 * Forge
@@ -91,8 +91,12 @@ Forge needs a token to talk to GitHub.
 ;;;; Forge settings
 (use-package forge
   :ensure t
-  :after magit)
+  :after magit
+  :custom
+  (forge-database-file (expand-file-name "forge-database.sqlite" sp-var-dir)))
 #+end_src
+
+- The Forge database (=forge-database.sqlite=) is kept in =var/=, not at the root of the configuration. It is a cache of GitHub data that Forge refills.
 
 * Code review
 

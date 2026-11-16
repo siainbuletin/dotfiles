@@ -1,0 +1,76 @@
+* PR #500: 🔧 Merge DEVONthink search into sp-devonthink-browse
+:PROPERTIES:
+:PR_NUMBER: 500
+:URL: https://github.com/siainbuletin/dotfiles/pull/500
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/500][https://github.com/siainbuletin/dotfiles/pull/500]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 10:00
+- Merged :: 2026-11-15 10:10
+- Branch :: =claude/project-thread-rex2wj= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/47847e548258d7eaf9e9af4a55cbffc13adc8650][47847e5482]]
+- Labels :: simplifying, needs-further-testing, check-NOW
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2KPRRzem8yYfc5PawUUApJv][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main= at =ba368f27= (after #497 and #499); independent of the open PRs.
+- Docs of the DEVONthink modules are also touched by #419 (open, moves them to =docs/tangles/devonthink/=); whichever merges second resolves the moved/deleted =sp-devonthink-search.org=.
+- The history entries in the docs name this PR as #500.
+- Branch is =claude/project-thread-rex2wj=: the cloud proxy cannot create the number-prefixed branch, so it needs the prefix from Sia.
+
+**** What changed
+:PROPERTIES:
+:CUSTOM_ID: what-changed
+:END:
+- =sp-devonthink-browse= and =sp-devonthink-search= did the same job (same candidates, category and Embark actions; pick a record and open it), so they are now one module and one command.
+- Module =sp-devonthink-browse= (=.el=, doc, tests) now holds everything; =sp-devonthink-search= (module, doc, tests) is removed and no longer required by =sp-academic=. No shims.
+- Command =sp-devonthink-browse= (=C-; k d f=):
+  - empty query: the record list, grouped by DEVONthink group, cached;
+  - a query: DEVONthink search; =C-u= chooses the engine (DEVONthink or litdb);
+  - empty query with a litdb engine: =user-error "litdb needs a query"=.
+- Also moved in: =sp-devonthink-similar=, =-similar-to-note= (=C-; k d a=), =sp-devonthink-preview=, and Embark =s= and =v=.
+- Renamed:
+  - options =sp-devonthink-search-limit= and =-preview-chars= are now =sp-devonthink-browse-limit= and =-preview-chars=;
+  - the internal =sp-devonthink-search--*= functions are now =sp-devonthink-browse--*= (the rank-ordered table is =--ranked-table=).
+- Removed: the key =C-; k d b= (the old =sp-devonthink-browse= command was the same as =C-; k d f= with an empty query).
+- Docs (bullets): the two pages are merged into =sp-devonthink-browse.org= (history entries for #415, #418, #453, #454, #500); =sp-devonthink.org=, =sp-fetch-inbox.org=, =sp-academic.org= and =README.org= updated. =CHANGELOG.org= not edited.
+- Tests: the search tests are in =tests/sp-devonthink-browse-test.el= (renamed), plus new ones: empty query browses, litdb with empty query errors, merged command and keys.
+
+**** Not done or not checked
+:PROPERTIES:
+:CUSTOM_ID: not-done-or-not-checked
+:END:
+- No Emacs in the container: the tests and =tools/check-tangle.sh= were not run. I checked by script that the =emacs-lisp= blocks of the doc equal the =.el= (ignoring blank lines) and that the parentheses balance.
+- The DEVONthink JavaScript is unchanged.
+- The key stays =f= (not =b=); say if you want =C-; k d b= for browse.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =C-; k d f=, press =RET= on an empty query: the record list appears, grouped by DEVONthink group; choosing one opens it in DEVONthink.
+- [ ] =C-; k d f=, type a query (e.g. =kind:pdf value form=): ranked hits with kind and page count, as before.
+- [ ] =C-u C-; k d f=, choose a litdb engine, type a query: litdb search runs; with an empty query you get "litdb needs a query".
+- [ ] Embark on a record from either list: =o p n l t s v= work (=y= and =f= too, from bibsync and fetch-inbox).
+- [ ] =C-; k d a= in a litnote lists similar records.
+- [ ] =C-; k d b= is unbound; =M-x sp-devonthink-search= does not exist; Emacs starts with no error about a missing =sp-devonthink-search=.
+- [ ] =M-x sp-devonthink-browse-refresh=, then =C-; k d f= + =RET=: the new list is shown.
+- [ ] =M-x ert= with =sp-devonthink=: all pass.
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNi9s57TjxKDkAZRDQUU][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNi9s57TjxKDkAZRDQUU]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/f0eb22053f7fdb654dbdd68db703f51c8729c5f4][f0eb22053f]] 🔧 Merge sp-devonthink-browse into sp-devonthink-search (Claude, 2026-11-15 09:59)
+- [[https://github.com/siainbuletin/dotfiles/commit/b97d537cd96331e6c0006d72b72d1d6bb2895d1d][b97d537cd9]] 🔧 Keep the module header in the search doc (Claude, 2026-11-15 10:01)
+- [[https://github.com/siainbuletin/dotfiles/commit/c9ba5b0c0ba7efd4ec64f05d1d3f7ab0cd9c756c][c9ba5b0c0b]] 🔧 Move the search module into sp-devonthink-browse (Claude, 2026-11-15 10:03)

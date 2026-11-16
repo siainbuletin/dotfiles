@@ -1,0 +1,91 @@
+* PR #503: ✨ Split BibTeX date fields into year and month (ISO and text)
+:PROPERTIES:
+:PR_NUMBER: 503
+:URL: https://github.com/siainbuletin/dotfiles/pull/503
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/503][https://github.com/siainbuletin/dotfiles/pull/503]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 10:42
+- Merged :: 2026-11-15 10:50
+- Branch :: =503-bibtex-date-to-year= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/a52d7eb621f3122fa4d3e3d622664a8c290ddc10][a52d7eb621]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW255SXr86d2fAJcCNAASjKPb][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main= after #498 (the shared batch report).
+- Touches =sp-bibprocess= (doc, tangled =.el=, tests) and the =L b f= keys in =sp-keys=. Independent of #502.
+- The other open PRs that edit the BibTeX lint code (the =sp-bibtex-lint--kinds= list, =sp-bibtex--entry-rewrites=, the report in =sp-bibtex-lint--render=, =sp-bibtex-lint-convert=) can conflict in those few lines; keep both sides.
+
+**** What changed
+:PROPERTIES:
+:CUSTOM_ID: what-changed
+:END:
+Two separate commands, in this order:
+
+1. =sp-bibtex-lint-fix-date= (=C-; L b f d=): the automatic one, ISO dates only.
+   - ={2021}= → ~year = {2021}~
+   - ={2021-05}= → =year=, ~month = {5}~
+   - ={2021-05-14}= → =year=, ~month = {5}~; the day is dropped (and an existing =day= field goes with it)
+   - the new fields take the place of =date=; braces or quotes are kept
+2. =sp-bibtex-lint-fix-date-text= (=C-; L b f D=): run it after the first, for the dates that one leaves.
+   - month as a word: =May 14, 2021=, =14th May 2021=, =May. 2021=, =2021 Mai=; month names in English, German, French and Spanish (=sp-bibtex-date-month-names=)
+   - numbers: =14.5.2021= and =14-5-2021= (day first), =5/14/2021=, =2021/5/14=, =2021-5-4=
+   - =3/4/2021= (both numbers could be the month) is reported and left, unless =sp-bibtex-date-numeric-order= is =day-first= or =month-first=; a number over 12 settles it
+   - it also reads ISO dates, so on its own it does everything; after the first it has only the rest
+
+Both:
+
+- =@misc= entries (=sp-bibtex-date-keep-types=) are not touched: their =date= stays whole, with the day.
+- Never overwritten silently (entry left as it is, listed under "... left as they are", with the reason):
+  - an existing =year= that differs from the date; an existing =month= that is another month (=5=, =05=, ={May}=, =may= count as the same)
+  - ranges, seasons (=Spring 2021=), approximate dates (=c. 1850=, =2021?=), impossible dates, a =date= that is a macro
+- A field that already holds the same value stays; only =date= is dropped. An empty field is replaced.
+- Like the other fixes: the command opens the report, nothing is written until =A=; =A= asks once, copies the file to =sp-bibtex-lint-backup-directory= and writes; =d=/=u= drop and bring back entries (=C-; L b r=).
+- The report of =sp-bibtex-lint-dryrun= has a section and a button for the ISO fix; =sp-bibtex-lint-convert= has an entry for each.
+- Options: =sp-bibtex-date-keep-types=, =sp-bibtex-date-month-format= (=%d= gives =5=, =%02d= gives =05=), =sp-bibtex-date-numeric-order=, =sp-bibtex-date-month-names=.
+- Docs: section "Date fields to year and month" in =sp-academic.org= (bullets); =L b f d= and =L b f D= in =sp-keys.org=. No shims, =CHANGELOG.org= not edited.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- 17 new tests in =tests/sp-bibprocess-lint-test.el= (ISO forms, =@misc= untouched, month format, conflicts, unreadable dates, one write plus backup and idempotence, the text forms, the numeric-order option, text fix after the ISO fix) and 1 in =tests/sp-keys-test.el=; the every-fix-command test also covers both commands.
+- Emacs 29.3 in batch: 102 of 103 pass. =sp-bibtex-lint-test-dryrun-report= fails the same way on =main=.
+- Not run on the real =.bib= files.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] On a copy of a real =.bib=: =C-; L b f d= opens the report; nothing is written yet
+- [ ] ~date = {2021}~ is listed as ~year = {2021}~; ={2021-05-14}= as =year= and ~month = {5}~ with "day 14 dropped"
+- [ ] A =@misc= with a full date is not listed and keeps its =date=
+- [ ] A range, a =May 14, 2021= date and a differing =year= are under "Date fields left as they are", with the reason
+- [ ] =d= on an entry drops it from the fix, =u= brings it back
+- [ ] =A=: one question, a backup appears in =sp-bibtex-lint-backup-directory=, entries are rewritten and the conflicts are untouched
+- [ ] =C-; L b f d= again: nothing left to fix
+- [ ] Then =C-; L b f D=: the =May 14, 2021=-style dates are listed with their year and month; seasons, ranges and =c. 1850= are listed as left
+- [ ] A =3/4/2021= date is reported as ambiguous; with =(setq sp-bibtex-date-numeric-order 'day-first)= it becomes month 4
+- [ ] A German date such as =14. Mai 2021= becomes ~month = {5}~
+- [ ] =C-; L b l= shows the date section and button; =C-; L b a= offers both fixes
+- [ ] =(setq sp-bibtex-date-month-format "%02d")=: the month is written as =05=
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDSLSq2vmaTSLDx6bL]]
+
+** Commits (5)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/1c7c96674a2aec887f40848d1b49fefeb88aa0ee][1c7c96674a]] ✨ Add a BibTeX lint fix that splits date fields into year and month (Claude, 2026-11-15 10:42)
+- [[https://github.com/siainbuletin/dotfiles/commit/5ed911882c9c22943a304bd1d74030342836cc64][5ed911882c]] ✨ Leave the date of @misc entries as it is in the date fix (Claude, 2026-11-15 10:44)
+- [[https://github.com/siainbuletin/dotfiles/commit/16540330ee501208b9e174e8c49b817ed0673658][16540330ee]] ✨ Add a text date fix for non-ISO dates, to run after the ISO one (Claude, 2026-11-15 10:46)
+- [[https://github.com/siainbuletin/dotfiles/commit/39ab2f8e81d6d5a59b4fa7791b4906b145b55abe][39ab2f8e81]] 🐛 Read a day followed by a full stop in the text date fix (Claude, 2026-11-15 10:46)
+- [[https://github.com/siainbuletin/dotfiles/commit/12b6a3d7971102870232e096aa8f932ee742056a][12b6a3d797]] 🔧 Merge main into the BibTeX date fix branch (Claude, 2026-11-15 10:48)

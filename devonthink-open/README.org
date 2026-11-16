@@ -50,6 +50,11 @@ They live in =~/.config/dt-open/config= (the file is in the code section below),
 
 - =DT_OPEN_FALLBACK=: the app for PDFs that are not in DEVONthink, e.g. =Highlights= or =Skim=. It is opened by name, so it cannot loop back into the applet. When it is left out (the default), the app opens them with the PDF viewer that was the default before =dt-open-install= made it the default (the installer records it when =duti= is installed), and with Preview if none was recorded.
 - =DT_OPEN_LAUNCH=: =1= starts DEVONthink when it is not running and waits for a database (up to 60 s), because the lookup only works with DEVONthink running and the databases open. =0= opens the PDF in the fallback viewer instead and never starts DEVONthink.
+- =DT_OPEN_RAISE=: how the PDF's window is brought forward.
+  - =window= (default): raises only the PDF's window, through System Events. DEVONthink's main window (database view) is not brought forward. The app needs Accessibility permission (System Settings > Privacy & Security > Accessibility); without it, the log says so and the app falls back to =activate=.
+  - =app=: plain =activate=, which brings every DEVONthink window forward. This was the behaviour before.
+  - =none=: never activates; the PDF window may open behind other apps.
+  - When DEVONthink was closed, it opens its own main window at start; this setting cannot prevent that.
 - =DT_OPEN_DEBUG=: =1= writes what the app does for each PDF (the paths it tried, the databases it asked, any error) to =~/Library/Logs/DT Open PDF.log=. See "When every PDF opens in the fallback viewer".
 
 * Why it is built this way
@@ -110,7 +115,7 @@ Not measured: this was written in a Linux container with no DEVONthink. What hap
 1. LaunchServices starts the applet (the AppleScript runtime, then the =open= event). This is the part that cannot be removed.
 2. The applet reads the settings file and resolves the path.
 3. It asks whether DEVONthink is running, then sends it one Apple event per database (up to two paths per database, the second only if the first finds nothing).
-4. It opens a window for the record (DEVONthink comes to the front), or runs =open -a= with the fallback app and the file.
+4. It opens a window for the record and raises only that window, or runs =open -a= with the fallback app and the file.
 
 A PDF that is not in DEVONthink pays for all of this before Preview appears. I do not know the number; the time per database depends on how DEVONthink finds a record by path. To measure the part after LaunchServices has the applet, and the whole hand-off:
 
@@ -153,6 +158,12 @@ Read by the applet. Deleting the file changes nothing, except that =DT_OPEN_DEBU
 # the PDF in the fallback app instead (never starts DEVONthink).
 DT_OPEN_LAUNCH=1
 
+# How the PDF's window is brought forward.
+# window: raise only that window (needs Accessibility permission for the app).
+# app: activate DEVONthink, which brings all its windows forward (old behaviour).
+# none: never activate or raise; the PDF window may open behind other apps.
+DT_OPEN_RAISE=window
+
 # 1: write what the app does to ~/Library/Logs/DT Open PDF.log.
 DT_OPEN_DEBUG=1
 #+end_src
@@ -190,7 +201,7 @@ The file is optional: every setting has a default, and a missing file leaves the
 #+begin_src applescript :tangle .local/share/dt-open/open-handler.applescript
 -- Settings: ~/.config/dt-open/config, one NAME=value per line.
 on readConfig()
-	set cfg to {cfgFallback:"", cfgLaunch:true, cfgDebug:false, cfgError:""}
+	set cfg to {cfgFallback:"", cfgLaunch:true, cfgRaise:"window", cfgDebug:false, cfgError:""}
 	try
 		set cfgFile to (POSIX path of (path to home folder)) & ".config/dt-open/config"
 		set cfgText to read (POSIX file cfgFile) as «class utf8»
@@ -204,6 +215,7 @@ on readConfig()
 				if theValue starts with "\"" and theValue ends with "\"" and (count theValue) > 1 then set theValue to text 2 thru -2 of theValue
 				if theKey is "DT_OPEN_FALLBACK" then set cfgFallback of cfg to theValue
 				if theKey is "DT_OPEN_LAUNCH" then set cfgLaunch of cfg to (theValue is not "0")
+				if theKey is "DT_OPEN_RAISE" and theValue is in {"window", "app", "none"} then set cfgRaise of cfg to theValue
 				if theKey is "DT_OPEN_DEBUG" then set cfgDebug of cfg to (theValue is "1")
 			end if
 		end repeat
@@ -279,7 +291,7 @@ The lookup and the window:
 - If DEVONthink is not running it is started only when =DT_OPEN_LAUNCH= is =1=; otherwise the handler returns at once, and the file goes to the fallback viewer.
 - =waitForDatabases=: right after a start there are no databases yet, so it waits for the first one (120 times 0.5 s). Errors while DEVONthink is still starting are ignored (=try=).
 - =openInDatabases=: =lookup records with path= is asked of each database in turn, because without =in <database>= it only searches the current one. This is the loop used in the forum threads. A result that is not a list counts as no match. A file indexed in two databases opens the record of the first one that has it.
-- The window is made by DEVONthink's =open window for record=, then =activate= brings DEVONthink to the front. Every call makes a window of its own, so several PDFs open side by side: select them in the Finder and press Cmd-O (the Finder sends them to the app in one event and the app handles them one after the other), or open them one at a time. The first version opened the record's =x-devonthink-item://= link instead; that showed the PDF in the viewer under the database list in the main window, where the next PDF replaced it. There is no setting for it: the PDF always gets its own window.
+- The window is made by DEVONthink's =open window for record=. A plain =activate= would bring every DEVONthink window forward, including the main window (database view), so by default only the PDF window is raised (see =DT_OPEN_RAISE=). Every call makes a window of its own, so several PDFs open side by side: select them in the Finder and press Cmd-O (the Finder sends them to the app in one event and the app handles them one after the other), or open them one at a time. The first version opened the record's =x-devonthink-item://= link instead; that showed the PDF in the viewer under the database list in the main window, where the next PDF replaced it. There is no setting for it: the PDF always gets its own window.
 - The path is a plain variable (=aPath=) and the paths are looped over /outside/ the =tell= block, on purpose. Inside =tell application id "DNtp"=, DEVONthink's own terms take over: =contents of candidate= was read as "every /content/ (=«class DTcn»=) of the path" and failed with error -1728 ("Can't get every «class DTcn» of ..."), so every lookup failed and every PDF went to the fallback viewer. Keep the =tell= blocks small and give them only plain variables.
 - In debug mode each step is logged. The extra Apple events for the log are only sent then (=if cfgDebug of cfg=), and =my= is needed to call a handler from inside the =tell= block.
 
@@ -319,14 +331,40 @@ on openInDatabases(aPath, cfg)
 			set hits to lookup records with path aPath in theDatabase
 			if cfgDebug of cfg then my logLine(cfg, "  " & aPath & " in " & (name of theDatabase) & ": " & (count of hits))
 			if class of hits is list and (count of hits) > 0 then
-				open window for record (item 1 of hits)
-				activate
+				set theWindow to open window for record (item 1 of hits)
+				set theTitle to ""
+				try
+					set theTitle to name of theWindow
+				end try
+				if cfgRaise of cfg is "app" then activate
+				if cfgRaise of cfg is "window" then my raiseWindow(theTitle, cfg)
 				return true
 			end if
 		end repeat
 	end tell
 	return false
 end openInDatabases
+
+-- Brings only the PDF's window forward, not DEVONthink's other windows.
+on raiseWindow(theTitle, cfg)
+	try
+		tell application "System Events"
+			set theProcess to first application process whose bundle identifier starts with "com.devon-technologies.think"
+			tell theProcess
+				if theTitle is "" then
+					set theWindow to window 1
+				else
+					set theWindow to first window whose name is theTitle
+				end if
+				perform action "AXRaise" of theWindow
+				if not frontmost then set frontmost to true
+			end tell
+		end tell
+	on error errMsg number errNum
+		logLine(cfg, "raising only the PDF window failed (" & errNum & "): " & errMsg & "; using activate")
+		tell application id "DNtp" to activate
+	end try
+end raiseWindow
 #+end_src
 
 *** The debug log

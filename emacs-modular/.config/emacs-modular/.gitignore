@@ -1,18 +1,12 @@
 .claude/worktrees/*
 backups/
-elfeed/
 eln-cache/
 elpa/
 elpaca/
 eshell/
 transient/
-url/ 
 var/
 emms/**
-
-org-semantic/
-
-sp-org-lint-backups/
 
 recentf.eld
 
@@ -52,3 +46,17 @@ docs/.build/
 /projects.eld
 /projectile-*.eld
 /agent-shell/
+
+# runtime folders that used to sit at the root: they live in var/ now
+# (docs/tangles/base/sp-globals.org, "State files").  Ignored so a copy left
+# behind, or a package that ignores its setting, never shows up in `git status'.
+/elfeed/
+/url/
+/org-semantic/
+/sp-org-lint-backups/
+/eshell/
+/network-security.data
+/forge-database.sqlite
+/srecode-map.el
+/.org-id-locations
+/recentf.eld

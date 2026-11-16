@@ -82,6 +82,7 @@ periods. This ain't a typewriter."
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
+   ("C-x t I" . sp-org-lint-resources) ;; tidy a list of links; next to `org-toggle-item'
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)
@@ -492,6 +493,38 @@ one week to the next, unchecking them at the same time"
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
 
+;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-quote-join-lines (text)
+  "Return TEXT with the hard line breaks inside each paragraph joined by a space.
+Paragraphs, which are separated by blank lines, stay separate."
+  (mapconcat (lambda (paragraph)
+               (replace-regexp-in-string "[ \t]*\n[ \t]*" " " (string-trim paragraph)))
+             (split-string text "\n[ \t]*\n+" t)
+             "\n\n"))
+
+(defun sp-org-insert-quote-from-kill (&optional arg)
+  "Insert an Org quote block holding the latest kill ring item.
+With an active region, put the region (cut from the buffer) in the block instead.
+With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+Hard line breaks inside a paragraph are joined into one line; blank lines between
+paragraphs are kept.
+The kill ring is neither changed nor rotated by this command."
+  (interactive "P")
+  (let* ((region (and (use-region-p)
+                      (prog1 (buffer-substring-no-properties (region-beginning) (region-end))
+                        (delete-region (region-beginning) (region-end)))))
+         (text (cond (region region)
+                     (arg nil)
+                     (kill-ring (substring-no-properties (current-kill 0 t)))))
+         (text (and text (string-trim-right text "\n+")))
+         (text (and text (not (string-empty-p text))
+                    (org-escape-code-in-string (sp-org-quote-join-lines text)))))
+    (unless (bolp) (insert "\n"))
+    (insert "#+begin_quote\n")
+    (if text
+        (insert text "\n#+end_quote\n")
+      (save-excursion (insert "\n#+end_quote\n")))))
+
 ;;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
 (defun sp-org-point-strictly-in-link-p ()
   "Non-nil if point is inside a link, not at its edges or trailing blanks."
@@ -506,6 +539,30 @@ one week to the next, unchecking them at the same time"
          (and org-return-follows-link
               (sp-org-point-strictly-in-link-p))))
     (apply fn args)))
+
+(defcustom sp-org-offer-entry-links nil
+  "Non-nil to let `org-open-at-point' list the links of the entry on plain text.
+Stock Org does that when point is not on a link but inside an entry.
+When nil, `C-c C-o' on plain text only prints a message; the list is
+still offered on a headline."
+  :type 'boolean
+  :group 'org-link)
+
+(defun sp-org-refuse-entry-links ()
+  "Refuse `org-open-at-point' on plain text unless `sp-org-offer-entry-links'.
+For `org-open-at-point-functions'; signals a `user-error' that names the variable."
+  (when (and (not sp-org-offer-entry-links)
+             (derived-mode-p 'org-mode)
+             (not (org-at-heading-p))
+             (not (org-element-lineage
+                   (org-element-context)
+                   '(citation citation-reference clock comment comment-block
+                     footnote-definition footnote-reference inline-src-block
+                     keyword link node-property planning src-block timestamp)
+                   t)))
+    (user-error "Nothing to open here: the entry link list is disabled; see `sp-org-offer-entry-links' to re-enable it")))
+
+(add-hook 'org-open-at-point-functions #'sp-org-refuse-entry-links 90)
 
 ;;;; URL at point in Org buffers
 ;; Org's `url' provider for `thing-at-point' can hand back a parsed link

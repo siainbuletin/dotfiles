@@ -216,6 +216,64 @@ pixels (`sp-citations--emoji-cell').  Used as the `etype' transform of
        "\U0001F4C4\uFE0F")
    3))
 
+;;;; Citar author names
+;; The author column shows the last name first, then the first names: "Smith, John;
+;; Doe, Jane".  A BibTeX name is "Last, First" or "First Last", whichever way it was typed.
+(defconst sp-citations--name-particles
+  '("von" "van" "de" "der" "den" "del" "della" "di" "da" "do" "dos" "du" "la" "le" "ten" "ter" "al" "el" "bin" "ibn")
+  "Lower-case words that belong to the last name when they come before it.")
+
+(defconst sp-citations--name-suffixes
+  '("Jr." "Jr" "Sr." "Sr" "II" "III" "IV")
+  "Words after a last name that are not a first name.")
+
+(defun sp-citations--unbrace (string)
+  "Return STRING without the braces BibTeX uses to protect it."
+  (replace-regexp-in-string "[{}]" "" string))
+
+(defun sp-citations--last-first-name (name)
+  "Return the personal NAME of a BibTeX author as \"Last, First\".
+NAME is \"Last, First\", \"Last, Jr, First\" or \"First Last\".  A last name keeps its
+particles (\"van Beethoven, Ludwig\") and a suffix (\"King Jr., Martin\").  A name in braces,
+the name of an organisation, a single word and \"others\" are left as they are."
+  (let ((name (string-trim name)))
+    (cond
+     ((string-empty-p name) "")
+     ((string= name "others") "et al.")
+     ((string-match-p "\\`{.*}\\'" name) (sp-citations--unbrace name))
+     ((string-match-p "," name)
+      (let ((parts (mapcar (lambda (part) (string-trim (sp-citations--unbrace part)))
+                           (split-string name "," t))))
+        (pcase parts
+          (`(,last ,jr ,first) (format "%s %s, %s" last jr first))
+          (`(,last . ,rest) (if rest (format "%s, %s" last (string-join rest " ")) last)))))
+     (t
+      (let ((words (split-string (sp-citations--unbrace name) "[ \t]+" t))
+            (suffix nil))
+        (if (= (length words) 1)
+            (car words)
+          ;; a suffix after the last name is moved behind it: "King Jr., Martin"
+          (while (and (> (length words) 2)
+                      (member (car (last words)) sp-citations--name-suffixes))
+            (push (car (last words)) suffix)
+            (setq words (butlast words)))
+          (let ((surname (list (car (last words))))
+                (given (butlast words)))
+            ;; the particles just before the last name belong to it: "van Beethoven"
+            (while (and given (member (car (last given)) sp-citations--name-particles))
+              (push (car (last given)) surname)
+              (setq given (butlast given)))
+            (let ((last (string-join (append surname suffix) " ")))
+              (if given (format "%s, %s" last (string-join given " ")) last)))))))))
+
+(defun sp-citations--last-first (names)
+  "Return the BibTeX NAMES of authors or editors with the last name first.
+The names are separated by \" and \" in the field and by \"; \" here, since a name has a comma
+of its own.  Used as the `lastfirst' transform of `citar-display-transform-functions'."
+  (mapconcat #'sp-citations--last-first-name
+             (split-string (or names "") "[ \t\n]+and[ \t\n]+" t)
+             "; "))
+
 ;;;; Citar layout
 ;; The widths in `citar-templates' are numbers, so they are worked out here from the
 ;; columns of the frame Emacs has on the screen, as the posframe takes them, at the size
@@ -265,16 +323,29 @@ get 20 columns once the room is 110 columns or more."
          (title (max 20 (- room author key))))
     (list :author author :title title :key key :tags (max 0 (- tags 2)))))
 
+(defun sp-citations--completion-template (main suffix)
+  "Return the `completion' template of `citar' for the MAIN and SUFFIX templates.
+Without a `completion' entry `citar' makes it as `(concat (propertize main 'face
+'citar-highlight) (propertize suffix 'face 'citar))', and `propertize' replaces every
+face of SUFFIX, so the faded italic of the citekey is lost.  Here the `citar' face is
+added after the ones the suffix has, so the citekey keeps `sp-citar-key' first."
+  (let ((suffix (copy-sequence suffix)))
+    (add-face-text-property 0 (length suffix) 'citar t suffix)
+    (concat (propertize main 'face 'citar-highlight) suffix)))
+
 (defun sp-citations--layout-templates (&optional columns)
-  "Return the `main' and `suffix' entries of `citar-templates' for COLUMNS."
+  "Return the `main', `suffix' and `completion' entries of `citar-templates' for COLUMNS."
   (let* ((layout (sp-citations--layout columns))
-         (tags (plist-get layout :tags)))
-    `((main . ,(format "${=type=:3%%etype} ${author editor:%d}  ${year issued date:4}  ${title:%d}"
+         (tags (plist-get layout :tags))
+         (main (format "${=type=:3%%etype} ${author editor:%d%%lastfirst}  ${year issued date:4}  ${title:%d}"
                        (plist-get layout :author) (plist-get layout :title)))
-      (suffix . ,(concat "  "
+         (suffix (concat "  "
                          (propertize (format "${=key= id:%d}" (plist-get layout :key))
                                      'face 'sp-citar-key)
-                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))))
+                         (if (> tags 0) (format "  ${tags keywords:%d}" tags) ""))))
+    `((main . ,main)
+      (suffix . ,suffix)
+      (completion . ,(sp-citations--completion-template main suffix)))))
 
 (defvar sp-citations--applied-state nil
   "What the widths of `citar-templates' were last worked out for.
@@ -288,7 +359,11 @@ read or when the format string changes, and the emoji cells of the type column a
 it.  When only the font changed, nothing makes `citar' do it again, so it is done here."
   (when (and (boundp 'citar-cache--bibliographies)
              (fboundp 'citar-cache--preformat-bibliography))
-    (maphash (lambda (_file bib) (citar-cache--preformat-bibliography bib))
+    ;; A bibliography the preload took from the disk has no format string yet
+    ;; (`citar-cache--get-bibliography' sets it); `citar-format--parse' on nil fails.
+    (maphash (lambda (_file bib)
+               (when (cl-struct-slot-value 'citar-cache--bibliography 'format-string bib)
+                 (citar-cache--preformat-bibliography bib)))
              citar-cache--bibliographies)))
 
 (defun sp-citations--apply-layout (&optional force)
@@ -309,7 +384,7 @@ the cached candidates are formatted again here."
                         (equal-including-properties (cdr (assq 'suffix templates))
                                                     (cdr (assq 'suffix citar-templates))))))
         (setq citar-templates (append templates
-                                      (assq-delete-all 'suffix (assq-delete-all 'main citar-templates))))
+                                      (assq-delete-all 'completion (assq-delete-all 'suffix (assq-delete-all 'main citar-templates)))))
         (when same (sp-citations--repreformat))))))
 
 (defun sp-citations--before-select (&rest _)
@@ -395,7 +470,7 @@ from `org-cite-insert', which does not ask."
 ;; Do you really need to make use of citar?
 (use-package citar
   :ensure t
-  :commands (citar-open-notes
+  :commands (citar-open citar-open-notes
              citar-insert-citation)
   
   :custom
@@ -426,12 +501,14 @@ from `org-cite-insert', which does not ask."
   (add-to-list 'citar-file-parser-functions #'sp-citations-parser-library t)
   (sp-citations-setup-indicators)
   (add-to-list 'citar-display-transform-functions '(etype . (sp-citations--type-emoji)))
+  (add-to-list 'citar-display-transform-functions '(lastfirst . (sp-citations--last-first)))
   (advice-add 'citar--make-indicator-symbols :override #'sp-citations--indicator-symbols)
+  (advice-add 'citar--fields-to-parse :filter-return #'sp-citations--stable-fields)
     (advice-add 'citar-select-ref :before #'sp-citations--before-select)
   (advice-add 'citar-select-refs :before #'sp-citations--before-select)
 
   :bind
-         (("C-c w b o" . citar-open))
+         ;; citar-open is C-; B o (sp-keys)
          (:map org-mode-map :package org
                ("C-c b" . #'org-cite-insert)
                ("C-c B" . #'sp-citations-insert-with-page))
@@ -537,6 +614,348 @@ It is a font-lock matcher: it adds the property and never fontifies."
 (add-hook 'org-mode-hook #'sp-cite-hover-setup)
 
 (defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
+
+;;;; Preload the bibliography
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+;; `citar' parses the .bib files the first time a command asks for a reference.
+;; This reads them while Emacs is idle, one file at a time.
+(defvar citar-cache--bibliographies)
+(declare-function citar--bibliography-files "citar")
+(declare-function citar-cache--get-bibliography "citar-cache")
+(declare-function citar-cache--make-bibliography "citar-cache")
+
+(defcustom sp-citations-preload t
+  "When non-nil, read the BibTeX files of `citar' while Emacs is idle."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-delay 3
+  "Seconds Emacs must be idle before the preload starts."
+  :type 'number
+  :group 'sp)
+
+(defcustom sp-citations-preload-refresh-on-save t
+  "When non-nil, read a BibTeX file again, when idle, after it is saved."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-persist t
+  "When non-nil, keep the parsed entries on disk between Emacs sessions.
+They are used only for a file whose size and contents are the same."
+  :type 'boolean
+  :group 'sp)
+
+(defcustom sp-citations-preload-cache-file
+  (expand-file-name "citar-bibliography.eld"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
+  "File where the parsed entries are kept when `sp-citations-preload-persist' is set."
+  :type 'file
+  :group 'sp)
+
+(defconst sp-citations-preload--version 1
+  "Format of `sp-citations-preload-cache-file'.")
+
+(defvar sp-citations-preload--timer nil
+  "The idle timer of the preload, or nil.")
+
+(defvar sp-citations-preload--queue nil
+  "The files the preload still has to read.")
+
+(defvar sp-citations-preload--primed nil
+  "The files whose entries came from the disk cache and were not checked yet.")
+
+(defvar sp-citations-preload--last-error nil
+  "The last error of the preload, as a string with the file and a backtrace.")
+
+(defun sp-citations-preload--capture (&rest args)
+  "Debugger function: keep the backtrace of the error in ARGS.
+Bound as `debugger' around a file; the error is then handled as usual."
+  (when (eq (car args) 'error)
+    (setq sp-citations-preload--last-error
+          (format "%s\n%s" (error-message-string (cadr args))
+                  (with-output-to-string (backtrace))))))
+
+(defun sp-citations-preload--record-error (file err)
+  "Remember ERR for FILE, with the backtrace that `sp-citations-preload--capture' kept."
+  (setq sp-citations-preload--last-error
+        (format "%s: %s\n%s" (abbreviate-file-name file) (error-message-string err)
+                (or sp-citations-preload--last-error ""))))
+
+(defun sp-citations-preload-show-error ()
+  "Show the last error of the preload with its backtrace."
+  (interactive)
+  (if (not sp-citations-preload--last-error)
+      (message "citar preload: no error")
+    (with-current-buffer (get-buffer-create "*citar preload error*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert sp-citations-preload--last-error))
+      (goto-char (point-min))
+      (pop-to-buffer (current-buffer)))))
+
+(defvar sp-citations-preload--saved nil
+  "The entry tables of `citar' as they were when the disk cache was last in step.
+An alist of (FILE . ENTRIES), compared with `equal': the tables by identity, and
+`citar' makes a new table whenever it parses a file again.")
+
+(defun sp-citations-preload--slot (bib slot)
+  "Return the value of SLOT (a symbol) of the bibliography object BIB.
+The slots are read by name: `setf' on the accessors of `citar-cache' is expanded
+when this file is loaded, before `citar' is, and then it calls a function that
+does not exist (`(setf citar-cache--bibliography-buffers)' is void)."
+  (cl-struct-slot-value 'citar-cache--bibliography slot bib))
+
+(defun sp-citations-preload--set-slot (bib slot value)
+  "Set SLOT of the bibliography object BIB to VALUE; see `sp-citations-preload--slot'."
+  (aset bib (cl-struct-slot-offset 'citar-cache--bibliography slot) value))
+
+(defun sp-citations-preload--compatible-p ()
+  "Return non-nil when the installed `citar' has what the preload uses.
+Citar's cache is internal: this checks the variable, the functions and the three
+slots, so that a change in a new version of `citar' turns the preload off with a
+message instead of an error on every file."
+  (and (boundp 'citar-cache--bibliographies)
+       (hash-table-p citar-cache--bibliographies)
+       (fboundp 'citar--bibliography-files)
+       (fboundp 'citar-cache--get-bibliography)
+       (fboundp 'citar-cache--make-bibliography)
+       (condition-case nil
+           (let ((bib (citar-cache--make-bibliography "x")))
+             (dolist (slot '(entries props buffers))
+               (sp-citations-preload--slot bib slot))
+             t)
+         (error nil))))
+
+(defun sp-citations-preload--snapshot ()
+  "Return the entry tables now in the cache of `citar', as an alist by file."
+  (let (alist)
+    (maphash (lambda (file bib)
+               (push (cons file (sp-citations-preload--slot bib 'entries)) alist))
+             citar-cache--bibliographies)
+    (sort alist (lambda (a b) (string< (car a) (car b))))))
+
+(defun sp-citations--stable-fields (fields)
+  "Return FIELDS, the fields `citar' parses, sorted and with the tags added.
+`citar' reads a bibliography again when this list differs from the one it kept.
+The tags column of the layout only exists on a wide frame, so the list changed
+with the width of the frame: the preload, run at another width than the first
+call, was thrown away by it.  Sorted and with `tags' and `keywords' always in
+it, the list is the same at any width.  Filter of `citar--fields-to-parse'."
+  (sort (delete-dups (append fields (list "tags" "keywords"))) #'string<))
+
+(defun sp-citations-preload--files ()
+  "Return the readable global bibliography files of `citar'."
+  (seq-filter #'file-readable-p
+              (condition-case nil (citar--bibliography-files 'global) (error nil))))
+
+(defun sp-citations-preload--prime (files)
+  "Put the entries kept on disk for FILES into the cache of `citar'.
+Nothing is trusted yet: `citar-cache--get-bibliography' compares the size, the
+contents and the parsed fields, and parses the file again when they differ."
+  (when (and sp-citations-preload-persist
+             (file-readable-p sp-citations-preload-cache-file))
+    (let ((data (condition-case nil
+                    (with-temp-buffer
+                      (let ((coding-system-for-read 'utf-8))
+                        (insert-file-contents sp-citations-preload-cache-file))
+                      (read (current-buffer)))
+                  (error nil))))
+      (when (eq (car-safe data) sp-citations-preload--version)
+        (pcase-dolist (`(,file ,props ,entries) (cdr data))
+          (when (and (member file files)
+                     (not (gethash file citar-cache--bibliographies)))
+            (let ((bib (citar-cache--make-bibliography file))
+                  (table (make-hash-table :test #'equal)))
+              (dolist (entry entries)
+                (puthash (car entry) (cdr entry) table))
+              (sp-citations-preload--set-slot bib 'entries table)
+              (sp-citations-preload--set-slot bib 'props props)
+              (sp-citations-preload--set-slot bib 'buffers (list 'global))
+              (push file sp-citations-preload--primed)
+              (puthash file bib citar-cache--bibliographies)))))
+      (setq sp-citations-preload--saved (sp-citations-preload--snapshot)))))
+
+(defun sp-citations-preload--save ()
+  "Write the parsed entries of `citar' to `sp-citations-preload-cache-file'."
+  (when (and sp-citations-preload-persist (hash-table-p citar-cache--bibliographies))
+    (let (data)
+      (maphash
+       (lambda (file bib)
+         (let (entries)
+           (maphash (lambda (key entry) (push (cons key entry) entries))
+                    (sp-citations-preload--slot bib 'entries))
+           (push (list file (sp-citations-preload--slot bib 'props) entries) data)))
+       citar-cache--bibliographies)
+      (condition-case err
+          (progn
+            (make-directory (file-name-directory sp-citations-preload-cache-file) t)
+            (let ((coding-system-for-write 'utf-8)
+                  (print-length nil)
+                  (print-level nil))
+              (with-temp-file sp-citations-preload-cache-file
+                (prin1 (cons sp-citations-preload--version data) (current-buffer))))
+            (setq sp-citations-preload--saved (sp-citations-preload--snapshot)))
+        (error (message "citar preload: cannot write the cache: %s"
+                        (error-message-string err)))))))
+
+(defun sp-citations-preload--save-if-needed ()
+  "Write the disk cache when the entries of `citar' differ from what it holds.
+Also when the cache file does not exist yet."
+  (when (and sp-citations-preload-persist
+             (featurep 'citar)
+             (sp-citations-preload--compatible-p)
+             (not (hash-table-empty-p citar-cache--bibliographies))
+             (or (not (file-exists-p sp-citations-preload-cache-file))
+                 (not (equal sp-citations-preload--saved
+                             (sp-citations-preload--snapshot)))))
+    (sp-citations-preload--save)))
+
+(defun sp-citations-preload--read (file)
+  "Read FILE into the cache of `citar', unless it is up to date there."
+  (when (fboundp 'sp-citations--apply-layout)
+    (sp-citations--apply-layout))
+  (let* ((old (gethash file citar-cache--bibliographies))
+         (before (and old (sp-citations-preload--slot old 'entries)))
+         (bib (citar-cache--get-bibliography file)))
+    ;; Tied to `global', as `citar--bibliographies' does; a bibliography with
+    ;; no buffer is dropped the next time `citar' releases the unused ones.
+    (unless (memq 'global (sp-citations-preload--slot bib 'buffers))
+      (sp-citations-preload--set-slot
+       bib 'buffers (cons 'global (sp-citations-preload--slot bib 'buffers))))
+    before))
+
+(defun sp-citations-preload--next ()
+  "Read the next file of the queue, then wait for Emacs to be idle again."
+  (setq sp-citations-preload--timer nil)
+  (if (null sp-citations-preload--queue)
+      (progn
+        (sp-citations-preload--save-if-needed)
+        (message "citar preload: %d bibliography file(s) ready"
+                 (hash-table-count citar-cache--bibliographies)))
+    (let ((file (pop sp-citations-preload--queue))
+          (stopped nil))
+      (condition-case err
+          (let ((debug-on-error t)
+                (debugger #'sp-citations-preload--capture))
+            ;; `debug' in the handler below makes Emacs call the debugger first.
+            (condition-case err2
+                (sp-citations-preload--read file)
+              ((debug error) (signal (car err2) (cdr err2))))
+            (setq sp-citations-preload--primed
+                  (delete file sp-citations-preload--primed)))
+        (quit
+         (setq stopped t
+               sp-citations-preload--queue nil)
+         (message "citar preload stopped; citar reads the rest when you ask for a reference")
+         (sp-citations-preload--save-if-needed))
+        (error
+         (sp-citations-preload--record-error file err)
+         (if (member file sp-citations-preload--primed)
+             ;; The entries saved on disk did not work: read the file again.
+             (progn
+               (setq sp-citations-preload--primed
+                     (delete file sp-citations-preload--primed))
+               (remhash file citar-cache--bibliographies)
+               (push file sp-citations-preload--queue)
+               (message "citar preload: the saved entries of %s did not work (%s); reading it again"
+                        (abbreviate-file-name file) (error-message-string err)))
+           (message "citar preload: %s: %s; M-x sp-citations-preload-show-error has the backtrace"
+                    (abbreviate-file-name file) (error-message-string err)))))
+      ;; Go on with the next file, also after an error in this one.
+      (unless stopped
+        (setq sp-citations-preload--timer
+              (run-with-idle-timer 0.3 nil #'sp-citations-preload--next))))))
+
+(defun sp-citations-preload--start (tries)
+  "Load `citar' and start reading its files; TRIES counts the attempts.
+Elpaca may not have installed `citar' yet, so it tries again later."
+  (setq sp-citations-preload--timer nil)
+  (if (not (condition-case nil (require 'citar nil t) (error nil)))
+      (when (< tries 6)
+        (setq sp-citations-preload--timer
+              (run-with-idle-timer 10 nil #'sp-citations-preload--start (1+ tries))))
+    (if (not (sp-citations-preload--compatible-p))
+        (message "citar preload is off: this version of citar has no cache the preload knows (see sp-citations-preload--compatible-p)")
+      (let ((files (sp-citations-preload--files)))
+        (sp-citations-preload--prime files)
+        (setq sp-citations-preload--queue files)
+        (sp-citations-preload--next)))))
+
+;;;###autoload
+(defun sp-citations-preload-schedule (&optional delay)
+  "Read the BibTeX files of `citar' once Emacs has been idle for DELAY seconds.
+DELAY defaults to `sp-citations-preload-delay'.  A file that did not change is
+only checked, so this is cheap to repeat."
+  (interactive)
+  (when (timerp sp-citations-preload--timer)
+    (cancel-timer sp-citations-preload--timer))
+  (setq sp-citations-preload--queue nil
+        sp-citations-preload--timer
+        (run-with-idle-timer (or delay sp-citations-preload-delay) nil
+                             #'sp-citations-preload--start 0)))
+
+(defun sp-citations-preload-cancel ()
+  "Stop the preload; `citar' reads what is left when it is called."
+  (interactive)
+  (when (timerp sp-citations-preload--timer)
+    (cancel-timer sp-citations-preload--timer))
+  (setq sp-citations-preload--timer nil
+        sp-citations-preload--queue nil))
+
+(defun sp-citations-preload-explain ()
+  "Say in the echo area, for each bibliography file, whether `citar' has it ready.
+Use it when `citar' still shows `Updating bibliography' on a call."
+  (interactive)
+  (if (not (and (require 'citar nil t) (sp-citations-preload--compatible-p)))
+      (message "citar preload: citar is not loaded or has another cache")
+    (let ((fields (citar--fields-to-parse))
+          (lines (list (format "preload: %s, %d file(s) waiting"
+                               (cond ((not sp-citations-preload) "off")
+                                     ((timerp sp-citations-preload--timer) "scheduled or running")
+                                     (t "idle"))
+                               (length sp-citations-preload--queue)))))
+      (dolist (file (sp-citations-preload--files))
+        (let* ((bib (gethash file citar-cache--bibliographies))
+               (props (and bib (sp-citations-preload--slot bib 'props)))
+               (size (file-attribute-size (file-attributes file))))
+          (push (format "%s: %s" (file-name-nondirectory file)
+                        (cond ((null bib) "not in the cache")
+                              ((not (memq 'global (sp-citations-preload--slot bib 'buffers)))
+                               "in the cache, not tied to global")
+                              ((not (equal (plist-get props :fields) fields))
+                               (format "parsed fields differ: cached %S, now %S"
+                                       (plist-get props :fields) fields))
+                              ((not (equal (plist-get props :size) size)) "size changed")
+                              (t "ready")))
+                lines)))
+      (when sp-citations-preload--last-error
+        (push "last error: M-x sp-citations-preload-show-error" lines))
+      (message "%s" (string-join (nreverse lines) "\n")))))
+
+(defun sp-citations-preload--after-save ()
+  "After saving a BibTeX file of `citar', read it again when idle."
+  (when (and sp-citations-preload
+             sp-citations-preload-refresh-on-save
+             buffer-file-name
+             (featurep 'citar)
+             (member (file-truename buffer-file-name)
+                     (condition-case nil (citar--bibliography-files 'global)
+                       (error nil))))
+    (sp-citations-preload-schedule)))
+
+(defun sp-citations-preload--after-register (&rest _)
+  "After `sp-bibtex-register' changed the files, read the new ones when idle."
+  (when sp-citations-preload
+    (sp-citations-preload-schedule)))
+
+(add-hook 'after-save-hook #'sp-citations-preload--after-save)
+(add-hook 'kill-emacs-hook #'sp-citations-preload--save-if-needed)
+(advice-add 'sp-bibtex-register :after #'sp-citations-preload--after-register)
+
+(when sp-citations-preload
+  (sp-citations-preload-schedule))
 
 (provide 'sp-citations)
 ;; sp-citations.el ends here

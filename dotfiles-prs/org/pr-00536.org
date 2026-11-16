@@ -1,0 +1,68 @@
+* PR #536: ✨ Bare see-also note key and a Notes / Appendix section with ordered notes
+:PROPERTIES:
+:PR_NUMBER: 536
+:URL: https://github.com/siainbuletin/dotfiles/pull/536
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/536][https://github.com/siainbuletin/dotfiles/pull/536]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 20:52
+- Merged :: 2026-11-15 20:57
+- Branch :: =claude/project-thread-ijfvew= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1634abf34a1b643f3552a44944ed1dfefcc4766b][1634abf34a]]
+- Labels :: new-feature, does-what-it-should
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TjAz7AF8uUQoE1r8NCDGbJ][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Independent; follows #533 (already merged). Two commits.
+
+**** What changed
+:PROPERTIES:
+:CUSTOM_ID: what-changed
+:END:
+- =C-; n A= (=sp-see-also-note-new-bare=): a see-also note without the prompt for a note to link (same as =C-u C-; n a=).
+- The definitions section is now =* Notes / Appendix= (=sp-note-definitions-title=). A file that still has =* Footnotes= keeps using it until =C-c f q=.
+- Order in that section (=sp-note-sort-definitions=, =sp-note-definition-order=): =end-= notes, then =see-= notes, then the plain footnotes, all in the same section.
+- =C-c f q= (=org-footnote-normalize=): cuts the notes out, lets Org number the plain footnotes into the one section at the end of the file, then puts the notes back at the start of it, renumbered in text order. An empty old =Footnotes= heading is removed; no empty section is made for a buffer without notes.
+- A new note (=C-; n a/A/e=) is also put in order.
+- =org-footnote-sort= keeps the simpler guard (refuses if =org-footnote-section= is set).
+
+**** What was run
+:PROPERTIES:
+:CUSTOM_ID: what-was-run
+:END:
+- Emacs 29.3 batch: =sp-note-kinds= (16), =sp-see-also= (47), =sp-reading-sidenotes= (14), =sp-typst= (7) pass; =sp-org-lint= passes except two async/batch-view tests that also fail without these changes.
+- Not tried in a GUI or on the real vault.
+
+**** Open questions
+:PROPERTIES:
+:CUSTOM_ID: open-questions
+:END:
+- The =Notes / Appendix= heading is exported as an empty heading in Typst (like the old =Footnotes= one).
+- =C-c f q= moves the plain footnotes out of per-heading sections into this one.
+
+**** Manual test checklist
+:PROPERTIES:
+:CUSTOM_ID: manual-test-checklist
+:END:
+- [X] =C-; n A=: no minibuffer, empty definition under =* Notes / Appendix=, point after =[fn:see-N] =
+- [X] =C-; n a= still asks for the note
+- [X] A litnote with =* Footnotes=, =see-=, =end-= and numbered notes: =C-c f q= leaves one =* Notes / Appendix= with end- first, see- next, then plain footnotes; =* Footnotes= is gone
+- [X] =see-2= before =see-1= in the text: after =C-c f q= they are =see-1=, =see-2= in text order
+- [ ] A new note on a file with an old =* Footnotes= section goes into that section, in order
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiAHsMuLG5iLMWeAjmt]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/b5e3ca285f61cd3538586e387d81aee9884e5cc3][b5e3ca285f]] ✨ Add C-; n A for a see-also note without the note prompt (Claude, 2026-11-15 20:52)
+- [[https://github.com/siainbuletin/dotfiles/commit/4e12545adac8b59d5846fe8ca6d4ca37ee726ca4][4e12545ada]] ✨ Collect the notes in a Notes / Appendix section, endnotes first (Claude, 2026-11-15 20:56)

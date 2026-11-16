@@ -23,7 +23,9 @@
 ;;;; Forge settings
 (use-package forge
   :ensure t
-  :after magit)
+  :after magit
+  :custom
+  (forge-database-file (expand-file-name "forge-database.sqlite" sp-var-dir)))
 
 ;; code review harness
 (use-package code-review
