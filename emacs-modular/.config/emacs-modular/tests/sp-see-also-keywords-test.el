@@ -162,7 +162,7 @@
        (search-forward "Marx, Karl")
        (should (memq 'sp-see-also-ref-author (ensure-list (get-text-property (1- (point)) 'face))))))))
 
-(ert-deftest sp-see-also-keywords-concept-note-matches-title-alias-and-file ()
+(ert-deftest sp-see-also-keywords-concept-note-falls-back-to-title-and-file ()
   (sp-see-also-keywords-test--with-vault
    (let ((file (expand-file-name "20260101T000000--labour-power.org" notes)))
      (with-temp-file file
@@ -170,8 +170,41 @@
      (sp-see-also-keywords-reindex)
      (let ((note (list :file file :own t :title "Concept")))
        (should (sp-see-also-keywords--concept-p note))
-       (should (equal (sp-see-also-keywords--concept-terms note)
-                      '("Concept" "Value form" "Arbeitskraft" "labour power")))
+       ;; no #+dt-keyword: the title and the file name, never ROAM_ALIASES
+       (should (equal (sp-see-also-keywords--concept-terms note) '("Concept" "labour power")))
+       (with-temp-buffer
+         (sp-see-also-view-mode)
+         (let ((inhibit-read-only t))
+           (cl-letf (((symbol-function 'sp-see-also-view--width) (lambda () 80)))
+             (sp-see-also-keywords--section note)))
+         (should (string-empty-p (buffer-string))))
+       ;; a title that equals a keyword still matches
+       (with-temp-buffer
+         (sp-see-also-view-mode)
+         (let ((inhibit-read-only t))
+           (cl-letf (((symbol-function 'sp-see-also-view--width) (lambda () 80)))
+             (sp-see-also-keywords--section (list :file file :own t :title "Value form"))))
+         (should (string-match-p "Marx, Karl\\. 1867" (buffer-string))))
+       ;; the litnote of an article is not a concept note
+       (should-not (sp-see-also-keywords--concept-p
+                    (list :file (expand-file-name "smith2020.org" notes) :own t :citekey '("smith2020"))))))))
+
+(ert-deftest sp-see-also-keywords-dt-keyword-header-lines ()
+  (with-temp-buffer
+    (insert ":PROPERTIES:\n:ID: c\n:ROAM_ALIASES: Ignored\n:END:\n#+title: Concept\n"
+            "#+dt-keyword: value form, Money\n#+DT-KEYWORD: labour; money\n\n* Heading\n#+dt-keyword: below\n")
+    (should (equal (plist-get (sp-see-also-keywords--head-data) :dt-keywords)
+                   '("value form" "Money" "labour")))))
+
+(ert-deftest sp-see-also-keywords-dt-keyword-replaces-aliases-and-title ()
+  (sp-see-also-keywords-test--with-vault
+   (let ((file (expand-file-name "20260101T000000--labour-power.org" notes)))
+     (with-temp-file file
+       (insert ":PROPERTIES:\n:ID: c\n:ROAM_ALIASES: Arbeitskraft\n:END:\n#+title: Concept\n#+dt-keyword: value form\n#+dt-keyword: labour\n"))
+     (sp-see-also-keywords-reindex)
+     (let ((note (list :file file :own t :title "Concept")))
+       (should (sp-see-also-keywords--concept-p note))
+       (should (equal (sp-see-also-keywords--concept-terms note) '("value form" "labour")))
        (with-temp-buffer
          (sp-see-also-view-mode)
          (let ((inhibit-read-only t))
@@ -179,13 +212,33 @@
              (sp-see-also-keywords--section note)))
          (let ((text (buffer-string)))
            (should (string-match-p "Literature with this concept as a keyword" text))
-           (should (string-match-p "value form" text))
-           (should (string-match-p "Marx, Karl\\. 1867" text))
-           ;; the alias matches, the file name "labour power" matches no keyword
-           (should-not (string-match-p "Same keywords" text))))
-       ;; the litnote of an article is not a concept note
-       (should-not (sp-see-also-keywords--concept-p
-                    (list :file (expand-file-name "smith2020.org" notes) :own t :citekey '("smith2020"))))))))
+           (should (string-match-p "Marx, Karl\\. 1867" text))))))))
+
+(ert-deftest sp-see-also-keywords-add-dt-keyword-inserts-and-skips-existing ()
+  (sp-see-also-keywords-test--with-vault
+   (let ((file (expand-file-name "concept.org" notes)))
+     (with-temp-file file
+       (insert ":PROPERTIES:\n:ID: c\n:END:\n#+title: Concept\n#+dt-keyword: value form\n\nText\n"))
+     (with-current-buffer (find-file-noselect file)
+       (unwind-protect
+           (progn
+             (sp-see-also-keywords-add-dt-keyword '("Value form" "labour, money"))
+             (sp-see-also-keywords-add-dt-keyword '("labour"))
+             (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                            (concat ":PROPERTIES:\n:ID: c\n:END:\n#+title: Concept\n"
+                                    "#+dt-keyword: value form\n#+dt-keyword: labour, money\n\nText\n")))
+             (should (equal (sp-see-also-keywords--dt-lines) '("value form" "labour, money"))))
+         (set-buffer-modified-p nil)
+         (kill-buffer))))))
+
+(ert-deftest sp-see-also-keywords-add-dt-keyword-without-line-goes-after-title ()
+  (with-temp-buffer
+    (insert "#+title: Concept\n\nText\n")
+    (setq buffer-file-name "/tmp/none.org")
+    (unwind-protect
+        (progn (sp-see-also-keywords-add-dt-keyword '("a"))
+               (should (equal (buffer-string) "#+title: Concept\n#+dt-keyword: a\n\nText\n")))
+      (setq buffer-file-name nil))))
 
 (ert-deftest sp-see-also-keywords-section-is-silent-without-keywords ()
   (sp-see-also-keywords-test--with-vault

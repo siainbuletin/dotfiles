@@ -40,6 +40,11 @@
   "The most entries shown under one keyword; the rest is counted."
   :type 'integer :group 'sp-see-also-keywords)
 
+(defcustom sp-see-also-keywords-concept-line "dt-keyword"
+  "The name of the header keyword that lists the keywords of a concept note.
+A note with `#+dt-keyword: a, b' answers to the keywords a and b."
+  :type 'string :group 'sp-see-also-keywords)
+
 (defcustom sp-see-also-keywords-bibtex t
   "Non-nil to include the BibTeX entries that have no litnote."
   :type 'boolean :group 'sp-see-also-keywords)
@@ -73,12 +78,18 @@
   (let* ((case-fold-search nil)
          (end (save-excursion (goto-char (point-min))
                               (if (re-search-forward "^\\*+ " nil t) (line-beginning-position) (point-max))))
-         title keys keywords aliases)
+         title keys keywords aliases dt-keywords)
     (save-excursion
       (goto-char (point-min))
       (let ((case-fold-search t))
         (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" end t)
           (setq title (string-trim (match-string-no-properties 1))))
+        (goto-char (point-min))
+        (let ((regexp (format "^\\(?:#\\+\\|- \\)%s\\(?::\\|[ \t]*::\\)[ \t]*\\(.*?\\)[ \t]*$"
+                              (regexp-quote sp-see-also-keywords-concept-line))))
+          (while (re-search-forward regexp end t)
+            (setq dt-keywords (append dt-keywords
+                                      (sp-see-also-keywords--parse (match-string-no-properties 1))))))
         (goto-char (point-min))
         (when (re-search-forward "^:ROAM_ALIASES:[ \t]*\\(.*\\)$" end t)
           (setq aliases (ignore-errors (split-string-and-unquote (match-string-no-properties 1)))))
@@ -98,7 +109,8 @@
             ((progn (goto-char (point-min))
                     (re-search-forward "^- keywords ::[ \t]*\\(.*?\\)[ \t]*$" end t))
              (setq keywords (sp-see-also-keywords--parse (match-string-no-properties 1))))))
-    (list :title title :keys (nreverse keys) :keywords keywords :aliases aliases)))
+    (list :title title :keys (nreverse keys) :keywords keywords :aliases aliases
+          :dt-keywords (seq-uniq dt-keywords #'string-equal-ignore-case))))
 
 (defun sp-see-also-keywords--note-data (file)
   "The plist (:file :title :keys :keywords) of the litnote FILE, cached, or nil."
@@ -463,26 +475,84 @@ EXCLUDE-FILE and EXCLUDE-KEYS (citekeys) name the note being shown."
     (not (or (plist-get note :citekey) (plist-get data :keys) (plist-get data :keywords)))))
 
 (defun sp-see-also-keywords--concept-terms (note)
-  "The names a concept NOTE answers to: its title, its ROAM_ALIASES and its file name."
+  "The keywords a concept NOTE answers to.
+They are its `#+dt-keyword:' values.  A note without one falls back to its title
+and its file name; `ROAM_ALIASES' are not used."
   (let* ((file (plist-get note :file))
          (data (and file (sp-see-also-keywords--note-data file)))
          (base (and file (file-name-base file))))
-    (seq-uniq
-     (seq-remove #'string-empty-p
-                 (mapcar #'string-trim
-                         (append (list (or (plist-get note :title) (plist-get data :title)))
-                                 (plist-get data :aliases)
-                                 (and base
-                                      (list (replace-regexp-in-string
-                                             "[-_]+" " "
-                                             (replace-regexp-in-string "\\`[0-9T-]\\{8,\\}[-_]+" "" base)))))))
-     #'string-equal-ignore-case)))
+    (or (plist-get data :dt-keywords)
+        (seq-uniq
+         (seq-remove #'string-empty-p
+                     (mapcar #'string-trim
+                             (append (list (or (plist-get note :title) (plist-get data :title)))
+                                     (and base
+                                          (list (replace-regexp-in-string
+                                                 "[-_]+" " "
+                                                 (replace-regexp-in-string "\\`[0-9T-]\\{8,\\}[-_]+" "" base)))))))
+         #'string-equal-ignore-case))))
+
+;;;###autoload
+(defun sp-see-also-keywords-add-dt-keyword (keywords)
+  "Add KEYWORDS to the `#+dt-keyword:' header of the current concept note.
+Interactively, pick them with completion over every keyword of the litnotes and
+BibTeX entries; a new one can be typed.  The values go on one new line after the
+last `#+dt-keyword:' line, else after the last header line; those already there
+are skipped."
+  (interactive
+   (progn
+     (unless buffer-file-name (user-error "This buffer visits no file"))
+     (list (completing-read-multiple
+            "Keywords of this concept (DEVONthink / BibTeX): "
+            (sp-see-also-keywords-all)))))
+  (let* ((have (sp-see-also-keywords--parse
+                (string-join (save-excursion (sp-see-also-keywords--dt-lines)) ",")))
+         (new (seq-remove (lambda (k) (member-ignore-case k have))
+                          (sp-see-also-keywords--parse (string-join keywords ",")))))
+    (cond ((null new) (message "[see-also] nothing new to add to #+%s:" sp-see-also-keywords-concept-line))
+          (t (save-excursion
+               (save-restriction
+                 (widen)
+                 (goto-char (or (sp-see-also-keywords--dt-insert-point) (point-min)))
+                 (insert (format "#+%s: %s\n" sp-see-also-keywords-concept-line (string-join new ", ")))))
+             (sp-see-also-keywords-reindex)
+             (message "[see-also] added to #+%s: %s" sp-see-also-keywords-concept-line
+                      (string-join new ", "))))))
+
+(defun sp-see-also-keywords--dt-lines ()
+  "The values of the `#+dt-keyword:' lines in the head of the current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t) (end (sp-see-also-keywords--head-end)) values)
+      (while (re-search-forward (format "^#\\+%s:[ \t]*\\(.*?\\)[ \t]*$"
+                                        (regexp-quote sp-see-also-keywords-concept-line))
+                                end t)
+        (push (match-string-no-properties 1) values))
+      (nreverse values))))
+
+(defun sp-see-also-keywords--head-end ()
+  "The position of the first heading of the current buffer, or its end."
+  (save-excursion (goto-char (point-min))
+                  (if (re-search-forward "^\\*+ " nil t) (line-beginning-position) (point-max))))
+
+(defun sp-see-also-keywords--dt-insert-point ()
+  "Where a new `#+dt-keyword:' line goes: after the last one, else after `#+title:', else nil."
+  (save-excursion
+    (let ((case-fold-search t) (end (sp-see-also-keywords--head-end)) found)
+      (dolist (name (list sp-see-also-keywords-concept-line "title"))
+        (unless found
+          (goto-char (point-min))
+          (let (last)
+            (while (re-search-forward (format "^#\\+%s:.*$" (regexp-quote name)) end t)
+              (setq last (min (point-max) (1+ (match-end 0)))))
+            (setq found last))))
+      found)))
 
 (defun sp-see-also-keywords--section (note)
   "Add the keyword part for NOTE to the see-also view.
 A litnote gets \"Same keywords\".  A concept note gets \"Literature with this
-concept as a keyword\": the litnotes and BibTeX entries whose keywords equal its
-title, an alias or its file name."
+concept as a keyword\": the litnotes and BibTeX entries whose keywords equal one
+of its `#+dt-keyword:' values (or, without any, its title or file name)."
   (if (sp-see-also-keywords--concept-p note)
       (let* ((terms (sp-see-also-keywords--concept-terms note))
              (groups (seq-filter #'cdr (sp-see-also-keywords-find terms))))
@@ -508,6 +578,10 @@ title, an alias or its file name."
      (sp-see-also-view--stop)
      (insert (propertize (format "Keyword: %s" keyword) 'face 'sp-see-also-file-heading) "\n")
      (sp-see-also-keywords--insert-groups (sp-see-also-keywords-find (list keyword)) (list keyword)))))
+
+(defvar sp-devonthink-map)
+(with-eval-after-load 'sp-devonthink
+  (keymap-set sp-devonthink-map "K" #'sp-see-also-keywords-add-dt-keyword))
 
 (provide 'sp-see-also-keywords)
 ;;; sp-see-also-keywords.el ends here
