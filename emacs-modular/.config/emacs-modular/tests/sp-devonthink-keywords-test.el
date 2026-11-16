@@ -116,13 +116,13 @@
   (let ((out (sp-devonthink-keywords-test--with-note
               sp-devonthink-keywords-test--note
               (lambda () (should (sp-devonthink-keywords-line-write '("a" "b c")))))))
-    (should (string-match-p "- pub-year :: 2020\nKEYWORDS: a, b c\n\n\\* Notes" out))
+    (should (string-match-p "- pub-year :: 2020\n\nKEYWORDS: a, b c\n\n\\* Notes" out))
     ;; the line under the heading is not ours
     (should (string-match-p "\\* Notes\nKEYWORDS: not me" out))))
 
 (ert-deftest sp-devonthink-keywords-line-read-write-replace ()
   (sp-devonthink-keywords-test--with-note
-   (concat "#+title: K\n\n- pub-year :: 2020\nKEYWORDS: a, b\n\n* H\n")
+   (concat "#+title: K\n\n- pub-year :: 2020\n\nKEYWORDS: a, b\n\n* H\n")
    (lambda ()
      (should (equal (plist-get (sp-devonthink-keywords-line-read) :keywords) '("a" "b")))
      (should-not (sp-devonthink-keywords-line-write '("a" "b")))
@@ -278,3 +278,14 @@ Records writes in `written' (a list of (PLACE . KEYWORDS))."
 
 (provide 'sp-devonthink-keywords-test)
 ;;; sp-devonthink-keywords-test.el ends here
+
+(ert-deftest sp-devonthink-keywords-line-write-adds-blank-line-after-meta ()
+  ;; a line written by an earlier version sits right under the meta list
+  (let ((out (sp-devonthink-keywords-test--with-note
+              "#+title: K\n\n- pub-year :: 2020\nKEYWORDS: a\n\n* H\n"
+              (lambda () (should (sp-devonthink-keywords-line-write '("a")))))))
+    (should (string-match-p "- pub-year :: 2020\n\nKEYWORDS: a\n\n\\* H" out)))
+  ;; already separated: nothing to do
+  (sp-devonthink-keywords-test--with-note
+   "#+title: K\n\n- pub-year :: 2020\n\nKEYWORDS: a\n\n* H\n"
+   (lambda () (should-not (sp-devonthink-keywords-line-write '("a"))))))
