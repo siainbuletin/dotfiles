@@ -91,8 +91,12 @@ Forge needs a token to talk to GitHub.
 ;;;; Forge settings
 (use-package forge
   :ensure t
-  :after magit)
+  :after magit
+  :custom
+  (forge-database-file (expand-file-name "forge-database.sqlite" sp-var-dir)))
 #+end_src
+
+- The Forge database (=forge-database.sqlite=) is kept in =var/=, not at the root of the configuration. It is a cache of GitHub data that Forge refills.
 
 * Code review
 

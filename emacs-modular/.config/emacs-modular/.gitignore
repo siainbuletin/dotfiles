@@ -56,3 +56,7 @@ docs/.build/
 /sp-org-lint-backups/
 /eshell/
 /network-security.data
+/forge-database.sqlite
+/srecode-map.el
+/.org-id-locations
+/recentf.eld
