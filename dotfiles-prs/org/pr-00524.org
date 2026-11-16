@@ -1,0 +1,91 @@
+* PR #524: ✨ Convert the .bib files to BibLaTeX field names and Unicode accents
+:PROPERTIES:
+:PR_NUMBER: 524
+:URL: https://github.com/siainbuletin/dotfiles/pull/524
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/524][https://github.com/siainbuletin/dotfiles/pull/524]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 16:19
+- Merged :: 2026-11-15 16:22
+- Branch :: =claude/project-thread-euuy1u= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/83403c7f3d10228690651995abd49ae401730c1e][83403c7f3d]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW29UPMDb4qUd72jyXpmdZhjY][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Order: independent, based on current =main= (#522).
+- Depends on: nothing; it only adds a module, a doc, a test and three keys.
+- If merged first: nothing breaks.
+- Conflicts with: any open PR that also edits the =require= list of =sp-academic.org= or the =L b f= keys of =sp-keys.org= (adjacent hunks, keep both sides). I did not compare file lists with the open PRs one by one.
+- Branch name: it is =claude/project-thread-euuy1u=, not =NNN-...=; I cannot rename a branch of an open PR from here. Rename it on GitHub (Branches, rename) to =<this PR number>-biblatex-converter= if you want the prefix.
+- No =CHANGELOG.org= edit, as agreed; the nightly tidy picks it up.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- New module =sp-bibtex-biblatex= (literate doc =docs/tangles/academic/sp-bibtex-biblatex.org=) renames BibTeX-only fields to BibLaTeX names and writes accents as Unicode.
+  - =journal= to =journaltitle=, =address= and =place= to =location=, =school= to =institution=, =archiveprefix= and =primaryclass= to the =eprint= names.
+  - =@electronic= and =@webpage= become =@online=.
+  - =f{\"u}r= becomes =für=; protective braces, =\&=, =\%=, =\_= stay.
+  - A name whose BibLaTeX twin exists with another text is left and reported.
+- Never changed: dates (you chose to keep =year= and =month=), citekeys, =file= fields, =url=, =doi=. Citekeys and PDF names stay ASCII; the report lists the 11 keys and 284 =file= fields with non-ASCII characters on a copy of your library.
+- Safety: dry-run report first (=C-; L b f L=), one question, backup per run, =C-; L b f r= restores. A binary file with a =.bib= name (=epistemologie.bib= is a macOS alias) and non-UTF-8 files are skipped. The result must have the same keys in the same order or nothing is written.
+- Keys: =C-; L b f l= convert, =L= report, =r= restore.
+- Findings are in =docs/architecture/biblatex-and-typst.org=:
+  - your exports use CSL (citeproc), not biber, so no document needs BibTeX-only features;
+  - =bibtex-mode= handles BibLaTeX with the =biblatex= dialect (already set); it lacks =@video=, =@review=, =@standard=, =@audio=, which the converter adds while it works;
+  - Typst reads =.bib= as BibLaTeX through Hayagriva and accepts =journal=/=journaltitle=, =address=/=location=, =school=/=institution= and =date= or =year=+=month=, but not =place= or =@webpage=;
+  - =org-cite-export-processors= has no =typst= entry, so a Typst export uses citeproc text, not =#cite=; a one-line follow-up, not changed here.
+
+**** Checked by Claude
+:PROPERTIES:
+:CUSTOM_ID: checked-by-claude
+:END:
+- 11 ERT tests in =tests/sp-bibtex-biblatex-test.el= and the =sp-keys= tests pass (Emacs 29.3, headless).
+- Dry run on a copy of the library (80 files, 12 seconds): 6645 entries change, 4246 =journal=, 1524 =place=, 1193 with accents, 103 =school=, 88 =address=, 78 =@webpage=; 3 =@electronic=; no entry lost; one file skipped. Nothing was run on the real library.
+- Not run: Typst compile, Emacs 31, the interactive commands in a GUI.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] Pull this branch, restart Emacs (or =M-x sp-reload-modules=) (untested by Claude)
+- [ ] =C-; L b f L= (dry run, all files): a report buffer opens; counts are about those above; =epistemologie.bib= is listed as skipped; no file changes (=git -C ~/Documents/bibliography status= is clean) (untested by Claude)
+- [ ] =C-u C-; L b f L= on one small file: only that file is reported (untested by Claude)
+- [ ] The report lists the non-ASCII citekeys and =file= names and the =date= values with a time, without changing them (untested by Claude)
+- [ ] =C-; L b f l= on one file (=C-u=), answer no: nothing is written. Run again, answer yes: a backup folder is reported and =git diff= shows only field renames and accents (untested by Claude)
+- [ ] =C-; L b f r= restores that file byte for byte (=git diff= empty) (untested by Claude)
+- [ ] Full run on all files; =citar-refresh=; open a few entries in citar: titles with accents show as Unicode, journals show (untested by Claude)
+- [ ] Compile a small Typst file with =#bibliography("converted.bib")= and cite an article, a thesis and an =@online=: journal, place and accents appear, and =\&= shows =&= rather than a backslash (untested by Claude)
+- [ ] Regression: =C-; L b f d= (date fix) and =C-; L b f o= (field order) still open their reports (untested by Claude)
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits made while testing: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (and =git clean -fd= only after checking =git clean -nd=).
+- Return to main: =git -C ~/dotfiles switch main= and =git -C ~/dotfiles pull=.
+- Optionally delete the test branch locally: =git -C ~/dotfiles branch -D claude/project-thread-euuy1u=; the remote copy stays until the PR is merged or closed.
+- Restart Emacs (or =M-x sp-reload-modules=) so the config matches main again.
+- If you ran the conversion on the library: =C-; L b f r= restores the files from the run's backup folder, or =git -C ~/Documents/bibliography restore .= since the library is under git.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCxFkKhzC6rHZfA9ea][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/2be4851d3e640669f63de759aedfc9a789ef35ab][2be4851d3e]] ✨ Convert the .bib files to BibLaTeX field names and Unicode accents (Claude, 2026-11-15 16:18)

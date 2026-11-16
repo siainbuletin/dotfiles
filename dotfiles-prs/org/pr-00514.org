@@ -2,15 +2,17 @@
 :PROPERTIES:
 :PR_NUMBER: 514
 :URL: https://github.com/siainbuletin/dotfiles/pull/514
-:STATE: open
+:STATE: merged
 :AUTHOR: siainbuletin
 :END:
 - Link :: [[https://github.com/siainbuletin/dotfiles/pull/514][https://github.com/siainbuletin/dotfiles/pull/514]]
-- State :: open
+- State :: merged
 - Author :: @siainbuletin
 - Opened :: 2026-11-15 14:21
+- Merged :: 2026-11-15 14:35
 - Branch :: =514-devonthink-redo-highlight= → =main=
-- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/3fc3952a4ab52e8611167f0b5867e3d44de466a0][3fc3952a4a]]
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/0c804b867a952b33bb6d81034e204b65fe248067][0c804b867a]]
+- Labels :: bugfix, needs-further-testing, check-NOW
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE][project thread]]/

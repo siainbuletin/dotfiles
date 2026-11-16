@@ -55,7 +55,7 @@
 :PROPERTIES:
 :CUSTOM_ID: manual-testing
 :END:
-- [ ] Reload Hammerspoon: no error in the console.
+- [X] Reload Hammerspoon: no error in the console.
 - [ ] In DEVONthink, Caps+Option+1 through 7: the alert shows Red, Green, Blue, Yellow, Orange, Purple, Grey, and highlight mode starts.
 - [ ] Select text in a PDF and press Caps+Option+4: it highlights in Yellow.
 - [ ] Press Caps+Option first, then Caps (opposite order): the key still works.

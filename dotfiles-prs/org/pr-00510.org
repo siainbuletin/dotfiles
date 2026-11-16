@@ -12,7 +12,7 @@
 - Merged :: 2026-11-15 11:23
 - Branch :: =510-devonthink-remove-cmd-shift-d= → =main=
 - Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/c2372164a0e94aed538978ebf5a244ef74d486a4][c2372164a0]]
-- Labels :: correction, needs-further-testing
+- Labels :: correction, does-what-it-should
 
 ** Description
 /Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW266b2wAzfAJMBjD5JpGuLWE][project thread]]/
@@ -36,9 +36,9 @@
 :CUSTOM_ID: manual-testing
 :END:
 - [X] Reload Hammerspoon: no error in the console.
-- [ ] In DEVONthink, Cmd+Shift+D does DEVONthink's own action.
-- [ ] Cmd+Z still removes the latest highlight, and otherwise undoes normally.
-- [ ] Caps+x and Caps+c still work.
+- [X] In DEVONthink, Cmd+Shift+D does DEVONthink's own action.
+- [X] Cmd+Z still removes the latest highlight, and otherwise undoes normally.
+- [X] Caps+x and Caps+c still work.
 
 --------------
 

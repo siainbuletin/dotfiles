@@ -1,0 +1,92 @@
+* PR #533: ✨ Add see-also notes and endnotes (Org label convention, sp-see-also, Typst export)
+:PROPERTIES:
+:PR_NUMBER: 533
+:URL: https://github.com/siainbuletin/dotfiles/pull/533
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/533][https://github.com/siainbuletin/dotfiles/pull/533]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 19:50
+- Merged :: 2026-11-15 20:38
+- Branch :: =claude/project-thread-ijfvew= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/70327cb6f8ef949f80d27b175b0ca7193d2a928a][70327cb6f8]]
+- Labels :: new-feature, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TjAz7AF8uUQoE1r8NCDGbJ][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- One PR, two commits; the second (Typst) depends on the first (=sp-note-kinds=). Easy to split if you prefer: the branch could not be split here because only this branch name is allowed.
+
+**** What changed
+:PROPERTIES:
+:CUSTOM_ID: what-changed
+:END:
+- Three kinds of note, told by Org footnote *label* (=sp-note-kinds=, new):
+  - footnote: any other label (unchanged)
+  - see-also note: =[fn:see-1]=, drawn as a Tufte sidenote
+  - endnote: =[fn:end-1]=, collected in a Notes section
+  - prefixes are options: =sp-note-see-also-prefix=, =sp-note-endnote-prefix=
+- Today (before): =sp-see-also= read any footnote with an =id:= link, inline or numbered.
+- =sp-see-also=:
+  - reads =see-N= notes; endnotes never count; old footnotes still count while =sp-see-also-legacy-footnotes= is non-nil (default)
+  - =sp-see-also-note-new= (=C-; n a=): asks for the note, inserts =[fn:see-N]= and the definition in the =Footnotes= section
+  - =sp-see-also-convert-footnotes= (=C-; n M=): migrates inline and numbered see-also footnotes
+  - cache version 5 → 6
+- Endnotes: =sp-note-endnote-new= (=C-; n e=), template =sp-note-insert-endnotes-section= (=C-; n E=).
+- Numbering: =sp-note-renumber= (=C-; n r=) numbers each kind in text order, so =see-2= before =see-1= is swapped; runs after a new note, =org-footnote-normalize= and Org's footnote adjusting.
+- Org and lint:
+  - =org-footnote-normalize= / =org-footnote-sort= no longer touch these notes (a guard hides them from Org during the call)
+  - =sp-org-lint-footnotes= leaves them where they are
+- Typst (=sp-typst=): =#see-also[..]= (marginalia sidenote, or footnote with =sp-typst-see-also-style= = =footnote=), =#endnote[..]= and =#endnotes()=; =docs/typst/template.typ= and new =docs/typst/sidenotes.typ=.
+- =sp-reading-sidenotes= now draws =see-N= notes through the shared parser.
+- LaTeX mapping: not done (not cheap enough; see the sp-typst doc).
+
+**** What was and was not run
+:PROPERTIES:
+:CUSTOM_ID: what-was-and-was-not-run
+:END:
+- Emacs 29.3 batch: =sp-note-kinds=, =sp-see-also=, =sp-reading-sidenotes=, =sp-keys=, =sp-typst= tests pass; =sp-org-lint= tests pass except two async/batch-view tests that also fail on main in this container.
+- Typst: exported with ox-typst and compiled with the =typst= Python package (0.15.2): footnote, endnotes (=[1]=, =[2]=, reset per =#endnotes()=), =footnote= style, doc without notes.
+- *Not run:* the real =marginalia= package (packages.typst.org unreachable). =sidenotes.typ= was compiled against a stand-in package I wrote, so the call shapes are checked but the margin widths and the look are guesses (version 0.3.1 from its package page).
+- Not run: the whole book with notes, a GUI Emacs, Elpaca, the real vault.
+
+**** Open questions
+:PROPERTIES:
+:CUSTOM_ID: open-questions
+:END:
+- Definitions all go to the first =Footnotes= heading of the file, not per heading as =sp-org-fn= (not loaded) would.
+- If =org-footnote-section= is ever set, the guard refuses =org-footnote-normalize= rather than risk deleting these definitions.
+- A note cited twice is repeated (sidenote twice, endnote listed twice).
+- Flip =sp-see-also-legacy-footnotes= to nil once the vault is converted?
+- ox-typst declares Emacs 30 / Org 9.7; tested here with Org 9.6 plus a shim.
+
+**** Manual test checklist
+:PROPERTIES:
+:CUSTOM_ID: manual-test-checklist
+:END:
+- [ ] In a litnote, =C-; n a=, pick a note: =[fn:see-1]= appears at point and the definition in =* Footnotes= starts with the link
+- [ ] Insert a see-also note earlier in the text than an existing one: they renumber so the first in the text is =see-1=
+- [ ] =C-c f q= (=org-footnote-normalize=) on a buffer with plain, =see-= and =end-= notes: plain ones become numbers, the others keep their kind
+- [ ] =C-; n r= on a buffer with =see-2= before =see-1= swaps them
+- [ ] =C-; n M= on a litnote with inline and numbered see-also footnotes converts them; running it again says 0
+- [ ] =C-; n e= creates an endnote; =C-; n E= inserts the Notes section once
+- [ ] =sp-see-also-show= still lists mentions from =see-N= notes and ignores =end-N=
+- [ ] =sp-reading-mode=: =see-N= notes show in the right margin
+- [ ] =M-x sp-org-lint-footnotes-dryrun= does not move =see-=/=end-= definitions
+- [ ] =M-x sp-typst-export-file= on a note with all three kinds: sidenotes in the margin (check look with the real marginalia), =[1]= endnotes in a Notes section
+- [ ] Same with =sp-typst-see-also-style= set to =footnote=: no package downloaded
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiAHsMuLG5iLMWeAjmt][Claude Code]]/
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/330f1894c11d198d31929b429e0ad1ba6055b15e][330f1894c1]] ✨ Add see-also notes and endnotes told by footnote label (Claude, 2026-11-15 19:49)
+- [[https://github.com/siainbuletin/dotfiles/commit/5ff0b91ddf466462600defb09efe87bc37af555b][5ff0b91ddf]] ✨ Export see-also notes and endnotes to Typst (Claude, 2026-11-15 19:49)
