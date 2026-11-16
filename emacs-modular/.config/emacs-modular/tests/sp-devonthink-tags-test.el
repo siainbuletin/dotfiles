@@ -108,3 +108,11 @@
       (should (equal (sp-devonthink-record-tags '("U1" "U2"))
                      '(("U1" "foo" "bar baz") ("U2")))))
     (should (string-match-p "\"U1\", \"U2\"" asked))))
+
+(ert-deftest sp-devonthink-scripts-do-not-use-tab-inside-the-tell-block ()
+  ;; Inside `tell application id "DNtp"', `tab' is the text "tab", not a tab character.
+  (dolist (script (list (sp-devonthink--read-tags-script '("U1"))
+                        (progn (require 'sp-devonthink-bibsync)
+                               (sp-devonthink-bibsync--metadata-script '(("U1" :author "A" :title "T"))))))
+    (should-not (string-match-p "& tab\\b" script))
+    (should (string-match-p "\\`set tb to character id 9\n" script))))
