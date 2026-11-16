@@ -386,6 +386,7 @@ Module: [[file:sp-devonthink-keywords.org][sp-devonthink-keywords.org]]. It repl
   - when no question can be asked the flag stays and BibTeX and DEVONthink still sync with each other.
 - When it runs:
   - =C-; k d t= (tag-note), the browser tag action, bibsync (and so =sp-fetch-inbox=), =C-; k d T=, =sp-devonthink-keywords-sync-all=, saving a litnote, filling a new litnote;
+  - =C-; k d R= opens a report of what the sync would change for many works (=sp-devonthink-keywords-report=, module: [[file:sp-devonthink-keywords-report.org][sp-devonthink-keywords-report.org]]); =A= in it syncs them;
   - not when you change tags inside DEVONthink's own window: it has no change hook here, so run =C-; k d T= (or the next trigger) to pick them up.
 - Not keywords here:
   - a legacy tag that contains a comma (split it with =sp-devonthink-split-comma-tags=);

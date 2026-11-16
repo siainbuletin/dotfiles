@@ -66,6 +66,7 @@
 (require 'sp-devonthink-highlights)
 (require 'sp-devonthink-bibsync)
 (require 'sp-devonthink-keywords)
+(require 'sp-devonthink-keywords-report)
 (require 'sp-fetch-inbox)
 (require 'sp-devonthink-sync)
 (require 'sp-see-also)

@@ -288,6 +288,15 @@ KEYWORDS with no line to change writes nothing.  Return non-nil when the buffer 
               (delete-region (line-beginning-position)
                              (min (point-max) (1+ (line-end-position))))
               (setq changed t)))
+          (goto-char (point-min))
+          (when (and (re-search-forward (sp-devonthink-keywords--line-regexp) end t)
+                     (progn (goto-char (line-beginning-position))
+                            (forward-line -1)
+                            (looking-at-p "- [^ \n]+ ::")))
+            ;; a blank line ends the meta section; the keywords line is not one of its items
+            (forward-line 1)
+            (insert "\n")
+            (setq changed t))
           (set-marker end nil))))
     changed))
 
