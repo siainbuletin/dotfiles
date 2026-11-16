@@ -97,6 +97,64 @@ Paths:
     (exec-path-from-shell-copy-env var)))
 #+end_src
 
+* POSIX shell for commands Emacs starts
+
+** Shell commands through bash, terminals on fish
+
+Why:
+
+- =shell-command=, =call-process-shell-command=, =process-file-shell-command= and the Dirvish =git-msg= column run =SHELL -c COMMAND=.
+- =shell-file-name= follows =$SHELL=, which is fish, and fish's exit handler printed "fish is now exiting" into that output, appended to every row of the Dirvish git-message column.
+
+What the block does:
+
+- =sp-posix-shell= is =/bin/bash=, else =/bin/sh=, and becomes =shell-file-name=. Set it to nil to leave =shell-file-name= alone.
+- =shell-command-switch= stays =-c=, which bash and sh both accept.
+- =sp-interactive-shell= names the shell for =M-x shell= and =eat=; nil means =$SHELL= (fish). It is read after =exec-path-from-shell= ran.
+- =explicit-shell-file-name= and =eat-shell= get that shell, so terminals stay on fish.
+
+What is not affected:
+
+- =exec-path-from-shell= runs =$SHELL -l -i= itself and never reads =shell-file-name=, so the env import still uses fish.
+- TRAMP uses =tramp-default-remote-shell=, not =shell-file-name=.
+
+#+begin_src emacs-lisp -i
+;;;; POSIX shell for commands that Emacs starts itself
+;; - `shell-command', `call-process-shell-command', `process-file-shell-command'
+;;   and Dirvish's `git-msg' column all run "SHELL -c COMMAND".
+;; - Fish's exit handler printed "fish is now exiting" into that output, which
+;;   showed up appended to every row of the Dirvish git-message column.
+;; - So `shell-file-name' is a POSIX shell; interactive terminals stay on fish.
+;; - `exec-path-from-shell' is not affected: it runs `$SHELL -l -i' by itself and
+;;   never reads `shell-file-name'.
+;; - TRAMP is not affected: it uses `tramp-default-remote-shell' (/bin/sh) on the
+;;   remote side, not `shell-file-name'.
+;; - `shell-command-switch' stays "-c", which bash and sh both accept.
+
+(defcustom sp-posix-shell
+  (seq-find #'file-executable-p '("/bin/bash" "/bin/sh"))
+  "POSIX shell Emacs uses to run shell commands (not terminals)."
+  :type '(choice (const :tag "Leave `shell-file-name' alone" nil) file)
+  :group 'sp-env)
+
+(defcustom sp-interactive-shell nil
+  "Shell for `shell', `eat' and `ansi-term'; nil means the login shell in $SHELL.
+$SHELL is read after `exec-path-from-shell' ran, so a GUI Emacs gets fish."
+  :type '(choice (const nil) file)
+  :group 'sp-env)
+
+(defvar eat-shell)
+
+(let ((login-shell (or sp-interactive-shell (getenv "SHELL"))))
+  ;; Interactive terminals keep the login shell (fish).
+  (when (and login-shell (file-executable-p login-shell))
+    (setq explicit-shell-file-name login-shell
+          eat-shell login-shell))
+  (when sp-posix-shell
+    (setq shell-file-name sp-posix-shell
+          shell-command-switch "-c")))
+#+end_src
+
 * Legacy notes
 
 ** Load path and the old approach
@@ -223,4 +281,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/233][#233]]
   - 🐛 The fix of #101 had been made in =sp-env.el= only, so tangling this doc (ffe0ae9) restored the old code and the error.
   - The doc now holds the fix: the daemon block and the YADM block are removed, and =GIT_CEILING_DIRECTORIES= is in the =use-package= list.
+  - Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/568][#568]]
+  - 🔧 Shell commands now run through =/bin/bash= (=sp-posix-shell=) so fish no longer adds "fish is now exiting" to command output (Dirvish git-message column); terminals stay on fish.
+  - The module was changed without the doc, so the tangle check failed; the doc now holds the block.
   - Not run in Emacs (none in the container).
