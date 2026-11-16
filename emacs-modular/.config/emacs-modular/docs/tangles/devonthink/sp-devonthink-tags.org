@@ -308,7 +308,7 @@ What each pull request changed in this module, newest last; the one-line summary
     - the same script serves the keyword sync, the browser tag action and bibsync, which all read tags through =sp-devonthink-record-tags=
     - covered by two tests with a faked =osascript=
 
-- PR pending
+- [[https://github.com/siainbuletin/dotfiles/pull/565][#565]]
   - 🐛 Fixed every tag read as empty: inside =tell application id "DNtp"=, =tab= is the text "tab", not a tab character
     - the read script (and the front-window and bibsync scripts) now set =tb to character id 9= before the =tell= block
     - without it the answer had no tabs, so =sp-devonthink--parse-tags= found no tags and the keyword sync read none
