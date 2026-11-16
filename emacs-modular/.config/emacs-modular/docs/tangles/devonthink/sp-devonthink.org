@@ -261,6 +261,130 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
   - PDF on the left, editable BibTeX on the right; =C-c C-c= files the PDF as =~/Documents/literature/KEY.pdf=, renames and moves the record, appends the entry, then runs the bibsync.
   - The picker lists the DEVONthink =inbox= group and =~/Documents/literature/inbox/=, sorted (newest first or alphabetical) and grouped by sub-group.
 
+** Information pipeline: BibTeX, litnote and DEVONthink
+
+- Three stores hold information about one work; the citekey joins them (see "The key that joins everything").
+  - BibTeX (=.bib=): author, title, year, pages, =keywords=, =crossref=. Edited by hand and by =sp-fetch-inbox=.
+  - Litnote (=.org=): meta lines (=pub-author=, =pub-title=, =bib-parent=, ...), =#+devonthink:= UUID, your own notes.
+  - DEVONthink record (PDF named =KEY.pdf=): tags, custom metadata (=bibauthor=, =bibtitle=, =litnote=), comment, highlights.
+- No command is a general "sync". Each one moves one kind of data in one direction, when you run it.
+- Status of the arrows:
+  - On =main=: the BibTeX to litnote fill, =sp-fetch-inbox=, bibsync, the sync report and backfill.
+  - Not on =main=: the DEVONthink to litnote and to BibTeX tag mirror (#443, #455; #455 is merged into the #443 branch, which is still open).
+- The diagram is PlantUML; =C-c C-c= on it renders it (add =:file devonthink-pipeline.png :results file= to the header line first).
+
+#+begin_src plantuml :exports code
+@startuml
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+actor You
+participant "Emacs\n(sp-* modules)" as E
+database "BibTeX\n(.bib)" as B
+participant "Litnote\n(.org)" as L
+participant "DEVONthink\nrecord" as D
+
+== 1. File an inbox article: sp-fetch-inbox (C-; B a, then C-c C-c) ==
+You -> E : pick inbox PDF, edit entry
+E -> D : rename to KEY.pdf, move (osascript)
+E -> B : append the entry
+E -> D : bibsync-entry (see 2)
+note right of L : no litnote is made here
+
+== 2. BibTeX to record: bibsync (C-; k d y, -many, -all, Embark y) ==
+You -> E : citekey(s)
+E -> B : read author, title, keywords
+E -> D : custom metadata bibauthor, bibtitle\n(overwritten every run: BibTeX wins)
+E -> D : keywords added to tags (never removed)
+note right of D : skipped when the record is the crossref parent's
+
+== 3. BibTeX to litnote: new note (citar-create-note) or sp-litnotes-meta-fill ==
+You -> E : open the note of a citekey
+E -> B : read entry
+E -> L : pub-author, pub-title, pub-year, bib-parent, ...\n(empty lines only, nothing deleted)
+opt #443/#455, macOS, line empty
+  E -> D : read tags
+  E -> L : keywords line
+end
+
+== 4. Litnote and record find each other: sync report, backfill, record links (#421, on main) ==
+You -> E : report, then backfill (asks, makes backups)
+E -> L : #+devonthink: UUID
+E -> D : custom metadata litnote = org-protocol URL
+D --> L : click the link: opens the note
+
+== 5. Tags in the record (#443): sp-devonthink-tag-note (C-; k d t, T) ==
+You -> E : tags (C-u removes)
+E -> D : add or remove tags
+D --> E : read back all tags
+E -> L : keywords line rewritten from the record (buffer left unsaved)
+
+== 6. Tags in the browser (#455): embark-act, t on marked records ==
+You -> E : tags
+E -> D : add tags
+E -> L : keywords line rewritten from the record, file saved
+E -> You : "Add TAG to the BibTeX keywords of KEY?"
+You -> E : y
+E -> B : added tags appended to keywords, file saved
+note right of E : records whose name is not a citekey are skipped
+
+== 7. Chapter keywords (#441): sp-devonthink-chapter-keywords-store (C-; k d C) ==
+E -> B : read the chapter's keywords
+E -> D : block in the PARENT record's comment
+@enduml
+#+end_src
+
+- Who owns each field:
+
+| Field | Owner | Written to | Overwrites? |
+|-------+-------+------------+-------------|
+| author, title | BibTeX | record custom metadata (bibsync), litnote =pub-*= lines (fill) | record: yes, every run; litnote: only empty lines |
+| keywords, as record tags | none (union) | record tags (bibsync, adds), BibTeX =keywords= (#455, adds) | never; only adds |
+| keywords, litnote line | the record's tags | litnote =keywords= line (#443, #455) | yes, rewritten in full; never read back |
+| =#+devonthink:= UUID, =litnote= link | litnote and record, one each | each side holds the other | backfill writes only where missing |
+| chapter keywords | BibTeX of the chapter | parent record comment (#441) | the block of that chapter |
+
+- Things to know:
+  - Removals never travel. A tag removed in DEVONthink stays in BibTeX, and the next bibsync adds it back to the record.
+  - Bibsync does not refresh the litnote =keywords= line; run =C-; k d T= (#443) afterwards.
+  - Everything is keyed on the citekey = the record name without =.pdf=; a record named otherwise (inbox) is skipped by every command except =sp-fetch-inbox=.
+  - Every command that writes a file skips a buffer with unsaved changes and names it.
+
+** Record tag-setting (#455) against bibsync
+
+- Direction:
+  - bibsync: BibTeX to DEVONthink, for keywords, author and title.
+  - #455: DEVONthink to litnote and BibTeX, for keywords only.
+- Shape:
+  - bibsync is /pull/: you name citekeys, it reads the source of truth and makes the record equal to it.
+  - #455 is /push/: you edit the record, then the change (just the added tags) is carried to the other two.
+- Where it writes:
+  - bibsync writes only DEVONthink, in one =osascript= call for all records.
+  - #455 writes two Emacs-side files (litnote and =.bib=), saves them, asks =y-or-n-p= for BibTeX, and skips unsaved buffers.
+- Conflict rule:
+  - bibsync: BibTeX wins for author and title; keywords are a union.
+  - #455: the record wins for the litnote line (rewritten in full); BibTeX gets only the added tags.
+- Scope:
+  - bibsync works on any number of records, all of them if asked.
+  - #455 works on the records marked in the browser; the litnote hook also fires when a note is created.
+- They do not loop: bibsync writes tags through =sp-devonthink--set-tags-script=, not through the browser action, and both only add, ignoring case.
+
+** Can the commands be simpler?
+
+- Duplicated parts:
+  - Two ways to find a =.bib= file for a key (=sp-devonthink-bibsync--read-files=, =sp-devonthink--key-bib-file=) over two file lists (=sp-bibtex-files=, =sp-author-notes-bibtex--files=).
+  - Two keyword splitters (=sp-devonthink-bibsync--keywords=, =sp-devonthink--split-tag=) and two add-only merges (=sp-devonthink--merge-tags=, =sp-devonthink--merge-keywords=).
+  - Two rules for "skip this record" (crossref parent in bibsync; name is not a citekey in #455).
+  - Two summaries and two unsaved-buffer checks.
+- Proposal (not done): one function, =reconcile-keywords KEYS=, that reads the keywords of the =.bib= entry and the record tags, writes the union to whichever side lacks it, and rewrites the litnote line from the tags.
+  - =sp-fetch-inbox=, bibsync, =sp-devonthink-tag-note=, the browser action and the litnote hook would all call it.
+  - One merge rule, one record lookup, one confirmation, one report.
+  - Author and title stay in bibsync (one-way, BibTeX wins), since they have no second writer.
+- Why it is not done here:
+  - #443 and #455 are not on =main=, and no AppleScript of the stack has been run on the Mac; refactoring untested code hides which part broke.
+  - Do it after #443 and #460 are tested, as its own PR.
+- Smaller and safe now:
+  - The key =C-; k d y= is bound twice: =sp-devonthink-sync-report= (loaded last, in =sp-academic=) wins, so bibsync's key is shadowed. Give one of them another key.
+
 ** Keys
 
 - Leader is =C-;=. The old =C-c k d=, =C-c w b= and =C-c k= keys are unbound (no shims), since #489.
