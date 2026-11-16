@@ -176,7 +176,8 @@ Still working, as obsolete aliases:
 Data and blocks:
 
 - A views file written by the first version is read and converted.
-- The views file is now =sp-collection-query-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
+- The views file is =sp-collection-query-views.el= in =sp-user-dir= (=libraries/lambda-user/=): tracked by Git, not in =var/=. It was =views/= at the root of =user-emacs-directory=, which is still read until the new file holds a view.
+- The views file was briefly =sp-collection-query-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
 - The dynamic block is =collection-query-table=. =#+BEGIN: vulpea-table= in existing notes still works.
 
 Gone or not aliased:
@@ -1503,16 +1504,20 @@ The views file, the in-memory alist, the converter for the first-version format,
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-views-file
-  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  (expand-file-name "sp-collection-query-views.el" sp-user-dir)
   "File where the views you save are written.
-It is inside the configuration (`user-emacs-directory'), so with Stow it
-is a link to the file in the dotfiles repository: a saved view shows up in
-`git status' there, ready to commit."
+It is in `sp-user-dir' (libraries/lambda-user/), which Git tracks and Stow
+links, so a saved view shows up in `git status' in the dotfiles repository,
+ready to commit."
   :type 'file
   :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defconst sp-collec-query-views--root-file
+  (expand-file-name "views/sp-collection-query-views.el" user-emacs-directory)
+  "Where the views were saved before they moved into `sp-user-dir'.")
+
 (defconst sp-collec-query-views--tables-file
   (expand-file-name "views/sp-collection-query-tables-views.el" user-emacs-directory)
   "Where the views were saved before the module was renamed to `sp-collection-query'.")
@@ -1602,6 +1607,7 @@ from before the rename), so views saved there carry over.  The next save
 writes `sp-collec-query-views-file'."
   (cl-find-if #'sp-collec-query-views--read-file
               (list sp-collec-query-views-file
+                    sp-collec-query-views--root-file
                     sp-collec-query-views--tables-file
                     sp-collec-query-views--etc-file
                     sp-collec-query-views--old-file

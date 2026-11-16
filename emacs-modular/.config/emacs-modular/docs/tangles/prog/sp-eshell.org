@@ -23,7 +23,7 @@ The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Prog
 
 Known problems:
 
-- Several paths are built from =lem-etc-dir=. In this repository that constant appears to be defined only in =claude-early.el=, which =init.el= does not seem to load. If it is unbound, the history, alias and directory-ring settings would signal an error when Eshell first loads.
+- Fixed: the paths used the unbound =lem-etc-dir=; they now use =sp-etc-dir= (=var/etc/eshell/=), so Eshell no longer needs an =eshell/= folder at the root.
 - =sp-workspaces= calls =sp-eshell-home=, which does not exist. The function here is named =lem-eshell-home=.
 
 * Setup
@@ -88,7 +88,7 @@ Each of these blocks configures one of Eshell's built-in sub-libraries after =es
 
 ** Core buffer behaviour
 
-Keeps Eshell's data directory under =lem-etc-dir=, truncates buffers at 20000 lines, and scrolls to the bottom on any input or output.
+Keeps Eshell's data directory under =sp-etc-dir=, truncates buffers at 20000 lines, and scrolls to the bottom on any input or output.
 
 #+begin_src emacs-lisp -i
 ;;;;; Eshell Settings
@@ -96,7 +96,7 @@ Keeps Eshell's data directory under =lem-etc-dir=, truncates buffers at 20000 li
   :ensure nil
   :after eshell
   :custom
-  (eshell-directory-name (concat lem-etc-dir "eshell/"))
+  (eshell-directory-name (concat sp-etc-dir "eshell/"))
   ;; auto truncate after 20k lines
   (eshell-buffer-maximum-lines 20000)
   (eshell-scroll-to-bottom-on-input 'all)
@@ -105,7 +105,7 @@ Keeps Eshell's data directory under =lem-etc-dir=, truncates buffers at 20000 li
 
 ** Directories
 
-Does not list files automatically after =cd= (a hook later in the file does that instead, with its own =ls= flags) and stores the last-directory ring under =lem-etc-dir=.
+Does not list files automatically after =cd= (a hook later in the file does that instead, with its own =ls= flags) and stores the last-directory ring under =sp-etc-dir=.
 
 #+begin_src emacs-lisp -i
 (use-package em-dirs
@@ -113,7 +113,7 @@ Does not list files automatically after =cd= (a hook later in the file does that
   :after eshell
   :custom
   (eshell-list-files-after-cd nil)
-  (eshell-last-dir-ring-file-name (concat lem-etc-dir "eshell/lastdir")))
+  (eshell-last-dir-ring-file-name (concat sp-etc-dir "eshell/lastdir")))
 #+end_src
 
 ** ls
@@ -184,14 +184,14 @@ Removes the welcome banner.
 
 ** History
 
-Stores history under =lem-etc-dir=, keeps 10240 entries, and ignores consecutive duplicates.
+Stores history under =sp-etc-dir=, keeps 10240 entries, and ignores consecutive duplicates.
 
 #+begin_src emacs-lisp -i
 (use-package em-hist
   :ensure nil
   :after eshell
   :custom
-  (eshell-history-file-name (concat lem-etc-dir "eshell/history"))
+  (eshell-history-file-name (concat sp-etc-dir "eshell/history"))
   (eshell-history-size (* 10 1024))
   (eshell-hist-ignoredups t))
 #+end_src
@@ -611,14 +611,14 @@ ALIASES is a flat list of alias -> command pairs. e.g.
 
 ** Loading the aliases
 
-When =em-alias= loads, it points the aliases file under =lem-etc-dir=, saves the existing aliases, and appends =lem-eshell-aliases= to them. The approach follows Doom Emacs.
+When =em-alias= loads, it points the aliases file under =sp-etc-dir=, saves the existing aliases, and appends =lem-eshell-aliases= to them. The approach follows Doom Emacs.
 
 #+begin_src emacs-lisp -i
 (use-package em-alias
   :ensure nil
   :after eshell
   :custom
-  (eshell-aliases-file (concat lem-etc-dir "eshell/alias"))
+  (eshell-aliases-file (concat sp-etc-dir "eshell/alias"))
   :config
   ;; See https://github.com/doomemacs/doomemacs/blob/master/modules/term/eshell/
   (setq lem-eshell--default-aliases eshell-command-aliases-list
