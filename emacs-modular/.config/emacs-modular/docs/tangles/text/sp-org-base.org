@@ -887,6 +887,11 @@ Shape of the result:
 
 - The block starts on its own line: when point is in the middle of a line, a newline is inserted first.
 - Trailing newlines of the text are dropped, so the block never gets blank lines before =#+end_quote=.
+- Hard line breaks are joined, so text pasted from a PDF or an email becomes one line per paragraph.
+  - Each line break and the spaces around it become a single space.
+  - Blank lines between paragraphs are kept as one blank line.
+  - This applies to the kill ring item and to the region alike.
+  - Joining happens before escaping, so only the start of a paragraph can be escaped as a heading or keyword.
 - Lines that would be read as a heading or a keyword (starting with =*= or =#+=) are escaped with a comma, as Org does in other blocks.
 - Point ends on the line after =#+end_quote=, so you can keep typing.
 - In an empty block, point ends on the empty line inside it, ready to type the quote.
@@ -894,10 +899,20 @@ Shape of the result:
 
 #+begin_src emacs-lisp -i
 ;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-quote-join-lines (text)
+  "Return TEXT with the hard line breaks inside each paragraph joined by a space.
+Paragraphs, which are separated by blank lines, stay separate."
+  (mapconcat (lambda (paragraph)
+               (replace-regexp-in-string "[ \t]*\n[ \t]*" " " (string-trim paragraph)))
+             (split-string text "\n[ \t]*\n+" t)
+             "\n\n"))
+
 (defun sp-org-insert-quote-from-kill (&optional arg)
   "Insert an Org quote block holding the latest kill ring item.
 With an active region, put the region (cut from the buffer) in the block instead.
 With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+Hard line breaks inside a paragraph are joined into one line; blank lines between
+paragraphs are kept.
 The kill ring is neither changed nor rotated by this command."
   (interactive "P")
   (let* ((region (and (use-region-p)
@@ -907,7 +922,8 @@ The kill ring is neither changed nor rotated by this command."
                      (arg nil)
                      (kill-ring (substring-no-properties (current-kill 0 t)))))
          (text (and text (string-trim-right text "\n+")))
-         (text (and text (not (string-empty-p text)) (org-escape-code-in-string text))))
+         (text (and text (not (string-empty-p text))
+                    (org-escape-code-in-string (sp-org-quote-join-lines text)))))
     (unless (bolp) (insert "\n"))
     (insert "#+begin_quote\n")
     (if text

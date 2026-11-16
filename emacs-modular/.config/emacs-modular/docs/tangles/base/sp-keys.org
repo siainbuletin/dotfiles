@@ -1072,6 +1072,7 @@ The comment records that this was adapted from the hydra wiki and ported to tran
 =<leader> "= (=C-; "=) runs =sp-org-insert-quote-from-kill= from [[file:../text/sp-org-base.org][sp-org-base]].
 
 - It inserts an Org quote block holding the latest kill ring item, or the region when one is active.
+- Hard line breaks in the text are joined; blank lines between paragraphs stay.
 - A prefix argument (=C-u C-; "=) gives an empty block.
 - It replaces =C-c C-,= then =q= followed by a paste: two keys instead of four chords.
 - It sits on the leader root, not under a group, because it is meant to be fast.

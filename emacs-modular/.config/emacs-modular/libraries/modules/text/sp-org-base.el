@@ -494,10 +494,20 @@ one week to the next, unchecking them at the same time"
               (save-excursion (insert "#+end_" choice))))))))))
 
 ;;;;;; Org Quote Block from the Kill Ring
+(defun sp-org-quote-join-lines (text)
+  "Return TEXT with the hard line breaks inside each paragraph joined by a space.
+Paragraphs, which are separated by blank lines, stay separate."
+  (mapconcat (lambda (paragraph)
+               (replace-regexp-in-string "[ \t]*\n[ \t]*" " " (string-trim paragraph)))
+             (split-string text "\n[ \t]*\n+" t)
+             "\n\n"))
+
 (defun sp-org-insert-quote-from-kill (&optional arg)
   "Insert an Org quote block holding the latest kill ring item.
 With an active region, put the region (cut from the buffer) in the block instead.
 With prefix ARG and no region, or when the kill ring is empty, insert an empty block.
+Hard line breaks inside a paragraph are joined into one line; blank lines between
+paragraphs are kept.
 The kill ring is neither changed nor rotated by this command."
   (interactive "P")
   (let* ((region (and (use-region-p)
@@ -507,7 +517,8 @@ The kill ring is neither changed nor rotated by this command."
                      (arg nil)
                      (kill-ring (substring-no-properties (current-kill 0 t)))))
          (text (and text (string-trim-right text "\n+")))
-         (text (and text (not (string-empty-p text)) (org-escape-code-in-string text))))
+         (text (and text (not (string-empty-p text))
+                    (org-escape-code-in-string (sp-org-quote-join-lines text)))))
     (unless (bolp) (insert "\n"))
     (insert "#+begin_quote\n")
     (if text

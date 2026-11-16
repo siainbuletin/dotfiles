@@ -19,6 +19,10 @@
     (goto-char (point-min))
     (search-forward "(defun sp-org-insert-quote-from-kill")
     (beginning-of-line)
+    (eval (read (current-buffer)) t)
+    (goto-char (point-min))
+    (search-forward "(defun sp-org-quote-join-lines")
+    (beginning-of-line)
     (eval (read (current-buffer)) t)))
 
 (defmacro sp-org-quote-test--with (kill &rest body)
@@ -59,9 +63,9 @@
     (should (equal kill-ring '("newest")))))
 
 (ert-deftest sp-org-quote-drops-trailing-newlines ()
-  (sp-org-quote-test--with '("one\ntwo\n\n\n")
+  (sp-org-quote-test--with '("one\n\ntwo\n\n\n")
     (sp-org-insert-quote-from-kill)
-    (should (equal (buffer-string) "#+begin_quote\none\ntwo\n#+end_quote\n"))))
+    (should (equal (buffer-string) "#+begin_quote\none\n\ntwo\n#+end_quote\n"))))
 
 (ert-deftest sp-org-quote-starts-on-its-own-line ()
   (sp-org-quote-test--with '("q")
@@ -77,10 +81,10 @@
     (should (equal (buffer-string) "a\n#+begin_quote\nq\n#+end_quote\nb"))))
 
 (ert-deftest sp-org-quote-escapes-headings-and-keywords ()
-  (sp-org-quote-test--with '("* not a heading\n#+title: no")
+  (sp-org-quote-test--with '("* not a heading\n\n#+title: no")
     (sp-org-insert-quote-from-kill)
     (should (equal (buffer-string)
-                   "#+begin_quote\n,* not a heading\n,#+title: no\n#+end_quote\n"))))
+                   "#+begin_quote\n,* not a heading\n\n,#+title: no\n#+end_quote\n"))))
 
 (ert-deftest sp-org-quote-drops-text-properties ()
   (sp-org-quote-test--with (list (propertize "bold" 'face 'bold))
@@ -100,6 +104,19 @@
     (should (equal (buffer-string)
                    "intro\n#+begin_quote\nregion text\n#+end_quote\n\nafter"))
     (should (equal kill-ring '("killed")))))
+
+;; The helper sits before the command in the file, so load it first.
+(ert-deftest sp-org-quote-joins-hard-wrapped-lines ()
+  (sp-org-quote-test--with '("first line\n  second line \nthird")
+    (sp-org-insert-quote-from-kill)
+    (should (equal (buffer-string)
+                   "#+begin_quote\nfirst line second line third\n#+end_quote\n"))))
+
+(ert-deftest sp-org-quote-keeps-paragraph-breaks ()
+  (sp-org-quote-test--with '("a\nb\n\n\nc\nd\n")
+    (sp-org-insert-quote-from-kill)
+    (should (equal (buffer-string)
+                   "#+begin_quote\na b\n\nc d\n#+end_quote\n"))))
 
 (provide 'sp-org-base-quote-test)
 ;;; sp-org-base-quote-test.el ends here
