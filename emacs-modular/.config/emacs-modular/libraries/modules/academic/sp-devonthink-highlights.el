@@ -200,11 +200,36 @@ Without dates, or on a tie, the one that comes last in the file wins."
                          (complete-with-action action table string pred)))))
     (cdr (assoc (completing-read prompt collection nil t) table))))
 
+(defcustom sp-devonthink-annotation-short-description t
+  "Whether a link to a highlight of this litnote's own record is named `[DT-annot]'.
+Applies only when the current buffer is the litnote of the record the link
+points to; links in any other buffer keep the citekey and page as description."
+  :type 'boolean
+  :group 'sp-devonthink-highlights)
+
+(defconst sp-devonthink-annotation-short-text "[DT-annot]"
+  "The link description used in the litnote of the record itself.")
+
+(defun sp-devonthink-annotations--own-litnote-p (key uuid)
+  "Non-nil when the current buffer is the litnote of the record UUID (citekey KEY).
+Matches the note's `#+devonthink:' record, or else its citekey."
+  (and (derived-mode-p 'org-mode)
+       (or (and-let* ((own (sp-devonthink-note-uuid)))
+             (string-equal-ignore-case own uuid))
+           (and-let* ((own (sp-devonthink-note-citekey)))
+             (string-equal-ignore-case own key)))))
+
 (defun sp-devonthink-annotations--link (key annotation uuid)
-  "The Org link for ANNOTATION of the record UUID, named after the citekey KEY."
+  "The Org link for ANNOTATION of the record UUID, named after the citekey KEY.
+In the litnote of that record the description is just `[DT-annot]' when
+`sp-devonthink-annotation-short-description' is non-nil."
   (let ((page (plist-get annotation :page)))
-    (org-link-make-string (concat "devonthink:" (sp-devonthink-link-path uuid page))
-                          (sp-devonthink--description key page))))
+    (org-link-make-string
+     (concat "devonthink:" (sp-devonthink-link-path uuid page))
+     (if (and sp-devonthink-annotation-short-description
+              (sp-devonthink-annotations--own-litnote-p key uuid))
+         sp-devonthink-annotation-short-text
+       (sp-devonthink--description key page)))))
 
 ;;;###autoload
 (defun sp-devonthink-insert-annotation-link (key &optional mode)

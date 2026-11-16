@@ -148,6 +148,34 @@
      (should (equal (buffer-string)
                     (format "[[devonthink:%s::9][k-2000-a p. 9]]" sp-devonthink-highlights-test--uuid))))))
 
+(defun sp-devonthink-highlights-test--insert-in-note (text &optional short)
+  "Insert the latest link of \"k-2000-a\" in an Org buffer holding TEXT; SHORT is the option."
+  (let ((sp-devonthink-annotation-short-description short))
+    (with-temp-buffer
+      (insert text)
+      (org-mode)
+      (goto-char (point-max))
+      (sp-devonthink-insert-annotation-link "k-2000-a" 'latest)
+      (buffer-substring (line-beginning-position) (point-max)))))
+
+(ert-deftest sp-devonthink-annotations-short-description-in-own-litnote ()
+  (sp-devonthink-highlights-test--with-annotations
+   (let ((short (format "[[devonthink:%s::9][[DT-annot]%c]]" ; Org adds a zero-width space after a final "]"
+                         sp-devonthink-highlights-test--uuid #x200b))
+         (long (format "[[devonthink:%s::9][k-2000-a p. 9]]" sp-devonthink-highlights-test--uuid)))
+     ;; by citekey (#+reference:), case-insensitive
+     (should (equal (sp-devonthink-highlights-test--insert-in-note "#+reference: K-2000-A\n\n" t) short))
+     ;; by the #+devonthink: record
+     (should (equal (sp-devonthink-highlights-test--insert-in-note
+                     (format "#+devonthink: %s\n\n" sp-devonthink-highlights-test--uuid) t)
+                    short))
+     ;; option off: long description even in the own litnote
+     (should (equal (sp-devonthink-highlights-test--insert-in-note "#+reference: k-2000-a\n\n" nil) long))
+     ;; another litnote: long description
+     (should (equal (sp-devonthink-highlights-test--insert-in-note "#+reference: other-1999-z\n\n" t) long))
+     ;; a note without any citekey: long description
+     (should (equal (sp-devonthink-highlights-test--insert-in-note "#+title: T\n\n" t) long)))))
+
 (ert-deftest sp-devonthink-annotations-insert-chosen ()
   (sp-devonthink-highlights-test--with-annotations
    (let (seen)
