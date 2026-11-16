@@ -32,6 +32,12 @@
   :ensure nil
   :defer t
   :commands (org-babel-execute:plantuml)
+  :init
+  ;; Org reads this variable when it parses the block, before the autoload
+  ;; loads `ob-plantuml'; unset, `:results file' is lost and the output
+  ;; becomes a `#+begin_example' block.
+  (defvar org-babel-default-header-args:plantuml
+    '((:results . "file") (:exports . "results")))
   :config
   (progn
     ;; Prefer the `plantuml' executable (Homebrew); fall back to the jar.
