@@ -271,9 +271,12 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Status of the arrows:
   - On =main=: the BibTeX to litnote fill, =sp-fetch-inbox=, bibsync, the sync report and backfill.
   - Not on =main=: the DEVONthink to litnote and to BibTeX tag mirror (#443, #455; #455 is merged into the #443 branch, which is still open).
-- The diagram is PlantUML; =C-c C-c= on it renders it to =devonthink-pipeline.png= next to this file and shows it inline (needs =brew install plantuml=, see =sp-org-babel=).
+- The diagram is PlantUML; =C-c C-c= on it renders it and shows it inline (needs =brew install plantuml=, see =sp-org-babel=).
+  - The image is saved as =libraries/images/devonthink-pipeline.png= (the =:file= path is relative to this document, so it climbs out of =docs/tangles/devonthink/=).
+  - =:mkdirp yes= creates the folder if it is missing.
+  - If the file is not in the repository, check =M-: default-directory= in this buffer: with Stow's =--no-folding= a document opened through =~/.config/emacs-modular= writes next to the symlink, not into =~/dotfiles=.
 
-#+begin_src plantuml :file devonthink-pipeline.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/devonthink-pipeline.png :mkdirp yes :exports both
 @startuml
 skinparam shadowing false
 skinparam sequenceMessageAlign left
