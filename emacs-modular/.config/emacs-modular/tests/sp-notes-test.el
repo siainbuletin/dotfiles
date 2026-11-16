@@ -517,3 +517,26 @@
                (lambda (f) (setq seen (list f delete-by-moving-to-trash)))))
       (let ((system-type 'gnu/linux)) (sp-notes-trash--move "/tmp/x.org")))
     (should (equal seen '("/tmp/x.org" t)))))
+
+;;;; Case-insensitive title matching
+
+(ert-deftest sp-notes-open-lookup-ignores-case ()
+  (let ((items '(("Alpha.org" . (:file "/a")) ("beta.org" . (:file "/b")))))
+    (dolist (case-fold-search '(nil t))
+      (should (equal (cdr (sp-notes-open--lookup "Alpha.org" items)) '(:file "/a")))
+      (should (equal (cdr (sp-notes-open--lookup "alpha.ORG" items)) '(:file "/a")))
+      (should (equal (cdr (sp-notes-open--lookup "BETA.org" items)) '(:file "/b")))
+      (should-not (sp-notes-open--lookup "gamma.org" items)))))
+
+(ert-deftest sp-notes-create-duplicate-title-any-case ()
+  "An existing note whose title differs only in case still triggers the prompt."
+  (require 'sp-org-link-conversion)
+  (let ((asked 0) (case-fold-search nil))
+    (cl-letf (((symbol-function 'vulpea-db-query)
+               (lambda (pred) (seq-filter pred '("My Film" "other"))))
+              ((symbol-function 'vulpea-note-title) #'identity)
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) (cl-incf asked) nil)))
+      (should (equal (sp-vulpea-notes-with-title "my FILM") '("My Film")))
+      (should-error (sp-notes-create "mY fIlM") :type 'user-error)
+      (should (= asked 1))
+      (should-not (sp-vulpea-notes-with-title "my film 2")))))
