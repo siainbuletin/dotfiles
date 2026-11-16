@@ -326,6 +326,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
   (measure-time
    (lem--require-modules
                     (list
+                    ;; Reload modules in the running Emacs (M-x sp-reload-modules).
+                    ;; First, so it tracks the hooks and advice of every module after it.
+                    'sp-reload
                     ;; Core
                     'sp-globals ;; my most important settings, and the locations of my files (the former sp-paths)
                     'sp-encoding

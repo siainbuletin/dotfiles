@@ -319,6 +319,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 | sp-nano-style | Nano's header line (buffer name or Org title, project, clock) and mode line divider, shared by the two modelines | [[file:docs/tangles/tooling/sp-nano-style.org][sp-nano-style.org]] | [[file:libraries/modules/tooling/sp-nano-style.el][sp-nano-style.el]] | — |
 | sp-network | Network: HTTP library | [[file:docs/tangles/tooling/sp-network.org][sp-network.org]] | [[file:libraries/modules/tooling/sp-network.el][sp-network.el]] | — |
 | sp-prot-modeline | Native mode line adapted from Prot's, with minor modes and keycast | [[file:docs/tangles/tooling/sp-prot-modeline.org][sp-prot-modeline.org]] | [[file:libraries/modules/tooling/sp-prot-modeline.el][sp-prot-modeline.el]] | — |
+| sp-reload | Reload the modules changed by a pull or a branch switch in the running Emacs (=M-x sp-reload-modules=) | [[file:docs/tangles/tooling/sp-reload.org][sp-reload.org]] | [[file:libraries/modules/tooling/sp-reload.el][sp-reload.el]] | — |
 | sp-scratch | Persistent scratch buffer | [[file:docs/tangles/tooling/sp-scratch.org][sp-scratch.org]] | [[file:libraries/modules/tooling/sp-scratch.el][sp-scratch.el]] | — |
 | sp-server | Emacs server and daemon management | [[file:docs/tangles/tooling/sp-server.org][sp-server.org]] | [[file:libraries/modules/tooling/sp-server.el][sp-server.el]] | — |
 | sp-spelling | Spell checking | [[file:docs/tangles/tooling/sp-spelling.org][sp-spelling.org]] | [[file:libraries/modules/tooling/sp-spelling.el][sp-spelling.el]] | — |
