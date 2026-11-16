@@ -110,7 +110,8 @@ in an earlier file is not looked for again."
 
 (defun sp-devonthink-bibsync--metadata-script (items)
   "The AppleScript that writes author and title of ITEMS, a list of (UUID . FIELDS)."
-  (format "tell application id \"DNtp\"
+  (format "set tb to character id 9
+tell application id \"DNtp\"
   set theOut to {}
 %s  set AppleScript's text item delimiters to linefeed
   return theOut as text
@@ -120,9 +121,9 @@ end tell"
              (let ((uuid (car item)) (fields (cdr item)))
                (format "  try
     set r to get record with uuid %s
-%s    set end of theOut to \"ok\" & tab & %s
+%s    set end of theOut to \"ok\" & tb & %s
   on error theMessage
-    set end of theOut to \"error\" & tab & %s & tab & theMessage
+    set end of theOut to \"error\" & tb & %s & tb & theMessage
   end try
 "
                        (sp-reading--quote uuid)

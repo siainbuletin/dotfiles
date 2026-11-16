@@ -66,7 +66,8 @@ end tell"
 
 (defun sp-devonthink--read-tags-script (uuids)
   "The AppleScript that reads the tags of the records UUIDS."
-  (format "tell application id \"DNtp\"
+  (format "set tb to character id 9
+tell application id \"DNtp\"
   set theOut to {}
   repeat with theId in %s
     set r to get record with uuid (theId as text)
@@ -79,7 +80,7 @@ end tell"
       on error
         set theName to theTag as text
       end try
-      set theLine to theLine & tab & theName
+      set theLine to theLine & tb & theName
     end repeat
     set end of theOut to theLine
   end repeat

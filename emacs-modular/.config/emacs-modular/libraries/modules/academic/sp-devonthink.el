@@ -333,7 +333,8 @@ Interactively, always asks for the page; an empty answer links the whole record.
                                   (sp-devonthink--description key page)))))
 
 (defconst sp-devonthink--front-script
-  "tell application id \"DNtp\"
+  "set tb to character id 9
+tell application id \"DNtp\"
   set bestLine to \"\"
   set firstLine to \"\"
   repeat with theWindow in (every window)
@@ -347,7 +348,7 @@ Interactively, always asks for the page; an empty answer links the whole record.
       try
         set theText to (selected text of theWindow) as text
       end try
-      set theLine to (uuid of theRecord) & tab & (name of theRecord) & tab & thePage & tab & theText
+      set theLine to (uuid of theRecord) & tb & (name of theRecord) & tb & thePage & tb & theText
       if firstLine is \"\" then set firstLine to theLine
       if theText is not \"\" then
         set bestLine to theLine
