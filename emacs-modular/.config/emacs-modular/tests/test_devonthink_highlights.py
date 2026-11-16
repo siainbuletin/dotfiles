@@ -90,6 +90,50 @@ class HighlightsTest(unittest.TestCase):
             self.assertEqual(dh.main(["x", "--annotations", f.name]), 0)
         self.assertEqual(json.loads(out.call_args[0][0]), [{"page": 2, "text": "é"}])
 
+    def test_colored_highlights_of(self):
+        rows = [{"page": 1, "text": "a", "color": "#ffff00"},
+                {"page": 1, "text": "a", "color": "#00ff00"},
+                {"page": 1, "text": "b", "color": None},
+                {"page": 3, "text": "c", "color": "#ff0000"}]
+        with mock.patch.object(dh, "annotations_of", return_value=rows):
+            self.assertEqual(dh.colored_highlights_of("/x.pdf"),
+                             [{"page": 1, "highlights": ["a", "b"], "colors": ["#ffff00", None]},
+                              {"page": 3, "highlights": ["c"], "colors": ["#ff0000"]}])
+
+    def test_main_colors_flag(self):
+        with mock.patch.object(dh, "colored_highlights_of", return_value=[{"page": 2, "highlights": ["é"], "colors": [None]}]), \
+                tempfile.NamedTemporaryFile(suffix=".pdf") as f, \
+                mock.patch("builtins.print") as out:
+            self.assertEqual(dh.main(["x", "--colors", f.name]), 0)
+        self.assertEqual(json.loads(out.call_args[0][0])[0]["colors"], [None])
+
+    @unittest.skipIf(pymupdf is None, "PyMuPDF is not installed")
+    def test_real_pdf_colors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "k.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page()
+            page.insert_text((72, 72), "exchange abstraction and value form")
+            green = page.add_highlight_annot(page.search_for("exchange abstraction"))
+            green.set_colors(stroke=(0, 1, 0))
+            green.update()
+            plain = page.add_highlight_annot(page.search_for("value form"))
+            plain.update()
+            doc.save(path)
+            doc.close()
+            found = dh.colored_highlights_of(path)
+            self.assertEqual(found[0]["highlights"], ["exchange abstraction", "value form"])
+            self.assertEqual(found[0]["colors"][0], "#00ff00")
+            self.assertRegex(found[0]["colors"][1], r"^#[0-9a-f]{6}$")
+
+    def test_color_hex(self):
+        c = dh.load_indexer().color_hex
+        self.assertEqual(c((1, 1, 0)), "#ffff00")
+        self.assertEqual(c((0.5,)), "#808080")
+        self.assertEqual(c((0, 1, 1, 0)), "#ff0000")
+        self.assertIsNone(c(None))
+        self.assertIsNone(c([]))
+
 
 class PdfDateTest(unittest.TestCase):
     def setUp(self):

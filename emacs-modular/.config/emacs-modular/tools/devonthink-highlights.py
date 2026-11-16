@@ -17,6 +17,12 @@ order, for `sp-devonthink-insert-annotation-link':
 
 created and modified are ISO 8601 UTC, or null when the PDF has no date.
 
+With --colors the output is as without it, plus a "colors" list that runs
+parallel to "highlights": the highlight colour as #rrggbb, or null.  A text
+highlighted twice keeps the colour of its first highlight.
+
+    [{"page": 6, "highlights": ["exchange abstraction"], "colors": ["#ffff00"]}]
+
 Pages are counted from 1 (physical PDF pages).  The reading is done by
 tools/devonthink-to-litdb.py (record_pages), so the highlights are the same
 ones litdb indexes.  Nothing is written, to the PDF or to DEVONthink.
@@ -57,17 +63,34 @@ def annotations_of(path, indexer=None):
     return found
 
 
+def colored_highlights_of(path, indexer=None):
+    """Like highlights_of, with a "colors" list parallel to "highlights"."""
+    pages = {}
+    for detail in annotations_of(path, indexer):
+        page = pages.setdefault(detail["page"], {"page": detail["page"], "highlights": [], "colors": []})
+        if detail["text"] not in page["highlights"]:
+            page["highlights"].append(detail["text"])
+            page["colors"].append(detail.get("color"))
+    return list(pages.values())
+
+
 def main(argv):
     args = argv[1:]
     detailed = "--annotations" in args
-    args = [a for a in args if a != "--annotations"]
+    colored = "--colors" in args
+    args = [a for a in args if a not in ("--annotations", "--colors")]
     if len(args) != 1:
-        print("usage: devonthink-highlights.py [--annotations] FILE.pdf", file=sys.stderr)
+        print("usage: devonthink-highlights.py [--annotations | --colors] FILE.pdf", file=sys.stderr)
         return 2
     if not Path(args[0]).is_file():
         print("no such file: %s" % args[0], file=sys.stderr)
         return 1
-    result = annotations_of(args[0]) if detailed else highlights_of(args[0])
+    if detailed:
+        result = annotations_of(args[0])
+    elif colored:
+        result = colored_highlights_of(args[0])
+    else:
+        result = highlights_of(args[0])
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
