@@ -75,7 +75,7 @@ Each diagram is PlantUML. =C-c C-c= on a block writes the PNG to =libraries/imag
 - Top: the two entry points of =init.el=.
 - Solid arrows are =require=; dashed arrows are use of the shared helpers.
 
-#+begin_src plantuml :file ../../../libraries/images/batch-lint-overview.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/batch-lint-overview.png :mkdirp yes :exports both
 @startuml
 !pragma layout smetana
 skinparam shadowing false
@@ -136,7 +136,7 @@ BR ..> AW : key k
 - Every batch linter follows this run; the differences are in what it collects and plans.
 - Keys of the report: =d= drop, =u= restore, =g= read again, =A= convert, =b= open the backup, =D= diff it, =k= cancel the job.
 
-#+begin_src plantuml :file ../../../libraries/images/batch-lint-run.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/batch-lint-run.png :mkdirp yes :exports both
 @startuml
 skinparam shadowing false
 skinparam defaultFontSize 12
@@ -175,7 +175,7 @@ stop
 - Independent groups; each reads the notes of the vault and, except note filing, the BibTeX files.
 - No group needs another to have run, except where its report says so.
 
-#+begin_src plantuml :file ../../../libraries/images/batch-lint-vault.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/batch-lint-vault.png :mkdirp yes :exports both
 @startuml
 skinparam shadowing false
 skinparam defaultFontSize 12
@@ -223,7 +223,7 @@ stop
 
 - They work on one =.bib= file at a time and ask before the first write.
 
-#+begin_src plantuml :file ../../../libraries/images/batch-lint-bibtex.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/batch-lint-bibtex.png :mkdirp yes :exports both
 @startuml
 skinparam shadowing false
 skinparam defaultFontSize 12
@@ -262,7 +262,7 @@ stop
 
 - It is the only linter that runs in a second Emacs, so that your Emacs stays usable.
 
-#+begin_src plantuml :file ../../../libraries/images/batch-lint-footnotes.png :exports both
+#+begin_src plantuml :file ../../../libraries/images/batch-lint-footnotes.png :mkdirp yes :exports both
 @startuml
 skinparam shadowing false
 skinparam defaultFontSize 12
