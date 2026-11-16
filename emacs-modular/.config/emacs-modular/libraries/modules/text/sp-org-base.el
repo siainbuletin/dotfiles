@@ -529,6 +529,30 @@ The kill ring is neither changed nor rotated by this command."
               (sp-org-point-strictly-in-link-p))))
     (apply fn args)))
 
+(defcustom sp-org-offer-entry-links nil
+  "Non-nil to let `org-open-at-point' list the links of the entry on plain text.
+Stock Org does that when point is not on a link but inside an entry.
+When nil, `C-c C-o' on plain text only prints a message; the list is
+still offered on a headline."
+  :type 'boolean
+  :group 'org-link)
+
+(defun sp-org-refuse-entry-links ()
+  "Refuse `org-open-at-point' on plain text unless `sp-org-offer-entry-links'.
+For `org-open-at-point-functions'; signals a `user-error' that names the variable."
+  (when (and (not sp-org-offer-entry-links)
+             (derived-mode-p 'org-mode)
+             (not (org-at-heading-p))
+             (not (org-element-lineage
+                   (org-element-context)
+                   '(citation citation-reference clock comment comment-block
+                     footnote-definition footnote-reference inline-src-block
+                     keyword link node-property planning src-block timestamp)
+                   t)))
+    (user-error "Nothing to open here: the entry link list is disabled; see `sp-org-offer-entry-links' to re-enable it")))
+
+(add-hook 'org-open-at-point-functions #'sp-org-refuse-entry-links 90)
+
 ;;;; URL at point in Org buffers
 ;; Org's `url' provider for `thing-at-point' can hand back a parsed link
 ;; instead of a string; this one always returns a string or nil.

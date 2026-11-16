@@ -944,6 +944,45 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
     (apply fn args)))
 #+end_src
 
+** No link list on plain text
+
+Stock Org lists every link of the entry when =C-c C-o= (=org-open-at-point=) is used on body text, because the text counts as "inside" its headline.
+- That list is only wanted on the headline itself, and it was confusing in the body (it showed links that were not at point).
+- The behaviour is now off by default.
+  - =sp-org-offer-entry-links= (default =nil=) brings it back when set to non-nil.
+  - With it off, =C-c C-o= (and a click) on plain text does nothing except print a message in the echo line.
+  - The message says that opening was refused because the command is disabled, and names =sp-org-offer-entry-links= so it can be re-enabled.
+- =sp-org-refuse-entry-links= is a member of =org-open-at-point-functions=, added at depth 90 so it runs last.
+  - Hooks that open something at point run before it: the table widget row link, and any other hook that opens links.
+  - It does nothing on a headline, so the list of links there (and tags) works as before.
+  - It does nothing on anything Org itself can open: links, citations, timestamps, footnotes, source blocks, comments, keywords, node properties, clocks and planning lines.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-org-offer-entry-links nil
+  "Non-nil to let `org-open-at-point' list the links of the entry on plain text.
+Stock Org does that when point is not on a link but inside an entry.
+When nil, `C-c C-o' on plain text only prints a message; the list is
+still offered on a headline."
+  :type 'boolean
+  :group 'org-link)
+
+(defun sp-org-refuse-entry-links ()
+  "Refuse `org-open-at-point' on plain text unless `sp-org-offer-entry-links'.
+For `org-open-at-point-functions'; signals a `user-error' that names the variable."
+  (when (and (not sp-org-offer-entry-links)
+             (derived-mode-p 'org-mode)
+             (not (org-at-heading-p))
+             (not (org-element-lineage
+                   (org-element-context)
+                   '(citation citation-reference clock comment comment-block
+                     footnote-definition footnote-reference inline-src-block
+                     keyword link node-property planning src-block timestamp)
+                   t)))
+    (user-error "Nothing to open here: the entry link list is disabled; see `sp-org-offer-entry-links' to re-enable it")))
+
+(add-hook 'org-open-at-point-functions #'sp-org-refuse-entry-links 90)
+#+end_src
+
 * URL at point in Org buffers
 
 Fixes =browse-url-url-at-point: Wrong type argument: buffer-or-string-p, (link ...)= when a URL in an Org file is opened.
