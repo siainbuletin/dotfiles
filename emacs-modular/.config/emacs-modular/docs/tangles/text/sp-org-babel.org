@@ -14,7 +14,8 @@ This module configures Org Babel. It sets up:
 
 - which languages can be executed in source blocks,
 - how tangled files are cleaned up,
-- commands to tangle only the literate documents that changed (=sp-tangle-changed=), all of them (=sp-tangle-all=), to reload what was tangled, and to tangle on save.
+- commands to tangle only the literate documents that changed (=sp-tangle-changed=), all of them (=sp-tangle-all=), to reload what was tangled, and to tangle on save,
+- a command to check that the committed modules match their docs (=sp-check-tangle=).
 
 Details:
 
@@ -87,20 +88,44 @@ Points =org-ditaa-jar-path= at =software/ditaa.jar= inside the Emacs directory, 
 
 ** PlantUML
 
-Points =org-plantuml-jar-path= at =software/plantuml.jar= and advises =org-babel-execute:plantuml= so it always runs with bash as =shell-file-name=.
+Renders =plantuml= source blocks, both with =C-c C-c= and on export.
 
-- As the docstring explains, under tcsh the =>= redirection refuses to overwrite existing files.
-- Like ditaa, it has no =:commands= of its own.
+- =:init= defines =org-babel-default-header-args:plantuml= (=:results file=, =:exports results=) before =ob-plantuml= loads.
+  - Org reads it when it parses a block, which happens before the autoload loads the library.
+  - Without it the block had no =file= in its result parameters, so PlantUML wrote text and Org showed a =#+begin_example= block (Org 9.8.7).
+- =:commands= autoloads =org-babel-execute:plantuml=, so =ob-plantuml= loads the first time a block runs (before, nothing triggered the load).
+- Renderer choice, made when =ob-plantuml= loads:
+  - If the =plantuml= executable is on =exec-path= (=brew install plantuml=), =org-plantuml-exec-mode= is =plantuml= and =org-plantuml-executable-path= is its path.
+  - Otherwise =org-plantuml-exec-mode= is =jar= and =org-plantuml-jar-path= is =software/plantuml.jar= (needs Java).
+- The bash advice makes =org-babel-execute:plantuml= run with bash as =shell-file-name=; under tcsh the =>= redirection refuses to overwrite existing files.
+- =sp-org-babel-plantuml-redisplay= runs in =org-babel-after-execute-hook= and redisplays inline images, so the diagram appears after =C-c C-c=.
+- A block needs =:file name.png= (=:results file= and =:exports results= are Org's defaults); use =:exports both= to export the code as well.
+- Export runs the block through =org-export-use-babel=; with =org-confirm-babel-evaluate= set to =t= Org asks once per block.
 
 #+begin_src emacs-lisp -i
 (use-package ob-plantuml
   :ensure nil
   :defer t
+  :commands (org-babel-execute:plantuml)
+  :init
+  ;; Org reads this variable when it parses the block, before the autoload
+  ;; loads `ob-plantuml'; unset, `:results file' is lost and the output
+  ;; becomes a `#+begin_example' block.
+  (defvar org-babel-default-header-args:plantuml
+    '((:results . "file") (:exports . "results")))
   :config
   (progn
+    ;; Prefer the `plantuml' executable (Homebrew); fall back to the jar.
     (setq org-plantuml-jar-path (expand-file-name
                                  "plantuml.jar"
                                  (concat user-emacs-directory "software/")))
+    (if-let* ((exe (executable-find "plantuml")))
+        (setq org-plantuml-exec-mode 'plantuml
+              org-plantuml-executable-path exe)
+      (setq org-plantuml-exec-mode 'jar))
+
+    ;; Show the rendered image right after `C-c C-c'.
+    (add-hook 'org-babel-after-execute-hook #'sp-org-babel-plantuml-redisplay)
 
     (defun lem-advice-org-babel-execute:plantuml (orig-fun &rest args)
       "Force `shell-file-name' to be bash as the \">\" operator is used for redirection.
@@ -113,6 +138,12 @@ Instead it's simpler to use bash."
       (let ((shell-file-name (executable-find "bash")))
         (apply orig-fun args)))
     (advice-add 'org-babel-execute:plantuml :around #'lem-advice-org-babel-execute:plantuml)))
+
+(defun sp-org-babel-plantuml-redisplay ()
+  "Redisplay inline images after a PlantUML block was executed."
+  (when (and (derived-mode-p 'org-mode)
+             (equal (car (org-babel-get-src-block-info 'no-eval)) "plantuml"))
+    (org-redisplay-inline-images)))
 #+end_src
 
 ** Shell
@@ -442,6 +473,54 @@ With prefix argument FORCE, tangle (and reload) all of them."
     (remove-hook 'after-save-hook #'sp-tangle--after-save t)))
 #+end_src
 
+** Checking the modules against their docs
+
+- =M-x sp-check-tangle= (also =M-x check-tangle=) runs =tools/check-tangle.sh= from the Emacs directory, the same check as the =tangle-check= GitHub Action.
+  - It runs in the background, so Emacs stays usable; the output goes to the =*sp-check-tangle*= compilation buffer.
+  - When it ends, the echo area says =passed= or =FAILED=; the buffer header says =finished= or =exited abnormally with code 1=.
+  - In the buffer, =g= runs it again and =q= closes the window.
+- The script tangles every doc in place and leaves the result in the working tree.
+  - =git diff= shows the drift; =git checkout -- libraries= undoes it.
+  - To fix it, re-tangle the doc (=M-x sp-tangle-changed=) and commit the doc and the module together.
+- =sp-check-tangle-script= is the script path, relative to =user-emacs-directory=; change it only if the script moves.
+- It signals an error when the script is not found or not executable.
+- It needs =emacs= and =git= on the =PATH= of the Emacs process, like the script itself, and =user-emacs-directory= must be inside the git checkout.
+
+#+begin_src emacs-lisp -i
+(defvar sp-check-tangle-script "tools/check-tangle.sh"
+  "Tangle check script, relative to `user-emacs-directory'.")
+
+(defconst sp-check-tangle--buffer "*sp-check-tangle*"
+  "Name of the buffer that shows the output of `sp-check-tangle'.")
+
+(defun sp-check-tangle--finished (buffer status)
+  "Say in the echo area whether the check in BUFFER passed, given its STATUS."
+  (when (equal (buffer-name buffer) sp-check-tangle--buffer)
+    (if (string-prefix-p "finished" status)
+        (message "sp-check-tangle: passed, the modules match their docs")
+      (message "sp-check-tangle: FAILED, see %s" sp-check-tangle--buffer))))
+
+;;;###autoload
+(defun sp-check-tangle ()
+  "Run the tangle check script in the background and show its output.
+The script tangles every module document in place and compares the
+result with the committed modules.  Output goes to `*sp-check-tangle*'."
+  (interactive)
+  (require 'compile)
+  (if-let* ((root (file-name-as-directory (expand-file-name user-emacs-directory)))
+            (script (expand-file-name sp-check-tangle-script root))
+            ((file-executable-p script)))
+      (let ((default-directory root))
+        (add-hook 'compilation-finish-functions #'sp-check-tangle--finished)
+        (compilation-start (shell-quote-argument script) nil
+                           (lambda (_mode) sp-check-tangle--buffer)))
+    (user-error "No executable tangle check script `%s' in %s"
+                sp-check-tangle-script user-emacs-directory)))
+
+;;;###autoload
+(defalias 'check-tangle #'sp-check-tangle)
+#+end_src
+
 * Provide
 
 Provides the =sp-org-babel= feature and closes the file.
@@ -463,3 +542,14 @@ What each pull request changed in this module, newest last; the one-line summary
   - Details: [[file:sp-org-babel.org::*Finding the literate documents][=sp-org-babel= doc]], [[file:../../../README.org::*Tangling only what changed][README]].
   - Tested in Emacs 29.3 in batch (all 130 docs: 167 files on the first run, 0 on the second)
     - not run in the interactive config.
+
+- [[https://github.com/siainbuletin/dotfiles/pull/535][#535]]
+  - ✨ Added =sp-check-tangle= (alias =check-tangle=): runs =tools/check-tangle.sh= in the background and shows the output in =*sp-check-tangle*=, with =passed= or =FAILED= in the echo area.
+  - Details: [[file:sp-org-babel.org::*Checking the modules against their docs][=sp-org-babel= doc]].
+  - Tested in Emacs 29.3 batch (the command ran the script and reported =FAILED= for an edited module); not run in the interactive config.
+
+- PlantUML export backend (this PR)
+  - ✨ Loads =ob-plantuml= on first use, prefers the =plantuml= executable over the jar, and redisplays inline images after =C-c C-c=.
+  - Details: [[file:sp-org-babel.org::*PlantUML][=sp-org-babel= doc]].
+  - Not run in Emacs (no Emacs in the cloud container); needs =brew install plantuml=.
+  - 🐛 Fixed the PlantUML result showing as a =#+begin_example= block: the default =:results file= is now set before =ob-plantuml= loads.

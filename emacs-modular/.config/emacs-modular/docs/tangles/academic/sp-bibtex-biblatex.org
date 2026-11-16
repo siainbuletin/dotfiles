@@ -1,0 +1,736 @@
+#+TITLE: sp-bibtex-biblatex.el: convert the .bib files to BibLaTeX conventions
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-bibtex-biblatex.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-bibtex-biblatex.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* What it does
+
+- Renames the BibTeX-only field names of the =.bib= files to the BibLaTeX ones, and writes BibTeX accents as Unicode.
+- It is a lint of the =sp-bibtex-lint= family: a dry run first, one question, a backup, a restore.
+- It works on all registered =.bib= files (=sp-bibtex-files=) at once; with a prefix argument, on one file.
+- It never changes a citekey, a =file= field or any date.
+
+** Why a converter
+
+- The =.bib= files are already mostly BibLaTeX:
+  - the entry types =@online=, =@collection=, =@video=, =@inreference= and =@thesis=;
+  - =crossref=, =date=, =entrysubtype=, =eprint=, =file=.
+- But the BibTeX names are still the common ones: =journal= (4252 fields against 106 =journaltitle=), =school=, =address=, and =place= (1524 fields), which is neither BibTeX nor BibLaTeX.
+- Every tool of the chain reads the BibLaTeX names:
+  - =bibtex-mode= with =bibtex-dialect= =biblatex= lists =journaltitle=, =location= and =institution= as the standard fields, and marks =journal= as the alternative;
+  - Typst reads the file with Hayagriva's =biblatex= crate, which accepts both names for =journal=, =address=, =school= and =eprinttype=, but knows =location= only under that name or =address=, so =place= is lost in the PDF;
+  - biber (LaTeX) knows =journal= and =address= only as aliases.
+- One set of names, the BibLaTeX one, is therefore the safe common form.
+
+** What it changes
+
+| BibTeX or other name | BibLaTeX name |
+|----------------------+---------------|
+| =journal=            | =journaltitle= |
+| =address=            | =location=     |
+| =place=              | =location=     |
+| =school=             | =institution=  |
+| =archiveprefix=      | =eprinttype=   |
+| =primaryclass=       | =eprintclass=  |
+
+- The list is the option =sp-bibtex-biblatex-renames=.
+- Two entry types are renamed as well, with the option =sp-bibtex-biblatex-type-renames=:
+  - =@electronic= becomes =@online= (BibLaTeX itself treats it as an alias);
+  - =@webpage= becomes =@online= (neither BibLaTeX nor Typst knows =@webpage=; both read it as =@misc=, which loses the URL layout of an online source).
+- A field is renamed in place: the value and the order stay, and the = signs stay aligned when the old name was followed by enough spaces.
+- When the BibLaTeX name is there already:
+  - with the same value, the old field is dropped;
+  - with another value, nothing changes and the entry is reported.
+- Accents: =Zeitschrift f{\"u}r Papyrologie= becomes =Zeitschrift für Papyrologie=, =Bulat{\u a}= becomes =Bulată=.
+  - Only the accent command and its own braces change; protective braces such as ={Marx}= stay.
+  - Fields that name files, links or keys are never decoded, see =sp-bibtex-biblatex-ascii-fields=.
+  - =\&=, =\%= and other LaTeX escapes stay: the text is still read by LaTeX, where a bare =&= is an error.
+  - The option =sp-bibtex-biblatex-unicode= turns the accents off.
+
+** What it does not change
+
+- *Dates*: =year= and =month= stay as they are (Sia's decision, 2026-11-15).
+  - Typst, biber and =bibtex-mode= read both =date= and =year= with =month=, so nothing breaks.
+  - It also keeps =sp-bibtex-lint-fix-date= (date into year and month) consistent.
+- *Citation keys* and *PDF file names*: always ASCII, never changed here (Sia, 2026-11-15).
+  - The file system must not see Unicode in a name; the same key names the PDF.
+  - The dry run lists the keys with a non-ASCII letter, with the ASCII key =sp-bibtex-ascii-key= would give.
+  - It lists the =file= fields with a non-ASCII name as well; renaming them is the job of the attachment fix, because a renamed PDF has to move on disk too.
+- *Entry types* other than the two above: =@phdthesis=, =@mastersthesis=, =@techreport= are kept.
+  - BibLaTeX knows them as aliases of =@thesis= and =@report=, and Hayagriva has a row for each.
+  - Hayagriva labels a thesis from the old type name, so converting would risk the label "Doctoral dissertation" in the PDF.
+
+** What the report adds
+
+- It lists, and never changes:
+  - a citekey with a non-ASCII letter;
+  - a =file= field with a non-ASCII name;
+  - a field with the HTML entity =&amp;= (it should be =\&=);
+  - a =date= with a time (=2022-02-07T09:40:19+00:00=), which Typst reads as plain text, not as a date;
+  - a BibLaTeX name that is set with another value than its BibTeX name.
+  - an entry type BibLaTeX does not have (=@news=, =@film=, =@interview=): Typst and biber read it as =@misc=; change it by hand (=@news= and =@interview= to =@online= or =@misc=, =@film= to =@video=).
+  - a file that is not a text file (a macOS alias with a =.bib= name) or not valid UTF-8: it is skipped.
+
+** Commands and keys
+
+| Key           | Command                       | What it does                                       |
+|---------------+-------------------------------+----------------------------------------------------|
+| =C-; L b f L= | =sp-bibtex-lint-biblatex-dryrun= | Report for all =.bib= files, writes nothing        |
+| =C-; L b f l= | =sp-bibtex-lint-fix-biblatex= | Converts all files, after one question and a backup |
+| =C-; L b f r= | =sp-bibtex-lint-biblatex-restore= | Puts a run back from its backup                  |
+
+- A prefix argument asks for one file instead of all of them.
+- In the report, =A= applies the conversion and =q= closes it.
+
+** The backup and the restore
+
+- Every run makes the folder =sp-bibtex-biblatex-backup-directory= / =STAMP/=.
+  - It holds a copy of each changed =.bib= file as it was before the run, and =manifest.eld= with a checksum of each file as the run left it.
+- =sp-bibtex-lint-biblatex-restore= copies the files back.
+  - A file changed since the run is first kept in =before-restore/=.
+- A file with unsaved changes in its buffer stops the run (=Save FILE first=).
+
+** How it works
+
+- One function, =sp-bibtex-biblatex--convert-buffer=, converts every entry of the current =bibtex-mode= buffer in place.
+- The dry run converts a copy in a temporary buffer and only reports; the real run converts a copy and writes it.
+- The two therefore always agree.
+- Each entry is converted with the =bibtex-mode= field bounds, so the layout of the other fields is not touched.
+- Afterwards the converted text must have the same number of entries with the same keys, or nothing is written.
+
+* sp-bibtex-biblatex.el
+
+** Header
+
+#+begin_src emacs-lisp
+;;; sp-bibtex-biblatex.el --- Convert the .bib files to BibLaTeX conventions -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-bibtex-lint-fix-biblatex' renames BibTeX-only field names to the BibLaTeX
+;; ones and writes BibTeX accents as Unicode.  Dates, citekeys and file names are
+;; never touched.  See docs/tangles/academic/sp-bibtex-biblatex.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'bibtex)
+
+(defvar sp-var-dir)
+(declare-function sp-author-notes-latex-to-unicode "sp-author-notes")
+(declare-function sp-bibtex-ascii-key "sp-bibprocess")
+(declare-function sp-bibtex-lint--files "sp-bibprocess")
+(declare-function sp-bibtex-lint--read-file "sp-bibprocess")
+(declare-function sp-bibtex-lint--unsaved-check "sp-bibprocess")
+(declare-function sp-bibtex-lint--signature "sp-bibprocess")
+(declare-function sp-bibtex-lint--save "sp-bibprocess")
+#+end_src
+
+** Options
+
+- =sp-bibtex-biblatex-renames=: the field names to rename, as (OLD . NEW).
+- =sp-bibtex-biblatex-unicode=: non-nil writes accents as Unicode.
+- =sp-bibtex-biblatex-ascii-fields=: fields that are never decoded.
+- =sp-bibtex-biblatex-backup-directory=: where each run keeps the files it changes.
+
+#+begin_src emacs-lisp
+(defgroup sp-bibtex-biblatex nil
+  "Convert the .bib files to BibLaTeX conventions."
+  :group 'sp-bibtex
+  :prefix "sp-bibtex-biblatex-")
+
+(defcustom sp-bibtex-biblatex-renames
+  '(("journal" . "journaltitle") ("address" . "location") ("place" . "location")
+    ("school" . "institution") ("archiveprefix" . "eprinttype")
+    ("primaryclass" . "eprintclass"))
+  "Field names to rename, as (BIBTEX-NAME . BIBLATEX-NAME)."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-bibtex-biblatex)
+
+(defcustom sp-bibtex-biblatex-type-renames
+  '(("electronic" . "online") ("webpage" . "online"))
+  "Entry types to rename, as (OLD-TYPE . BIBLATEX-TYPE).
+`@electronic' is a BibLaTeX alias of `@online'; `@webpage' is not known to
+BibLaTeX or Typst, which both read it as `@misc'."
+  :type '(alist :key-type string :value-type string)
+  :group 'sp-bibtex-biblatex)
+
+(defconst sp-bibtex-biblatex--known-types
+  '("article" "book" "mvbook" "inbook" "bookinbook" "suppbook" "booklet" "collection"
+    "mvcollection" "incollection" "suppcollection" "dataset" "manual" "misc" "online"
+    "patent" "periodical" "suppperiodical" "proceedings" "mvproceedings" "inproceedings"
+    "reference" "mvreference" "inreference" "report" "set" "software" "thesis"
+    "unpublished" "xdata" "artwork" "audio" "bibnote" "commentary" "image" "jurisdiction"
+    "legal" "legislation" "letter" "movie" "music" "performance" "review" "standard" "video"
+    "phdthesis" "mastersthesis" "techreport" "conference" "electronic" "www")
+  "Entry types of BibLaTeX, with its non-standard types and BibTeX aliases.")
+
+(defcustom sp-bibtex-biblatex-unicode t
+  "Non-nil: the conversion writes BibTeX accents as Unicode.
+`f{\\\"u}r' becomes `für'.  Fields of `sp-bibtex-biblatex-ascii-fields' are left alone."
+  :type 'boolean
+  :group 'sp-bibtex-biblatex)
+
+(defcustom sp-bibtex-biblatex-ascii-fields
+  '("file" "pdf" "crossref" "xref" "xdata" "related" "ids" "url" "doi" "eprint"
+    "isbn" "issn" "groups" "keywords" "timestamp" "date_added" "date-added" "date-modified")
+  "Fields whose text is never decoded: names of files, links and keys."
+  :type '(repeat string)
+  :group 'sp-bibtex-biblatex)
+
+(defcustom sp-bibtex-biblatex-backup-directory
+  (expand-file-name "bibtex-biblatex-backups/"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "Folder where each run keeps the .bib files as they were, one sub-folder for each run."
+  :type 'directory
+  :group 'sp-bibtex-biblatex)
+
+(defconst sp-bibtex-biblatex--buffer "*BibLaTeX conversion*")
+#+end_src
+
+** Accents to Unicode
+
+- The decoder works on pieces, not on the whole value:
+  - a braced accent such as ={\"u}= is replaced together with its braces;
+  - a bare accent such as =\"u= is replaced alone;
+  - the rest of the value, with its protective braces, is not touched.
+- Only the pieces go through =sp-author-notes-latex-to-unicode=, so the Romanian comma-below rule is not applied to the Turkish ş that is already in the text.
+- A dotless =\i= under an accent is turned into =i= first (={\'\i}= is =í=).
+
+#+begin_src emacs-lisp
+(defconst sp-bibtex-biblatex--command-re
+  (concat "\\\\\\(?:['`^\"~=.][ ]*\\(?:{[[:alpha:]]}\\|[[:alpha:]]\\)"
+          "\\|[uvcHkr]\\(?:{[[:alpha:]]}\\| [[:alpha:]]\\)"
+          "\\|\\(?:oe\\|OE\\|ae\\|AE\\|aa\\|AA\\|ss\\|o\\|O\\|l\\|L\\|i\\|j\\)\\_>\\)")
+  "One accent or letter command of BibTeX.")
+
+(defun sp-bibtex-biblatex--unicode (text)
+  "TEXT with the BibTeX accents written as Unicode; TEXT itself without a backslash."
+  (if (not (string-search "\\" text))
+      text
+    (require 'sp-author-notes)
+    (let* ((cmd sp-bibtex-biblatex--command-re)
+           (text (replace-regexp-in-string
+                  "\\(\\\\['`^\"~=.]\\)[ ]*\\(?:{\\\\i}\\|\\\\i\\_>\\)" "\\1i" text))
+           (decode (lambda (fragment)
+                     (sp-author-notes-latex-to-unicode fragment))))
+      (replace-regexp-in-string
+       (concat "{\\(" cmd "\\)}\\|\\(" cmd "\\)")
+       (lambda (m)
+         ;; the decoder runs regexps itself; keep our match data for the caller
+         (save-match-data
+           (funcall decode (if (string-prefix-p "{" m) (substring m 1 -1) m))))
+       text t t))))
+#+end_src
+
+** Finding and changing fields
+
+- =bibtex-search-forward-field= gives the bounds of a field: (BEGIN-FIELD BEGIN-NAME END-NAME) then BEGIN-TEXT, END-TEXT and END-FIELD.
+- These helpers read the name and the text from the bounds, and find a field by its name.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--entry-end ()
+  "The end of the entry at point."
+  (save-excursion (bibtex-end-of-entry) (point)))
+
+(defun sp-bibtex-biblatex--all-fields ()
+  "The bounds of every field of the entry at point, first to last."
+  (save-excursion
+    (bibtex-beginning-of-entry)
+    (let ((end (sp-bibtex-biblatex--entry-end)) fields bounds)
+      (while (and (setq bounds (bibtex-search-forward-field "[[:alnum:]_-]+" end))
+                  (not (memq bounds fields)))
+        (push bounds fields)
+        (goto-char (max (point) (nth 3 bounds)))
+        (unless (> (point) (nth 1 (car bounds))) (goto-char (1+ (point)))))
+      (nreverse fields))))
+
+(defun sp-bibtex-biblatex--name (bounds)
+  "The name of the field with BOUNDS, in lower case."
+  (downcase (buffer-substring-no-properties (nth 1 (car bounds)) (nth 2 (car bounds)))))
+
+(defun sp-bibtex-biblatex--text (bounds)
+  "The text of the field with BOUNDS, delimiters included."
+  (buffer-substring-no-properties (nth 1 bounds) (nth 2 bounds)))
+
+(defun sp-bibtex-biblatex--find (name)
+  "The bounds of the first field called NAME in the entry at point, or nil."
+  (seq-find (lambda (b) (equal (sp-bibtex-biblatex--name b) name))
+            (sp-bibtex-biblatex--all-fields)))
+
+(defun sp-bibtex-biblatex--mentions-p (name)
+  "Non-nil when the entry at point seems to have a field NAME.
+A cheap search of the text, to skip the slow search of the field bounds."
+  (save-excursion
+    (let ((case-fold-search t)
+          (end (progn (bibtex-beginning-of-entry) (sp-bibtex-biblatex--entry-end))))
+      (bibtex-beginning-of-entry)
+      (re-search-forward (concat "^[ \t]*" (regexp-quote name) "[ \t]*=") end t))))
+
+(defun sp-bibtex-biblatex--same-text (a b)
+  "Non-nil when the field texts A and B say the same: delimiters and blanks do not count."
+  (let ((norm (lambda (s)
+                (string-trim (replace-regexp-in-string
+                              "[ \t\n]+" " "
+                              (replace-regexp-in-string "\\`[{\"]\\|[}\"]\\'" "" (string-trim s)))))))
+    (equal (funcall norm a) (funcall norm b))))
+
+(defun sp-bibtex-biblatex--delete-field (bounds)
+  "Delete the field with BOUNDS, with its line."
+  (let ((beg (nth 1 (car bounds))) (end (nth 3 bounds)))
+    (save-excursion
+      (goto-char beg) (beginning-of-line) (setq beg (point))
+      (goto-char end)
+      (when (looking-at "[ \t]*,?[ \t]*\n") (goto-char (match-end 0)))
+      (delete-region beg (point)))))
+#+end_src
+
+** Renaming
+
+- =sp-bibtex-biblatex--rename= renames one field of the entry at point and returns a description, or nil when the entry has no such field.
+- A description is a cons of =change= or =problem= and the text for the report.
+- When the BibLaTeX name exists:
+  - the same value: the old field goes;
+  - another value: nothing changes, the entry is reported.
+- A last field has no comma: if the dropped field was the last one and the one before ends with a comma, that comma stays; BibTeX accepts it.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--rename (from to)
+  "Rename the field FROM of the entry at point to TO; return (KIND . TEXT) or nil."
+  (when-let* (((sp-bibtex-biblatex--mentions-p from))
+              (old (sp-bibtex-biblatex--find from)))
+    (if-let* ((new (sp-bibtex-biblatex--find to)))
+        (if (sp-bibtex-biblatex--same-text (sp-bibtex-biblatex--text old)
+                                           (sp-bibtex-biblatex--text new))
+            (progn (sp-bibtex-biblatex--delete-field old)
+                   (cons 'change (format "%s dropped, %s has the same text" from to)))
+          (cons 'problem (format "%s and %s differ; both left as they are" from to)))
+      (goto-char (nth 1 (car old)))
+      (delete-region (nth 1 (car old)) (nth 2 (car old)))
+      (insert to)
+      ;; keep the = aligned: a longer name takes the blanks that were before it
+      (let ((delta (- (length to) (length from))))
+        (when (and (> delta 0) (looking-at (format " \\{%d\\}" (1+ delta))))
+          (delete-char delta)))
+      (cons 'change (format "%s → %s" from to)))))
+#+end_src
+
+** Decoding the fields of an entry
+
+- The fields are changed from the last to the first, so the bounds of the earlier ones stay valid.
+- A field of =sp-bibtex-biblatex-ascii-fields= is skipped.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--decode-fields ()
+  "Write the accents of the entry at point as Unicode; return the changed field names."
+  (let (changed)
+    (dolist (bounds (reverse (sp-bibtex-biblatex--all-fields)))
+      (let ((name (sp-bibtex-biblatex--name bounds)))
+        (unless (member name sp-bibtex-biblatex-ascii-fields)
+          (let* ((old (sp-bibtex-biblatex--text bounds))
+                 (new (sp-bibtex-biblatex--unicode old)))
+            (unless (equal old new)
+              (goto-char (nth 1 bounds))
+              (delete-region (nth 1 bounds) (nth 2 bounds))
+              (insert new)
+              (push name changed))))))
+    changed))
+#+end_src
+
+** Checks that only report
+
+- A citekey with a non-ASCII letter, with the key that =sp-bibtex-ascii-key= would give.
+- A =file= field with a non-ASCII character.
+- The HTML entity =&amp;= in any field.
+- A =date= with a time.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--checks (key)
+  "The lines of the report for the entry KEY at point; nothing is changed."
+  (let (lines)
+    (when (string-match-p "[^[:ascii:]]" key)
+      (push (format "citekey %s has a non-ASCII letter%s" key
+                    (if (fboundp 'sp-bibtex-ascii-key)
+                        (format " (ASCII: %s)" (sp-bibtex-ascii-key key))
+                      ""))
+            lines))
+    (dolist (bounds (sp-bibtex-biblatex--all-fields))
+      (let ((name (sp-bibtex-biblatex--name bounds))
+            (text (sp-bibtex-biblatex--text bounds)))
+        (when (and (member name '("file" "pdf")) (string-match-p "[^[:ascii:]]" text))
+          (push "file name with a non-ASCII character, left as it is" lines))
+        (when (string-match-p "&amp;\\|&lt;\\|&gt;" text)
+          (push (format "%s has an HTML entity (write \\& for &)" name) lines))
+        (when (and (equal name "date") (string-match-p "[0-9]T[0-9]" text))
+          (push (format "date %s has a time; Typst reads it as text" text) lines))))
+    (nreverse lines)))
+#+end_src
+
+** Converting one entry and a buffer
+
+- =sp-bibtex-biblatex--convert-entry= returns (CHANGES . PROBLEMS), two lists of text.
+- =sp-bibtex-biblatex--convert-buffer= goes through every entry, from the first to the last, and returns a list of (KEY CHANGES PROBLEMS) for the entries that have either.
+- An entry with a =%= comment inside is reported and left as it is, as in the other lint fixes.
+- A =@string=, =@preamble= or =@comment= is skipped.
+- The buffer gets the =biblatex= dialect first: with the BibTeX one, =bibtex-mode= does not know =@thesis=, =@online= or =@collection= and would not find their fields.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--convert-type (type)
+  "Rename the TYPE of the entry at point when `sp-bibtex-biblatex-type-renames' says so.
+Return the change line or nil.  Point must be at the `@' of the entry."
+  (when-let* ((new (cdr (assoc-string type sp-bibtex-biblatex-type-renames t)))
+              ((looking-at "[ \t]*@\\([[:alpha:]]+\\)")))
+    (replace-match new t t nil 1)
+    (format "@%s → @%s" (downcase type) new)))
+
+(defun sp-bibtex-biblatex--convert-entry (key type)
+  "Convert the entry KEY of TYPE at point; return (CHANGES . PROBLEMS).
+Point must be at the `@' of the entry."
+  (let (changes problems)
+    (when-let* ((done (sp-bibtex-biblatex--convert-type type)))
+      (push done changes)
+      (setq type (cdr (assoc-string type sp-bibtex-biblatex-type-renames t))))
+    (unless (member-ignore-case type sp-bibtex-biblatex--known-types)
+      (push (format "@%s is not a BibLaTeX type; Typst and biber read it as @misc" (downcase type))
+            problems))
+    (dolist (rename sp-bibtex-biblatex-renames)
+      (when-let* ((done (sp-bibtex-biblatex--rename (car rename) (cdr rename))))
+        (push (cdr done) (if (eq (car done) 'change) changes problems))))
+    (when sp-bibtex-biblatex-unicode
+      (when-let* ((fields (sp-bibtex-biblatex--decode-fields)))
+        (push (format "accents as Unicode in %s" (string-join (nreverse fields) ", ")) changes)))
+    (cons (nreverse changes)
+          (append (nreverse problems) (sp-bibtex-biblatex--checks key)))))
+
+(defun sp-bibtex-biblatex--set-dialect ()
+  "Give the current buffer the `biblatex' dialect, extended by the types it uses.
+`bibtex-mode' finds the bounds of an entry only for the types of its dialect, so
+`@video', `@webpage' or `@news' would be unreadable; each type of the buffer that
+the dialect lacks is added, with the fields of `@misc'."
+  (let* ((misc (assoc-string "misc" bibtex-biblatex-entry-alist t))
+         (types (let (found)
+                  (save-excursion
+                    (goto-char (point-min))
+                    (while (re-search-forward "^[ \t]*@\\([[:alpha:]]+\\)[ \t]*[{(]" nil t)
+                      (cl-pushnew (downcase (match-string 1)) found :test #'equal)))
+                  found))
+         (extra (mapcar (lambda (ty) (cons (capitalize ty) (cons ty (nthcdr 2 misc))))
+                        (seq-remove (lambda (ty) (assoc-string ty bibtex-biblatex-entry-alist t))
+                                    (seq-difference types '("string" "preamble" "comment")))))
+         (bibtex-biblatex-entry-alist (append bibtex-biblatex-entry-alist extra)))
+    (bibtex-set-dialect 'biblatex t)))
+
+(defun sp-bibtex-biblatex--convert-buffer ()
+  "Convert every entry of the current `bibtex-mode' buffer in place.
+Return a list of (KEY CHANGES PROBLEMS) for the entries that have changes or problems."
+  (sp-bibtex-biblatex--set-dialect)
+  (goto-char (point-min))
+  (let (results)
+    (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
+      (let ((beg (match-beginning 0)) (header (downcase (match-string 0))))
+        (goto-char beg)
+        (if (string-match-p "@[ \t]*\\(string\\|preamble\\|comment\\)" header)
+            (goto-char (min (point-max) (1+ (match-end 0))))
+          (let* ((entry (ignore-errors (bibtex-parse-entry)))
+                 (key (cdr (assoc "=key=" entry)))
+                 (end (and entry (ignore-errors (sp-bibtex-biblatex--entry-end)))))
+            (cond
+             ((not (and key end))
+              (push (list (or key "?") nil '("could not be read, left as it is")) results)
+              (goto-char (min (point-max) (1+ beg))))
+             ((save-excursion (goto-char beg) (re-search-forward "^[ \t]*%" end t))
+              (push (list key nil '("has a comment inside, left as it is")) results)
+              (goto-char end))
+             (t
+              (let ((done (save-excursion (goto-char beg)
+                                          (sp-bibtex-biblatex--convert-entry key (cdr (assoc "=type=" entry))))))
+                (when (or (car done) (cdr done))
+                  (push (list key (car done) (cdr done)) results))
+                (goto-char (sp-bibtex-biblatex--entry-end)))))))))
+    (nreverse results)))
+
+(defun sp-bibtex-biblatex--keys ()
+  "The entry keys of the current buffer, in order."
+  (let (keys)
+    (goto-char (point-min))
+    (while (re-search-forward "^[ \t]*@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)," nil t)
+      (unless (member (downcase (match-string 1)) '("string" "preamble" "comment"))
+        (push (match-string 2) keys)))
+    (nreverse keys)))
+#+end_src
+
+** Converting a file
+
+- =sp-bibtex-biblatex--convert-file= reads FILE as UTF-8 into a temporary =bibtex-mode= buffer and converts it.
+- It returns a plist: =:file=, =:results=, =:text= (the converted text), =:coding= and =:changed=.
+- A file that is not a text file is skipped, with =:skipped= saying why:
+  - it holds a NUL byte (a macOS alias or another binary file with a =.bib= name);
+  - it is not valid UTF-8 (the invalid bytes would be lost or reported by Emacs on writing).
+- The converted text must have the same keys in the same order; otherwise it is an error and nothing is written.
+- The coding system the file was read with (UTF-8 with its line endings) is kept in =:coding=, and used when the file is written, so the line endings do not change and Emacs never asks which coding to use.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--unreadable (file)
+  "Why FILE is not a UTF-8 text file, or nil when it is one."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (cond
+     ((search-forward "\0" nil t) "binary file (a macOS alias?), skipped")
+     ((progn (set-buffer-multibyte t)
+             (let ((coding-system-for-read 'utf-8))
+               (erase-buffer) (insert-file-contents file))
+             (re-search-forward "[\x3fff80-\x3fffff]" nil t))
+      "not valid UTF-8, skipped"))))
+
+(defun sp-bibtex-biblatex--convert-file (file)
+  "Convert the .bib FILE in a temporary buffer; the file itself is not changed."
+  (if-let* ((why (sp-bibtex-biblatex--unreadable file)))
+      (list :file file :results nil :text nil :changed nil :skipped why)
+    (with-temp-buffer
+      (let ((coding-system-for-read 'utf-8))
+        (insert-file-contents file))
+      (let ((coding buffer-file-coding-system))
+        (delay-mode-hooks (bibtex-mode))
+        (let* ((before (progn (goto-char (point-min)) (sp-bibtex-biblatex--keys)))
+               (original (buffer-string))
+               (results (sp-bibtex-biblatex--convert-buffer))
+               (after (sp-bibtex-biblatex--keys)))
+          (unless (equal before after)
+            (error "%s: the entries differ after the conversion, nothing written"
+                   (file-name-nondirectory file)))
+          (list :file file :results results :text (buffer-string) :coding coding
+                :changed (not (equal original (buffer-string)))))))))
+#+end_src
+
+** The report
+
+- Per file: how many entries change, and per rule how many times.
+- Then the changes and the problems, one line per entry.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--rule-counts (runs)
+  "An alist from the kind of change to how often it happened in RUNS."
+  (let (counts)
+    (dolist (run runs)
+      (dolist (result (plist-get run :results))
+        (dolist (change (nth 1 result))
+          (let* ((kind (if (string-match "\\`\\([[:alpha:]]+\\) →" change)
+                           change
+                         (replace-regexp-in-string " in .*\\'" "" (replace-regexp-in-string " dropped.*\\'" " dropped" change))))
+                 (cell (assoc kind counts)))
+            (if cell (cl-incf (cdr cell)) (push (cons kind 1) counts))))))
+    (sort counts (lambda (a b) (> (cdr a) (cdr b))))))
+
+(defun sp-bibtex-biblatex--report-text (runs)
+  "The text of the report for RUNS, the plists of `sp-bibtex-biblatex--convert-file'."
+  (let ((changed (cl-count-if (lambda (r) (nth 1 r)) (apply #'append (mapcar (lambda (r) (plist-get r :results)) runs))))
+        (problems (cl-count-if (lambda (r) (nth 2 r)) (apply #'append (mapcar (lambda (r) (plist-get r :results)) runs)))))
+    (with-temp-buffer
+      (insert (format "BibLaTeX conversion: %d file%s, %d entr%s change, %d with a problem\n"
+                      (length runs) (if (= 1 (length runs)) "" "s")
+                      changed (if (= 1 changed) "y" "ies") problems)
+              "A applies it (after one question and a backup), q closes.  Dates, citekeys and file names are never changed.\n\n")
+      (insert "Changes by rule:\n")
+      (pcase-dolist (`(,kind . ,n) (sp-bibtex-biblatex--rule-counts runs))
+        (insert (format "  %5d  %s\n" n kind)))
+      (dolist (run runs)
+        (when (plist-get run :skipped)
+          (insert (format "\n%s: %s\n" (file-name-nondirectory (plist-get run :file))
+                          (plist-get run :skipped)))))
+      (dolist (run runs)
+        (when (plist-get run :results)
+          (insert (format "\n%s\n" (file-name-nondirectory (plist-get run :file))))
+          (pcase-dolist (`(,key ,changes ,problems) (plist-get run :results))
+            (dolist (c changes) (insert (format "  %s: %s\n" key c)))
+            (dolist (p problems) (insert (format "  %s: ! %s\n" key p))))))
+      (buffer-string))))
+
+(defvar sp-bibtex-biblatex-report-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map "A" #'sp-bibtex-biblatex-report-apply)
+    map))
+
+(define-derived-mode sp-bibtex-biblatex-report-mode special-mode "BibLaTeX"
+  "Report of `sp-bibtex-lint-biblatex-dryrun'.  \\`A' applies the conversion.")
+
+(defvar-local sp-bibtex-biblatex--report-files nil
+  "The files of the report in this buffer.")
+
+(defun sp-bibtex-biblatex--show (files runs)
+  "Show the report of RUNS, made for FILES."
+  (with-current-buffer (get-buffer-create sp-bibtex-biblatex--buffer)
+    (sp-bibtex-biblatex-report-mode)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (sp-bibtex-biblatex--report-text runs))
+      (goto-char (point-min)))
+    (setq sp-bibtex-biblatex--report-files files)
+    (pop-to-buffer (current-buffer))))
+#+end_src
+
+** Which files
+
+- With no prefix argument, every registered =.bib= file; with one, a file read with completion.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--files (&optional ask)
+  "The .bib files to convert: all of them, or one read with completion when ASK."
+  (if ask
+      (list (sp-bibtex-lint--read-file t))
+    (or (sp-bibtex-lint--files) (user-error "No .bib file is registered"))))
+
+;;;###autoload
+(defun sp-bibtex-lint-biblatex-dryrun (&optional ask)
+  "Report what the BibLaTeX conversion would change in all .bib files; write nothing.
+With a prefix argument ASK, read one file with completion.  See
+`sp-bibtex-lint-fix-biblatex'.  Return the plists of the conversion."
+  (interactive "P")
+  (let* ((files (sp-bibtex-biblatex--files ask))
+         (runs (mapcar #'sp-bibtex-biblatex--convert-file files)))
+    (sp-bibtex-biblatex--show files runs)
+    runs))
+#+end_src
+
+** Writing, with a backup
+
+- The backup folder is made before the first file is written.
+- The manifest is written first without checksums, then again with them, so a run that stops half way can still be restored.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--sha (file)
+  "The SHA-1 of the bytes of FILE."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (secure-hash 'sha1 (current-buffer))))
+
+(defun sp-bibtex-biblatex--write-manifest (dir manifest)
+  "Write MANIFEST to the run folder DIR."
+  (with-temp-file (expand-file-name "manifest.eld" dir)
+    (let ((print-length nil) (print-level nil))
+      (prin1 manifest (current-buffer)))))
+
+;;;###autoload
+(defun sp-bibtex-lint-fix-biblatex (&optional ask)
+  "Convert all .bib files to BibLaTeX conventions, after one question and a backup.
+With a prefix argument ASK, read one file with completion.  Run
+`sp-bibtex-lint-biblatex-dryrun' first to see what changes.
+
+- Renames BibTeX-only fields (`sp-bibtex-biblatex-renames') and writes accents
+  as Unicode (`sp-bibtex-biblatex-unicode').
+- Never changes dates, citekeys or file names.
+- Copies each file to `sp-bibtex-biblatex-backup-directory' first;
+  `sp-bibtex-lint-biblatex-restore' puts them back."
+  (interactive "P")
+  (let* ((files (sp-bibtex-biblatex--files ask)))
+    (dolist (f files) (sp-bibtex-lint--unsaved-check f))
+    (let* ((runs (mapcar #'sp-bibtex-biblatex--convert-file files))
+           (todo (seq-filter (lambda (r) (plist-get r :changed)) runs)))
+      (sp-bibtex-biblatex--show files runs)
+      (cond
+       ((null todo) (message "Nothing to convert") nil)
+       ((yes-or-no-p (format "Convert %d .bib file%s to BibLaTeX conventions (backups in %s)? "
+                             (length todo) (if (= 1 (length todo)) "" "s")
+                             (abbreviate-file-name sp-bibtex-biblatex-backup-directory)))
+        (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
+               (dir (expand-file-name (concat stamp "/") sp-bibtex-biblatex-backup-directory))
+               written)
+          (make-directory dir t)
+          (dolist (run todo)
+            (let ((file (plist-get run :file)))
+              (copy-file file (expand-file-name (file-name-nondirectory file) dir) t)))
+          (sp-bibtex-biblatex--write-manifest
+           dir (list :time stamp :files (mapcar (lambda (r) (list (plist-get r :file))) todo)))
+          (dolist (run todo)
+            (let ((file (plist-get run :file)) (work (generate-new-buffer " *sp-bibtex-biblatex*")))
+              (unwind-protect
+                  (progn
+                    (with-current-buffer work (insert (plist-get run :text)))
+                    (let ((coding-system-for-write (or (plist-get run :coding) 'utf-8)))
+                      (sp-bibtex-lint--save work file))
+                    (push (list file (sp-bibtex-biblatex--sha file)) written))
+                (kill-buffer work))))
+          (sp-bibtex-biblatex--write-manifest
+           dir (list :time stamp :files (nreverse written)))
+          (message "BibLaTeX conversion: %d file%s written; backups in %s"
+                   (length written) (if (= 1 (length written)) "" "s") (abbreviate-file-name dir))
+          (sp-bibtex-biblatex--show files (mapcar #'sp-bibtex-biblatex--convert-file files))
+          written))))))
+
+(defun sp-bibtex-biblatex-report-apply ()
+  "Apply the conversion of the report in this buffer."
+  (interactive)
+  (let ((files sp-bibtex-biblatex--report-files))
+    (cl-letf (((symbol-function 'sp-bibtex-biblatex--files) (lambda (&optional _) files)))
+      (sp-bibtex-lint-fix-biblatex))))
+#+end_src
+
+** Restoring
+
+- The run folders are read newest first.
+- A file that changed since the run is kept in =before-restore/= before the copy back.
+
+#+begin_src emacs-lisp
+(defun sp-bibtex-biblatex--runs ()
+  "The run folders of the backup directory that have a manifest, newest first."
+  (when (file-directory-p sp-bibtex-biblatex-backup-directory)
+    (seq-filter (lambda (d) (file-exists-p (expand-file-name "manifest.eld" d)))
+                (sort (seq-filter #'file-directory-p
+                                  (directory-files sp-bibtex-biblatex-backup-directory t "\\`[0-9]"))
+                      #'string>))))
+
+;;;###autoload
+(defun sp-bibtex-lint-biblatex-restore (&optional dir)
+  "Put back the .bib files of a run of `sp-bibtex-lint-fix-biblatex'.
+DIR is the run folder; it is read with completion (newest first) when nil.  A
+file that changed after the run is kept in `before-restore/' of the run folder."
+  (interactive)
+  (let* ((runs (or (sp-bibtex-biblatex--runs) (user-error "No run to restore")))
+         (dir (or dir (completing-read "Restore the run: "
+                                       (mapcar #'file-name-nondirectory runs) nil t nil nil
+                                       (file-name-nondirectory (car runs)))))
+         (dir (file-name-as-directory
+               (if (file-name-absolute-p dir) dir
+                 (expand-file-name dir sp-bibtex-biblatex-backup-directory))))
+         (manifest (with-temp-buffer
+                     (insert-file-contents (expand-file-name "manifest.eld" dir))
+                     (read (current-buffer))))
+         (files (plist-get manifest :files)))
+    (dolist (entry files)
+      (when-let* ((b (find-buffer-visiting (car entry)))
+                  ((buffer-modified-p b)))
+        (user-error "Save or close %s first" (file-name-nondirectory (car entry)))))
+    (when (yes-or-no-p (format "Put back %d .bib file%s from %s? "
+                               (length files) (if (= 1 (length files)) "" "s")
+                               (file-name-nondirectory (directory-file-name dir))))
+      (dolist (entry files)
+        (let* ((file (car entry))
+               (saved (expand-file-name (file-name-nondirectory file) dir)))
+          (when (file-exists-p saved)
+            (when (and (cadr entry) (file-exists-p file)
+                       (not (equal (cadr entry) (sp-bibtex-biblatex--sha file))))
+              (make-directory (expand-file-name "before-restore/" dir) t)
+              (copy-file file (expand-file-name (file-name-nondirectory file)
+                                                (expand-file-name "before-restore/" dir)) t))
+            (copy-file saved file t)
+            (when-let* ((b (find-buffer-visiting file)))
+              (with-current-buffer b (revert-buffer t t t))))))
+      (message "Put back %d file%s from %s" (length files) (if (= 1 (length files)) "" "s")
+               (abbreviate-file-name dir)))))
+#+end_src
+
+** Footer
+
+#+begin_src emacs-lisp
+(provide 'sp-bibtex-biblatex)
+;;; sp-bibtex-biblatex.el ends here
+#+end_src

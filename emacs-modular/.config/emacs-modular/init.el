@@ -76,6 +76,11 @@
     (require 'elpaca)
     (elpaca-generate-autoloads "elpaca" repo)
     (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+;; TEMPORARY: MELPA renamed `master' to `main', which breaks Elpaca's MELPA menu
+;; (elpaca issue 585, PR 586). Loaded here, before the first `elpaca' call, because
+;; Elpaca may refresh the menu while it installs elpaca-use-package. Delete this
+;; line and sp-elpaca-melpa-fix.el once Elpaca is fixed.
+(sp-load "libraries/modules/base/sp-elpaca-melpa-fix.el")
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
@@ -243,6 +248,10 @@ the order of `sp-late-modules', for example when debugging."
     sp-trails-search ;; search from a trail and record chosen results (after sp-trails and sp-browsing)
     sp-semantic
     sp-tab-psearch ;; p-search over the tab inbox (after sp-semantic, sp-search and sp-tab-inbox)
+    ;; Tags as emoji in the modeline and on links. Before `sp-graphs', which
+    ;; requires it (for `sp-select-note'); listed after it, it only logged
+    ;; "[skip] already loaded".
+    sp-org-tag-groups
     ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
     ;; annotator and its live localhost view, in one module.
     sp-graphs
@@ -258,7 +267,6 @@ the order of `sp-late-modules', for example when debugging."
     ;; Terminals and shells
     sp-terminal
     sp-eshell
-    sp-org-tag-groups ;; tags as emoji in the modeline and on links
     sp-typst ;; PDF of the docs and of Org files through Typst
     )
   "Modules that can wait until after startup, in dependency order.

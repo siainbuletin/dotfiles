@@ -548,7 +548,7 @@ Each reported line carries text properties for the file, the line and the tag, s
         (insert "  none\n")
       (dolist (file untagged)
         (sp-org-tag-lint--insert-location file nil nil)))
-    (insert "\nRET visit   a register the tag at point   g run again\n")))
+    (sp-echo-help-set '(("RET" "Visit") ("a" "Register tag at point" t) ("g" "Run again")))))
 
 (defvar-local sp-org-tag-lint--result nil
   "The result of the lint shown in the report buffer, for drawing it again.")
@@ -896,3 +896,5 @@ What each pull request changed in this module, newest last; the one-line summary
   - ✨ Added =tools/check-conflict-markers.sh= and the =conflict-markers= CI workflow, which fail on leftover =<<<<<<<= / =>>>>>>>= lines.
   - Not run in Emacs (none in the container)
     - the =git-gutter:live-update= timer error is not confirmed to be a side effect.
+- [[https://github.com/siainbuletin/dotfiles/pull/470][#470]]
+  - 🔧 Changed the key help of the tag lint report to echo-area hints

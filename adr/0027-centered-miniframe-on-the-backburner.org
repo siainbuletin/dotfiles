@@ -1,0 +1,31 @@
+#+title: 0027 Centered minibuffer (posframe) is on the backburner and off by default
+#+date: 2026-11-14
+#+status: accepted
+
+* Context
+- =sp-posframe= shows the minibuffer (prompt and Vertico candidates) in a centred child frame.
+- It replaced =sp-mini-frame= after =M-x= hung Emacs on macOS; the cause of the hang was never found.
+- Since then the module has needed many fixes: glitching text in =M-x=, a stray =*Minibuf-1*= window, text size, width (#136 to #163).
+- I do not like how the centred minibuffer works at the moment, and I do not want to spend more time on it now.
+
+* Decision
+- =sp-posframe-enabled= defaults to =nil=: a fresh start has no posframe and the minibuffer is at the bottom of the frame.
+- =M-x sp-posframe-toggle= is unchanged and still turns the posframe on for a session.
+- The centred miniframe setup is marked as on the backburner, not removed.
+  - The =sp-posframe.el= commentary and the =sp-posframe-enabled= docstring say so.
+  - The literate doc =docs/tangles/ui/sp-posframe.org= starts with an archived status banner.
+  - The module table in =README.org= marks the entry as archived.
+- No new work goes into the module until I take it up again; its rebuild plan stays in the doc.
+
+* Alternatives considered
+- *Delete the module*: loses the notes and the rebuild plan, and the toggle is cheap to keep.
+- *Leave it on by default*: I keep hitting the problems that made me dislike it.
+- *Go back to =mini-frame=*: it had the same hang and never traced to a cause; see the doc.
+
+* Consequences
+- The default minibuffer is the normal one, so the glitches of the posframe do not show.
+- =sp-posframe-width-fraction= and the border padding do nothing while it is off.
+- =sp-citations= falls back to the frame width when the posframe is off (it already checks =vertico-posframe-mode=).
+- Anyone who set =sp-posframe-enabled= in their config keeps their choice; only the default changed.
+- To resume: set =sp-posframe-enabled= to =t=, follow "Rebuilding the setup from zero" in the doc, and supersede this record.
+- /Untested/ on my Mac: the change was made from a Linux container.

@@ -26,6 +26,23 @@
                    '("Alpha" "Beta")))
     (should (equal (plist-get plan :removed) '("Footnotes")))))
 
+(ert-deftest sp-org-lint-footnote-leaves-see-also-notes-and-endnotes ()
+  (let ((plan (sp-org-lint-test--result
+               "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+               "* Beta" "Again[fn:see-1]." ""
+               "* Footnotes" "[fn:a] Source A." "" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    ;; Only the plain footnote moves; the notes stay in the Footnotes section,
+    ;; and the see-also note cited twice is not copied.
+    (should (equal (plist-get plan :text)
+                   (sp-org-lint-test--text
+                    "* Alpha" "Claim.[fn:a] See[fn:see-1] and[fn:end-1]." ""
+                    "[fn:a] Source A." ""
+                    "* Beta" "Again[fn:see-1]." ""
+                    "* Footnotes" "[fn:see-1] [[id:x][X]]" "" "[fn:end-1] Later.")))
+    (should (equal (mapcar (lambda (m) (plist-get m :label)) (plist-get plan :moves))
+                   '("a")))
+    (should-not (plist-get plan :orphans))))
+
 (ert-deftest sp-org-lint-footnote-cited-twice-gets-a-copy ()
   (let ((plan (sp-org-lint-test--result
                "* Alpha" "One.[fn:s]" "" "* Beta" "Two.[fn:s]" ""
@@ -245,6 +262,28 @@
       (sp-batch-report-restore)
       (should (null sp-batch-report-excluded))
       (should (string-match-p "Files with footnotes to look at (1)" (buffer-string))))))
+
+;; The worker is a bare `emacs -Q --batch', as in a real session: it must find the
+;; modules of other folders (sp-interaction in base/) by itself.
+(ert-deftest sp-org-lint-footnote-worker-command-loads-in-a-bare-emacs ()
+  "Run the worker command as `sp-org-lint-fn--start' does, on no files."
+  (let ((ctl (make-temp-file "sp-org-lint-test-" nil ".eld"))
+        (process-environment (cons "EMACSLOADPATH=" process-environment)))
+    (unwind-protect
+        (progn
+          (with-temp-file ctl (prin1 (list :mode 'plan :files nil) (current-buffer)))
+          (let* ((cmd (sp-org-lint-fn--worker-command ctl))
+                 (out (with-temp-buffer
+                        (let ((status (apply #'call-process (car cmd) nil t nil (cdr cmd))))
+                          (list status (buffer-string))))))
+            (should (equal (car out) 0))
+            (should (string-match-p "(:done t)" (cadr out)))))
+      (delete-file ctl))))
+
+(ert-deftest sp-org-lint-footnote-worker-load-path-has-the-shared-modules ()
+  (let ((dirs (sp-org-lint-fn--worker-load-dirs)))
+    (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-interaction.el" d))) dirs))
+    (should (seq-some (lambda (d) (file-exists-p (expand-file-name "sp-batch-report.el" d))) dirs))))
 
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here

@@ -18,6 +18,8 @@
 ;; 3. Asks for tags when the new note has none and files it into the folder
 ;;    of its tags (`sp-split-file-by-tags').
 ;; 4. Keeps footnotes working across the split (`sp-split-check-footnotes').
+;;    Footnotes, see-also notes and endnotes can go to the new note's notes
+;;    section and be taken out of the source (`sp-split-notes').
 ;; 5. Moves id links out of the heading text into a `- seealso ::' meta line
 ;;    (`sp-split-links-to-seealso').
 ;;
@@ -41,6 +43,7 @@
 (require 'seq)
 (require 'cl-lib)
 (require 'vulpea)
+(require 'sp-note-kinds)
 (declare-function sp-notes-filing-folder "sp-notes")
 (defvar sp-notes-filing-root)
 
@@ -81,6 +84,22 @@ that leave with the subtree, into the source note."
 They are removed from the title of the new note and listed in a
 `- seealso ::' meta line in its body."
   :type 'boolean
+  :group 'sp-split)
+
+(defcustom sp-split-notes 'move
+  "What happens to the notes (footnotes, see-also notes, endnotes) of a split.
+The notes that the split heading cites are written in the notes section
+of the new note, renumbered in its order (`sp-note-kinds').
+`move': a note is also taken out of the source only when the part left
+there no longer cites it, and the source is renumbered.  A note that the
+rest of the parent still cites stays in the source, and is copied to the
+new note as well, as `copy' does for every note.  `copy': the source keeps
+every note.  nil: the older way, a copy of a definition under each citing
+heading, with no notes section.
+It only acts when `sp-split-check-footnotes' is non-nil."
+  :type '(choice (const :tag "Move them to the new note" move)
+                 (const :tag "Copy them to the new note" copy)
+                 (const :tag "A copy under each citing heading" nil))
   :group 'sp-split)
 
 (defvar sp-split--fn-report nil
@@ -457,6 +476,109 @@ place.  Return the number of definitions copied."
                (sp-split--fn-apply heads adds edits)))))))
     copied))
 
+(defun sp-split--notes-fix-body (body source-defs)
+  "Make the notes in BODY self-contained, in a notes section.
+SOURCE-DEFS is an alist (LABEL . TEXT) of the source file's definitions.
+Each note that BODY cites and does not define is written, with its definition
+from the source, in the notes section at the end of BODY (`sp-note-kinds'); the
+see-also notes and endnotes are renumbered from 1 in the order of BODY and put
+in order, and so are the numbered footnotes.  Return (NEW-BODY COPIED
+DANGLING) like `sp-split--fn-fix-body'."
+  (with-temp-buffer
+    (delay-mode-hooks (org-mode))
+    (insert body)
+    (pcase-let* ((`(,_heads ,refs ,defs) (sp-split--fn-scan))
+                 (have (mapcar #'car defs))
+                 (missing nil)
+                 (dangling nil))
+      (dolist (label (seq-uniq (mapcar #'car refs)))
+        (unless (member label have)
+          (if-let* ((text (cdr (assoc label source-defs))))
+              (push (list label (sp-note-kind label) text) missing)
+            (push label dangling))))
+      (setq missing (nreverse missing))
+      (when missing
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (sp-note--insert-definitions missing))
+        (sp-split--notes-tidy))
+      (list (string-trim-right (buffer-string)) (length missing)
+            (nreverse dangling)))))
+
+(defun sp-split--notes-tidy ()
+  "Renumber and order the notes of the current buffer, after a split changed them."
+  (when (derived-mode-p 'org-mode)
+    (when (and sp-note-auto-renumber)
+      (sp-note-renumber))
+    (when (fboundp 'org-footnote-renumber-fn:N)
+      (org-footnote-renumber-fn:N))
+    (sp-note-sort-definitions)))
+
+(defun sp-split--notes-cited-only-inside (beg end)
+  "Labels cited between BEG and END of this buffer and nowhere else."
+  (pcase-let* ((`(,_heads ,refs ,_defs) (sp-split--fn-scan))
+               (inside (lambda (r) (and (>= (cadr r) beg) (< (cadr r) end))))
+               (outside (mapcar #'car (seq-remove inside refs))))
+    (seq-remove (lambda (label) (member label outside))
+                (seq-uniq (mapcar #'car (seq-filter inside refs))))))
+
+(defun sp-split--notes-drop-definitions (labels)
+  "Delete the definitions of LABELS from the current buffer; return how many.
+Only definitions of the form `[fn:LABEL] text' at the start of a line, which
+the notes section holds; an inline footnote goes with its text."
+  (let ((count 0))
+    (pcase-let ((`(,_heads ,_refs ,defs) (sp-split--fn-scan)))
+      (dolist (d (sort (seq-filter (lambda (d) (member (car d) labels))
+                                   (copy-sequence defs))
+                       (lambda (a b) (> (cadr a) (cadr b)))))
+        (goto-char (cadr d))
+        (when (and (bolp) (looking-at "\\[fn:[^]\n]*\\]"))
+          (let ((end (+ (cadr d) (length (nth 2 d)))))
+            (delete-region (cadr d) end)
+            (skip-chars-forward " \t\n")
+            (delete-region (cadr d) (point))
+            (setq count (1+ count))))))
+    count))
+
+(defvar sp-split--moved nil
+  "Cons (BUFFER . LABELS) for the running split: the notes only the split heading cites.")
+
+(defun sp-split--notes-remember (id)
+  "Remember which notes only the subtree of ID cites, while it is in its file."
+  (when (eq sp-split-notes 'move)
+    (when-let* ((note (vulpea-db-get-by-id id))
+                (path (vulpea-note-path note)))
+      (with-current-buffer (find-file-noselect path)
+        (org-with-wide-buffer
+         (when-let* ((pos (org-find-entry-with-id id)))
+           (goto-char pos)
+           (org-back-to-heading t)
+           (let ((beg (point))
+                 (end (save-excursion (org-end-of-subtree t t) (point))))
+             (setq sp-split--moved
+                   (cons (current-buffer)
+                         (sp-split--notes-cited-only-inside beg end))))))))))
+
+(defun sp-split--notes-after-cut ()
+  "Take the notes that moved out of the source, once the subtree is cut.
+The definitions of the notes that nothing in the source cites any more are
+deleted (they are in the new note) and the notes are renumbered and put in order.
+The source buffer is changed and not saved."
+  (when (and sp-split--moved (buffer-live-p (car sp-split--moved))
+             (cdr sp-split--moved))
+    (condition-case err
+        (with-current-buffer (car sp-split--moved)
+          (org-with-wide-buffer
+           (let ((gone (sp-split--notes-drop-definitions (cdr sp-split--moved))))
+             (sp-split--notes-tidy)
+             (when (> gone 0)
+               (message "Notes: %d definition(s) moved to the new note (the source is not saved)"
+                        gone)))))
+      (error
+       (message "sp-split: taking the notes out of the source skipped: %s"
+                (error-message-string err))))))
+
 (defun sp-split--fn-check-body (body id)
   "Return BODY, the body of the note split from ID, with footnotes fixed.
 Never aborts the split: on an error BODY is returned unchanged."
@@ -464,7 +586,10 @@ Never aborts the split: on an error BODY is returned unchanged."
       body
     (condition-case err
         (pcase-let ((`(,new ,copied ,dangling)
-                     (sp-split--fn-fix-body body (sp-split--fn-source-defs id))))
+                     (funcall (if sp-split-notes
+                                  #'sp-split--notes-fix-body
+                                #'sp-split--fn-fix-body)
+                              body (sp-split--fn-source-defs id))))
           (setq sp-split--fn-report
                 (list :into-new copied :dangling dangling))
           new)
@@ -477,9 +602,11 @@ Never aborts the split: on an error BODY is returned unchanged."
   "Copy definitions leaving with the subtree of ID back into the source."
   (when sp-split-check-footnotes
     (condition-case err
-        (setq sp-split--fn-report
-              (plist-put sp-split--fn-report :into-source
-                         (sp-split--fn-keep-in-source id)))
+        (progn
+          (sp-split--notes-remember id)
+          (setq sp-split--fn-report
+                (plist-put sp-split--fn-report :into-source
+                           (sp-split--fn-keep-in-source id))))
       (error
        (message "sp-split: footnote copy in source skipped: %s"
                 (error-message-string err))))))
@@ -606,8 +733,10 @@ left."
          ;; Keep vulpea's own stub option (the prefix argument) out of it.
          (current-prefix-arg nil)
          (sp-split--fn-report nil)
+         (sp-split--moved nil)
          (org-use-tag-inheritance sp-split-inherit-tags)
          (note (call-interactively #'vulpea-split-heading)))
+    (when note (sp-split--notes-after-cut))
     (prog1 (if (and note sp-split-file-by-tags)
                (sp-split--file-by-tags note)
              note)

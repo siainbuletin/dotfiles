@@ -1,0 +1,84 @@
+* PR #455: ✨ Mirror browser-added DEVONthink tags in the litnote and BibTeX keywords
+:PROPERTIES:
+:PR_NUMBER: 455
+:URL: https://github.com/siainbuletin/dotfiles/pull/455
+:STATE: open
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/455][https://github.com/siainbuletin/dotfiles/pull/455]]
+- State :: open
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 00:55
+- Branch :: =455-devonthink-tags-bibtex-mirror= → =443-devonthink-tags-litnote-keywords=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/29805c2976668daf86a9e71e0ca25e7417b62f94][29805c2976]]
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW21Kuiea8rujDkU6osZp9azM][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- *Base: =443-devonthink-tags-litnote-keywords= (#443).* Merge #443 first; GitHub retargets this PR to =main= when #443 merges and its branch is deleted. Until then the diff shows only this PR's changes.
+- Reuses #443's =sp-devonthink-write-keywords=, =sp-devonthink-keywords-key= and =sp-devonthink-record-tags= (no duplicate code).
+- If merged out of order (into =main= before #443): impossible, those functions do not exist on =main=.
+- #454 (=sp-fetch-inbox=, based on =main=) also edits =sp-devonthink-browse.el= (=sp-devonthink-record-note=) and =sp-litnotes-meta.el= (=--after-create=). Different functions from this PR's (=record-tag=, =fill=); a textual conflict is possible in tests and README only.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- *Request:* tags added in =sp-devonthink-browse= → =embark-act= → =sp-devonthink-record-tag= are recorded in the litnote (also when it is generated later) and mirrored into the matching BibTeX record.
+- *After tagging in the browser* (=sp-devonthink-mirror-record-tags=):
+  - Litnote: found by the record's citekey (record name without =.pdf=), =keywords= line rewritten from the record's full tags (same format as #443) and saved. A litnote open with unsaved changes is skipped and named.
+  - BibTeX: the /added/ tags go into the entry's =keywords= field, after one =y-or-n-p= listing the entries. Existing keywords are kept, repeats ignored (case), =;= or =,= separator kept, field created if missing. A =.bib= buffer with unsaved changes is skipped and named.
+  - Inbox records (name not a citekey: no litnote, no entry) are skipped; the browser says how many, never an error. A failure of the mirror is reported but the tags stay in DEVONthink.
+- *Litnote generated later:* new hook =sp-litnotes-meta-fill-functions=; =sp-devonthink--fill-keywords= fills an empty =keywords= line from the record's tags. Skipped in batch fill, off macOS, for a crossref parent's record, and when the line already has a value.
+- *Options:* =sp-devonthink-bibtex-keywords= (nil = no BibTeX part), =sp-devonthink-keywords-on-fill= (nil = no fill-time tags), =sp-devonthink-keywords-key= (#443; nil = no litnote part).
+- *Not mirrored:* removals (this action only adds); tags set in DEVONthink directly.
+- Docs (bullet lists): new section "Mirroring browser tags in litnote and BibTeX" in =sp-devonthink-tags.org=; bullets in =sp-devonthink-browse.org= and =sp-litnotes-meta.org=; README row; =.el= re-tangled.
+- Tests (Emacs 29.3): 27 in =sp-devonthink-tags-test.el= (8 new), 9 in =sp-devonthink-browse-test.el=, 68 in =sp-litnotes-meta-test.el=, all pass. =when-let*= style only. No CHANGELOG edit.
+- *Not run* against DEVONthink, the real vault or the real =.bib= files (tests use temp files and stubs). The fill-time lookup can rebuild the record index once per new note without a record.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Mac, DEVONthink open on =literature=, a record named like a citekey with a litnote and a BibTeX entry; throw-away tag =test-tag-2=. Back up the =.bib= first (or have it under git).
+
+- [ ] Check out: =cd ~/dotfiles; git fetch origin 455-devonthink-tags-bibtex-mirror; git checkout 455-devonthink-tags-bibtex-mirror=, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -L libraries/modules/funct -L libraries/modules/vulpea -l ert -l tests/sp-devonthink-tags-test.el -f ert-run-tests-batch-and-exit= → 27 pass (more =-L= if Emacs asks)
+- [ ] =C-c k d b=, =embark-act= on the record, =t=, tag =test-tag-2= → "Added tags to 1 of 1 records", then a question "Add test-tag-2 to the BibTeX keywords of KEY?"
+- [ ] Answer =y=: the =.bib= entry has =test-tag-2= in =keywords= (existing keywords kept), file saved
+- [ ] The litnote's =- keywords ::= line lists the record's tags and the file is saved
+- [ ] Repeat with the same tag: no duplicate in =keywords= of either file
+- [ ] Answer =n= to the question: =.bib= unchanged, litnote still updated
+- [ ] An entry without a =keywords= field: the field appears as the last one, entry still valid
+- [ ] Several marked records, one of them an inbox record (not a citekey): the others are mirrored, message "1 record without a litnote or BibTeX entry skipped", no =No BibTeX entry= error
+- [ ] Litnote open with unsaved edits: message names it as skipped
+- [ ] Delete the litnote of a record, tag the record, then generate the litnote (=C-c w b c= / citar): the new note has the record's tags in =keywords=
+- [ ] =(setq sp-devonthink-bibtex-keywords nil)= → no question, =.bib= untouched
+- [ ] Regression: =C-c k d t= and =C-c k d T= (#443) behave as before; =M-x sp-litnotes-meta-fill-all-dryrun= shows no DEVONthink activity
+- [ ] Clean up: remove =test-tag-2= in DEVONthink, in the =.bib= and in the litnote (=git restore=)
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .= (=git clean -fd= only after checking =git clean -nd=).
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=; restart Emacs (or =M-x sp-reload-modules=).
+- =.bib= and litnotes: =git restore= them, or delete the =test-tag-2= entries by hand.
+- DEVONthink: remove =test-tag-2= from the tag list.
+- Fish shell works for all of the above; no yadm steps.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNi9b5C1yg4pV8jsNW7A][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/c5ef687baa82792dbe442f16cdccddb04dfecbe2][c5ef687baa]] ✨ Mirror browser-added DEVONthink tags in the litnote and BibTeX keywords (Claude, 2026-11-14 00:55)

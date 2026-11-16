@@ -1,0 +1,89 @@
+* PR #521: 🐛 Reload the .bib buffer after the lint merge, and drop/restore variant groups
+:PROPERTIES:
+:PR_NUMBER: 521
+:URL: https://github.com/siainbuletin/dotfiles/pull/521
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/521][https://github.com/siainbuletin/dotfiles/pull/521]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 15:38
+- Merged :: 2026-11-15 15:40
+- Branch :: =521-reload-buffer-after-merge= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/1464d94e5c4d26139a83d885908e9911f9523e9b][1464d94e5c]]
+- Labels :: bugfix, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW25im6tek3hPTzw72mkyzRzY][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on current =main= (after #518, #519, #520); independent of the other open PRs.
+- Touches the lint part of =sp-academic.org= / =sp-bibprocess.el= (=sp-bibtex-lint--save=, the =sp-bibtex-merge--*= functions), so it may conflict with other open lint PRs.
+
+**** What I found
+:PROPERTIES:
+:CUSTOM_ID: what-i-found
+:END:
+- The command is =sp-bibtex-lint-fix-merge= (the only merge lint; also step 4 of =sp-bibtex-lint-fix-authors=).
+- It already reverted the visiting buffer through =sp-bibtex-lint--save=, shared by every write-capable lint fix (date, duplicates, authors, organisations, files, keys, crossref).
+- Gaps in that shared helper:
+  - a buffer with unsaved changes was skipped silently, so it stayed stale;
+  - citar's cache was refreshed only by the long-keys fix;
+  - the merge checks for unsaved changes only when it starts, but its questions can take a while.
+- The abstract mover has its own =sp-bibtex-abstract--refresh-buffer= (revert plus vulpea update); left alone to keep the diff small.
+- The merge had no way to drop groups; the other fixes drop entries with =d= and restore with =u=.
+
+**** What changed
+:PROPERTIES:
+:CUSTOM_ID: what-changed
+:END:
+- Reload (shared by all lint writers):
+  - New =sp-bibtex-lint--refresh=, called by =sp-bibtex-lint--save=: reverts the unmodified buffer without a question (point stays), never discards unsaved edits (warns instead), refreshes citar.
+  - New =sp-bibtex-lint--unsaved-resolve=, used by =sp-bibtex-merge--apply= just before writing: with unsaved changes asks =d= diff, =r= recheck after saving, =s= skip (nothing written).
+- Drop and restore (merge only):
+  - In the group question: =d= drops the group for later, =u= brings a dropped group back.
+  - Dropped groups are skipped going forward, also in later runs of the Emacs session; =p= can step back to one to restore it.
+  - Stored in =sp-bibtex-lint--excluded= with key =FILE::TARGET#merge=, so =M-x sp-bibtex-lint-restore-dropped= lists and restores them with the dropped entries.
+  - When every group is dropped, the command says so and asks nothing.
+- Docs updated as bullets in =sp-academic.org=, re-tangled to =sp-bibprocess.el=.
+- =CHANGELOG.org= not edited.
+
+**** What is not verified
+:PROPERTIES:
+:CUSTOM_ID: what-is-not-verified
+:END:
+- Tested only with standalone Emacs 29.3 batch scripts on the new functions (reload and warn on unsaved; skip choice; =d= dropping a group and skipping it). The existing lint test file could not be loaded in the container (dependency chain), so the full suite was not run.
+- The report view (dashboard section and =sp-bibtex-merge--text=) still lists dropped groups; only the question skips them.
+- The batch report view is not refreshed after a write (no other fix does it either).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] Open a =.bib= file in a buffer (no edits). =M-x sp-bibtex-lint-fix-merge=, merge a group, =yes=: the buffer shows the new names with no prompt and point stays near where it was
+- [ ] Start the merge, and before the final =yes= type a character in the =.bib= buffer: at the write you get the =d=/=r=/=s= question
+- [ ] =d= shows a diff of your unsaved change; =s= writes nothing and the buffer keeps the change; saving the buffer and pressing =r= goes on and rewrites
+- [ ] After a merge, citar completion shows the new author names without restarting
+- [ ] In the group question, =d= on a group: the next group is asked; run the command again: the dropped group is not asked
+- [ ] =p= back to the dropped group shows "(dropped for later)"; =u= restores it and it is asked again next time
+- [ ] =M-x sp-bibtex-lint-restore-dropped= lists the dropped group (as =NAME#merge=) and brings it back
+- [ ] Drop every group: the command says the groups left are dropped and asks nothing
+- [ ] Regression: =M-x sp-bibtex-lint-fix-date= and =-fix-duplicates= still revert an unmodified buffer after =A=
+- [ ] Regression: =sp-bibtex-lint-fix-authors= still runs all steps and ends with the merge
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiBu9gSrA6zCRACfDk4][Claude Code]]/
+
+🤖 Generated with [[https://claude.ai/code/session_01WWLNiBu9gSrA6zCRACfDk4][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiBu9gSrA6zCRACfDk4]]
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/6ed94ee9afb8f8e47b84d62a64d208aa12ccac8f][6ed94ee9af]] 🐛 Reload the .bib buffer and refresh citar after the lint writes, and ask before writing over unsaved changes in the author merge (Claude, 2026-11-15 15:38)
+- [[https://github.com/siainbuletin/dotfiles/commit/29281a4e08969ba8544924e937f104979d27380e][29281a4e08]] ✨ Drop and restore variant groups in the author merge (Claude, 2026-11-15 15:39)

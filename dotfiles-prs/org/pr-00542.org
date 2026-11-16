@@ -1,0 +1,74 @@
+* PR #542: 🐛 Read litnote citekeys from ROAM_REFS, so citations of every litnote are listed
+:PROPERTIES:
+:PR_NUMBER: 542
+:URL: https://github.com/siainbuletin/dotfiles/pull/542
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/542][https://github.com/siainbuletin/dotfiles/pull/542]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 21:50
+- Merged :: 2026-11-15 21:54
+- Branch :: =claude/project-thread-6bisiq= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/59bc9e3a5f4ded0400282d5c3ffc74d61fa263bc][59bc9e3a5f]]
+- Labels :: new-feature, needs-further-testing, check-NOW
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NXxXwmWLKGiLpnX8uKS4HS][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Independent: based on =main= (which has #541); touches only =sp-see-also= (doc, =.el=, test).
+- If merged out of order: nothing breaks.
+- Branch name is not number-prefixed (cloud sessions cannot rename it); this is #542.
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+- Follow-up to #541: =sp-see-also-show= listed nothing for Sia's litnotes.
+- Cause (likely, not confirmed on the real vault): the citekey was read from =#+reference:=, but Sia's litnotes keep it in =:ROAM_REFS:=, so no =[cite:]= was searched.
+- Fix, in =sp-see-also=:
+  - new =sp-see-also--citekeys=: reads the =:ROAM_REFS:= property (Sia's choice); all keys, forms =@key=, =key=, =cite:key=, =[cite:@a;@b]=; URLs and DOIs skipped. =#+reference:= is no longer read.
+  - *Fallback, only for files below =litnotes/=* (=sp-see-also-directory=) with no =ROAM_REFS= key: the =#+title:= is the key when it is a single key word, otherwise the file name is. Temporary, for litnotes whose title is still the key; files outside =litnotes/= get no fallback.
+  - the cite regexp and the ripgrep search take a list of keys; ripgrep follows symlinks (=-L=).
+  - the view ends with a line when the note has no key.
+- Applies to every litnote with a key, whether or not other notes already link it by =id:=.
+- Tests (Emacs 29.3): 52 of 52 pass; =tools/check-tangle.sh=: only this doc. =CHANGELOG.org= not edited.
+- Not run: the GUI or the real vault.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] Pull this branch, restart Emacs (or =M-x sp-reload-modules=)
+- [ ] In a litnote with the key in =ROAM_REFS=, =M-x sp-see-also-show=: notes with =[cite:@key]= are listed, marked =[cite]=
+- [ ] In a litnote in =litnotes/= with no =ROAM_REFS= and the key as title, the same notes are listed
+- [ ] Same with a file named =key.org= whose title is a real title
+- [ ] A litnote that also has =id:= backlinks shows both kinds in one group
+- [ ] If still empty: =M-: (executable-find "rg")= and =M-: sp-see-also-cite-dirs=
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- Discard local edits: =git -C ~/dotfiles status=, then =git -C ~/dotfiles restore .=
+- Back to main: =git -C ~/dotfiles switch main=, then =git -C ~/dotfiles pull=
+- Restart Emacs (or =M-x sp-reload-modules=).
+
+#+begin_export html
+  </details>
+#+end_export
+
+🤖 Generated with [[https://claude.ai/code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiAogkKS5ZXm1xMTJvL]]
+
+** Commits (3)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/73a19891f0f92bf12e6c688217f79b6f715985d3][73a19891f0]] 🐛 Read litnote citekeys from ROAM_REFS too, so citations of every litnote are listed (Claude, 2026-11-15 21:50)
+- [[https://github.com/siainbuletin/dotfiles/commit/85d8ca3f6ffe879dadd7160a88d38c15c2bf7c50][85d8ca3f6f]] 🔧 Read litnote citekeys from ROAM_REFS only (Claude, 2026-11-15 21:51)
+- [[https://github.com/siainbuletin/dotfiles/commit/2ced146f9f7b2b2c8dc65be993a58f09cb26a552][2ced146f9f]] ✨ Take the key of a litnote without ROAM_REFS from its title or file name (Claude, 2026-11-15 21:52)

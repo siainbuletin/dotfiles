@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-litdb.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-litdb.el=. It is the Emacs side of an index of the pages you highlighted in DEVONthink PDFs; the index is built by =tools/devonthink-to-litdb.py= and searched through =tools/litdb-query.py=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]].
+Literate source for =libraries/modules/academic/sp-litdb.el=. It is the Emacs side of an index of the pages you highlighted in DEVONthink PDFs; the index is built by =tools/devonthink-to-litdb.py= and searched through =tools/litdb-query.py=. Design: [[file:../devonthink/sp-devonthink.org][DEVONthink and Emacs (sp-devonthink.org)]].
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
@@ -14,16 +14,16 @@ Two searches answer different questions, and they are meant to be used together.
 
 | Search | Looks in | Answers |
 |--------+----------+---------|
-| =org-semantic= (=C-c k s=) | your notes (the vault) | what /I wrote/ about it |
-| =sp-litdb-search= (=C-c k l=) | the pages you highlighted in DEVONthink PDFs | where /the literature/ discussed it, on which page |
+| =org-semantic= (=C-; k s=) | your notes (the vault) | what /I wrote/ about it |
+| =sp-litdb-search= (=C-; k l=) | the pages you highlighted in DEVONthink PDFs | where /the literature/ discussed it, on which page |
 | DEVONthink's own search | every PDF in the database | any word, anywhere, including documents you have not read |
 
 =sp-litdb= does not replace the other two. =org-semantic= never sees the PDFs, and DEVONthink's search does not rank by meaning. The index is deliberately small: only pages with a highlight. A page you highlighted is a page you read and judged worth keeping, so a hit is both on topic and already vetted by you. For documents without highlights use DEVONthink's search first (it is fast: a search over 15,812 records took about half a second).
 
 * Building a map of the research
 
-1. =C-c k s= in your notes: what you already wrote on the topic.
-2. =C-c k l=: see where, and in which words, the literature discussed it. The list is ranked, each line is =key p. N= and the start of the page, with the score and the number of highlights as the annotation. =RET= opens the page in DEVONthink.
+1. =C-; k s= in your notes: what you already wrote on the topic.
+2. =C-; k l=: see where, and in which words, the literature discussed it. The list is ranked, each line is =key p. N= and the start of the page, with the score and the number of highlights as the annotation. =RET= opens the page in DEVONthink.
 3. Before choosing, run =embark-collect= (=C-.= then =S=, or your binding) on the list. The hits stay in a buffer you can keep, and every hit is an =embark= target of the category =sp-litdb=.
 4. Mark the hits that matter (=embark-select=) and run =embark-act-all=:
    - =n= collects them into a note you pick, under a heading =litdb: QUERY=. Each hit is a link to its page in DEVONthink, a =[cite:@key]= and the text you highlighted there. That is the raw material of a map: with the citation layer of the relationship annotator ([[file:../../architecture/relationship-annotator-citation-layer.org][design]]) the cites become edges you can refine.
@@ -34,8 +34,8 @@ Two searches answer different questions, and they are meant to be used together.
 
 | Key | Command | What it does |
 |-----+---------+--------------|
-| =C-c k l= | =sp-litdb-search= | search; with =C-u= choose words, meaning or both |
-| =C-c k I= | =sp-litdb-index= | index new and changed highlighted pages (output in =*litdb index*=) |
+| =C-; k l= | =sp-litdb-search= | search; with =C-u= choose words, meaning or both |
+| =C-; k I= | =sp-litdb-index= | index new and changed highlighted pages (output in =*litdb index*=) |
 
 Within the results, with =embark=: =o= open, =l= insert link, =c= insert citation, =n= collect into a note.
 
@@ -392,8 +392,7 @@ Only new and changed records are done; see `tools/devonthink-to-litdb.py'."
 
 ;;;; Keys
 
-(keymap-global-set "C-c k l" #'sp-litdb-search)
-(keymap-global-set "C-c k I" #'sp-litdb-index)
+;; C-; k l and C-; k I are bound in `sp-keys' (they were C-c k l and C-c k I).
 
 (provide 'sp-litdb)
 ;; sp-litdb.el ends here

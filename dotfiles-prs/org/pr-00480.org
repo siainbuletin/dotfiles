@@ -1,0 +1,93 @@
+* PR #480: 🐛 Fix the citar preload failing on every file and not writing its cache
+:PROPERTIES:
+:PR_NUMBER: 480
+:URL: https://github.com/siainbuletin/dotfiles/pull/480
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/480][https://github.com/siainbuletin/dotfiles/pull/480]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-14 15:35
+- Merged :: 2026-11-14 21:00
+- Branch :: =claude/project-thread-d7whd6= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/61027df2bda7b07c989eebe6d5601ce6797724c5][61027df2bd]]
+- Labels :: bugfix, needs-further-testing
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2BWDp9cgemxzr2hZ9jvXJcG][project thread]]/
+
+Follow-up to #471.
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Base: =main=; #471 is already merged. Touches only =sp-citations= (=.el=, its section in =sp-academic.org=, the preload test).
+- Branch is =claude/project-thread-d7whd6=, not number-prefixed: a cloud session cannot rename a branch after the PR number is known.
+
+**** Causes
+:PROPERTIES:
+:CUSTOM_ID: causes
+:END:
+- *=(setf citar-cache--bibliography-buffers)= is void:* =sp-citations.el= loads before =citar= does. When Emacs loads a file it expands =setf= and =cl-pushnew= at once; the accessor was unknown, so the expansion became a call to a function named =(setf citar-cache--bibliography-buffers)=, which does not exist. Reproduced in batch with the same message; this hit every file.
+- *No =citar-bibliography.eld=:* the file was written only at the end of a pass that finished. The pass died on the first file, and nothing wrote it at exit either.
+
+**** Changes
+:PROPERTIES:
+:CUSTOM_ID: changes
+:END:
+- The slots =entries=, =props= and =buffers= are read with =cl-struct-slot-value= and set with =aset= at =cl-struct-slot-offset=, never with =setf= on the accessors (=sp-citations-preload--slot=, =--set-slot=).
+- =sp-citations-preload--compatible-p= checks the variable, the three functions and the three slots before the first file. If they differ, the preload says so once in the echo area and stays off.
+- The disk cache is written when the pass ends, when it stops on an error or =C-g=, and on =kill-emacs-hook=. Each time only if citar's entry tables differ from the last write, or the file does not exist, so a parse done by a =citar= call is saved at exit too.
+- Docs updated as bullets; no CHANGELOG edit; no =when-let=.
+
+**** Tested
+:PROPERTIES:
+:CUSTOM_ID: tested
+:END:
+- =tests/sp-citations-preload-test.el=: 11 tests pass on Emacs 29.3 against a stand-in for =citar-cache=.
+- The test file now loads the preload code with =load= before the struct exists, as Emacs does. With the old =setf= style the tests fail with =void-function \(setf\ citar-cache--bibliography-buffers\)= (checked); with the fix they pass.
+- New tests: cache file written; saved after an error and at exit; not rewritten when nothing changed; preload off when citar's functions are missing.
+- =tools/check-tangle.sh=: the =.el= is what the doc tangles to.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- Still nothing ran against the real =citar=, =parsebib= or your bibliography; the container has no citar, and I could not reach your Elpaca sources, so the internals come from citar's =main= branch on GitHub. If your installed citar differs, the preload should now say so instead of failing on every file.
+- No timings.
+- Whether =aset= on the cache object works with your citar's struct definition: tested only on a stand-in =cl-defstruct=.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [ ] =cd ~/dotfiles; git fetch origin claude/project-thread-d7whd6; git checkout claude/project-thread-d7whd6=, restart Emacs
+- [X] =emacs -Q --batch -l tests/sp-citations-preload-test.el -f ert-run-tests-batch-and-exit= passes
+- [X] After about 5 s idle: =*Messages*= shows =Updating bibliography ...= for each =.bib=, no =citar preload:= error
+- [X] If it says =citar preload is off: ...=: send me that message (your citar has other internals)
+- [X] =M-x citar-open= right after: no =Updating bibliography= and no wait
+- [X] The file =citar-bibliography.eld= exists in =sp-cache-dir= once the pass is done
+- [ ] Quit and restart: the pass shows no =Updating= lines for unchanged files
+- [ ] Edit and save one =.bib=: only that file is read again after the idle delay
+- [ ] =C-g= during a parse: preload stops, =citar-open= still works
+
+#+begin_export html
+  <details><summary>Revert after testing</summary>
+#+end_export
+
+- =git -C ~/dotfiles restore .=, then =git -C ~/dotfiles switch main && git -C ~/dotfiles pull=; restart Emacs.
+- Delete =citar-bibliography.eld= in your cache dir for a cold start.
+
+#+begin_export html
+  </details>
+#+end_export
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNiCyfpEM7dFcJmFXN4v][Claude Code]]/
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/208baf317c8f4ff24c2e4f116c5b2cee617ca7b7][208baf317c]] 🐛 Fix the citar preload failing on every file and not writing its cache (Claude, 2026-11-14 15:35)

@@ -118,7 +118,7 @@ Most of these are fine as long as I know about them. The ones that cost somethin
 | =C-<return>= | =pulse-line= (=sp-faces=) | Org: =org-insert-heading-respect-content= /(memory)/ | lost in Org |
 | =M-a= | =sp-move-region-to-heading= | built in: =backward-sentence= | the global rebind takes a high-use motion key |
 
-A rule that explains the table: *a prefix and a command on the same key shadow each other; two prefixes merge.* =C-x t i/h/d= in =org-mode-map= and the global =C-x t= tab prefix merge (the tab commands still work in Org), but =C-x s t= against the global command =C-x s= does not /(memory)/. Any design has to treat "this key is a command somewhere" as a conflict with "this key is a prefix elsewhere".
+A rule that explains the table: *a prefix and a command on the same key shadow each other; two prefixes merge.* =C-x t i/h/d/I= in =org-mode-map= and the global =C-x t= tab prefix merge (the tab commands still work in Org), but =C-x s t= against the global command =C-x s= does not /(memory)/. Any design has to treat "this key is a command somewhere" as a conflict with "this key is a prefix elsewhere".
 
 ** Reserved and built-in keys that are taken
 
@@ -127,7 +127,7 @@ A rule that explains the table: *a prefix and a command on the same key shadow e
    + This configuration also binds =C-x C-f=, =C-x C-b=, =C-x C-r= (=recentf-open-files=, hides =find-file-read-only=),
    + =C-x t b= (=transpose-buffers=, hides =switch-to-buffer-other-tab= in the tab prefix /(memory)/),
    + =C-x w t/r/f/f= (the =EMACS-31= comment says they exist upstream in Emacs 31; confirm and drop them if so),
-   + =C-x n n=, =C-x r D=, =C-x s t=, =C-x t i/h/d/s=.
+   + =C-x n n=, =C-x r D=, =C-x s t=, =C-x t i/h/d/I/s=.
 - =C--= and =M--= (negative argument) are taken by =text-scale-decrease= and =font-size-decrease=;
    + =M-== (=count-words-region=) and =M-+= by =font-size-increase=;
    + =M-u/l/c= are rebound to the same =-dwim= commands Emacs already has.
@@ -406,7 +406,7 @@ Keep the 17 existing groups; move what is scattered into them where it fits and 
 | =k*= | knowledge search | =C-c k l/I= (litdb), =C-c k t/T= (tab-psearch), =C-c k s/S/./R= (semantic) |
 | =m= | mail | unchanged |
 | =M= | compile | unchanged |
-| =n= | notes | =n= vulpea (=M-o ...=), =n b= bibliography, =n d= Denote only until it is removed |
+| =n= | notes | =n= vulpea (=M-o ...=), =n b= bibliography, =n d= trash the current note (=sp-notes-trash=; was Denote, now removed) |
 | =p*= | projects | =C-c p= Projectile, project prefix =C-x p= stays |
 | =q= | quit | unchanged |
 | =r*= | reading and writing views | =C-c w r= reading mode, =C-c w o= olivetti, =C-c w e= elfeed |
@@ -419,6 +419,13 @@ Keep the 17 existing groups; move what is scattered into them where it fits and 
 | =W= | workspaces | merge with =tabspaces-command-map= (one map, not two) |
 
 (Letters are a proposal: they change nothing until the registry is written.)
+
+*Root keys.* Most leader keys are group letters; a few commands sit directly on the root because they are used often.
+- =C-; .= is =transpose-words=.
+- =C-; "= is =sp-org-insert-quote-from-kill=: it inserts an Org quote block holding the latest kill ring item (or the region; =C-u= for an empty block).
+   + It is two keys, instead of =C-c C-,= then =q= and a paste.
+   + Punctuation keys are free at the root; letters stay reserved for groups.
+   + Code: [[file:../tangles/text/sp-org-base.org][sp-org-base]]; binding: [[file:../tangles/base/sp-keys.org][sp-keys]].
 
 ** Steps
 
@@ -453,10 +460,16 @@ Applied in the pull request that follows #283, so the design can be tried:
 - Spelling: =C-; z p/n/.= (=C-;= is unbound in =flyspell-mode-map=).
 - =C-z= is not the leader. The two =C-z= unbinds in =sp-keys= and =sp-prog-misc= moved to =sp-text-manipulation=: unbound on the Mac, =undo= elsewhere.
 - =M-x sp-keys-audit= lists leader keys whose command is not defined, and the shims still alive.
+- Notes: =C-; n d= is =sp-notes-trash= (current note, or with =C-u= a picked file, to the system trash; the Denote use of =n d= is gone).
+
+Applied in [[https://github.com/siainbuletin/dotfiles/pull/489][#489]] (academic part):
+- Groups =B= (bibliography, from =C-c w b=), =k= (knowledge search, from =C-c k=) and =L= (lint, new).
+- One verb per key in every lint group: =l= list, =a= apply, =r= restore. Report buffers use =g= =A= =d= =u=.
+- The old =C-c w b= and =C-c k= keys were removed with no shims (Sia's call). =C-c w=, other than =C-c w b=, stays for now: reading, olivetti, elfeed, collection query, Denote.
 
 Not applied yet (left for later pull requests):
 - One =defvar-keymap= per feature module and the registry table.
-- Moving the academic =C-c w=, =C-c k= and Org =C-c d= keys into the leader.
+- Moving the rest of =C-c w= and the Org =C-c d= keys into the leader (=C-c w b= and =C-c k= moved in #489).
 - Local leader for Org, the batch test, the eleven undefined commands and the other bugs listed above.
 
 * Open decisions

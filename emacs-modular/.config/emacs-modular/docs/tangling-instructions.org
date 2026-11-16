@@ -44,6 +44,7 @@ It compares a SHA-1 of each source with the one stored in =tangle-hashes.eld= in
 
 - =M-x sp-tangle-changed-and-reload= also reloads the modules it wrote (through =sp-reload= when that is installed), skipping modules that are not loaded.
 - =M-x sp-tangle-on-save-mode= tangles a source when you save it, if it changed; add it to =org-mode-hook= to do that in every module source.
+- =M-x sp-check-tangle= (also =M-x check-tangle=) runs =tools/check-tangle.sh= in the background and shows the result in the =*sp-check-tangle*= buffer. It tangles every source in place and compares each module with its committed version, ignoring whitespace and blank lines; run it before you push. =git diff= shows what differs. Details: [[file:tangles/text/sp-org-babel.org::*Checking the modules against their docs][=sp-org-babel= doc]].
 - If you edited an =.el= file by hand and want the source's version back, use the prefix argument.
 
 From a shell, run from =~/.config/emacs-modular= (the module's package forms are not needed, only a cache directory):

@@ -1,0 +1,69 @@
+* PR #414: ✨ Add sp-devonthink: devonthink: Org links and the #+devonthink: litnote keyword
+:PROPERTIES:
+:PR_NUMBER: 414
+:URL: https://github.com/siainbuletin/dotfiles/pull/414
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/414][https://github.com/siainbuletin/dotfiles/pull/414]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-12 21:55
+- Merged :: 2026-11-12 22:01
+- Branch :: =414-devonthink-core= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/11562fa3284d1b19faeb0e3fc1af03022016804c][11562fa328]]
+- Labels :: new-feature, needs-further-testing, fixed-afterwards
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2TDvuJ2KygqHcBPtkDgePBK][project thread]]/
+
+Step 1 of 5 of the DEVONthink design. *Base: =main=.* Stack: #414 → #415 → #418 → #419 → #420 (merge in this order).
+
+**** What
+:PROPERTIES:
+:CUSTOM_ID: what
+:END:
+- New module =sp-devonthink= (literate doc =docs/tangles/academic/sp-devonthink.org=, required from =sp-academic=, README row). It builds on =sp-reading= (citekey→UUID cache, item URLs, =osascript=).
+- =devonthink:UUID::PAGE= Org link: follow opens the record at the page (page counted from 1 in the link, ~?page=N-1~ in the URL); export writes the description (=key p. 6=).
+- =#+devonthink: UUID= litnote keyword: =sp-devonthink-set-keyword= writes it (asks before replacing a different value); =sp-devonthink-open-from-note= opens the record from the keyword, or by citekey when it is missing.
+- =sp-devonthink-insert-link=, =sp-devonthink-store-link= (record, page and selection shown in DEVONthink, for =org-insert-link=), and a =citar= Embark action =D=.
+- Keys under =C-c k d=: =o= open from note, =l= insert link, =s= store link, =k= set keyword, =r= refresh cache.
+
+**** Not tested
+:PROPERTIES:
+:CUSTOM_ID: not-tested
+:END:
+- The AppleScript of =sp-devonthink-store-link= (=current page= / =selected text= of the front =think window=) and the name of the citar Embark map were not run on the Mac.
+- Tested here: 14 ERT tests (Emacs 29.3) and the tangle check.
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+Run on the Mac (fish, =~/.config/emacs-modular=), DEVONthink open on =literature=. Tick each box as you go.
+
+- [X] Check out: =cd ~/dotfiles; git fetch origin 414-devonthink-core; git checkout 414-devonthink-core=, restart Emacs.
+- [X] Unit tests: =cd ~/.config/emacs-modular; emacs -Q --batch -L libraries/modules/academic -l ert -l tests/sp-devonthink-test.el -f ert-run-tests-batch-and-exit= → =Ran 14 tests, 14 results as expected=.
+- [X] =M-x sp-reading-refresh= → message "sp-reading: N PDFs in literature".
+- [ ] In a scratch Org buffer, =C-u M-x sp-devonthink-insert-link=, choose e.g. =harrison-2010-therborn-post-marx=, page =6= → inserts =[[devonthink:<UUID>::6][harrison-2010-therborn-post-marx p. 6]]=.
+- [ ] =C-c C-o= on that link → DEVONthink comes to front on that record at page 6 (URL anchor ~?page=5~). Note if off by one.
+- [ ] Export (=C-c C-e t u=) shows =harrison-… p. 6= without the UUID.
+- [X] In the litnote for that key: =C-c k d k= → =#+devonthink: <UUID>= appears below =#+title:=; run again → "Keyword already set". Save and check =git diff= in =~/notes= shows only that line.
+- [X] =C-c k d o= opens the record; =C-u C-c k d o= with page =3= opens page 3.
+- [X] Delete the keyword line, =C-c k d o= still opens (lookup by citekey).
+- [ ] In DEVONthink open a PDF page and select a sentence; in Emacs =C-c k d s= → "Stored key p. N (selection in the kill ring)"; =C-c C-l= offers the link; =C-y= pastes the quote. If the page is off by one, set =sp-devonthink-store-page-offset= to 1 or -1 and report. (Untested AppleScript.)
+- [ ] In a citar Embark menu on a key, press =D= → the record opens (=C-u= asks for a page). If =D= is missing, report =C-h v citar-embark-map=.
+
+🤖 Generated with [[https://claude.com/claude-code][Claude Code]]
+
+[[https://claude.ai/code/session_01WWLNiDWYwkgX4eqm2SVoTC]]
+
+** Conversation
+
+*** @siainbuletin, 2026-11-12 23:59
+[[https://github.com/siainbuletin/dotfiles/pull/414#issuecomment-6839547956][permalink]]
+Where should the URL anchor be in DEVONthink?
+
+** Commits (1)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/973fcd96baed6e5eb82a50101b60d1c6aa50c23a][973fcd96ba]] ✨ Add sp-devonthink: devonthink: Org links and the #+devonthink: litnote keyword (Claude, 2026-11-12 21:54)

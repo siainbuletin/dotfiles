@@ -1,0 +1,98 @@
+* PR #498: ✨ Show the batch reports in a special-mode dashboard, drop in place
+:PROPERTIES:
+:PR_NUMBER: 498
+:URL: https://github.com/siainbuletin/dotfiles/pull/498
+:STATE: merged
+:AUTHOR: siainbuletin
+:END:
+- Link :: [[https://github.com/siainbuletin/dotfiles/pull/498][https://github.com/siainbuletin/dotfiles/pull/498]]
+- State :: merged
+- Author :: @siainbuletin
+- Opened :: 2026-11-15 02:03
+- Merged :: 2026-11-15 10:31
+- Branch :: =claude/project-thread-4a39fy= → =main=
+- Merge commit :: [[https://github.com/siainbuletin/dotfiles/commit/145c44b4e87c031844e18e28bc93139d64a7d2bc][145c44b4e8]]
+- Labels :: new-feature, needs-further-testing, check-NOW
+
+** Description
+/Requested by *Sia* · [[https://claude.ai/code/project/chan_01KaQfLZaF43QUMN3kcT7pW2?thread=cmsg_01KaQfLZaF43QUMN3kcT7pW2NbtoxptncnUmZRtU5iK66L][project thread]]/
+
+**** Merge order
+:PROPERTIES:
+:CUSTOM_ID: merge-order
+:END:
+- Based on =main= at =28748be= (after #492).
+- Touches =sp-batch-report=, a new =sp-batch-report-view=, and the fix commands of =sp-bibprocess= (docs in =sp-academic.org=).
+- Conflicts with #496 are possible in =sp-bibprocess.el= / =sp-academic.org=: both edit =sp-bibtex-lint-fix-authors= (#496 adds a step to the chain; this PR wraps the chain in a report).
+  - Merge #496 first, then re-wrap its new step inside =sp-bibtex-lint--fix-report='s apply function; or this one first and #496 resolves the same hunk.
+- #491 (abstract mover) and #476 (echo-help) do not touch these functions; no conflict seen.
+- Branch is =claude/project-thread-4a39fy=: the cloud proxy cannot rename a branch, so it needs the number prefix from Sia (same as #496).
+- Not found: another open PR for the slow drop in the Org table report. This PR makes drop local in the new view; the Org view keeps its old (slow) behaviour.
+
+**** What changed (stage 1)
+:PROPERTIES:
+:CUSTOM_ID: what-changed-stage-1
+:END:
+- New =sp-batch-report-view= (literate doc =docs/tangles/funct/sp-batch-report-view.org=): the default view, a =special-mode= buffer in the style of =vulpea-ui-schema-dashboard=.
+  - Folding sections (=TAB=, =S-TAB=) with the count at the window edge (a =display= =:align-to=, so it stays aligned on resize).
+  - One row per entry; file and Org links become labels; table sections have aligned columns; header line shows sections, entries, dropped.
+  - Items can carry an =:action= (RET runs it).
+  - No new package: =vui.el= re-renders a tree on every change, which is what made drop slow.
+- =d= / =u= only restyle the rows with that key (text properties and one fixed-width count); the report is not made again, the buffer size does not change, =g= and =A= still get the dropped keys.
+- =sp-batch-report-display= (=special= default, =org=): the Org buffer stays as =sp-batch-report-org-mode=.
+  - Reports still built as Org text (BibTeX lint report, litnote titles/refs/meta, notes filing, property preview) open in it, with the keys of their own mode merged in.
+  - =sp-batch-report-buffer-p= says whether a buffer is a report in either view.
+- Every =sp-bibtex-lint-fix-*= command (=order=, =indent=, =prefixes=, =authors=, =files=, =crossref=, =keys=) now opens the shared report first: drop (=d=), restore (=u=), refresh (=g=), apply (=A=) and stop (=k=) work in all of them.
+  - Dropped entries are kept per fix (=FILE::KEY#order=, ...); the author fixes keep their old shared key, so existing dropped lists still work.
+  - =A= runs the previous flow (confirmation or batches, backup, one write) on what is left.
+- Keys unchanged (=RET=, =n=/=p=, =d=, =u=, =A=, =g=, =b=, =D=, =k=, =q=, echo-area hints), plus =TAB=/=S-TAB=; =n=/=p= now move between entries.
+
+**** Stages not done yet (next PRs)
+:PROPERTIES:
+:CUSTOM_ID: stages-not-done-yet-next-prs
+:END:
+- Convert the reports still built as Org text to sections of items: the BibTeX lint report (with fix buttons as =:action= items), litnote titles, references, meta fill-all, notes filing, property preview.
+- Replace the batch prompt (=a/g/s/q=) of the fix commands by progress in the report.
+- =d= on a section header to drop a whole group.
+- Fix the same slow drop in the Org view only if it is kept.
+
+**** Measured (batch Emacs 29.3, cloud container, no Org loaded)
+:PROPERTIES:
+:CUSTOM_ID: measured-batch-emacs-293-cloud-container-no-org-loaded
+:END:
+- 4000 rows in 400 sections: drawn in 0.08 to 0.1 s.
+- 4800 rows in 300 sections with links and children: 0.15 s.
+- 200 drops: 4 ms in total.
+- Not measured: the Org view for comparison (Org cannot load in the container), the real vault, the GUI.
+
+**** Tests
+:PROPERTIES:
+:CUSTOM_ID: tests
+:END:
+- New =tests/sp-batch-report-view-test.el= (12, one skipped without Org) and 3 new tests in =sp-bibprocess-lint-test.el=; the fix tests now press =A= in the report.
+- The Org-text tests of Zotero and =table-section= run with =sp-batch-report-display= =org=.
+- Compared with a baseline on =main= in the same container: no new failures. About 13 tests of =sp-bibprocess-lint-test.el= and others still fail here as on =main=, because Org cannot load in the container (missing packages); they need a run on the Mac.
+- =tools/check-tangle.sh= logic checked by tangling: the touched =.el= files match their docs (the existing drift of =sp-litnotes-meta.el= is not mine).
+
+**** Manual testing
+:PROPERTIES:
+:CUSTOM_ID: manual-testing
+:END:
+- [X] =M-x sp-author-notes-bibtex= on the real vault: opens the dashboard, =TAB= folds a section, =S-TAB= folds all, count at the right edge
+- [X] =d= on a few rows: row struck through at once, section count =N of M=, header line "dropped" grows, no pause; =u= restores
+- [X] =g= keeps the folded sections and the dropped rows
+- [X] =RET= on a file label visits it; =o=, =c=, =C= of the author works report still work
+- [ ] =M-x sp-bibtex-lint-fix-authors= (and =-order=, =-indent=, =-prefixes=, =-files=, =-crossref=, =-keys=): the report lists candidates, nothing is written; =d= one, =g=, then =A= leaves the dropped one alone
+- [ ] =k= stops a running lint job from the report
+- [ ] =M-x sp-bibtex-lint-dryrun= and the litnote reports still open (in the Org view) with their keys
+- [ ] =(setq sp-batch-report-display 'org)= brings the Org view back for the model-based reports
+- [ ] Large report (hundreds of sections): drawing time and a run of =d d d= feel instant; paste the numbers here
+
+--------------
+
+/Generated by [[https://claude.ai/code/session_01WWLNi9bi8g2P4sdH8GttsS][Claude Code]]/
+
+** Commits (2)
+
+- [[https://github.com/siainbuletin/dotfiles/commit/163a7b748723cd96cf215c5612dff3c2c94aa3d7][163a7b7487]] ✨ Show the batch reports in a special-mode dashboard, drop in place (Claude, 2026-11-15 02:03)
+- [[https://github.com/siainbuletin/dotfiles/commit/9b6964f8d065251c1be2d6d3a2b09a2d703f7bcb][9b6964f8d0]] 🔧 Merge main into the batch report dashboard branch (Claude, 2026-11-15 10:29)

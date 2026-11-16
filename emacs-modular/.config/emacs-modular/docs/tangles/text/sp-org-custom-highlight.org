@@ -50,7 +50,7 @@ On every Org buffer, adds a font-lock keyword that matches =@@comment:= followed
 
 - The two delimiters are shown in the =shadow= face, so they fade into the background.
 - The comment body gets =my-org-inline-comment=.
-- The pattern stops at a newline or an =@= sign, so a comment cannot span lines or contain =@=.
+- The pattern stops at a newline or at =@@=, so a comment cannot span lines or contain =@@=; a single =@= (as in =[cite:@key]=) is fine.
 - The rule is appended after Org's own keywords and uses =prepend=, so it layers on top of existing fontification.
 
 #+begin_src emacs-lisp -i
@@ -58,7 +58,7 @@ On every Org buffer, adds a font-lock keyword that matches =@@comment:= followed
           (lambda ()
             (font-lock-add-keywords
              nil
-             '(("\\(@@comment:\\)\\([^@\n]*\\)\\(@@\\)"
+             '(("\\(@@comment:\\)\\(\\(?:[^@\n]\\|@[^@\n]\\)*\\)\\(@@\\)"
                 (1 'shadow prepend)
                 (2 'my-org-inline-comment prepend)
                 (3 'shadow prepend)))
@@ -73,27 +73,154 @@ There are several issues with editing this properly afterwards.
 
 ** Insertion command so you don't always type it out
 
-To avoid typing the full syntax, bind a small insertion command:
+=sp-org-insert-inline-comment= (bound to =C-c h= in =org-mode-map=) has two modes.
+
+- No active region: inserts =@@comment:@@= and leaves point between the colon and the closing =@@=, so you can type the note.
+- Active region: wraps the selected text in =@@comment:= ... =@@=, instead of replacing it.
+
+Rules for the region case:
+
+- Each non-blank line of the region becomes its own comment.
+  - Why: the font-lock rule above matches one line only, so a comment across lines would export fine but never be highlighted.
+  - Indentation and trailing spaces stay outside the comment markers.
+  - Blank lines stay blank, so paragraph breaks are kept (an inline object cannot cross a blank line in Org anyway).
+- Point at the start or at the end of the region gives the same result.
+- A region holding =@@= is refused with a =user-error=, because the text would end the snippet early. Nothing is changed.
+- A region with only whitespace counts as no region (the empty comment is inserted at point).
+- The region is replaced in one edit, so one =undo= restores the text.
+- The mark is deactivated and point ends after the last comment, so pressing =C-c h= again does not wrap the comment a second time.
+  - Before, the mark stayed active over the new comment, so the second press nested another =@@comment:= inside the first.
 
 #+begin_src emacs-lisp -i
+(defun sp-org--comment-lines (text)
+  "Return TEXT with each non-blank line wrapped as an inline comment.
+Leading and trailing whitespace of a line stays outside the markers."
+  (mapconcat
+   (lambda (line)
+     (if (string-blank-p line)
+         line
+       (string-match "\\`\\([ \t]*\\)\\(.*?\\)\\([ \t]*\\)\\'" line)
+       (concat (match-string 1 line)
+               "@@comment:" (match-string 2 line) "@@"
+               (match-string 3 line))))
+   (split-string text "\n")
+   "\n"))
+
 (defun sp-org-insert-inline-comment ()
+  "Wrap the active region in `@@comment:...@@', or insert an empty one.
+With a region, each non-blank line becomes its own comment, so the
+highlighting (one line only) matches the export.  Without a region,
+insert `@@comment:@@' and put point inside it."
   (interactive)
-  (if (use-region-p)
-      (let ((text (buffer-substring (region-beginning) (region-end))))
-        (delete-region (region-beginning) (region-end))
-        (insert "@@comment:" text "@@"))
-    (insert "@@comment:@@")
-    (backward-char 2)))
+  (let ((beg (and (use-region-p) (region-beginning)))
+        (end (and (use-region-p) (region-end))))
+    (if (not (and beg (string-match-p "[^ \t\n]" (buffer-substring-no-properties beg end))))
+        (progn
+          (deactivate-mark)
+          (insert "@@comment:@@")
+          (backward-char 2))
+      (let ((text (buffer-substring beg end)))
+        (when (string-search "@@" text)
+          (user-error "The region contains @@, which would end the comment early"))
+        (atomic-change-group
+          (goto-char beg)
+          (delete-region beg end)
+          (insert (sp-org--comment-lines text)))
+        (deactivate-mark)))))
 
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c h") #'sp-org-insert-inline-comment))
 #+end_src
 
-With a region selected, C-c h wraps it, which gives roughly the ==text== workflow.
-
 *** Other solution considered
 
 A {{{c(text)}}} macro with #+MACRO: c (empty expansion) also works, but the export snippet needs no setup per file, so I’d go with that.
+
+** Links and citations inside a comment
+
+Org reads =@@comment:...@@= as one export snippet, whose text is opaque, so a link or a citation written inside it is not a link or a citation for Org.
+- #548 made =RET=, clicks and =C-c C-o= open a link inside a comment, with a hook and an advice on =org-return=.
+- Citar and Embark showed the same root cause, so the fix is now one level lower and replaces that hook and advice:
+  - Embark (=embark-act= on a =[cite:@key]= in a comment) took the key for an email address, because the citar target finders ask =org-element-context= and got the snippet.
+  - Inserting a citation with citar inside a comment said "Cannot insert a citation here", because =org-cite--allowed-p= does not accept an export snippet.
+- The fix makes =org-element-context= see the objects inside a =comment= snippet, as it does everywhere else.
+  - Only when point is inside the text of a snippet with the backend =comment=; everywhere else the original function runs untouched.
+  - =sp-org--comment-inner-bounds= returns the start and end of the text between the markers, or nil.
+  - =sp-org--comment-object-at-point= parses that text again with =org-element-parse-secondary-string=.
+    - Narrowing does not work: =org-element-context= widens the buffer, so it would return the snippet again.
+    - The text is parsed as ordinary Org, so links, citations and their references are found by the usual parser.
+    - Every position of the parsed links, citations and references is shifted to a real buffer position, so Embark, citar and =org-cite-boundaries= get real bounds.
+    - The innermost object that contains point is returned: a =citation-reference= on a key, the =citation= on =[cite:=, a =link= on a link.
+  - =org-element-context= is advised with =:around=; calls that pass an element are not touched.
+- Everything that asks for the context follows: =C-c C-o= (=org-open-at-point=), =RET= (=org-return= with the strict link rule of =sp-org-point-strictly-in-link-p=), Embark and citar actions.
+- Inserting a citation inside the text of a comment: =org-cite--allowed-p= is advised so a comment counts as running text.
+  - The inserted =[cite:@key]= keeps its single =@=; only =@@= would end the snippet.
+- The font-lock rule now accepts a single =@= inside the comment, so a comment holding a citation is highlighted.
+- Links and citations outside comments, and other snippet backends (=@@html:=), are unaffected.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--comment-inner-bounds (&optional context)
+  "Bounds (BEG . END) of the text of the `@@comment:@@' snippet CONTEXT, or nil.
+CONTEXT is the snippet at point, by default as `org-element-context' gives it.
+Point must be inside the text."
+  (let ((ctx (or context (org-element-context))))
+    (when (and (eq (org-element-type ctx) 'export-snippet)
+               (equal (org-element-property :back-end ctx) "comment"))
+      (let ((beg (+ (org-element-property :begin ctx) (length "@@comment:")))
+            (end (- (org-element-property :end ctx)
+                    (org-element-property :post-blank ctx)
+                    (length "@@"))))
+        (and (<= beg (point) end) (cons beg end))))))
+
+(defun sp-org--shift-positions (tree delta)
+  "Add DELTA to the position properties of the links and citations of TREE.
+The nodes are changed in place."
+  (org-element-map tree '(link citation citation-reference)
+    (lambda (node)
+      (dolist (prop '(:begin :end :contents-begin :contents-end))
+        (when-let* ((value (org-element-property prop node)))
+          (org-element-put-property node prop (+ value delta)))))))
+
+(defun sp-org--comment-object-at-point (context)
+  "Link, citation or citation reference at point inside snippet CONTEXT, or nil.
+The result has real buffer positions, like what `org-element-context' returns."
+  (when-let* ((bounds (sp-org--comment-inner-bounds context)))
+    (let ((tree (org-element-parse-secondary-string
+                 (buffer-substring-no-properties (car bounds) (cdr bounds))
+                 '(link citation)))
+          (delta (1- (car bounds)))
+          best)
+      (sp-org--shift-positions tree delta)
+      (org-element-map tree '(link citation citation-reference)
+        (lambda (node)
+          (let ((beg (org-element-property :begin node))
+                (end (org-element-property :end node)))
+            (when (and (<= beg (point)) (< (point) end)
+                       (or (null best)
+                           (< (- end beg)
+                              (- (org-element-property :end best)
+                                 (org-element-property :begin best)))))
+              (setq best node)))))
+      best)))
+
+(define-advice org-element-context (:around (orig &optional element) sp-org-comment-objects)
+  "Look inside `@@comment:@@' snippets for links and citations."
+  (let ((context (funcall orig element)))
+    (or (and (null element) (sp-org--comment-object-at-point context))
+        context)))
+
+(define-advice org-cite--allowed-p (:around (orig context) sp-org-comment-text)
+  "Allow a citation in the running text of a `@@comment:@@'."
+  (or (and (sp-org--comment-inner-bounds context) t)
+      (funcall orig context)))
+#+end_src
+
+* Tests
+
+=tests/sp-org-custom-highlight-test.el= covers the command in an Org buffer.
+- The tests cover: the context inside a comment (link, citation, key, real positions), edges, other snippet backends, =C-c C-o=, =RET=, the highlight of a comment holding =@=, and inserting a citation in a comment.
+- Run headless, from the folder of =init.el=:
+  - =emacs -Q --batch -l tests/sp-org-custom-highlight-test.el -f ert-run-tests-batch-and-exit=
 
 * Provide
 
