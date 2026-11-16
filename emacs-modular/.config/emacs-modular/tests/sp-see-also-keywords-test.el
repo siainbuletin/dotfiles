@@ -162,6 +162,31 @@
        (search-forward "Marx, Karl")
        (should (memq 'sp-see-also-ref-author (ensure-list (get-text-property (1- (point)) 'face))))))))
 
+(ert-deftest sp-see-also-keywords-concept-note-matches-title-alias-and-file ()
+  (sp-see-also-keywords-test--with-vault
+   (let ((file (expand-file-name "20260101T000000--labour-power.org" notes)))
+     (with-temp-file file
+       (insert ":PROPERTIES:\n:ID: c\n:ROAM_ALIASES: \"Value form\" Arbeitskraft\n:END:\n#+title: Concept\n"))
+     (sp-see-also-keywords-reindex)
+     (let ((note (list :file file :own t :title "Concept")))
+       (should (sp-see-also-keywords--concept-p note))
+       (should (equal (sp-see-also-keywords--concept-terms note)
+                      '("Concept" "Value form" "Arbeitskraft" "labour power")))
+       (with-temp-buffer
+         (sp-see-also-view-mode)
+         (let ((inhibit-read-only t))
+           (cl-letf (((symbol-function 'sp-see-also-view--width) (lambda () 80)))
+             (sp-see-also-keywords--section note)))
+         (let ((text (buffer-string)))
+           (should (string-match-p "Literature with this concept as a keyword" text))
+           (should (string-match-p "value form" text))
+           (should (string-match-p "Marx, Karl\\. 1867" text))
+           ;; the alias matches, the file name "labour power" matches no keyword
+           (should-not (string-match-p "Same keywords" text))))
+       ;; the litnote of an article is not a concept note
+       (should-not (sp-see-also-keywords--concept-p
+                    (list :file (expand-file-name "smith2020.org" notes) :own t :citekey '("smith2020"))))))))
+
 (ert-deftest sp-see-also-keywords-section-is-silent-without-keywords ()
   (sp-see-also-keywords-test--with-vault
    (with-temp-buffer

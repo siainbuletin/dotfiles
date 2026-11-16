@@ -17,6 +17,11 @@ Literate source for =libraries/modules/academic/sp-see-also-keywords.el=. It bui
   - each one is a rendered reference in Chicago author-date style, not just a title.
 - A work with no litnote is still found, because the keyword is read from the =.bib= entry.
 - The litnote's own keywords come from its =KEYWORDS:= line; a note without one falls back to the =keywords= of its BibTeX entry (by its citekey).
+- A /concept note/ (no citekey and no =KEYWORDS:= line, e.g. =Value form=) gets a different part, /Literature with this concept as a keyword/:
+  - the names the concept answers to are its title, its =ROAM_ALIASES= and its file name (timestamp prefix dropped, dashes and underscores as spaces);
+  - a litnote or BibTeX entry matches when one of its keywords equals one of these names, ignoring case;
+  - so it shows the literature in which this concept is discussed, litnotes first, then BibTeX-only entries;
+  - nothing is shown when no keyword matches.
 - The command =sp-see-also-keywords-show= does the same for one keyword you pick, in its own buffer =*see-also keywords*=.
 
 * How keywords are recognised in a litnote
@@ -132,12 +137,15 @@ Literate source for =libraries/modules/academic/sp-see-also-keywords.el=. It bui
   (let* ((case-fold-search nil)
          (end (save-excursion (goto-char (point-min))
                               (if (re-search-forward "^\\*+ " nil t) (line-beginning-position) (point-max))))
-         title keys keywords)
+         title keys keywords aliases)
     (save-excursion
       (goto-char (point-min))
       (let ((case-fold-search t))
         (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" end t)
           (setq title (string-trim (match-string-no-properties 1))))
+        (goto-char (point-min))
+        (when (re-search-forward "^:ROAM_ALIASES:[ \t]*\\(.*\\)$" end t)
+          (setq aliases (ignore-errors (split-string-and-unquote (match-string-no-properties 1)))))
         (goto-char (point-min))
         (when (re-search-forward "^:ROAM_REFS:[ \t]*\\(.*\\)$" end t)
           (let ((refs (match-string-no-properties 1)))
@@ -154,7 +162,7 @@ Literate source for =libraries/modules/academic/sp-see-also-keywords.el=. It bui
             ((progn (goto-char (point-min))
                     (re-search-forward "^- keywords ::[ \t]*\\(.*?\\)[ \t]*$" end t))
              (setq keywords (sp-see-also-keywords--parse (match-string-no-properties 1))))))
-    (list :title title :keys (nreverse keys) :keywords keywords)))
+    (list :title title :keys (nreverse keys) :keywords keywords :aliases aliases)))
 
 (defun sp-see-also-keywords--note-data (file)
   "The plist (:file :title :keys :keywords) of the litnote FILE, cached, or nil."
@@ -548,14 +556,45 @@ EXCLUDE-FILE and EXCLUDE-KEYS (citekeys) name the note being shown."
         (when (> (length items) (length shown))
           (insert (propertize (format "  … %d more\n" (- (length items) (length shown))) 'face 'sp-see-also-marks)))))))
 
+(defun sp-see-also-keywords--concept-p (note)
+  "Non-nil when NOTE is a concept note: no citekey and no KEYWORDS: line of its own."
+  (let* ((file (plist-get note :file))
+         (data (and file (sp-see-also-keywords--note-data file))))
+    (not (or (plist-get note :citekey) (plist-get data :keys) (plist-get data :keywords)))))
+
+(defun sp-see-also-keywords--concept-terms (note)
+  "The names a concept NOTE answers to: its title, its ROAM_ALIASES and its file name."
+  (let* ((file (plist-get note :file))
+         (data (and file (sp-see-also-keywords--note-data file)))
+         (base (and file (file-name-base file))))
+    (seq-uniq
+     (seq-remove #'string-empty-p
+                 (mapcar #'string-trim
+                         (append (list (or (plist-get note :title) (plist-get data :title)))
+                                 (plist-get data :aliases)
+                                 (and base
+                                      (list (replace-regexp-in-string
+                                             "[-_]+" " "
+                                             (replace-regexp-in-string "\\`[0-9T-]\\{8,\\}[-_]+" "" base)))))))
+     #'string-equal-ignore-case)))
+
 (defun sp-see-also-keywords--section (note)
-  "Add the \"Same keywords\" part for NOTE to the see-also view."
-  (when-let* ((mine (sp-see-also-keywords-of note)))
-    (sp-see-also-view--section "Same keywords")
-    (let ((groups (sp-see-also-keywords-find mine (plist-get note :file) (plist-get note :citekey))))
-      (if (seq-every-p #'null (mapcar #'cdr groups))
-          (insert (format "No other litnote or BibTeX entry has %s.\n" (string-join mine ", ")))
-        (sp-see-also-keywords--insert-groups groups mine)))))
+  "Add the keyword part for NOTE to the see-also view.
+A litnote gets \"Same keywords\".  A concept note gets \"Literature with this
+concept as a keyword\": the litnotes and BibTeX entries whose keywords equal its
+title, an alias or its file name."
+  (if (sp-see-also-keywords--concept-p note)
+      (let* ((terms (sp-see-also-keywords--concept-terms note))
+             (groups (seq-filter #'cdr (sp-see-also-keywords-find terms))))
+        (when groups
+          (sp-see-also-view--section "Literature with this concept as a keyword")
+          (sp-see-also-keywords--insert-groups groups terms)))
+    (when-let* ((mine (sp-see-also-keywords-of note)))
+      (sp-see-also-view--section "Same keywords")
+      (let ((groups (sp-see-also-keywords-find mine (plist-get note :file) (plist-get note :citekey))))
+        (if (seq-every-p #'null (mapcar #'cdr groups))
+            (insert (format "No other litnote or BibTeX entry has %s.\n" (string-join mine ", ")))
+          (sp-see-also-keywords--insert-groups groups mine))))))
 
 (add-hook 'sp-see-also-view-sections-functions #'sp-see-also-keywords--section)
 
