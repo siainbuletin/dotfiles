@@ -126,6 +126,9 @@ BR ..> AW : key k
 @enduml
 #+end_src
 
+#+RESULTS:
+[[file:../../../libraries/images/batch-lint-overview.png]]
+
 ** The shared run
 
 - Every batch linter follows this run; the differences are in what it collects and plans.
@@ -164,6 +167,9 @@ repeat while (Changed the list?) is (yes)
 stop
 @enduml
 #+end_src
+
+#+RESULTS:
+[[file:../../../libraries/images/batch-lint-run.png]]
 
 ** Litnote and author linters
 
@@ -214,6 +220,9 @@ stop
 @enduml
 #+end_src
 
+#+RESULTS:
+[[file:../../../libraries/images/batch-lint-vault.png]]
+
 ** BibTeX linters
 
 - They work on one =.bib= file at a time and ask before the first write.
@@ -253,6 +262,9 @@ stop
 @enduml
 #+end_src
 
+#+RESULTS:
+[[file:../../../libraries/images/batch-lint-bibtex.png]]
+
 ** Footnote lint
 
 - It is the only linter that runs in a second Emacs, so that your Emacs stays usable.
@@ -280,6 +292,9 @@ W --> E : result
 E -> You : report: applied and skipped
 @enduml
 #+end_src
+
+#+RESULTS:
+[[file:../../../libraries/images/batch-lint-footnotes.png]]
 
 * sp-batch-lint.el
 

@@ -336,6 +336,9 @@ E -> D : block in the PARENT record's comment
 @enduml
 #+end_src
 
+#+RESULTS:
+[[file:../../../libraries/images/devonthink-pipeline.png]]
+
 - Who owns each field:
 
 | Field | Owner | Written to | Overwrites? |
