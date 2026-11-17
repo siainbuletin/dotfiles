@@ -307,7 +307,7 @@ a PDF goes to `sp-fetch-academic-download'."
 (use-package counsel :ensure t)
 
 (use-package litdb
-  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el")
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files ("litdb.el"))
   :after (hydra request counsel org-ref))
 
 (provide 'sp-fetch-academic)

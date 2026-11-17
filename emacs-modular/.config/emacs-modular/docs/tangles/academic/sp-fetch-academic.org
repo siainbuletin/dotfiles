@@ -496,11 +496,14 @@ Refer to the documentation for how to install it with [[id:20261030T003159.60807
 (use-package counsel :ensure t)
 
 (use-package litdb
-  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el")
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files ("litdb.el"))
   :after (hydra request counsel org-ref))
 #+end_src
 
 The =litdb.el= header has no =Package-Requires=, so Elpaca installs none of what it =require='s (=hydra=, =request=, =counsel=; =openalex= comes with =org-ref=). Without them the load failed with =Cannot load litdb=; they are installed here, and =litdb= waits for them with =:after=.
+
+- The recipe's =:files= must be a /list/, =("litdb.el")=; a bare string ="litdb.el"= matches nothing, so the build dir is empty and Elpaca fails with =No elisp files in .../builds/litdb=.
+- Upstream (=jkitchin/litdb=, branch =main=) still keeps =litdb.el= at the repository root, so no subdirectory path is needed.
 
 ** Doing vector search with litdb
 
