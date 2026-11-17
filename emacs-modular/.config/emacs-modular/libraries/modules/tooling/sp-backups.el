@@ -20,7 +20,7 @@
         (concat sp-cache-dir "auto-save-list/.saves-"))
   (let ((auto-save-files-dir (concat sp-cache-dir "auto-save-files/")))
     (setq auto-save-file-name-transforms
-          `((".*" ,auto-save-files-dir t)))
+          `((".*" ,auto-save-files-dir sha1)))
     (when (not (file-exists-p auto-save-files-dir))
       (make-directory auto-save-files-dir t)))
   
@@ -48,6 +48,29 @@
 
   ;; Save all buffers after idle time
   (run-with-idle-timer 5 t (lambda () (lem-full-auto-save))))
+
+;;;; Long file names
+(defconst sp-backups-max-name-bytes 180
+  "Longest base name, in bytes, of a backup file made by Emacs.
+The file system allows 255; the rest is room for the `.~N~' version suffix.")
+
+(defun sp-backups--shorten-name (file)
+  "Return FILE with a base name of at most `sp-backups-max-name-bytes' bytes.
+A name that fits is returned unchanged.  A longer one keeps its start,
+followed by `--' and the SHA-1 of the whole FILE, and any trailing `#'."
+  (let* ((dir (file-name-directory file))
+         (name (file-name-nondirectory file)))
+    (if (<= (string-bytes name) sp-backups-max-name-bytes)
+        file
+      (let* ((tail (concat "--" (secure-hash 'sha1 file)
+                           (if (string-suffix-p "#" name) "#" "")))
+             (head name))
+        (while (> (+ (string-bytes head) (string-bytes tail))
+                  sp-backups-max-name-bytes)
+          (setq head (substring head 0 -1)))
+        (concat dir head tail)))))
+
+(advice-add 'make-backup-file-name-1 :filter-return #'sp-backups--shorten-name)
 
 (use-package vc-backup
   :ensure (:wait t))

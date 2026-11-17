@@ -13,7 +13,8 @@ This module decides where Emacs keeps backup files and auto-save files, turns on
 The backup settings are made once, in the final block:
 
 - Backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions.
-- Auto-save files go to =auto-save-files/= under =sp-cache-dir=.
+- Auto-save files go to =auto-save-files/= under =sp-cache-dir=, named by the SHA-1 of the file path.
+- Backup and auto-save names longer than =sp-backups-max-name-bytes= are shortened (see "Long file names").
 
 History and loading:
 
@@ -54,6 +55,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 Configures the built-in =files= library. In =:init=:
 - the auto-save list and auto-save files are kept under =sp-cache-dir=;
+- auto-save files are named by the SHA-1 of the full path (third element =sha1= of the transform), never by the path itself, so a long file name cannot exceed the 255-byte limit of the file system;
 - auto-saving is turned on for every buffer, every 30 idle seconds or 300 keystrokes, and auto-save files are deleted after a real save;
 - =auto-save-visited-mode= is enabled, which saves file-visiting buffers directly to their files.
 
@@ -73,7 +75,7 @@ The backup settings that used to be repeated here, in =:config= and at the top o
         (concat sp-cache-dir "auto-save-list/.saves-"))
   (let ((auto-save-files-dir (concat sp-cache-dir "auto-save-files/")))
     (setq auto-save-file-name-transforms
-          `((".*" ,auto-save-files-dir t)))
+          `((".*" ,auto-save-files-dir sha1)))
     (when (not (file-exists-p auto-save-files-dir))
       (make-directory auto-save-files-dir t)))
   
@@ -101,6 +103,45 @@ The backup settings that used to be repeated here, in =:config= and at the top o
 
   ;; Save all buffers after idle time
   (run-with-idle-timer 5 t (lambda () (lem-full-auto-save))))
+#+end_src
+
+** Long file names
+
+Keeps backup file names under the 255-byte limit of the file system.
+
+- Cause: with =backup-directory-alist=, Emacs builds the backup name by escaping the whole path (=/= becomes =!=) into one file name.
+- A path like a PDF downloaded from Anna's Archive (long title, authors, ISBN) then fails with "File name too long".
+- The first, cheap part of the fix is the =sha1= transform above: auto-save names are a hash, always 40 characters.
+- =sp-backups-max-name-bytes= is the longest base name allowed; 180 leaves room for the =.~N~= backup version suffix.
+- =sp-backups--shorten-name= returns a path unchanged when its base name fits.
+- Otherwise it keeps the start of the name, adds =--= and the SHA-1 of the full path, and keeps a trailing =#= (so auto-save names stay recognisable).
+- The hash keeps two long paths with the same start apart.
+- Advice on =make-backup-file-name-1= applies it to backup names. It is the subroutine used by =find-backup-file-name=.
+- Backups of short names are not touched.
+
+#+begin_src emacs-lisp -i
+;;;; Long file names
+(defconst sp-backups-max-name-bytes 180
+  "Longest base name, in bytes, of a backup file made by Emacs.
+The file system allows 255; the rest is room for the `.~N~' version suffix.")
+
+(defun sp-backups--shorten-name (file)
+  "Return FILE with a base name of at most `sp-backups-max-name-bytes' bytes.
+A name that fits is returned unchanged.  A longer one keeps its start,
+followed by `--' and the SHA-1 of the whole FILE, and any trailing `#'."
+  (let* ((dir (file-name-directory file))
+         (name (file-name-nondirectory file)))
+    (if (<= (string-bytes name) sp-backups-max-name-bytes)
+        file
+      (let* ((tail (concat "--" (secure-hash 'sha1 file)
+                           (if (string-suffix-p "#" name) "#" "")))
+             (head name))
+        (while (> (+ (string-bytes head) (string-bytes tail))
+                  sp-backups-max-name-bytes)
+          (setq head (substring head 0 -1)))
+        (concat dir head tail)))))
+
+(advice-add 'make-backup-file-name-1 :filter-return #'sp-backups--shorten-name)
 #+end_src
 
 ** vc-backup
