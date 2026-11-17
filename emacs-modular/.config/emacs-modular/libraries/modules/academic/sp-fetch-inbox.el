@@ -18,10 +18,10 @@
 
 (defvar sp-literature-dir)
 (defvar sp-bibtex-files)
-(declare-function sp--fetch-academic-attach "sp-fetch-academic")
+(declare-function sp-fetch-academic-file "sp-fetch-academic")
+(defvar sp-fetch-academic-devonthink)
 (declare-function sp-fetch-academic-key-bibfile "sp-fetch-academic")
 (declare-function doi-utils-doi-to-bibtex-string "doi-utils")
-(declare-function sp-devonthink-bibsync-entry "sp-devonthink-bibsync")
 
 (defgroup sp-fetch-inbox nil
   "File new articles from the inbox."
@@ -71,11 +71,6 @@ While picking, C-c s switches between the two."
 (defcustom sp-fetch-inbox-backup-dir (expand-file-name "replaced" sp-literature-dir)
   "Folder where the old PDF is copied before `sp-fetch-inbox' replaces it."
   :type 'directory :group 'sp-fetch-inbox)
-
-(defcustom sp-fetch-inbox-sync-metadata t
-  "Non-nil to copy author, title and keywords to the DEVONthink record after filing.
-See `sp-devonthink-bibsync-entry'."
-  :type 'boolean :group 'sp-fetch-inbox)
 
 (defcustom sp-fetch-inbox-pdf-function #'sp-fetch-inbox-show-pdf
   "Function taking a PDF file and returning the buffer that shows it."
@@ -625,7 +620,8 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
        (equal (file-truename a) (file-truename b))))
 
 (defun sp-fetch-inbox--file-pdf (item key dest)
-  "Move the PDF of ITEM to DEST as KEY.pdf and update DEVONthink.  Return DEST."
+  "Move the PDF of ITEM to DEST as KEY.pdf, and its DEVONthink record with it.  Return DEST.
+A file with no record is only renamed; `sp-fetch-academic-file' indexes it afterwards."
   (let ((uuid (plist-get item :uuid))
         (file (plist-get item :file))
         (dt (sp-fetch-inbox--dt-p)))
@@ -641,11 +637,10 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
         (when sp-reading-index (puthash key uuid sp-reading-index))))
      (t
       (rename-file file dest)
-      (when (and dt (or uuid sp-fetch-inbox-index-new))
-        (sp-reading-index-file key dest)
-        (when (and uuid (y-or-n-p (format "Move the imported record %s to the DEVONthink trash? "
-                                          (plist-get item :name))))
-          (sp-reading--jxa (sp-fetch-inbox--trash-script uuid))))))
+      ;; Indexing the new file is the shared step of `sp-fetch-academic-file'.
+      (when (and dt uuid (y-or-n-p (format "Move the imported record %s to the DEVONthink trash? "
+                                           (plist-get item :name))))
+        (sp-reading--jxa (sp-fetch-inbox--trash-script uuid)))))
     dest))
 
 (defun sp-fetch-inbox--backup-pdf (dest key)
@@ -674,27 +669,6 @@ duplicate.  Without a record of DEST, the new file is indexed."
       (when (and dt (null old) (or uuid sp-fetch-inbox-index-new))
         (sp-reading-index-file key dest))
       backup)))
-
-(defun sp-fetch-inbox--append (bibfile text)
-  "Append the entry TEXT to BIBFILE and save it."
-  (with-current-buffer (find-file-noselect bibfile)
-    (save-excursion
-      (goto-char (point-max))
-      (unless (bolp) (insert "\n"))
-      (insert "\n" (string-trim text) "\n")
-      (save-buffer))))
-
-(defun sp-fetch-inbox--sync-metadata (key text)
-  "Copy author, title and keywords of the entry TEXT to the DEVONthink record of KEY.
-A failure is reported, not signalled: the article is already filed."
-  (when (and sp-fetch-inbox-sync-metadata (sp-fetch-inbox--dt-p))
-    (condition-case err
-        (progn
-          (require 'sp-devonthink-bibsync)
-          (unless (sp-devonthink-bibsync-entry key text)
-            (message "No DEVONthink record of its own for %s: metadata not copied" key)))
-      (error (message "Filed, but the DEVONthink metadata was not copied: %s"
-                      (error-message-string err))))))
 
 (defun sp-fetch-inbox--finish (edit)
   "Restore the windows and kill the edit buffer EDIT."
@@ -736,11 +710,13 @@ When KEY is already in a .bib and KEY.pdf exists, replace that PDF instead."
             (sp-fetch-inbox--finish edit)
             (message "Replaced %s; old copy in %s" key (abbreviate-file-name backup)))
         (sp-fetch-inbox--file-pdf item key dest)
-        (unless (fboundp 'sp--fetch-academic-attach) (require 'sp-fetch-academic))
-        (goto-char (point-min))
-        (sp--fetch-academic-attach dest)
-        (sp-fetch-inbox--append bibfile (buffer-string))
-        (sp-fetch-inbox--sync-metadata key (buffer-string))
+        (unless (fboundp 'sp-fetch-academic-file) (require 'sp-fetch-academic))
+        ;; The entry has no place in a .bib yet: the shared follow-up appends it,
+        ;; writes the file field, finds or makes the DEVONthink record and syncs.
+        (let ((sp-fetch-academic-devonthink
+               (and sp-fetch-academic-devonthink (sp-fetch-inbox--dt-p)
+                    (or (plist-get item :uuid) sp-fetch-inbox-index-new))))
+          (sp-fetch-academic-file key dest bibfile (buffer-string)))
         (sp-fetch-inbox--finish edit)
         (message "Filed %s in %s" key (abbreviate-file-name dest)))
       (when (and (sp-fetch-inbox-items) (y-or-n-p "Next article? "))

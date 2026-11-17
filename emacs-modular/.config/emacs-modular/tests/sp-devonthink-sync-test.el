@@ -2,6 +2,7 @@
 
 (require 'ert)
 (require 'sp-devonthink-sync)
+(require 'sp-devonthink-keywords)
 
 (defconst sp-devonthink-sync-test--u1 "11111111-2222-3333-4444-555555555555")
 (defconst sp-devonthink-sync-test--u2 "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")
@@ -182,6 +183,48 @@
             (with-temp-buffer (insert-file-contents c)
                               (should (string-match-p "#\\+devonthink: 11111111" (buffer-string))))))
       (delete-directory dir t))))
+
+(defmacro sp-devonthink-sync-test--with-note (content &rest body)
+  "Run BODY with `note' bound to a litnote file with CONTENT and the sync stubs set."
+  `(let* ((dir (make-temp-file "dtkey" t))
+          (sp-devonthink-sync-backup-directory (expand-file-name "bk/" dir))
+          (note (expand-file-name "n.org" dir))
+          written)
+     (unwind-protect
+         (progn
+           (with-temp-file note (insert ,content))
+           (cl-letf (((symbol-function 'sp-devonthink-record)
+                      (lambda (_) (list :uuid sp-devonthink-sync-test--u1 :supplier "a-2000-x")))
+                     ((symbol-function 'sp-devonthink-keywords--key-litnote) (lambda (_) note))
+                     ((symbol-function 'sp-reading--osascript)
+                      (lambda (script) (setq written script) "0")))
+             ,@body))
+       (delete-directory dir t))))
+
+(ert-deftest sp-devonthink-sync-link-key-writes-keyword-and-link ()
+  (sp-devonthink-sync-test--with-note
+   ":PROPERTIES:\n:ID: note-id-1\n:END:\n#+title: A\n#+reference: a-2000-x\n"
+   (should (eq (sp-devonthink-sync--link-key "a-2000-x") 'written))
+   (with-temp-buffer (insert-file-contents note)
+                     (should (string-match-p (concat "#\\+devonthink: " sp-devonthink-sync-test--u1)
+                                             (buffer-string))))
+   (should (string-match-p "note-id-1" written))
+   (should (= 1 (length (directory-files-recursively sp-devonthink-sync-backup-directory "n\\.org"))))))
+
+(ert-deftest sp-devonthink-sync-link-key-leaves-another-record-alone ()
+  (sp-devonthink-sync-test--with-note
+   (concat ":PROPERTIES:\n:ID: note-id-1\n:END:\n#+title: A\n#+reference: a-2000-x\n#+devonthink: "
+           sp-devonthink-sync-test--u2 "\n")
+   (should (eq (sp-devonthink-sync--link-key "a-2000-x") 'differs))
+   (should-not written)))
+
+(ert-deftest sp-devonthink-sync-link-key-without-record-or-id ()
+  (sp-devonthink-sync-test--with-note
+   "#+title: A\n#+reference: a-2000-x\n"
+   (should-not (sp-devonthink-sync--link-key "a-2000-x"))
+   (should-not written)
+   (cl-letf (((symbol-function 'sp-devonthink-record) (lambda (_) nil)))
+     (should-not (sp-devonthink-sync--link-key "a-2000-x")))))
 
 (provide 'sp-devonthink-sync-test)
 ;;; sp-devonthink-sync-test.el ends here

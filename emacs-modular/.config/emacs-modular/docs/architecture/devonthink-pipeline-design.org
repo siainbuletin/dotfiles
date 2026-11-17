@@ -1,6 +1,6 @@
 #+title: Simplifying the BibTeX, PDF and DEVONthink pipeline
 #+date: 2026-11-17
-#+status: part 1 implemented (=sp-fetch-academic-file=); parts 2 to 4 proposed, nothing run on the Mac
+#+status: implemented in PR #576; the DEVONthink and AppleScript parts are not run on the Mac
 
 This is a design. It starts from the diagram in [[file:../tangles/devonthink/sp-devonthink.org::*Information pipeline: BibTeX, litnote and DEVONthink][the information pipeline]] and asks where the modules do the same job twice.
 
@@ -30,43 +30,38 @@ This is a design. It starts from the diagram in [[file:../tangles/devonthink/sp-
   - Each caller picks its own entry (=-entry=, =-keys=, =-items=, =-quietly=, =-sync-record=).
 - Litnote link (=#+devonthink:= and the record's =litnote= field): only the report and backfill write it, never the filing commands.
 
-* The shared entry point
+* The shared entry point (implemented)
 
-- Name: =sp-fetch-academic-file= with arguments (KEY PDF &optional BIBFILE); it lives in =sp-fetch-academic= because that module already owns the =file= field.
+- Name: =sp-fetch-academic-file= with arguments (KEY PDF &optional BIBFILE ENTRY); it lives in =sp-fetch-academic= because that module already owns the =file= field.
+- It fills the gap in =sp-fetch-academic=: getting a BibTeX entry did not also get the PDF filed.
 - Steps, each de-duplicating:
   - Place: move the PDF to =literature/KEY.pdf=; a different existing file stops it.
+  - Entry: with ENTRY text (a work with no entry yet, the inbox) it is appended to BIBFILE first.
   - Field: write the path relative to =sp-literature-dir=; a path already in the field is skipped.
-  - Record: =sp-reading-ensure-file= (in =sp-reading=): record of the key, else record of the file path, else index.
-  - Metadata: =sp-devonthink-bibsync-keys=, which also runs the keyword sync.
+  - Record: =sp-reading-ensure-file=: record of the key, else record of the file path, else index.
+  - Sync: =sp-devonthink-sync-key=: bibsync (author, title, keywords) and the litnote link.
 - A DEVONthink failure is a message; the field is already written.
-- Callers today: =sp-fetch-academic-download=, the DOI command (after the PDF fetch), =C-; B f= (a PDF on disk).
+- Callers: =sp-fetch-academic-download=, the DOI command, =C-; B f=, =sp-fetch-inbox-confirm=.
 
-* Proposed next steps
+* What was done about the overlaps
 
-** Part 2: the inbox uses the same steps (small)
+- Inbox reuses the steps:
+  - It still renames and moves the DEVONthink record itself (that keeps UUID, tags and links), then calls the shared entry point with the entry text.
+  - Its own append, attach, index and metadata-sync code is gone; =sp-fetch-inbox-sync-metadata= is an obsolete alias of =sp-fetch-academic-sync-metadata=.
+  - The replace path keeps its own backup and record logic.
+- One "key to .bib file": =sp-fetch-academic-key-bibfile=, used by the inbox and the keyword sync. Still separate on purpose: =sp-devonthink-bibsync--read-files= (reads many keys in one pass) and =sp-see-also-keywords= (parses whole files).
+- One "sync this key": =sp-devonthink-sync-key= (in =sp-devonthink-sync=).
+  - Runs bibsync, then writes the =#+devonthink:= keyword (backup first, skipped for a note with unsaved changes) and the record's =litnote= link.
+  - Leaves a note that names another record alone.
+  - =sp-devonthink-bibsync-entry= was removed (no caller left).
+  - Tag, browser and after-save triggers still call the keyword sync directly: they react to a tag or keyword change and need no metadata or link.
 
-- =sp-fetch-inbox-confirm= keeps its own DEVONthink move (it renames and moves the record so its UUID, tags and links survive); that is a different operation from indexing.
-- After the move it should call the field and metadata steps of the entry point instead of =sp--fetch-academic-attach=, =--append= and =--sync-metadata= separately.
-- Needs a variant of the entry point whose entry is not in a =.bib= yet (the inbox appends it).
-
-** Part 3: one "key to .bib file" function (small)
-
-- Replace the four finders by =sp-fetch-academic-key-bibfile= (done for the inbox).
-- Decide whether the registered list is =sp-bibtex-files= or =sp-author-notes-bibtex--files=; they should be the same list.
-
-** Part 4: one "sync this key" entry (medium)
-
-- Callers of bibsync and keyword sync should all call one function (KEY): metadata, keywords, and the litnote link if the litnote exists.
-- That makes the entry point above the only place a filing command needs, and removes the =-entry=, =-keys=, =-items= and =-quietly= variants.
-- Risk: the keyword sync has a three-way merge and a state file; it needs the Mac to test, so it is left out of part 1.
-
-** Not proposed
+* Not proposed
 
 - Merging the lint's batch =file= repair into the entry point: it works on all entries at once and has its own dry run.
 - Moving PDFs out of =inbox/mac-bibdesk/=: opt-in only, see the BibDesk migration notes.
 
-* Decisions for Sia
+* Decisions made
 
-- Path form in the =file= field: library-relative (done) or relative to the =.bib=.
-- Should the litnote link be written by the entry point when the litnote exists (part 4), or stay with the backfill?
-- Part 2 to 4 in one PR each, in this order.
+- Path form in the =file= field: relative to =sp-literature-dir= (Sia, 2026-11-17).
+- The litnote link is written by =sp-devonthink-sync-key= when the litnote exists, without a question.

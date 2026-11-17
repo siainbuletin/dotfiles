@@ -27,6 +27,15 @@
   :group 'spcustom
   :type 'boolean)
 
+(defcustom sp-fetch-academic-sync-metadata t
+  "Non-nil: after filing, copy BibTeX data to the record and link the litnote.
+See `sp-devonthink-sync-key'."
+  :group 'spcustom
+  :type 'boolean)
+
+(define-obsolete-variable-alias 'sp-fetch-inbox-sync-metadata
+  'sp-fetch-academic-sync-metadata "2026-11-17")
+
 ;;;; Searching with biblio
 
 (use-package biblio
@@ -149,17 +158,26 @@ BIBFILE is the .bib file of the entry, for a path outside `sp-literature-dir'."
 ;;;; One follow-up for every PDF
 
 (declare-function sp-reading-ensure-file "sp-reading")
-(declare-function sp-devonthink-bibsync-keys "sp-devonthink-bibsync")
+(declare-function sp-devonthink-sync-key "sp-devonthink-sync")
 
 (defun sp-fetch-academic-key-bibfile (key)
   "The file of `sp-bibtex-files' that has an entry KEY, or nil."
-  (let ((re (format "^[ \t]*@[A-Za-z]+[ \t]*{[ \t]*%s[ \t]*," (regexp-quote key))))
+  (let ((re (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key))))
     (seq-find (lambda (f)
                 (and (file-readable-p f)
                      (with-temp-buffer
-                       (insert-file-contents f)
+                       (let ((coding-system-for-read 'utf-8)) (insert-file-contents f))
                        (re-search-forward re nil t))))
               (bound-and-true-p sp-bibtex-files))))
+
+(defun sp--fetch-academic-append (bibfile text)
+  "Append the entry TEXT to BIBFILE and save it."
+  (with-current-buffer (find-file-noselect bibfile)
+    (save-excursion
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (insert "\n" (string-trim text) "\n")
+      (save-buffer))))
 
 (defun sp--fetch-academic-dt-p ()
   "Non-nil when the DEVONthink step can run."
@@ -180,36 +198,42 @@ BIBFILE is the .bib file of the entry, for a path outside `sp-literature-dir'."
              dest))))
 
 (defun sp--fetch-academic-devonthink (key file)
-  "Add FILE to DEVONthink as KEY.pdf if it is not there, then copy the BibTeX data.
-Return the status of `sp-reading-ensure-file', or nil when it did not run."
+  "Add FILE to DEVONthink as KEY.pdf unless it has a record, then sync KEY.
+Return a plist (:record STATUS :sync RESULT), or nil when nothing ran.  STATUS
+is that of `sp-reading-ensure-file'.  A failure is a message, not an error."
   (when (sp--fetch-academic-dt-p)
     (condition-case err
         (progn
           (require 'sp-reading)
           (let ((status (cdr (sp-reading-ensure-file key file))))
-            (when (require 'sp-devonthink-bibsync nil t)
-              (sp-devonthink-bibsync-keys (list key)))
-            status))
+            (list :record status
+                  :sync (when (and sp-fetch-academic-sync-metadata
+                                   (require 'sp-devonthink-sync nil t))
+                          (sp-devonthink-sync-key key)))))
       (error (message "Filed, but DEVONthink was not updated: %s" (error-message-string err))
              nil))))
 
 ;;;###autoload
-(defun sp-fetch-academic-file (key pdf &optional bibfile)
-  "Attach PDF to the entry KEY and add it to DEVONthink.
+(defun sp-fetch-academic-file (key pdf &optional bibfile entry)
+  "Put PDF with the entry KEY: file name, `file' field, DEVONthink record, sync.
 The entry is in BIBFILE, default the one of `sp-bibtex-files' that has KEY.
-Return a plist (:file :bibfile :attached :dt)."
-  (let* ((bibfile (or bibfile (sp-fetch-academic-key-bibfile key)
-                      (user-error "No entry %s in the registered .bib files" key)))
-         (file (sp--fetch-academic-place key pdf))
-         (attached
-          (with-current-buffer (find-file-noselect bibfile)
-            (save-excursion
-              (goto-char (point-min))
-              (unless (bibtex-find-entry key) (user-error "No entry %s in %s" key bibfile))
-              (prog1 (sp--fetch-academic-attach file bibfile)
-                (save-buffer))))))
-    (list :file file :bibfile bibfile :attached attached
-          :dt (sp--fetch-academic-devonthink key file))))
+With the string ENTRY (a work with no entry yet) it is first appended to BIBFILE,
+which is then required.  Return a plist (:file :bibfile :attached :dt)."
+  (let* ((bibfile (cond (entry (or bibfile (user-error "No .bib file to add the entry to")))
+                        (bibfile)
+                        ((sp-fetch-academic-key-bibfile key))
+                        (t (user-error "No entry %s in the registered .bib files" key))))
+         (file (sp--fetch-academic-place key pdf)))
+    (when entry (sp--fetch-academic-append bibfile entry))
+    (let ((attached
+           (with-current-buffer (find-file-noselect bibfile)
+             (save-excursion
+               (goto-char (point-min))
+               (unless (bibtex-find-entry key) (user-error "No entry %s in %s" key bibfile))
+               (prog1 (sp--fetch-academic-attach file bibfile)
+                 (save-buffer))))))
+      (list :file file :bibfile bibfile :attached attached
+            :dt (sp--fetch-academic-devonthink key file)))))
 
 ;;;###autoload
 (defun sp-fetch-academic-attach-pdf (pdf &optional key)
@@ -224,7 +248,7 @@ In a BibTeX entry KEY is its key; otherwise it is asked."
                   (read-string "Citation key: ")))
          (result (sp-fetch-academic-file key pdf)))
     (message "%s: %s%s" key (abbreviate-file-name (plist-get result :file))
-             (if (plist-get result :dt) (format " (DEVONthink: %s)" (plist-get result :dt)) ""))
+             (if-let* ((dt (plist-get result :dt))) (format " (DEVONthink: %s)" (plist-get dt :record)) ""))
     result))
 
 ;;;###autoload

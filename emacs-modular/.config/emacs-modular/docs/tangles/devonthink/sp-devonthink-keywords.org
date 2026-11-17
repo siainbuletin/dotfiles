@@ -242,13 +242,8 @@ places that exist."
 (defun sp-devonthink-keywords--key-bib-file (key)
   "The registered .bib file that has an entry KEY, or nil."
   (ignore-errors
-    (require 'sp-author-notes-bibtex)
-    (seq-find (lambda (file)
-                (with-temp-buffer
-                  (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
-                  (re-search-forward
-                   (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)))
-              (sp-author-notes-bibtex--files))))
+    (require 'sp-fetch-academic)
+    (sp-fetch-academic-key-bibfile key)))
 
 (defun sp-devonthink-keywords--bib-text (old merged)
   "The new text of a BibTeX keywords field that has OLD (a string or nil), or nil.
