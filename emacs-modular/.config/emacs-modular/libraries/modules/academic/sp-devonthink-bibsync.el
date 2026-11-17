@@ -193,13 +193,6 @@ Return the plist of `sp-devonthink-bibsync-apply' plus :no-entry and :no-record
     (append (sp-devonthink-bibsync-apply (nreverse items))
             (list :no-entry no-entry :no-record (nreverse no-record)))))
 
-(defun sp-devonthink-bibsync-entry (key text)
-  "Copy the author, title and keywords in the entry TEXT to the record of KEY.
-Return the result of `sp-devonthink-bibsync-apply', or nil when KEY has no record."
-  (when-let* ((fields (sp-devonthink-bibsync-entry-fields text))
-              (item (sp-devonthink-bibsync--item key fields)))
-    (sp-devonthink-bibsync-apply (list item))))
-
 (defun sp-devonthink-bibsync--summary (result)
   "Tell the outcome RESULT of `sp-devonthink-bibsync-keys' in the echo area."
   (sp-devonthink-bibsync--report result)

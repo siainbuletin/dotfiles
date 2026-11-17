@@ -50,7 +50,8 @@ Literate source for =libraries/modules/academic/sp-devonthink-bibsync.el=.
 | =sp-devonthink-bibsync-record=       | Embark action =y= on a DEVONthink record              |
 
 - Keys: =C-; k d y= runs =sp-devonthink-bibsync=.
-- From Lisp: =sp-devonthink-bibsync-keys= takes a list of citekeys; =sp-devonthink-bibsync-entry= takes a citekey and the text of an entry (this is what =sp-fetch-inbox= uses).
+- From Lisp: =sp-devonthink-bibsync-keys= takes a list of citekeys. Filing commands do not call it directly any more; they call =sp-devonthink-sync-key=, which runs it and also writes the litnote link.
+- =sp-devonthink-bibsync-entry= (citekey and entry text) was removed: the entry is in the =.bib= before the sync runs.
 
 * Options
 
@@ -299,13 +300,6 @@ Return the plist of `sp-devonthink-bibsync-apply' plus :no-entry and :no-record
         (push (car entry) no-record)))
     (append (sp-devonthink-bibsync-apply (nreverse items))
             (list :no-entry no-entry :no-record (nreverse no-record)))))
-
-(defun sp-devonthink-bibsync-entry (key text)
-  "Copy the author, title and keywords in the entry TEXT to the record of KEY.
-Return the result of `sp-devonthink-bibsync-apply', or nil when KEY has no record."
-  (when-let* ((fields (sp-devonthink-bibsync-entry-fields text))
-              (item (sp-devonthink-bibsync--item key fields)))
-    (sp-devonthink-bibsync-apply (list item))))
 
 (defun sp-devonthink-bibsync--summary (result)
   "Tell the outcome RESULT of `sp-devonthink-bibsync-keys' in the echo area."

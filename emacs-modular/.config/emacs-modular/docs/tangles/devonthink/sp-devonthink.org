@@ -271,7 +271,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Author, title and the litnote link move one way, when you run a command; keywords are different: they sync both ways (see "Keyword and tag sync").
 - Status of the arrows:
   - On =main=: the BibTeX to litnote fill, =sp-fetch-inbox=, bibsync (author, title), the sync report and backfill.
-  - Added with the PDF follow-up (box 1b): =sp-fetch-academic-file=, one entry point for a (citekey, PDF) pair: =file= field, DEVONthink record, bibsync. The design for the rest is in [[file:../../architecture/devonthink-pipeline-design.org][the pipeline design]].
+  - Added with the PDF follow-up (box 1b): =sp-fetch-academic-file=, one entry point for a (citekey, PDF) pair: entry, =file= field, DEVONthink record, then =sp-devonthink-sync-key= (bibsync and litnote link). The inbox, the download, the DOI command and =C-; B f= all call it. The design is in [[file:../../architecture/devonthink-pipeline-design.org][the pipeline design]].
   - Not on =main=: the keyword sync (this branch is stacked on #443, which still carries #455's code; the sync replaces both).
 - The diagram is PlantUML; =C-c C-c= on it renders it and shows it inline (needs =brew install plantuml=, see =sp-org-babel=).
   - The image is saved as =libraries/images/devonthink-pipeline.png= (the =:file= path is relative to this document, so it climbs out of =docs/tangles/devonthink/=).
@@ -290,25 +290,27 @@ participant "DEVONthink\nrecord" as D
 
 == 1. File an inbox article: sp-fetch-inbox (C-; B a, then C-c C-c) ==
 You -> E : pick inbox PDF, edit entry
-E -> D : rename to KEY.pdf, move (osascript)
-E -> B : append the entry
-E -> B : file = {KEY.pdf} (sp--fetch-academic-attach,\nthe writer shared with 1b)
-E -> D : bibsync-entry (see 2)
+E -> D : rename the record to KEY.pdf, move it (osascript)\nonly the inbox does this: UUID, tags, links stay
+E -> E : sp-fetch-academic-file with the entry text (see 1b)
 note right of L : no litnote is made here
 
-== 1b. Any other PDF of an entry: sp-fetch-academic-file (C-; B u, C-; B i, C-; B f) ==
+== 1b. One follow-up for every PDF: sp-fetch-academic-file (KEY, PDF)\ninbox, C-; B u (URL), C-; B i (DOI), C-; B f (file on disk) ==
 You -> E : PDF URL, DOI or a PDF on disk (key from the entry)
 E -> E : move the PDF to literature/KEY.pdf\n(never overwrites a different file)
+opt entry text given (the inbox: no entry in a .bib yet)
+  E -> B : append the entry
+end
 E -> B : file = {KEY.pdf}, relative to the literature folder\n(not added twice), .bib saved
-E -> D : sp-reading-ensure-file: record of the key?\nrecord of the file? else index as KEY.pdf
-E -> D : bibsync-keys (see 2)
-note right of D : a failure here is a message,\nthe file field is already written
+E -> D : sp-reading-ensure-file: record of the key?\nrecord of the file? only then index as KEY.pdf
+E -> E : sp-devonthink-sync-key (see 2 and 4)
+note right of D : a failure in the last two steps is a message,\nthe file field is already written
 
 == 2. BibTeX to record: bibsync (C-; k d y, -many, -all, Embark y) ==
 You -> E : citekey(s)
 E -> B : read author, title, keywords
 E -> D : custom metadata bibauthor, bibtitle\n(overwritten every run: BibTeX wins)
 E -> E : keywords: sync (see 5)
+note right of E : sp-devonthink-sync-key runs this for one key,\nthen the litnote link of 4
 note right of D : skipped when the record is the crossref parent's
 
 == 3. BibTeX to litnote: new note (citar-create-note) or sp-litnotes-meta-fill ==
@@ -326,6 +328,7 @@ You -> E : report, then backfill (asks, makes backups)
 E -> L : devonthink keyword = UUID
 E -> D : custom metadata litnote = org-protocol URL
 D --> L : click the link: opens the note
+note right of E : sp-devonthink-sync-key does this for one key\nwhen it has a litnote with an ID (backup first,\nnothing written if the note names another record)
 
 == 5. Keyword sync: tag-note (C-; k d t), browser t, bibsync, C-; k d T, sync-all ==
 You -> D : add or remove a tag (or edit keywords in BibTeX)
@@ -477,7 +480,7 @@ Module: [[file:sp-devonthink-keywords.org][sp-devonthink-keywords.org]]. It repl
   - =sp-fetch-inbox-devonthink-depth=: sub-group levels listed, 8; 0 is the quickest.
   - =sp-fetch-inbox-profile=: t messages how long each step of building the picker takes (use it to see where a slow picker spends its time), nil.
   - =sp-fetch-inbox-index-new=: index a file that had no record after filing it, t.
-  - =sp-fetch-inbox-sync-metadata=: run the bibsync after filing, t.
+  - =sp-fetch-academic-sync-metadata= (was =sp-fetch-inbox-sync-metadata=): run =sp-devonthink-sync-key= after filing, t.
   - =sp-fetch-inbox-pdf-function=, =sp-fetch-inbox-pdftotext=: how the PDF is shown and its text read.
 - =DT Open PDF= (file =~/.config/dt-open/config=, one =NAME=value= per line, read at every start):
   - =DT_OPEN_FALLBACK=: app for PDFs that are not in DEVONthink; left out, the viewer that was the default before the install, else Preview.

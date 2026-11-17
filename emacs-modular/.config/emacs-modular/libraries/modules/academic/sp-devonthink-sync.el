@@ -318,6 +318,42 @@ Shows the plan and asks first; a prefix argument LIMIT limits how many."
                '("devonthink-note" :protocol "devonthink-note"
                  :function sp-devonthink-protocol-note)))
 
+;;;; Syncing one work
+
+(declare-function sp-devonthink-bibsync-keys "sp-devonthink-bibsync")
+(declare-function sp-devonthink-keywords--key-litnote "sp-devonthink-keywords")
+
+(defun sp-devonthink-sync--link-key (key)
+  "Write the litnote link of KEY into its note and record; return a status symbol or nil."
+  (when-let* ((rec (sp-devonthink-record key))
+              ((null (plist-get rec :via)))
+              (file (progn (require 'sp-devonthink-keywords nil t)
+                           (sp-devonthink-keywords--key-litnote key)))
+              (note (sp-devonthink-sync--read-note file))
+              (id (plist-get note :id)))
+    (let ((uuid (plist-get rec :uuid))
+          (have (plist-get note :uuid))
+          (buffer (find-buffer-visiting file)))
+      (cond
+       ((and have (not (string-equal-ignore-case have uuid))) 'differs)
+       ((and (not have) buffer (buffer-modified-p buffer)) 'skipped)
+       (t
+        (unless have
+          (sp-devonthink-sync--backup
+           file (expand-file-name (format-time-string "%Y%m%d-%H%M%S/")
+                                  sp-devonthink-sync-backup-directory))
+          (sp-devonthink-sync--write-keyword file uuid)
+          (when buffer (with-current-buffer buffer (revert-buffer t t t))))
+        (sp-reading--osascript (sp-devonthink-sync--link-script (list (cons uuid id))))
+        'written)))))
+
+(defun sp-devonthink-sync-key (key)
+  "Sync the DEVONthink record of the citekey KEY with its BibTeX entry and litnote.
+Return a plist (:bib RESULT :link STATUS); see `sp-devonthink-sync--link-key'."
+  (require 'sp-devonthink-bibsync)
+  (list :bib (sp-devonthink-bibsync-keys (list key))
+        :link (sp-devonthink-sync--link-key key)))
+
 ;;;; Keys
 
 (keymap-set sp-devonthink-map "y" #'sp-devonthink-sync-report)

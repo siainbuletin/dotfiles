@@ -76,7 +76,7 @@
       (should (= (plist-get (sp-devonthink-bibsync-apply '(("U1" . (:keywords ("a"))))) :tagged) 0))
       (should-not called))))
 
-(ert-deftest sp-devonthink-bibsync-entry-and-keys ()
+(ert-deftest sp-devonthink-bibsync-keys ()
   (let ((file (make-temp-file "sp-bs" nil ".bib" sp-devonthink-bibsync-test--bib)) applied)
     (unwind-protect
         (let ((sp-bibtex-files (list file)))
@@ -90,9 +90,7 @@
               (should (equal (mapcar #'car applied) '("U1")))
               (should (equal (plist-get r :no-entry) '("nope")))
               (should (equal (plist-get r :no-record) '("doe2019"))))
-            (should (sp-devonthink-bibsync-entry "smith2020" sp-devonthink-bibsync-test--bib))
-            (should (equal (car (car applied)) "U1"))
-            (should-not (sp-devonthink-bibsync-entry "doe2019" sp-devonthink-bibsync-test--bib))))
+            ))
       (delete-file file))))
 
 (provide 'sp-devonthink-bibsync-test)
