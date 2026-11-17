@@ -53,15 +53,13 @@
 (when (eq system-type 'darwin)
   (global-unset-key (kbd "C-z")))
 
-;;;; Quit Emacs like other apps: Cmd+Q on the Mac, Ctrl+Q elsewhere.
+;;;; Quit Emacs: M-q everywhere, plus Cmd+Q on the Mac.
 ;; C-x C-c is easy to hit by accident, so it is unbound everywhere.
 (keymap-global-unset "C-x C-c")
-(if (eq system-type 'darwin)
-    ;; Command is Super (`sp-macos'); this is already the ns default.
-    (keymap-global-set "s-q" #'save-buffers-kill-terminal)
-  ;; Ctrl+Q is the quit key here; `quoted-insert' moves to s-q.
-  (keymap-global-set "s-q" #'quoted-insert)
-  (keymap-global-set "C-q" #'save-buffers-kill-terminal))
+(keymap-global-set "M-q" #'save-buffers-kill-terminal)
+(when (eq system-type 'darwin)
+  ;; Command is Super (`sp-macos'); this is already the ns default.
+  (keymap-global-set "s-q" #'save-buffers-kill-terminal))
 
 ;; Cleaning up unnecessary whitespace
 (defun sp-clean-whitespace (&optional Begin End)
