@@ -18,10 +18,24 @@
 
 (require 'sp-globals)
 
+;; The login shell (fish) is captured here, before `shell-file-name' and $SHELL
+;; are switched to a POSIX shell further down, so both blocks agree on it.
+(defvar sp-login-shell (getenv "SHELL")
+  "Login shell found in $SHELL when this module loaded (fish on this setup).")
+
 ;; This configuration of exec-path-from-shell is taken from John Wiegley
 (use-package exec-path-from-shell
   :ensure t
   :if (or (daemonp) (memq window-system '(mac ns x pgtk)))
+  :init
+  ;; `exec-path-from-shell' prefers `shell-file-name' over $SHELL.  That is bash
+  ;; here (see below), and a bash login/interactive start can hand over to fish,
+  ;; which then prints "fish is now exiting" and no result.  Name the login shell.
+  (when (and sp-login-shell (file-executable-p sp-login-shell))
+    (setq exec-path-from-shell-shell-name sp-login-shell
+          ;; Fish takes -l only; the package default for -i shells is -l -i.
+          exec-path-from-shell-arguments
+          (if (string-match-p "fish" sp-login-shell) '("-l") '("-l" "-i"))))
   :config
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
@@ -41,8 +55,8 @@
 ;; - Fish's exit handler printed "fish is now exiting" into that output, which
 ;;   showed up appended to every row of the Dirvish git-message column.
 ;; - So `shell-file-name' is a POSIX shell; interactive terminals stay on fish.
-;; - `exec-path-from-shell' is not affected: it runs `$SHELL -l -i' by itself and
-;;   never reads `shell-file-name'.
+;; - `exec-path-from-shell' reads `shell-file-name' before $SHELL, so it is pointed
+;;   at the login shell with `exec-path-from-shell-shell-name' (see above).
 ;; - TRAMP is not affected: it uses `tramp-default-remote-shell' (/bin/sh) on the
 ;;   remote side, not `shell-file-name'.
 ;; - `shell-command-switch' stays "-c", which bash and sh both accept.
@@ -54,14 +68,14 @@
   :group 'sp-env)
 
 (defcustom sp-interactive-shell nil
-  "Shell for `shell', `eat' and `ansi-term'; nil means the login shell in $SHELL.
-$SHELL is read after `exec-path-from-shell' ran, so a GUI Emacs gets fish."
+  "Shell for `shell', `eat' and `ansi-term'; nil means `sp-login-shell'.
+That is $SHELL from when this module loaded, so a GUI Emacs gets fish."
   :type '(choice (const nil) file)
   :group 'sp-env)
 
 (defvar eat-shell)
 
-(let ((login-shell (or sp-interactive-shell (getenv "SHELL"))))
+(let ((login-shell (or sp-interactive-shell sp-login-shell)))
   ;; Interactive terminals keep the login shell (fish).
   (when (and login-shell (file-executable-p login-shell))
     (setq explicit-shell-file-name login-shell
