@@ -719,7 +719,7 @@ Notes:
 - Letters by kind of action:
   + register and open: =r= register the =.bib= files, =o= =citar-open=, =e= open the entry, =n= open the notes, =c= create a note;
   + litnote in the current buffer: =d= do-what-I-mean, =k= add a citekey, =K= remove one;
-  + get new entries: =b= biblio look-up, =i= by DOI, =u= PDF from a URL, =s= scholarly search, =a= the DEVONthink inbox.
+  + get new entries: =b= biblio look-up, =i= by DOI, =u= PDF from a URL, =s= scholarly search, =f= attach a PDF on disk (and add it to DEVONthink), =a= the DEVONthink inbox.
 - =k=, =K=, =d= and =e= were bound in =org-mode-map= only, and =k= was also the key of =sp-bibtex-lint-fix-keys= everywhere else. So in an Org note =C-c w b k= added a citekey and in any other buffer it fixed long keys, and the fix looked unbound. The lint commands now live under =L b=.
 - The old =C-c w b= keys are gone, with no shims.
 
@@ -739,6 +739,7 @@ Notes:
            ("i" . sp-fetch-academic-doi)
            ("u" . sp-fetch-academic-download)
            ("s" . sp-fetch-academic-omni)
+           ("f" . sp-fetch-academic-attach-pdf)
            ("a" . sp-fetch-inbox))
 #+end_src
 

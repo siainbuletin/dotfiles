@@ -380,6 +380,7 @@ the line, respectively."
            ("i" . sp-fetch-academic-doi)
            ("u" . sp-fetch-academic-download)
            ("s" . sp-fetch-academic-omni)
+           ("f" . sp-fetch-academic-attach-pdf)
            ("a" . sp-fetch-inbox))
 
 ;;;;;; Knowledge Search Keybindings

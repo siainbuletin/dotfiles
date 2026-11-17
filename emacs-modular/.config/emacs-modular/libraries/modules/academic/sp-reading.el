@@ -187,6 +187,31 @@ end tell"
     (puthash key uuid sp-reading-index)
     uuid))
 
+(defun sp-reading--records-at-script (path)
+  "The JavaScript that returns the UUIDs of the records whose file is PATH, tab-separated."
+  (format "const app = Application(\"DEVONthink\");
+const db = app.databases.byName(%s);
+const rs = app.lookupRecordsWithPath(%s, {in: db});
+rs.map(r => r.uuid()).join(\"\\t\");"
+          (json-encode-string sp-reading-database)
+          (json-encode-string (expand-file-name path))))
+
+(defun sp-reading-records-at (path)
+  "The UUIDs of the DEVONthink records whose file is PATH (a list, nil for none)."
+  (split-string (sp-reading--jxa (sp-reading--records-at-script path)) "\t" t))
+
+(defun sp-reading-ensure-file (key file)
+  "Make sure the PDF FILE has a record in DEVONthink; return (UUID . STATUS).
+STATUS is `known' when the citekey KEY already has a record (nothing is created),
+`other-name' when a record points at FILE under another name (it is kept), and
+`indexed' when FILE was indexed as KEY.pdf.  This is the one place that
+decides whether a PDF is already in DEVONthink, so no caller makes a duplicate."
+  (if-let* ((uuid (sp-reading-uuid key)))
+      (cons uuid 'known)
+    (if-let* ((uuid (car (sp-reading-records-at file))))
+        (cons uuid 'other-name)
+      (cons (sp-reading-index-file key file) 'indexed))))
+
 (defun sp-reading--pdf (key)
   "The first existing PDF file for the citekey KEY, from citar, or nil."
   (when (fboundp 'citar-get-files)

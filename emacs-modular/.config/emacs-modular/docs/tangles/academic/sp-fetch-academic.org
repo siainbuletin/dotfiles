@@ -31,6 +31,7 @@ Keys, under the bibliography group of the leader (=C-; B=, bound in =sp-keys=):
 | =C-; B b= | =sp-fetch-academic-biblio-lookup= | search a backend or enter a DOI, insert the entry |
 | =C-; B i= | =sp-fetch-academic-doi=           | add an entry from a DOI with =org-ref=, optionally fetch the PDF |
 | =C-; B u= | =sp-fetch-academic-download=      | download a PDF from a URL and attach it        |
+| =C-; B f= | =sp-fetch-academic-attach-pdf=   | attach a PDF on disk to an entry and add it to DEVONthink |
 | =C-; B s= | =sp-fetch-academic-omni=          | search scholarly sources with consult-omni, add the chosen paper by DOI (or PDF address) |
 
 * Header
@@ -54,6 +55,7 @@ The file header, a commentary and the =;;; Code:= marker. It requires =sp-bibpro
 
 ;;; Code:
 
+(require 'seq)
 (require 'sp-bibprocess)
 #+end_src
 
@@ -68,7 +70,14 @@ The file header, a commentary and the =;;; Code:= marker. It requires =sp-bibpro
   "Folder where `sp-fetch-academic-download' saves PDFs."
   :group 'spcustom
   :type 'directory)
+
+(defcustom sp-fetch-academic-devonthink t
+  "Non-nil: `sp-fetch-academic-file' also adds the PDF to DEVONthink (macOS)."
+  :group 'spcustom
+  :type 'boolean)
 #+end_src
+
+- =sp-fetch-academic-devonthink= turns the DEVONthink step of [[*One follow-up for every PDF][the follow-up]] off; the =file= field is written either way.
 
 * Searching with biblio
 
@@ -159,7 +168,8 @@ It signals a =user-error= when no file is registered.
 
 - The prompt is prefilled with a URL at point, if any, and a leading =https://doi.org/= or =doi:= is removed, so a pasted DOI link works.
 - =org-ref= cleans the new entry with =bibtex-clean-entry=, which should apply the key scheme and the entry format from =sp-bibprocess=. This has not been run, so check the first key you get.
-- Afterwards it offers to fetch the PDF with =doi-utils-get-bibtex-entry-pdf=. That only works for open-access papers and publishers =org-ref= knows; the PDF is saved in =org-ref-pdf-directory=.
+- Afterwards it offers to fetch the PDF with =doi-utils-get-bibtex-entry-pdf=. That only works for open-access papers and publishers =org-ref= knows; the PDF is saved in =org-ref-pdf-directory= as =KEY.pdf=.
+- When that file exists, =sp-fetch-academic-file= runs, so the =file= field is written and DEVONthink gets the PDF (before, the field stayed empty).
 
 #+begin_src emacs-lisp -i
 ;;;; DOI look-up
@@ -168,6 +178,14 @@ It signals a =user-error= when no file is registered.
   "Return DOI without whitespace or a resolver prefix."
   (replace-regexp-in-string "\\`\\(?:https?://\\(?:dx\\.\\)?doi\\.org/\\|doi:\\)" ""
                             (string-trim doi)))
+
+(defun sp--fetch-academic-follow-doi (key bibfile)
+  "Run the follow-up for the PDF `org-ref' saved for KEY, if there is one."
+  (let ((pdf (expand-file-name (concat key ".pdf")
+                               (if (boundp 'org-ref-pdf-directory)
+                                   org-ref-pdf-directory sp-literature-dir))))
+    (when (file-exists-p pdf)
+      (sp-fetch-academic-file key pdf bibfile))))
 
 ;;;###autoload
 (defun sp-fetch-academic-doi (doi)
@@ -181,36 +199,68 @@ It signals a =user-error= when no file is registered.
       (with-current-buffer (find-file-noselect bibfile)
         (goto-char (point-max))
         (bibtex-beginning-of-entry)
-        (doi-utils-get-bibtex-entry-pdf)))))
+        (let ((key (bibtex-key-in-head)))
+          (doi-utils-get-bibtex-entry-pdf)
+          (sp--fetch-academic-follow-doi key bibfile))))))
 #+end_src
 
 * Downloading files
 
 ** Attach a file to an entry
 
-=sp--fetch-academic-attach= writes FILE into the =file= field of the entry at point, as a path relative to =sp-bibliography-dir=. A second file is appended after a semicolon, the separator the attachment audit in =sp-bibprocess= splits on. A new field goes after the last one, adding the comma that was missing if need be. =bibtex-set-field= does not exist in Emacs's =bibtex=, so the field is edited with the =bibtex-search-forward-field= helpers.
+=sp-fetch-academic-file-field-value= is the one place that decides how a path is written in a =file= field.
+
+- Inside =sp-literature-dir= it is relative to that folder (=KEY.pdf=, =inbox/mac-bibdesk/x.pdf=), because =citar-library-paths= is that folder and the attachment lint (=sp-bibtex-lint-fix-files=) writes the same form.
+- Outside it, the path is relative to the =.bib= file (or =sp-bibliography-dir=), so it still resolves from the bibliography.
+- Before, the path was always relative to =sp-bibliography-dir=, which gave =../literature/KEY.pdf= and did not match the lint.
+
+=sp--fetch-academic-attach= writes FILE into the =file= field of the entry at point.
+
+- A second file is appended after a semicolon, the separator the attachment audit in =sp-bibprocess= splits on.
+- A file that is already listed is not added twice; the function returns nil then, non-nil when it wrote.
+- A new field goes after the last one, adding the comma that was missing if need be.
+- =bibtex-set-field= does not exist in Emacs's =bibtex=, so the field is edited with the =bibtex-search-forward-field= helpers.
 
 #+begin_src emacs-lisp -i
 ;;;; Downloading files
 
-(defun sp--fetch-academic-attach (file)
-  "Add FILE to the `file' field of the BibTeX entry at point."
-  (let ((relative (file-relative-name file sp-bibliography-dir)))
+(defun sp-fetch-academic-file-field-value (file &optional bibfile)
+  "The text for FILE in a `file' field of an entry of BIBFILE.
+Relative to `sp-literature-dir' when FILE is inside it, else to the folder of
+BIBFILE (default `sp-bibliography-dir')."
+  (let ((file (expand-file-name file))
+        (library (file-name-as-directory (expand-file-name sp-literature-dir))))
+    (if (string-prefix-p library file)
+        (file-relative-name file library)
+      (file-relative-name file (if bibfile
+                                   (file-name-directory (expand-file-name bibfile))
+                                 sp-bibliography-dir)))))
+
+(defun sp--fetch-academic-attach (file &optional bibfile)
+  "Add FILE to the `file' field of the BibTeX entry at point; non-nil when written.
+BIBFILE is the .bib file of the entry, for a path outside `sp-literature-dir'."
+  (let ((relative (sp-fetch-academic-file-field-value file bibfile)))
     (save-excursion
       (bibtex-beginning-of-entry)
-      (let ((bounds (bibtex-search-forward-field "file" t)))
-        (if bounds
-            (let ((old (bibtex-text-in-field-bounds bounds t))
-                  (start (bibtex-start-of-text-in-field bounds)))
-              (delete-region start (bibtex-end-of-text-in-field bounds))
-              (goto-char start)
-              (insert "{" old "; " relative "}"))
+      (let* ((bounds (bibtex-search-forward-field "file" t))
+             (old (and bounds (bibtex-text-in-field-bounds bounds t))))
+        (cond
+         ((and old (member relative (mapcar #'string-trim (split-string old ";" t))))
+          nil)
+         (bounds
+          (let ((start (bibtex-start-of-text-in-field bounds)))
+            (delete-region start (bibtex-end-of-text-in-field bounds))
+            (goto-char start)
+            (insert "{" (if (string-empty-p (string-trim old)) "" (concat old "; ")) relative "}")
+            t))
+         (t
           (bibtex-end-of-entry)
           (backward-char)
           (skip-chars-backward " \t\n")
           (unless (eq (char-before) ?,) (insert ","))
           (insert "\n  file = {" relative "}")
-          (when bibtex-comma-after-last-field (insert ",")))))))
+          (when bibtex-comma-after-last-field (insert ","))
+          t))))))
 #+end_src
 
 ** Check for a PDF
@@ -226,6 +276,105 @@ It signals a =user-error= when no file is registered.
     (equal (buffer-string) "%PDF")))
 #+end_src
 
+** One follow-up for every PDF
+
+=sp-fetch-academic-file= is the follow-up that every way of getting a PDF ends in: the download command, the DOI command, a PDF that is already on disk, and (for the DEVONthink part) the inbox.
+
+- Input: the citekey KEY and the PDF file. Output: a plist =(:file :bibfile :attached :dt)=.
+- Step 1, the file: a PDF outside the literature folder is moved there as =KEY.pdf=. A different =KEY.pdf= that already exists stops the command, nothing is overwritten.
+- Step 2, the =file= field: =sp--fetch-academic-attach= on the entry in its =.bib= file (found by =sp-fetch-academic-key-bibfile=), which is saved. Already listed: nothing is written.
+- Step 3, DEVONthink (macOS, =sp-fetch-academic-devonthink=): =sp-reading-ensure-file= indexes the PDF as =KEY.pdf= unless the citekey or the file already has a record.
+- Step 4: =sp-devonthink-bibsync-keys= copies author, title and keywords to the record; the keyword sync it calls keeps BibTeX, tags and litnote equal.
+- A DEVONthink failure is reported, not signalled: the =file= field is already written.
+- The litnote link (=#+devonthink:=) is not written here; =sp-devonthink-sync-backfill= does that. See [[file:../../architecture/devonthink-pipeline-design.org][the pipeline design]].
+
+=sp-fetch-academic-key-bibfile= is the question "which registered =.bib= has this key", asked once here; =sp-fetch-inbox= uses it too.
+
+=sp-fetch-academic-attach-pdf= is the command for a PDF that is already on disk: in a BibTeX entry it takes the key from the entry, and asks for the file. It is bound to =C-; B f=.
+
+#+begin_src emacs-lisp -i
+;;;; One follow-up for every PDF
+
+(declare-function sp-reading-ensure-file "sp-reading")
+(declare-function sp-devonthink-bibsync-keys "sp-devonthink-bibsync")
+
+(defun sp-fetch-academic-key-bibfile (key)
+  "The file of `sp-bibtex-files' that has an entry KEY, or nil."
+  (let ((re (format "^[ \t]*@[A-Za-z]+[ \t]*{[ \t]*%s[ \t]*," (regexp-quote key))))
+    (seq-find (lambda (f)
+                (and (file-readable-p f)
+                     (with-temp-buffer
+                       (insert-file-contents f)
+                       (re-search-forward re nil t))))
+              (bound-and-true-p sp-bibtex-files))))
+
+(defun sp--fetch-academic-dt-p ()
+  "Non-nil when the DEVONthink step can run."
+  (and sp-fetch-academic-devonthink (eq system-type 'darwin) (executable-find "osascript")))
+
+(defun sp--fetch-academic-place (key pdf)
+  "Move PDF to KEY.pdf in `sp-literature-dir' unless it is there; return the new path."
+  (let ((dest (expand-file-name (concat key ".pdf") sp-literature-dir)))
+    (cond ((and (file-exists-p dest) (file-exists-p pdf)
+                (equal (file-truename dest) (file-truename pdf)))
+           dest)
+          ((file-exists-p dest) (user-error "%s already exists" dest))
+          ((string-prefix-p (file-name-as-directory (expand-file-name sp-literature-dir))
+                            (expand-file-name pdf))
+           (expand-file-name pdf))
+          (t (make-directory sp-literature-dir t)
+             (rename-file pdf dest)
+             dest))))
+
+(defun sp--fetch-academic-devonthink (key file)
+  "Add FILE to DEVONthink as KEY.pdf if it is not there, then copy the BibTeX data.
+Return the status of `sp-reading-ensure-file', or nil when it did not run."
+  (when (sp--fetch-academic-dt-p)
+    (condition-case err
+        (progn
+          (require 'sp-reading)
+          (let ((status (cdr (sp-reading-ensure-file key file))))
+            (when (require 'sp-devonthink-bibsync nil t)
+              (sp-devonthink-bibsync-keys (list key)))
+            status))
+      (error (message "Filed, but DEVONthink was not updated: %s" (error-message-string err))
+             nil))))
+
+;;;###autoload
+(defun sp-fetch-academic-file (key pdf &optional bibfile)
+  "Attach PDF to the entry KEY and add it to DEVONthink.
+The entry is in BIBFILE, default the one of `sp-bibtex-files' that has KEY.
+Return a plist (:file :bibfile :attached :dt)."
+  (let* ((bibfile (or bibfile (sp-fetch-academic-key-bibfile key)
+                      (user-error "No entry %s in the registered .bib files" key)))
+         (file (sp--fetch-academic-place key pdf))
+         (attached
+          (with-current-buffer (find-file-noselect bibfile)
+            (save-excursion
+              (goto-char (point-min))
+              (unless (bibtex-find-entry key) (user-error "No entry %s in %s" key bibfile))
+              (prog1 (sp--fetch-academic-attach file bibfile)
+                (save-buffer))))))
+    (list :file file :bibfile bibfile :attached attached
+          :dt (sp--fetch-academic-devonthink key file))))
+
+;;;###autoload
+(defun sp-fetch-academic-attach-pdf (pdf &optional key)
+  "Attach the PDF on disk to an entry and add it to DEVONthink.
+In a BibTeX entry KEY is its key; otherwise it is asked."
+  (interactive
+   (list (read-file-name "PDF: " sp-literature-dir nil t)))
+  (let* ((key (or key
+                  (and (derived-mode-p 'bibtex-mode)
+                       (ignore-errors (save-excursion (bibtex-beginning-of-entry)
+                                                      (bibtex-key-in-head))))
+                  (read-string "Citation key: ")))
+         (result (sp-fetch-academic-file key pdf)))
+    (message "%s: %s%s" key (abbreviate-file-name (plist-get result :file))
+             (if (plist-get result :dt) (format " (DEVONthink: %s)" (plist-get result :dt)) ""))
+    result))
+#+end_src
+
 ** Download and import
 
 =sp-fetch-academic-download= saves a PDF and, when point is in a BibTeX entry, attaches it.
@@ -233,6 +382,7 @@ It signals a =user-error= when no file is registered.
 - The URL is prefilled from the one at point.
 - The file name is the entry's citation key, so the PDF is found by Citar (=citar-library-paths= is the same folder). Outside an entry it asks for a key and falls back to the name in the URL.
 - It refuses to overwrite a file (before downloading) and deletes a download that is not a PDF.
+- Inside an entry it then runs =sp-fetch-academic-file=: the =file= field and DEVONthink, as in [[*One follow-up for every PDF][the follow-up]].
 - Fetching goes through =url-copy-file=, so it uses Emacs's own proxy and cookie settings. Sites that need a login or a browser session will return a web page and be rejected.
 
 #+begin_src emacs-lisp -i
@@ -261,7 +411,7 @@ Inside a BibTeX entry, name the file after its key and attach it."
       (delete-file file)
       (user-error "%s is not a PDF" url))
     (when in-entry
-      (sp--fetch-academic-attach file))
+      (sp-fetch-academic-file in-entry file (buffer-file-name)))
     (message "Saved %s" file)
     file))
 #+end_src
@@ -299,12 +449,12 @@ a PDF goes to `sp-fetch-academic-download'."
 
 * Keys
 
-The four commands are bound in =sp-keys=, in the bibliography group =C-; B= (=b= look-up, =i= DOI, =u= URL, =s= search with consult-omni). They were =C-c w b b/i/u/s=, which are unbound now.
+The commands are bound in =sp-keys=, in the bibliography group =C-; B= (=b= look-up, =i= DOI, =u= URL, =s= search with consult-omni, =f= attach a PDF that is on disk). They were =C-c w b b/i/u/s=, which are unbound now.
 
 #+begin_src emacs-lisp -i
 ;;;; Keys
 
-;; Bound in `sp-keys' (C-; B b, i, u, s); nothing to bind here.
+;; Bound in `sp-keys' (C-; B b, i, u, s, f); nothing to bind here.
 #+end_src
 
 * litdb
