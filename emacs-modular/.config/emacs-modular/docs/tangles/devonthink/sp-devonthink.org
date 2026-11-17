@@ -271,6 +271,7 @@ citekey ──┬── BibTeX entry (file field → ~/Documents/literature/KEY.
 - Author, title and the litnote link move one way, when you run a command; keywords are different: they sync both ways (see "Keyword and tag sync").
 - Status of the arrows:
   - On =main=: the BibTeX to litnote fill, =sp-fetch-inbox=, bibsync (author, title), the sync report and backfill.
+  - Added with the PDF follow-up (box 1b): =sp-fetch-academic-file=, one entry point for a (citekey, PDF) pair: =file= field, DEVONthink record, bibsync. The design for the rest is in [[file:../../architecture/devonthink-pipeline-design.org][the pipeline design]].
   - Not on =main=: the keyword sync (this branch is stacked on #443, which still carries #455's code; the sync replaces both).
 - The diagram is PlantUML; =C-c C-c= on it renders it and shows it inline (needs =brew install plantuml=, see =sp-org-babel=).
   - The image is saved as =libraries/images/devonthink-pipeline.png= (the =:file= path is relative to this document, so it climbs out of =docs/tangles/devonthink/=).
@@ -291,8 +292,17 @@ participant "DEVONthink\nrecord" as D
 You -> E : pick inbox PDF, edit entry
 E -> D : rename to KEY.pdf, move (osascript)
 E -> B : append the entry
+E -> B : file = {KEY.pdf} (sp--fetch-academic-attach,\nthe writer shared with 1b)
 E -> D : bibsync-entry (see 2)
 note right of L : no litnote is made here
+
+== 1b. Any other PDF of an entry: sp-fetch-academic-file (C-; B u, C-; B i, C-; B f) ==
+You -> E : PDF URL, DOI or a PDF on disk (key from the entry)
+E -> E : move the PDF to literature/KEY.pdf\n(never overwrites a different file)
+E -> B : file = {KEY.pdf}, relative to the literature folder\n(not added twice), .bib saved
+E -> D : sp-reading-ensure-file: record of the key?\nrecord of the file? else index as KEY.pdf
+E -> D : bibsync-keys (see 2)
+note right of D : a failure here is a message,\nthe file field is already written
 
 == 2. BibTeX to record: bibsync (C-; k d y, -many, -all, Embark y) ==
 You -> E : citekey(s)
@@ -355,6 +365,7 @@ E -> D : block in the PARENT record's comment
 | Field | Owner | Written to | Overwrites? |
 |-------+-------+------------+-------------|
 | author, title | BibTeX | record custom metadata (bibsync), litnote =pub-*= lines (fill) | record: yes, every run; litnote: only empty lines |
+| =file= (the PDF) | BibTeX | =sp-fetch-academic-file= writes it (relative to =sp-literature-dir=); the record is indexed from the same file | never overwritten; a path already listed is skipped |
 | keywords | none: three-way merge of BibTeX, record tags and litnote line against the last synced set | all three | additions and removals both travel; a hand-edited litnote line only after you answer yes |
 | =#+devonthink:= UUID, =litnote= link | litnote and record, one each | each side holds the other | backfill writes only where missing |
 | chapter keywords | BibTeX of the chapter | parent record comment (#441) | the block of that chapter |

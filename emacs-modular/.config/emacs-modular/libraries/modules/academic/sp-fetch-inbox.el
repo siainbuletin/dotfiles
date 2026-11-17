@@ -19,6 +19,7 @@
 (defvar sp-literature-dir)
 (defvar sp-bibtex-files)
 (declare-function sp--fetch-academic-attach "sp-fetch-academic")
+(declare-function sp-fetch-academic-key-bibfile "sp-fetch-academic")
 (declare-function doi-utils-doi-to-bibtex-string "doi-utils")
 (declare-function sp-devonthink-bibsync-entry "sp-devonthink-bibsync")
 
@@ -397,13 +398,8 @@ With a single item, that one.  The order starts as `sp-fetch-inbox-sort'."
 
 (defun sp-fetch-inbox--key-taken-p (key)
   "Non-nil when KEY is the key of an entry in one of `sp-bibtex-files'."
-  (let ((re (format "^[ \t]*@[A-Za-z]+[ \t]*{[ \t]*%s[ \t]*," (regexp-quote key))))
-    (seq-some (lambda (f)
-                (and (file-readable-p f)
-                     (with-temp-buffer
-                       (insert-file-contents f)
-                       (re-search-forward re nil t))))
-              (bound-and-true-p sp-bibtex-files))))
+  (unless (fboundp 'sp-fetch-academic-key-bibfile) (require 'sp-fetch-academic))
+  (and (sp-fetch-academic-key-bibfile key) t))
 
 (defun sp-fetch-inbox--unique-key (key taken-p)
   "KEY, or KEY with a letter appended, the first for which TAKEN-P is nil."
@@ -652,15 +648,6 @@ app.delete({record: app.getRecordWithUuid(%s)});\"done\";" (json-encode-string u
           (sp-reading--jxa (sp-fetch-inbox--trash-script uuid))))))
     dest))
 
-(defun sp-fetch-inbox--records-at-script (path)
-  "The JavaScript that returns the UUIDs of the records whose file is PATH, tab-separated."
-  (format "const app = Application(\"DEVONthink\");
-const db = app.databases.byName(%s);
-const rs = app.lookupRecordsWithPath(%s, {in: db});
-rs.map(r => r.uuid()).join(\"\\t\");"
-          (json-encode-string sp-reading-database)
-          (json-encode-string (expand-file-name path))))
-
 (defun sp-fetch-inbox--backup-pdf (dest key)
   "Copy the file DEST to `sp-fetch-inbox-backup-dir' as KEY-TIMESTAMP.pdf; return the copy."
   (let ((backup (expand-file-name
@@ -680,9 +667,7 @@ duplicate.  Without a record of DEST, the new file is indexed."
          (dt (sp-fetch-inbox--dt-p)))
     (when (sp-fetch-inbox--same-file-p file dest)
       (user-error "That is the file to replace"))
-    (let* ((old (and dt (delete uuid (split-string
-                                      (sp-reading--jxa (sp-fetch-inbox--records-at-script dest))
-                                      "\t" t))))
+    (let* ((old (and dt (delete uuid (sp-reading-records-at dest))))
            (backup (sp-fetch-inbox--backup-pdf dest key)))
       (when (and dt uuid) (sp-reading--jxa (sp-fetch-inbox--trash-script uuid)))
       (rename-file file dest t)
