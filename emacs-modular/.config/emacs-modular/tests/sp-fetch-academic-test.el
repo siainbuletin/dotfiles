@@ -7,7 +7,7 @@
 (defvar sp-bibtex-files nil)
 (require 'sp-fetch-academic)
 (require 'sp-reading)
-(require 'sp-devonthink-bibsync)
+(require 'sp-devonthink-sync)
 
 (defconst sp-fetch-academic-test--bib
   "@article{smith2020,\n  author = {Smith, Jane},\n  title = {Attention},\n  year = {2020},\n}\n")
@@ -117,9 +117,9 @@
                ((symbol-function 'sp-reading-records-at) (lambda (_) nil))
                ((symbol-function 'sp-reading-index-file)
 		(lambda (&rest a) (setq indexed a) "U2"))
-               ((symbol-function 'sp-devonthink-bibsync-keys)
-		(lambda (keys) (setq synced keys))))
-       (should (eq (sp--fetch-academic-devonthink "smith2020" "/x/smith2020.pdf") 'known))
+               ((symbol-function 'sp-devonthink-sync-key)
+		(lambda (key) (setq synced (list key)))))
+       (should (eq (plist-get (sp--fetch-academic-devonthink "smith2020" "/x/smith2020.pdf") :record) 'known))
        (should-not indexed)
        (should (equal synced '("smith2020")))))))
 
@@ -129,6 +129,50 @@
      (cl-letf (((symbol-function 'sp--fetch-academic-dt-p) (lambda () t))
                ((symbol-function 'sp-reading-uuid) (lambda (_) (error "boom"))))
        (should-not (sp--fetch-academic-devonthink "smith2020" "/x/smith2020.pdf"))))))
+
+(ert-deftest sp-fetch-academic-devonthink-indexes-only-without-record ()
+  (let ((sp-fetch-academic-devonthink t) indexed)
+    (cl-letf (((symbol-function 'sp--fetch-academic-dt-p) (lambda () t))
+              ((symbol-function 'sp-reading-uuid) (lambda (_) nil))
+              ((symbol-function 'sp-reading-records-at) (lambda (_) '("U9")))
+              ((symbol-function 'sp-reading-index-file)
+               (lambda (&rest a) (setq indexed a) "U2"))
+              ((symbol-function 'sp-devonthink-sync-key) #'ignore))
+      ;; a record points at the file under another name: nothing is indexed
+      (should (eq (plist-get (sp--fetch-academic-devonthink "k" "/x/k.pdf") :record) 'other-name))
+      (should-not indexed))
+    (cl-letf (((symbol-function 'sp--fetch-academic-dt-p) (lambda () t))
+              ((symbol-function 'sp-reading-uuid) (lambda (_) nil))
+              ((symbol-function 'sp-reading-records-at) (lambda (_) nil))
+              ((symbol-function 'sp-reading-index-file)
+               (lambda (&rest a) (setq indexed a) "U2"))
+              ((symbol-function 'sp-devonthink-sync-key) #'ignore))
+      (should (eq (plist-get (sp--fetch-academic-devonthink "k" "/x/k.pdf") :record) 'indexed))
+      (should (equal indexed '("k" "/x/k.pdf"))))))
+
+(ert-deftest sp-fetch-academic-file-with-entry-appends-first ()
+  (sp-fetch-academic-test--with-env
+   (let* ((bib (expand-file-name "t.bib" sp-bibliography-dir))
+          (sp-fetch-academic-devonthink nil)
+          (pdf (expand-file-name "doe2021new.pdf" sp-literature-dir)))
+     (write-region "@book{a,\n}\n" nil bib)
+     (setq sp-bibtex-files (list bib))
+     (write-region "%PDF" nil pdf)
+     (let ((result (sp-fetch-academic-file
+                    "doe2021new" pdf bib
+                    "@article{doe2021new,\n  title = {T},\n  year = {2021},\n}\n")))
+       (should (plist-get result :attached)))
+     (with-temp-buffer
+       (insert-file-contents bib)
+       (should (search-forward "@article{doe2021new," nil t))
+       (should (search-forward "file = {doe2021new.pdf}" nil t)))
+     (should-error (sp-fetch-academic-file "x" pdf nil "@book{x,}") :type 'user-error))))
+
+(ert-deftest sp-fetch-academic-key-bibfile-finds-key ()
+  (sp-fetch-academic-test--with-env
+   (let ((bib (sp-fetch-academic-test--setup)))
+     (should (equal (sp-fetch-academic-key-bibfile "smith2020") bib))
+     (should-not (sp-fetch-academic-key-bibfile "nobody")))))
 
 (provide 'sp-fetch-academic-test)
 ;;; sp-fetch-academic-test.el ends here
