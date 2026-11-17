@@ -135,7 +135,30 @@ The file header: the first line carries the file name, a short summary and the =
 (when (eq system-type 'darwin)
   (global-unset-key (kbd "C-z")))
 
+;;;; Quit Emacs like other apps: Cmd+Q on the Mac, Ctrl+Q elsewhere.
+;; C-x C-c is easy to hit by accident, so it is unbound everywhere.
+(keymap-global-unset "C-x C-c")
+(if (eq system-type 'darwin)
+    ;; Command is Super (`sp-macos'); this is already the ns default.
+    (keymap-global-set "s-q" #'save-buffers-kill-terminal)
+  ;; Ctrl+Q is the quit key here; `quoted-insert' moves to s-q.
+  (keymap-global-set "s-q" #'quoted-insert)
+  (keymap-global-set "C-q" #'save-buffers-kill-terminal))
+
 #+end_src
+
+** Quit Emacs
+
+- =C-x C-c= is unbound on every system, because it is easy to hit by accident.
+- Quitting calls =save-buffers-kill-terminal=, so Emacs still asks about unsaved buffers; =sp-confirm-kill-emacs= and =sp-confirm-kill-processes= (=sp-globals=) decide the rest.
+- On the Mac: =s-q= (Command+Q), the same key as other Mac apps. It is Emacs's own default for =s-q=, bound here so it is explicit.
+- On Linux and Windows: =C-q= (Ctrl+Q), because Ctrl is the system key there.
+   + =C-q= was =quoted-insert=; that moves to =s-q= (Super+Q, the Windows key on these systems).
+   + On Windows =Alt+F4= is handled by the operating system and closes the frame; it is not bound in Emacs.
+- =M-q= stays =fill-paragraph= (=org-fill-paragraph= in Org); nothing else in the config binds =M-q=.
+   + Option on the Mac is Meta, so Option+Q is not a quit key.
+- Not run in Emacs here (none in the container).
+- The leader quit key =C-; q q= (=save-buffers-kill-emacs=) is unchanged.
 
 * Whitespace cleanup
 

@@ -175,6 +175,10 @@ Most of the common Emacs keys are bound differently here. This table is the plac
 | =C-_=, =C-/=, =C-?=, =C-x u= | undo       | =s-z=              | =C-z=                   | =undo=, all four unbound |
 | =C-M-_=            | redo                 | =s-Z= or =S-s-z=   | =C-S-z=                 | =undo-redo= |
 | =C-z=              | suspend frame        | unbound            | undo                    | |
+| =C-x C-c=          | quit Emacs           | unbound            | unbound                 | too easy to hit; see =sp-text-manipulation= |
+| =s-q=              | (none)               | quit Emacs         | =quoted-insert=         | Command+Q on the Mac |
+| =C-q=              | quoted-insert        | =C-q= (unchanged)  | quit Emacs              | Ctrl+Q; insert-literal key moved to =s-q= |
+| =M-q=              | fill paragraph       | unchanged          | unchanged               | not a quit key |
 | =C-c= prefix       | user and mode keys   | =C-c=              | =s-c=                   | =s-c C-c= is =C-c C-c= |
 | =C-x= prefix       | core commands        | =C-x=              | =s-x=                   | =s-x C-f= is =C-x C-f= |
 | =C-x C-SPC=        | old leader           | =C-x C-SPC=        | =s-x C-SPC=             | prints where the leader moved |
