@@ -73,7 +73,10 @@ Falls back to `find-file' when emureader is not ready."
     (unless (file-exists-p file) (user-error "No such file: %s" file))
     (cond
      ((sp-pdf-reader-ready-p)
-      (funcall sp-pdf-reader-function-open file)
+      ;; Large PDFs are normal reading material: no "File is large" prompt.
+      ;; Bound only around the open, so find-file elsewhere keeps its warning.
+      (let ((large-file-warning-threshold nil))
+        (funcall sp-pdf-reader-function-open file))
       (when page (funcall sp-pdf-reader-function-goto-page page)))
      (t
       (message "emureader is not ready (install it, then M-x %s); using find-file"

@@ -17,6 +17,8 @@ Literate source for =libraries/modules/academic/sp-pdf-reader.el=.
 - =sp-pdf-open= opens a PDF in it, optionally at a page.
   - The page counts from 1 and is the physical page of the PDF.
   - Without =emureader= (or without the built module) it falls back to =find-file= and says so.
+  - It binds =large-file-warning-threshold= to nil around the open, so a large PDF opens without the "File is large, really open?" prompt.
+    - The binding is local to the open call; =find-file= everywhere else keeps its warning.
 - DEVONthink actions use it: Embark =p= on a record (=sp-devonthink-record-pdf=) opens the PDF in Emacs through =sp-pdf-open=.
 
 * What emureader cannot do
@@ -137,7 +139,10 @@ Falls back to `find-file' when emureader is not ready."
     (unless (file-exists-p file) (user-error "No such file: %s" file))
     (cond
      ((sp-pdf-reader-ready-p)
-      (funcall sp-pdf-reader-function-open file)
+      ;; Large PDFs are normal reading material: no "File is large" prompt.
+      ;; Bound only around the open, so find-file elsewhere keeps its warning.
+      (let ((large-file-warning-threshold nil))
+        (funcall sp-pdf-reader-function-open file))
       (when page (funcall sp-pdf-reader-function-goto-page page)))
      (t
       (message "emureader is not ready (install it, then M-x %s); using find-file"

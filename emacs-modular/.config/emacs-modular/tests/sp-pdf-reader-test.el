@@ -34,3 +34,12 @@
 
 (ert-deftest sp-pdf-open-missing-file ()
   (should-error (sp-pdf-open "/nonexistent/x.pdf") :type 'user-error))
+
+(ert-deftest sp-pdf-open-does-not-ask-about-large-files ()
+  (let ((large-file-warning-threshold 1) seen)
+    (sp-pdf-reader-test--with-ready t
+      (cl-letf (((symbol-function 'emureader-open-doc)
+                 (lambda (_f) (setq seen large-file-warning-threshold))))
+        (sp-pdf-open file)
+        (should (null seen))
+        (should (= large-file-warning-threshold 1))))))
