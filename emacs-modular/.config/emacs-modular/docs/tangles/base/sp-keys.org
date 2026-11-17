@@ -176,9 +176,9 @@ Most of the common Emacs keys are bound differently here. This table is the plac
 | =C-M-_=            | redo                 | =s-Z= or =S-s-z=   | =C-S-z=                 | =undo-redo= |
 | =C-z=              | suspend frame        | unbound            | undo                    | |
 | =C-x C-c=          | quit Emacs           | unbound            | unbound                 | too easy to hit; see =sp-text-manipulation= |
-| =s-q=              | (none)               | quit Emacs         | =quoted-insert=         | Command+Q on the Mac |
-| =C-q=              | quoted-insert        | =C-q= (unchanged)  | quit Emacs              | Ctrl+Q; insert-literal key moved to =s-q= |
-| =M-q=              | fill paragraph       | unchanged          | unchanged               | not a quit key |
+| =M-q=              | fill paragraph       | quit Emacs         | quit Emacs              | Option+Q / Alt+Q; fill moved to =C-; p= |
+| =s-q=              | (Mac default: quit)  | quit Emacs         | unbound                 | Command+Q |
+| =C-; p=            | (none)               | fill paragraph     | fill paragraph          | was =M-q= |
 | =C-c= prefix       | user and mode keys   | =C-c=              | =s-c=                   | =s-c C-c= is =C-c C-c= |
 | =C-x= prefix       | core commands        | =C-x=              | =s-x=                   | =s-x C-f= is =C-x C-f= |
 | =C-x C-SPC=        | old leader           | =C-x C-SPC=        | =s-x C-SPC=             | prints where the leader moved |
@@ -228,7 +228,11 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
            :prefix sp-prefix)
+;; Filling a paragraph moved here when M-q became quit (`sp-text-manipulation').
+(keymap-set lem+leader-map "p" #'fill-paragraph)
 #+end_src
+
+- =C-; p= is =fill-paragraph=, moved from =M-q= (now quit); Org buffers get =org-fill-paragraph= through Org's remap.
 
 ** Legacy leader (C-x C-SPC)
 

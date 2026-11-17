@@ -71,6 +71,8 @@ the line, respectively."
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
            :prefix sp-prefix)
+;; Filling a paragraph moved here when M-q became quit (`sp-text-manipulation').
+(keymap-set lem+leader-map "p" #'fill-paragraph)
 
 ;;;;; Legacy Leader (C-x C-SPC)
 (defun sp-keys-legacy-leader ()
