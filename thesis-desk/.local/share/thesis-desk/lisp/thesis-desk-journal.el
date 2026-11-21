@@ -63,6 +63,14 @@ rates the record `thesis-desk-not-relevant-rating'."
 "
   "Contents of a new journal file.")
 
+(defvar thesis-desk-after-switch-functions nil
+  "Functions called after a session is left, with (SESSION REASON STATE).
+SESSION is the plist the session had before it was left, REASON the symbol
+of `thesis-desk-leave-reasons', STATE the new TODO state.")
+
+(defvar thesis-desk-after-start-functions nil
+  "Functions called after a session starts, with (ID RECORD).")
+
 (defvar thesis-desk--came-from nil
   "ID of the session left by following a citation, for the next start.")
 
@@ -291,6 +299,7 @@ why).  A paused session of the same record is offered for resuming."
                 record claims purpose
                 :came-from (prog1 thesis-desk--came-from (setq thesis-desk--came-from nil))
                 :resumes (and resume (plist-get paused :id)))))
+      (run-hook-with-args 'thesis-desk-after-start-functions id record)
       (message "Reading %s%s" (or (plist-get record :key) (plist-get record :name))
                (if resume (format ", resume at: %s" (plist-get paused :next)) ""))
       id)))
@@ -337,9 +346,10 @@ not offer to start the next session after a followed citation."
            (next (when (and (not dropped) (not (eq reason 'found)))
                    (read-string "Next time: " (and page (format "resume at p. %d" page)))))
            (note (read-string "A note (optional): ")))
-      (thesis-desk-journal--close (plist-get session :id)
-                                  :reason reason :page page :verdicts verdicts
-                                  :why why :next next :note note)
+      (let ((state (thesis-desk-journal--close (plist-get session :id)
+                                               :reason reason :page page :verdicts verdicts
+                                               :why why :next next :note note)))
+        (run-hook-with-args 'thesis-desk-after-switch-functions session reason state))
       (when (and dropped thesis-desk-not-relevant-rating (plist-get session :uuid))
         (condition-case err
             (funcall thesis-desk-set-rating-function

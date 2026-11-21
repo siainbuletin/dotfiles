@@ -274,5 +274,100 @@
     (should (string-match-p "relevance :: \\[\\[id:c1\\]\\[Claim one\\]\\] adapts 2: n" text))
     (should (string-match-p "relevance :: fetishism contrasts 1: m" text))))
 
+;;;; Open tracking
+
+(ert-deftest thesis-desk-parse-open-lines ()
+  (should (equal (thesis-desk-parse-open "2026-11-21T10:00:00Z\t5A1C0D2E-AAAA-BBBB-CCCC-123456789ABC\tk-2012.pdf")
+                 '(:time "2026-11-21T10:00:00Z" :uuid "5A1C0D2E-AAAA-BBBB-CCCC-123456789ABC"
+                         :name "k-2012.pdf" :key "k-2012")))
+  (should-not (thesis-desk-parse-open "garbage")))
+
+(ert-deftest thesis-desk-read-opens-keeps-partial-lines ()
+  (thesis-desk-test--with-dir
+    (let ((thesis-desk-opens-file (expand-file-name "opens.tsv" thesis-desk-directory))
+          (u "5A1C0D2E-AAAA-BBBB-CCCC-123456789ABC"))
+      (with-temp-file thesis-desk-opens-file
+        (insert "2026-11-21T10:00:00Z\t" u "\tă-one.pdf\n2026-11-21T10:01:00Z\t" u "\ttwo"))
+      (pcase-let ((`(,opens . ,offset) (thesis-desk-read-opens 0)))
+        (should (equal (mapcar (lambda (o) (plist-get o :key)) opens) '("ă-one")))
+        (with-temp-file thesis-desk-opens-file
+          (insert "2026-11-21T10:00:00Z\t" u "\tă-one.pdf\n2026-11-21T10:01:00Z\t" u "\ttwo.pdf\n"))
+        (should (equal (mapcar (lambda (o) (plist-get o :key)) (car (thesis-desk-read-opens offset)))
+                       '("two")))))))
+
+(ert-deftest thesis-desk-watch-queue-mode-only-says-so ()
+  (thesis-desk-test--with-dir
+    (let ((thesis-desk-opens-file (expand-file-name "opens.tsv" thesis-desk-directory))
+          (thesis-desk-watch-on-switch 'queue)
+          (thesis-desk--watch-offset 0)
+          (started nil))
+      (thesis-desk-journal--create '(:uuid "U-OLD" :key "old") nil "x")
+      (with-temp-file thesis-desk-opens-file
+        (insert "2026-11-21T10:00:00Z\t5A1C0D2E-AAAA-BBBB-CCCC-123456789ABC\tnew.pdf\n"))
+      (cl-letf (((symbol-function 'thesis-desk-start) (lambda (&rest _) (setq started t))))
+        (thesis-desk--watch-changed)
+        (should thesis-desk--watch-pending)
+        (cancel-timer thesis-desk--watch-timer)
+        (thesis-desk--watch-react)
+        (should-not started)
+        (let ((thesis-desk-watch-on-switch 'ask))
+          (setq thesis-desk--watch-pending '(:uuid "U-NEW" :key "new" :name "new.pdf"))
+          (cl-letf (((symbol-function 'select-frame-set-input-focus) #'ignore))
+            (thesis-desk--watch-react))
+          (should started))))))
+
+(ert-deftest thesis-desk-today-and-stalled ()
+  (let* ((opens (list '(:time "2026-11-21T09:00:00Z" :uuid "A" :key "a")
+                      '(:time "2026-11-21T09:30:00Z" :uuid "A" :key "a")
+                      '(:time "2026-11-21T10:00:00Z" :uuid "B" :key "b")
+                      '(:time "2026-11-20T10:00:00Z" :uuid "C" :key "c")
+                      '(:time "2026-11-19T10:00:00Z" :uuid "A" :key "a")))
+         (sessions (list '(:uuid "B" :state "PAUSED" :started "[2026-11-21 Sat 11:00]")))
+         (sections (thesis-desk-today-sections opens sessions "2026-11-21")))
+    (should (equal (mapcar (lambda (i) (plist-get i :label)) (plist-get (car sections) :items)) '("a")))
+    (should (string-match-p "opened 2 times" (plist-get (car (plist-get (car sections) :items)) :text)))
+    (should (functionp (plist-get (car (plist-get (car sections) :items)) :action)))
+    (should (equal (mapcar (lambda (i) (plist-get i :label)) (plist-get (cadr sections) :items)) '("b")))
+    (should (equal (mapcar (lambda (s) (plist-get s :uuid)) (thesis-desk-stalled opens sessions 3)) '("A")))
+    (should-not (thesis-desk-stalled opens (list '(:uuid "A" :state "DONE")) 3))))
+
+;;;; Reminders
+
+(ert-deftest thesis-desk-remind-script-is-filled ()
+  (let* ((thesis-desk-remind-hour 9)
+         (script (thesis-desk-remind-set-script-for "U\"1" (encode-time (list 0 0 12 25 11 2026 nil nil nil)))))
+    (should (string-prefix-p "tell application id \"DNtp\"" script))
+    (should (string-match-p "get record with uuid \"U\\\\\"1\"" script))
+    (should (string-match-p "set month of d to 11" script))
+    (should (string-match-p "set time of d to 32400" script))
+    (should-not (string-match-p "%[A-Z]+%" script))))
+
+(ert-deftest thesis-desk-remind-dates-and-sections ()
+  (let ((dates (thesis-desk-remind-parse-dates "U1\t2026-11-5\nU2\t-\nbad\n")))
+    (should (equal dates '(("U1" . "2026-11-05") ("U2"))))
+    (let ((sections (thesis-desk-reminder-sections
+                     (list '(:id "s1" :uuid "U1" :key "a") '(:id "s2" :uuid "U2" :key "b")
+                           '(:id "s3" :uuid "U1" :key "c") '(:id "s4" :uuid "U3" :key "d"))
+                     '(("s1" . "2026-11-05") ("s2" . "2026-11-07") ("s3" . "2026-11-09") ("s4"))
+                     dates)))
+      (should (equal (mapcar (lambda (sec) (mapcar (lambda (i) (plist-get i :label)) (plist-get sec :items)))
+                             sections)
+                     '(("b") ("c") ("a")))))))
+
+(ert-deftest thesis-desk-remind-after-switch-schedules ()
+  (thesis-desk-test--with-dir
+    (let* ((set nil)
+           (id (thesis-desk-journal--create '(:uuid "U-9" :key "k") nil "x"))
+           (when (encode-time (list 0 0 12 25 11 2026 nil nil nil))))
+      (thesis-desk-journal--close id :reason 'later :next "p. 3")
+      (cl-letf (((symbol-function 'org-read-date) (lambda (&rest _) when))
+                ((symbol-function 'thesis-desk-remind-set) (lambda (u time) (setq set (list u time)))))
+        (thesis-desk-remind-after-switch (list :id id :uuid "U-9") 'later "PAUSED")
+        (should (equal (thesis-desk-session-scheduled id) "2026-11-25"))
+        (should (equal (car set) "U-9"))
+        (setq set nil)
+        (thesis-desk-remind-after-switch (list :id id :uuid "U-9") 'found "DONE")
+        (should-not set)))))
+
 (provide 'thesis-desk-test)
 ;;; thesis-desk-test.el ends here

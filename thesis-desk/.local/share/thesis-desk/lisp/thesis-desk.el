@@ -46,12 +46,16 @@
 (require 'thesis-desk-views)
 (require 'thesis-desk-hotspots)
 (require 'thesis-desk-litnotes)
+(require 'thesis-desk-watch)
+(require 'thesis-desk-remind)
 
 (defvar thesis-desk-command-map
   (let ((map (make-sparse-keymap)))
     (define-key map "s" #'thesis-desk-start)
     (define-key map "x" #'thesis-desk-switch)
     (define-key map "w" #'thesis-desk-where)
+    (define-key map "d" #'thesis-desk-today)
+    (define-key map "R" #'thesis-desk-reminders)
     (define-key map "N" #'thesis-desk-rejected)
     (define-key map "j" #'thesis-desk-journal-visit)
     (define-key map "m" #'thesis-desk-map-visit)
