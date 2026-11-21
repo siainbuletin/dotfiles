@@ -98,6 +98,15 @@ Its page already has `sp-devonthink-store-page-offset' applied."
   (setq thesis-desk-mentions-function #'thesis-desk-sp-mentions
         thesis-desk-concept-title-function #'sp-see-also--concept-title))
 
+;;;; Watching DEVONthink opens
+
+(defcustom thesis-desk-sp-watch t
+  "Non-nil turns on `thesis-desk-watch-mode' on macOS when this file loads."
+  :type 'boolean :group 'thesis-desk)
+
+(when (and thesis-desk-sp-watch (eq system-type 'darwin))
+  (thesis-desk-watch-mode 1))
+
 ;;;; Keys
 
 (with-eval-after-load 'sp-keys

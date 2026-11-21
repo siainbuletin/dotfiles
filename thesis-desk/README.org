@@ -21,6 +21,8 @@ An Emacs package kept apart from the emacs-modular configuration. It ties every 
 | =thesis-desk-journal.el= | reading sessions: start, switch, resume |
 | =thesis-desk-views.el= | "Where was I" and "Rejected", shown in =sp-batch-report= when loaded |
 | =thesis-desk-hotspots.el= | concepts many see-also notes call for; synthesis notes |
+| =thesis-desk-watch.el= | the opens the DEVONthink smart rule logs; today's opens; stalled readings |
+| =thesis-desk-remind.el= | DEVONthink reminders for paused readings, and the report that keeps them in step |
 | =thesis-desk-litnotes.el= | Claude's proposed summaries for the litnotes of a project, and writing them |
 | =thesis-desk-sp.el= | the only file that knows the configuration: vulpea claims, =sp-devonthink=, =sp-see-also=, keys |
 
@@ -32,6 +34,7 @@ An Emacs package kept apart from the emacs-modular configuration. It ties every 
   - =synthesis-state.eld=: which see-also calls each synthesis note has addressed;
   - =proposals/litnotes-PROJECT.eld=: Claude's proposals, until you apply or drop them;
   - =backups/=: copies of litnotes taken before proposals are written into them.
+- The opens log is =~/.local/state/thesis-desk/opens.tsv= (=thesis-desk-opens-file=): one line per opened record, about 100 bytes.
 - Synthesis notes go to =~/notes/synthesis/= (=thesis-desk-synthesis-directory=), so Vulpea indexes them.
 
 * Keys
@@ -44,6 +47,8 @@ All under =C-; r= (research); =C-; t= is taken by the toggles.
 | =x= | =thesis-desk-switch= | leave it: why, a verdict per claim, where to resume, a note |
 | =w= | =thesis-desk-where= | paused readings by claim, with the next step and a link to the page |
 | =N= | =thesis-desk-rejected= | readings left as not relevant, with the reason, by claim |
+| =d= | =thesis-desk-today= | today's opens with and without a session; records opened 3+ times and never finished |
+| =R= | =thesis-desk-reminders= | paused sessions whose DEVONthink reminder is missing or on another date; =A= sets them |
 | =j= | =thesis-desk-journal-visit= | open the journal |
 | =m= | =thesis-desk-map-visit= | open the map |
 | =h= | =thesis-desk-hotspots= | concepts that need a synthesis |
@@ -65,6 +70,29 @@ All under =C-; r= (research); =C-; t= is taken by the toggles.
   - =n= asks why (it cannot be empty), sets the DEVONthink rating to 1 star (=thesis-desk-not-relevant-rating=) and keeps the record;
   - =c= offers to start the cited text at once; its session gets =CAME_FROM=, so jumps form a chain.
 - Org clocks in while a session is =READING= (=thesis-desk-clock=).
+
+* Open tracking
+
+- Nothing polls: DEVONthink runs a script when a record opens, and Emacs watches the file it writes (=file-notify=).
+- Setup, once:
+  1. =M-x thesis-desk-install-smart-rule-script= compiles =devonthink/thesis-desk-log-open.applescript= into =~/Library/Application Scripts/com.devon-technologies.think/Smart Rules/thesis-desk log open.scpt=.
+  2. In DEVONthink: Tools > New Smart Rule. Search in: =literature=; condition: Kind is PDF; event: /On Opening/; action: Execute Script, External, =thesis-desk log open=.
+  3. =thesis-desk-sp= turns on =thesis-desk-watch-mode= on macOS (=thesis-desk-sp-watch=).
+- What an open does (=thesis-desk-watch-on-switch=):
+  - another record is being read: =ask= (default) raises Emacs and asks why you left it, then starts the new one; =queue= only says so in the echo area;
+  - no session open: only logged; =C-; r d= lists it, =RET= on it starts a session.
+- A burst of opens (=thesis-desk-watch-delay=, 1 s) counts once: the newest wins.
+- Only names ending in =.pdf= count (=thesis-desk-watch-name-regexp=).
+- The log's times are UTC; "today" in =C-; r d= is the UTC day.
+
+* Reminders
+
+- Leaving a reading as /later/ (5 days), /too dense/ (3), /interrupted/ (1) or /followed a citation/ (2) asks for a date with that default (=thesis-desk-remind-days=).
+  - The session gets =SCHEDULED= on that date, so the agenda shows it.
+  - The record gets a DEVONthink reminder at 9:00 (=thesis-desk-remind-hour=), alarm =notification= (=thesis-desk-remind-alarm=).
+- Starting a session on a record clears its reminder.
+- =C-; r R= compares the two for every paused session; =A= sets the missing and different ones from the Org date.
+- The three AppleScripts are options (=thesis-desk-remind-set-script=, =-clear-script=, =-read-script=), so a fix after the probe on the Mac needs no new code.
 
 * Hotspots and synthesis notes
 
@@ -100,4 +128,6 @@ emacs -Q --batch -L thesis-desk/.local/share/thesis-desk/lisp \
   - =M-: (funcall thesis-desk-front-record-function)= with a PDF open: right UUID, citekey and page;
   - whether =current page= counts from 0 (then set =sp-devonthink-store-page-offset=, which the adapter uses);
   - the rating script on one record: =M-: (thesis-desk-dt-set-rating "UUID" 1)=.
+- Reminders: =M-: (thesis-desk-remind-set "UUID" (time-add nil 86400))=, then look at the record's reminder in DEVONthink's inspector; if it fails, try the other form in =thesis-desk-remind-set-script= by hand in Script Editor.
+- The smart rule: whether /On Opening/ fires for opens from Emacs (=x-devonthink-item= links) and from =devonthink-open=.
 - Claude: =thesis-desk-litnotes-propose= with =thesis-desk-propose-batch-size= at 2 first, to see one answer.
