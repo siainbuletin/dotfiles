@@ -1,0 +1,103 @@
+#+TITLE: thesis-desk: reading journal, hotspots and litnote proposals for the thesis
+#+STARTUP: content
+
+An Emacs package kept apart from the emacs-modular configuration. It ties every article opened in DEVONthink to the claims it should help with, keeps a record of why you left it, finds the concepts your see-also notes keep calling for, and asks Claude to propose summaries for the litnotes of a project.
+
+- Design and the discussion behind it: the "Thesis research workflow: design proposal" document of the Academic system project.
+- Status: first version. The Lisp is tested in batch Emacs (no DEVONthink, no Claude); every AppleScript and the =claude= call are untested on the Mac (see "Testing on the Mac").
+
+* Layout
+
+- A Stow package: only =.local/= is stowed (=.stow-local-ignore= leaves out this file and =tests/=).
+  - =cd ~/dotfiles && stow thesis-desk= puts the Lisp in =~/.local/share/thesis-desk/lisp/=.
+- =init.el= of emacs-modular adds that folder to =load-path= when it exists and loads =thesis-desk-sp= as a late module.
+- The core files never require an =sp-*= module; they need Emacs 29, Org and macOS for DEVONthink.
+
+| File | What it holds |
+|------+---------------|
+| =thesis-desk.el= | options for the data folder, the key map, loads the rest |
+| =thesis-desk-dt.el= | DEVONthink through =osascript=: front record and page, rating, item URLs |
+| =thesis-desk-map.el= | the thesis map (=map.org=) and the claims from every source |
+| =thesis-desk-journal.el= | reading sessions: start, switch, resume |
+| =thesis-desk-views.el= | "Where was I" and "Rejected", shown in =sp-batch-report= when loaded |
+| =thesis-desk-hotspots.el= | concepts many see-also notes call for; synthesis notes |
+| =thesis-desk-litnotes.el= | Claude's proposed summaries for the litnotes of a project, and writing them |
+| =thesis-desk-sp.el= | the only file that knows the configuration: vulpea claims, =sp-devonthink=, =sp-see-also=, keys |
+
+* Data
+
+- Everything is plain Org or Lisp data in =thesis-desk-directory= (=~/Documents/thesis/=):
+  - =map.org=: claims and questions (=C-; r m= creates it from a skeleton);
+  - =journal.org=: the reading sessions, in a date tree;
+  - =synthesis-state.eld=: which see-also calls each synthesis note has addressed;
+  - =proposals/litnotes-PROJECT.eld=: Claude's proposals, until you apply or drop them;
+  - =backups/=: copies of litnotes taken before proposals are written into them.
+- Synthesis notes go to =~/notes/synthesis/= (=thesis-desk-synthesis-directory=), so Vulpea indexes them.
+
+* Keys
+
+All under =C-; r= (research); =C-; t= is taken by the toggles.
+
+| Key | Command | What it does |
+|-----+---------+--------------|
+| =s= | =thesis-desk-start= | start reading what DEVONthink shows: claims (any number, or none) and what you look for |
+| =x= | =thesis-desk-switch= | leave it: why, a verdict per claim, where to resume, a note |
+| =w= | =thesis-desk-where= | paused readings by claim, with the next step and a link to the page |
+| =N= | =thesis-desk-rejected= | readings left as not relevant, with the reason, by claim |
+| =j= | =thesis-desk-journal-visit= | open the journal |
+| =m= | =thesis-desk-map-visit= | open the map |
+| =h= | =thesis-desk-hotspots= | concepts that need a synthesis |
+| =H= | =thesis-desk-synthesis-mark-addressed= | in a synthesis note: its calls are answered |
+| =P= | =thesis-desk-litnotes-propose= | ask Claude for summaries of the project's litnotes (=C-u=: all again) |
+| =p= | =thesis-desk-litnotes-review= | the proposals, by group; =d= drops, =A= writes |
+
+* Reading sessions
+
+- States: =READING= (at most one), =PAUSED= (has =:NEXT:=), =DONE=, =DROPPED= (has =:WHY_NOT:=), =RESUMED= (a later session took over).
+- Properties: =CITEKEY=, =DT_UUID=, =CLAIMS= (several IDs), =PURPOSE=, =START_PAGE=, =END_PAGE=, =LEFT=, =VERDICTS= (=ID=verdict= pairs), =WHY_NOT=, =NEXT=, =CAME_FROM=, =RESUMES=.
+- Start:
+  - reads the record and page DEVONthink shows; when it cannot, asks for a citekey;
+  - a session still =READING= on another record is left first (you are asked why);
+  - a =PAUSED= session of the same record is offered for resuming: claims and purpose are filled in.
+- Switch, one key each:
+  - why: =f= found it, =c= followed a citation, =d= too dense, =l= relevant later, =i= interrupted, =n= not relevant;
+  - per claim: =s= supports, =o= opposes, =b= background, =x= irrelevant, =?= unsure;
+  - =n= asks why (it cannot be empty), sets the DEVONthink rating to 1 star (=thesis-desk-not-relevant-rating=) and keeps the record;
+  - =c= offers to start the cited text at once; its session gets =CAME_FROM=, so jumps form a chain.
+- Org clocks in while a session is =READING= (=thesis-desk-clock=).
+
+* Hotspots and synthesis notes
+
+- A call is a see-also note on a concept (footnote, "See also" section, =seealso ::= line), as =sp-see-also= indexes them.
+- A hotspot has at least =thesis-desk-hotspot-min-calls= (3) calls that no synthesis addressed.
+  - Score: each new call weighs 1 (prose), 1.5 (section) or 2 (quote), plus 1 under an open question; the sum is multiplied by =1 + ln(1 + notes)=.
+- The report has two sections: no synthesis yet, and new calls since the synthesis; each entry shows its three heaviest calls.
+- =A= creates a synthesis note for every entry not dropped: =State of research: CONCEPT=, with =parents ::= the concept and a =concept-usage= block listing every call.
+- When the note answers the calls, =C-; r H= in it records them; only newer calls count after that.
+
+* Litnote proposals
+
+- The notes: litnotes whose =bib-project= line links =thesis-desk-project-id= (set to the thesis project in =thesis-desk-sp=).
+- Claude gets their text in batches of 8 (=thesis-desk-propose-batch-size=), cut at 12,000 characters each, and no tools: it reads exactly those notes and nothing else of the vault.
+- Per note it proposes a summary, a role, a theme, up to four relevance lines (kind, strength 0 to 3, nuance) and what the note lacks; a last call groups the notes into 5 to 12 headings.
+- Proposals are saved after every batch; a rerun skips notes that did not change since their proposal.
+- The review is a batch report by group; =A= writes a =Summary for PROJECT= heading into each kept litnote, before its first heading, after copying the file to =backups/=. A second apply replaces that heading.
+
+* Testing
+
+- In batch Emacs, from the dotfiles root:
+
+#+begin_src sh
+emacs -Q --batch -L thesis-desk/.local/share/thesis-desk/lisp \
+  -l thesis-desk/tests/thesis-desk-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+- Not covered by the tests: AppleScript, =claude -p=, Vulpea, the =C-; r= keys.
+
+** Testing on the Mac
+
+- DEVONthink:
+  - =M-: (funcall thesis-desk-front-record-function)= with a PDF open: right UUID, citekey and page;
+  - whether =current page= counts from 0 (then set =sp-devonthink-store-page-offset=, which the adapter uses);
+  - the rating script on one record: =M-: (thesis-desk-dt-set-rating "UUID" 1)=.
+- Claude: =thesis-desk-litnotes-propose= with =thesis-desk-propose-batch-size= at 2 first, to see one answer.

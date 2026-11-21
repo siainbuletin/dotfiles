@@ -1,0 +1,5 @@
+# Replaces the stow default list. Only .local/ is stowed: the lisp files land in
+# ~/.local/share/thesis-desk/lisp/, which emacs-modular adds to its load-path.
+\.DS_Store
+^/README\.org$
+^/tests
