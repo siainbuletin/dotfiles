@@ -238,6 +238,11 @@ the order of `sp-late-modules', for example when debugging."
   :type 'boolean
   :group 'spcustom)
 
+;; thesis-desk lives outside this configuration (dotfiles/thesis-desk/).
+(let ((dir (expand-file-name "~/.local/share/thesis-desk/lisp/")))
+  (when (file-directory-p dir)
+    (add-to-list 'load-path dir)))
+
 (defconst sp-late-modules
   '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
     ;; the first file.
@@ -255,6 +260,10 @@ the order of `sp-late-modules', for example when debugging."
     ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
     ;; annotator and its live localhost view, in one module.
     sp-graphs
+    ;; Reading journal, hotspots and litnote proposals for the thesis: a
+    ;; separate package (dotfiles/thesis-desk/, stowed to
+    ;; ~/.local/share/thesis-desk/lisp/); this file plugs it in under C-; r.
+    thesis-desk-sp
     sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
